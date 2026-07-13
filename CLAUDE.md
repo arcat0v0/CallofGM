@@ -1,0 +1,18 @@
+# CoGM（主持人的呼唤）
+
+网页跑团工具（CoC 7e），参考 CCFolia，沉浸式场景 + 立绘 + 对话。全栈 TypeScript，运行时 Bun。
+
+## 必读文档
+
+开始任何设计或编码工作前，先阅读 `docs/`：
+
+- `docs/product.md` — 产品需求：角色/模组/团模型、团状态与阶段规则、音频 GM 控制、黑名单
+- `docs/tech-stack.md` — 定稿技术栈与否决方案（Bun + Elysia + React 19 + TanStack Router + shadcn/ui + Drizzle/bun:sqlite）
+- `docs/architecture.md` — 架构：monorepo 布局、WS 协议与断线补发、服务端权威原则、音频同步、路由表
+
+## 硬性约束
+
+- 技术选型以 `docs/tech-stack.md` 为准，不引入已被否决的方案（Socket.IO、React Router、Next/Nuxt 等）。
+- 发言权限、团状态机、掷骰等规则判定必须服务端权威，见 `docs/architecture.md`。
+- WS 消息协议与数据 schema 一律定义在 `packages/shared`（zod），禁止两端各写一份。
+- 一律使用 Bun 工具链：`bun install` / `bun run` / `bunx` / `bun test`。
