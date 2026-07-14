@@ -1,0 +1,19 @@
+{
+  "name": "@cogm/server",
+  "private": true,
+  "type": "module",
+  "version": "0.0.0",
+  "scripts": {
+    "dev": "bun run --watch src/index.ts",
+    "start": "bun run src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@cogm/shared": "workspace:*",
+    "elysia": "^1.4.29"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2",
+    "@types/bun": "latest"
+  }
+}

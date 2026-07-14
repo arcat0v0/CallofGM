@@ -1,0 +1,9 @@
+node_modules/
+dist/
+apps/client/src/routeTree.gen.ts
+apps/*/dist/
+apps/client/.tanstack/
+.env
+.env.local
+data/
+*.log

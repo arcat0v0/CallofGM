@@ -1,0 +1,15 @@
+{
+  "name": "cogm",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:client": "bun run --cwd apps/client dev",
+    "dev:server": "bun run --cwd apps/server dev",
+    "build:client": "bun run --cwd apps/client build",
+    "typecheck": "bun run --cwd packages/shared typecheck && bun run --cwd apps/server typecheck && bun run --cwd apps/client typecheck"
+  }
+}
