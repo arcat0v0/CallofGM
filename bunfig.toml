@@ -1,2 +1,4 @@
 [install]
 minimumReleaseAge = 2592000
+frozenLockfile = true
+registry = "https://registry.npmjs.org/"
