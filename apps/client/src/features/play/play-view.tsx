@@ -1,5 +1,6 @@
 import { PanelLeftOpen } from "lucide-react";
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
 import { ChatArea } from "./chat-area";
 import { DesktopScene } from "./desktop-scene";
 import { MobileLandscapeScene } from "./mobile-landscape-scene";
@@ -28,13 +29,16 @@ function PlayView() {
             className="w-[284px] shrink-0"
           />
         ) : (
-          <button
+          <Button
             type="button"
+            variant="tertiary"
+            size="icon-sm"
             onClick={() => setLandscapeChatOpen(true)}
-            className="text-foreground-secondary bg-background-secondary absolute top-1/2 right-0 flex h-16 w-6 -translate-y-1/2 items-center justify-center rounded-l-lg"
+            aria-label="展开文字频道"
+            className="text-foreground-secondary bg-background-secondary absolute top-1/2 right-0 h-16 w-6 -translate-y-1/2 rounded-l-lg rounded-r-none"
           >
             <PanelLeftOpen className="size-4" />
-          </button>
+          </Button>
         )}
       </div>
 

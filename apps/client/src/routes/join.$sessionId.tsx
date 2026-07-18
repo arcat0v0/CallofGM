@@ -1,7 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Eye, LogIn } from "lucide-react";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/join/$sessionId")({
@@ -74,15 +75,18 @@ function SeatCard({
 }) {
   const claimed = Boolean(seat.claimedBy);
   return (
-    <button
+    <Button
       type="button"
       disabled={claimed}
       onClick={onSelect}
+      variant="outline"
+      role="radio"
+      aria-checked={selected}
       className={cn(
-        "flex w-54 flex-col items-center gap-2.5 rounded-2xl bg-surface px-4 py-6 text-center outline-none transition-colors focus-visible:ring-2 focus-visible:ring-focus-ring/50",
+        "bg-surface h-auto w-54 flex-col gap-2.5 rounded-2xl px-4 py-6 text-center whitespace-normal",
         claimed
           ? "cursor-not-allowed border border-separator-secondary opacity-60"
-          : "cursor-pointer",
+          : "cursor-pointer hover:bg-surface",
         !claimed && selected && gradientBorder,
         !claimed &&
           !selected &&
@@ -118,16 +122,26 @@ function SeatCard({
       <span className="text-[15px] font-semibold text-foreground">{seat.name}</span>
       <span className="text-xs text-foreground-tertiary">{seat.detail}</span>
       <SeatStatus seat={seat} selected={selected && !claimed} />
-    </button>
+    </Button>
   );
 }
 
 function JoinPage() {
+  const { sessionId } = Route.useParams();
+  const navigate = useNavigate();
   const [selectedId, setSelectedId] = useState("mio");
   const selectedSeat = SEATS.find((seat) => seat.id === selectedId && !seat.claimedBy);
 
+  const handleJoin = () => {
+    if (selectedSeat) {
+      navigate({
+        to: "/play/$sessionId",
+        params: { sessionId },
+      });
+    }
+  };
   return (
-    <div className="flex min-h-screen w-full flex-col items-center justify-center gap-10 overflow-hidden bg-background px-4">
+    <main className="flex min-h-dvh w-full flex-col items-center justify-center gap-10 overflow-hidden bg-background px-4">
       <div className="flex flex-col items-center gap-2.5">
         <Badge variant="soft" tone="default" size="sm">
           模组 · 沉没的记忆
@@ -138,7 +152,7 @@ function JoinPage() {
         </p>
       </div>
 
-      <div className="flex gap-4">
+      <div className="flex gap-4" role="radiogroup" aria-label="选择玩家位置">
         {SEATS.map((seat) => (
           <SeatCard
             key={seat.id}
@@ -150,16 +164,19 @@ function JoinPage() {
       </div>
 
       <div className="flex flex-col items-center gap-3">
-        <button
+        <Button
           type="button"
           disabled={!selectedSeat}
-          className="flex h-[46px] items-center justify-center gap-2 rounded-xl bg-linear-to-b from-brand-moegi to-brand-nae px-8 text-sm font-semibold text-accent-foreground outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-focus-ring/50 disabled:opacity-50"
+          onClick={handleJoin}
+          variant="primaryGradient"
+          size="lg"
+          className="h-[46px] rounded-xl px-8 text-sm font-semibold"
         >
           <LogIn className="size-4" />
           {selectedSeat ? `以「${selectedSeat.name}」进入` : "请选择一个位置"}
-        </button>
+        </Button>
         <p className="text-[11px] text-foreground-tertiary">进入后将自动同步 GM 控制的 BGM 播放</p>
       </div>
-    </div>
+    </main>
   );
 }

@@ -1,11 +1,14 @@
-import { ChevronDown, Eye, Send, VenetianMask } from "lucide-react";
+import { ChevronDown, Eye, VenetianMask } from "lucide-react";
 import { useState } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { MessageInput } from "@/features/chat/message-input";
+import { type MessageMode, MessageModeSwitch } from "@/features/chat/message-mode-switch";
 import { cn } from "@/lib/utils";
 import { expressionTiles, myCharacter } from "./mock-data";
 
 function Composer({ compact = false, className }: { compact?: boolean; className?: string }) {
-  const [mode, setMode] = useState<"roleplay" | "ooc">("roleplay");
+  const [mode, setMode] = useState<MessageMode>("roleplay");
   const [expression, setExpression] = useState("surprised");
 
   return (
@@ -17,39 +20,14 @@ function Composer({ compact = false, className }: { compact?: boolean; className
       )}
     >
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+        <Button type="button" variant="ghost" size="sm" className="-ml-2 h-8 gap-2 px-2" aria-label="切换发言角色">
           <Avatar size="sm" className="bg-default">
             <AvatarFallback className="text-foreground font-sans text-xs">{myCharacter.initials}</AvatarFallback>
           </Avatar>
           <span className="text-foreground font-sans text-[13px] font-semibold">{myCharacter.name}</span>
           <ChevronDown className="text-foreground-tertiary size-3.5" />
-        </div>
-        <div className="bg-default flex items-center gap-0.5 rounded-full p-0.5">
-          <button
-            type="button"
-            onClick={() => setMode("roleplay")}
-            className={cn(
-              "flex h-6 items-center justify-center rounded-full px-3 font-sans text-xs font-semibold",
-              mode === "roleplay"
-                ? "from-accent to-accent-hover text-accent-foreground bg-gradient-to-b"
-                : "text-foreground-secondary font-medium",
-            )}
-          >
-            角色扮演
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode("ooc")}
-            className={cn(
-              "flex h-6 items-center justify-center rounded-full px-3 font-sans text-xs font-semibold",
-              mode === "ooc"
-                ? "from-accent to-accent-hover text-accent-foreground bg-gradient-to-b"
-                : "text-foreground-secondary font-medium",
-            )}
-          >
-            场外
-          </button>
-        </div>
+        </Button>
+        <MessageModeSwitch value={mode} onValueChange={setMode} />
       </div>
 
       {mode === "roleplay" && (
@@ -60,49 +38,37 @@ function Composer({ compact = false, className }: { compact?: boolean; className
               <span className="text-foreground-secondary font-sans text-[11px] font-semibold">立绘表情</span>
               <span className="text-foreground-tertiary font-sans text-[10px]">· 随本条发言生效</span>
             </div>
-            <button type="button" className="bg-default flex items-center gap-1 rounded-full px-2 py-0.5">
-              <Eye className="text-foreground-secondary size-3" />
-              <span className="text-foreground-secondary font-sans text-[10px] font-medium">预览立绘</span>
-            </button>
+            <Button type="button" variant="tertiary" size="sm" className="h-5 gap-1 px-2 text-[10px] text-foreground-secondary">
+              <Eye />
+              预览立绘
+            </Button>
           </div>
           <div className="flex gap-1.5">
             {expressionTiles.map((tile) => {
               const isActive = tile.key === expression;
               return (
-                <button
+                <Button
                   key={tile.key}
                   type="button"
                   onClick={() => setExpression(tile.key)}
+                  variant="outline"
+                  aria-pressed={isActive}
                   className={cn(
-                    "flex h-[34px] flex-1 items-center justify-center rounded-[9px] border-[1.5px] font-sans text-xs",
+                    "h-[34px] flex-1 rounded-[9px] border-[1.5px] px-2 text-xs",
                     isActive
-                      ? "bg-accent-soft border-accent-hover text-accent-soft-foreground font-semibold"
-                      : "bg-surface-tertiary text-foreground-secondary border-transparent font-normal",
+                      ? "bg-accent-soft border-accent-hover text-accent-soft-foreground hover:bg-accent-soft-hover font-semibold"
+                      : "bg-surface-tertiary text-foreground-secondary border-transparent hover:bg-surface-hover font-normal",
                   )}
                 >
                   {tile.label}
-                </button>
+                </Button>
               );
             })}
           </div>
         </div>
       )}
 
-      <div className="flex items-center gap-2">
-        <div className="border-separator-secondary flex h-10 flex-1 items-center rounded-xl border bg-field px-3.5">
-          <input
-            type="text"
-            placeholder="输入消息…"
-            className="text-field-foreground placeholder:text-field-placeholder w-full bg-transparent font-sans text-[13px] outline-none"
-          />
-        </div>
-        <button
-          type="button"
-          className="from-accent to-accent-hover flex size-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br"
-        >
-          <Send className="text-accent-foreground size-[17px]" />
-        </button>
-      </div>
+      <MessageInput placeholder="输入消息…" />
 
       {!compact && (
         <p className="text-foreground-tertiary font-sans text-[11px]">

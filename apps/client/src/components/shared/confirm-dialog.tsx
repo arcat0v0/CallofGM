@@ -6,6 +6,7 @@ import {
   AlertDialogDescription,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 type ConfirmDialogProps = {
@@ -49,13 +50,14 @@ function ConfirmDialog({
           <AlertDialogDescription className="text-[13px] leading-[1.7]">{description}</AlertDialogDescription>
         </div>
         <div className="flex gap-2.5 px-6 pt-4 pb-6">
-          <button
+          <Button
             type="button"
+            variant="outline"
             onClick={() => onOpenChange(false)}
-            className="border-separator-secondary text-foreground flex h-[42px] flex-1 items-center justify-center rounded-full border font-sans text-sm font-semibold"
+            className="h-[42px] flex-1 border-separator-secondary font-semibold"
           >
             {cancelLabel}
-          </button>
+          </Button>
           <AlertDialogAction
             onClick={onConfirm}
             className={cn(

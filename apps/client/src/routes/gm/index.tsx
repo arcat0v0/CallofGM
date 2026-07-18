@@ -1,16 +1,26 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { ArrowRight, Ellipsis, FileSpreadsheet, Package, Play, Plus, Users, VenetianMask } from "lucide-react";
+import { useState } from "react";
+import { MetricCard } from "@/components/shared/metric-card";
+import { PageHeader } from "@/components/shared/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { AdminLayout } from "@/features/gm-admin/admin-layout";
-import { cn } from "@/lib/utils";
+import { CreateSessionDialog } from "@/features/gm-admin/dialogs/create-session-dialog";
+import { ImportCharacterSheetDialog } from "@/features/gm-admin/dialogs/import-character-sheet-dialog";
 
 export const Route = createFileRoute("/gm/")({
   component: GmDashboardPage,
 });
-
-const GRADIENT = "bg-[linear-gradient(180deg,var(--color-brand-moegi),var(--color-brand-nae))]";
 
 type Tone = "success" | "accent" | "warning" | "default";
 
@@ -78,102 +88,97 @@ const MODULES = [
   { name: "星之彩", cover: "/demo/modules/color-out-of-space.png", meta: "场景 4 · 人物 9 · 音乐 10", live: false },
 ];
 
-const GRID = "grid items-center gap-3";
-const GRID_STYLE = { gridTemplateColumns: "1fr 170px 96px 104px 140px 100px 180px" };
-
 function GmDashboardPage() {
+  const [createOpen, setCreateOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+
   return (
     <AdminLayout active="sessions">
       <div className="flex flex-col gap-5">
-        <div className="flex items-center justify-between">
-          <div className="flex flex-col gap-[3px]">
-            <h1 className="text-foreground font-serif text-[22px] font-bold">团管理</h1>
-            <p className="text-foreground-secondary text-[13px]">创建团、指定参与 PC，并控制团状态的流转</p>
-          </div>
-          <div className="flex items-center gap-2.5">
-            <Button variant="outline" size="md">
+        <PageHeader
+          title="团管理"
+          description="创建团、指定参与 PC，并控制团状态的流转"
+          actions={
+            <>
+            <Button variant="outline" size="md" onClick={() => setImportOpen(true)}>
               <FileSpreadsheet />
               导入人物卡 Excel
             </Button>
-            <Button variant="primary" size="md" className={GRADIENT}>
+            <Button variant="primaryGradient" size="md" onClick={() => setCreateOpen(true)}>
               <Plus />
               新建团
             </Button>
-          </div>
-        </div>
+            </>
+          }
+        />
 
         <div className="flex gap-3.5">
           {STATS.map((stat) => {
-            const Icon = stat.icon;
             return (
-              <Card
+              <MetricCard
                 key={stat.label}
-                className="border-separator flex-1 flex-row items-center rounded-[14px] border"
-              >
-                <div className={cn("flex size-9 items-center justify-center rounded-[10px]", stat.iconBg)}>
-                  <Icon className={cn("size-[17px]", stat.iconColor)} />
-                </div>
-                <div className="flex flex-col gap-0.5">
-                  <span className="text-foreground font-chip text-[20px] font-bold">{stat.value}</span>
-                  <span className="text-foreground-secondary text-[11px]">{stat.label}</span>
-                </div>
-              </Card>
+                icon={stat.icon}
+                value={stat.value}
+                label={stat.label}
+                iconContainerClassName={stat.iconBg}
+                iconClassName={stat.iconColor}
+              />
             );
           })}
         </div>
 
-        <div className="border-separator bg-surface overflow-hidden rounded-[14px] border">
-          <div className={cn(GRID, "bg-surface-secondary px-4 py-2.5")} style={GRID_STYLE}>
-            <span className="text-foreground-secondary text-xs font-semibold">团名</span>
-            <span className="text-foreground-secondary text-xs font-semibold">模组</span>
-            <span className="text-foreground-secondary text-xs font-semibold">状态</span>
-            <span className="text-foreground-secondary text-xs font-semibold">团内阶段</span>
-            <span className="text-foreground-secondary text-xs font-semibold">PC</span>
-            <span className="text-foreground-secondary text-xs font-semibold">更新</span>
-            <span className="text-foreground-secondary text-xs font-semibold">操作</span>
-          </div>
-          {SESSIONS.map((session) => (
-            <div key={session.name} className={cn(GRID, "border-separator border-t px-4 py-3")} style={GRID_STYLE}>
-              <span className="text-foreground text-[13px] font-semibold">{session.name}</span>
-              <span className="text-foreground-secondary text-[13px]">{session.module}</span>
-              <div>
-                <Badge variant="soft" tone={session.status.tone} size="sm">
-                  {session.status.label}
-                </Badge>
-              </div>
-              <div>
-                {session.phase ? (
+        <Table className="table-fixed">
+          <TableHeader>
+            <TableRow>
+              <TableHead>团名</TableHead>
+              <TableHead className="w-42">模组</TableHead>
+              <TableHead className="w-24">状态</TableHead>
+              <TableHead className="w-26">团内阶段</TableHead>
+              <TableHead className="w-35">PC</TableHead>
+              <TableHead className="w-25">更新</TableHead>
+              <TableHead className="w-45">操作</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {SESSIONS.map((session) => (
+              <TableRow key={session.name}>
+                <TableCell className="truncate text-[13px] font-semibold">{session.name}</TableCell>
+                <TableCell className="text-foreground-secondary text-[13px]">{session.module}</TableCell>
+                <TableCell>
+                  <Badge variant="soft" tone={session.status.tone} size="sm">
+                    {session.status.label}
+                  </Badge>
+                </TableCell>
+                <TableCell>
+                  {session.phase ? (
                   <Badge variant="soft" tone="accent" size="sm">
                     {session.phase}
                   </Badge>
                 ) : (
                   <span className="text-foreground-tertiary font-chip text-[13px]">—</span>
                 )}
-              </div>
-              <span className="text-foreground-secondary text-xs">{session.pc}</span>
-              <span className="text-foreground-tertiary font-chip text-xs">{session.updated}</span>
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  className={cn(
-                    "flex h-7 items-center justify-center rounded-full px-3 text-xs font-semibold",
-                    session.actionPrimary
-                      ? cn(GRADIENT, "text-accent-foreground")
-                      : "bg-default text-foreground",
-                  )}
-                >
-                  {session.action}
-                </button>
-                <button
-                  type="button"
-                  className="text-foreground-tertiary hover:bg-surface-hover flex size-7 items-center justify-center rounded-full"
-                >
-                  <Ellipsis className="size-3.5" />
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
+                </TableCell>
+                <TableCell className="text-foreground-secondary text-xs">{session.pc}</TableCell>
+                <TableCell className="text-foreground-tertiary font-chip text-xs">{session.updated}</TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-1.5">
+                    <Button
+                      type="button"
+                      variant={session.actionPrimary ? "primaryGradient" : "tertiary"}
+                      size="sm"
+                      className="h-7 px-3 text-xs font-semibold"
+                    >
+                      {session.action}
+                    </Button>
+                    <Button type="button" variant="ghost" size="icon-sm" aria-label={`${session.name} 更多操作`} className="size-7 text-foreground-tertiary">
+                      <Ellipsis />
+                    </Button>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
 
         <div className="flex items-center justify-between pt-1.5">
           <h2 className="text-foreground font-serif text-[17px] font-bold">模组资源</h2>
@@ -185,9 +190,9 @@ function GmDashboardPage() {
 
         <div className="flex gap-4">
           {MODULES.map((module) => (
-            <div
+            <Card
               key={module.name}
-              className="border-separator bg-surface flex-1 overflow-hidden rounded-[14px] border"
+              className="border-separator flex-1 gap-0 overflow-hidden rounded-[14px] border p-0"
             >
               <img src={module.cover} alt={module.name} className="h-[118px] w-full object-cover" />
               <div className="flex flex-col gap-2 p-3.5">
@@ -201,18 +206,23 @@ function GmDashboardPage() {
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-foreground-tertiary text-[11px]">{module.meta}</span>
-                  <button
+                  <Button
                     type="button"
-                    className="bg-accent-soft text-accent-soft-foreground flex h-[26px] items-center justify-center rounded-full px-3 text-[11px] font-semibold"
+                    variant="accentSoft"
+                    size="sm"
+                    className="h-[26px] px-3 text-[11px] font-semibold"
                   >
                     管理
-                  </button>
+                  </Button>
                 </div>
               </div>
-            </div>
+            </Card>
           ))}
         </div>
       </div>
+
+      <CreateSessionDialog open={createOpen} onOpenChange={setCreateOpen} />
+      <ImportCharacterSheetDialog open={importOpen} onOpenChange={setImportOpen} />
     </AdminLayout>
   );
 }

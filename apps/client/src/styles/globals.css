@@ -82,6 +82,12 @@
   --color-overlay-shadow: #FFFFFF4D;
   --color-backdrop: #00000080;
   --color-modal-backdrop: #060607F2;
+  --color-stage-scrim: #1C1C1CD9;
+  --color-stage-scrim-strong: #1C1C1CE6;
+  --color-stage-panel: #1C1C1CCC;
+  --color-dialogue-start: #232321E6;
+  --color-dialogue-end: #131312F5;
+  --color-dialogue-text: #E8E6DF;
   --color-scrollbar: #8A9095;
   --color-segment: #4A4A48;
   --color-segment-foreground: #FCFCFC;
@@ -112,6 +118,9 @@
   --shadow-switch-thumb: 0 1px 3px 0 #0000001A;
   --shadow-dropdown: 0 4px 12px 0 #00000014;
   --shadow-tooltip: 0 2px 8px 0 #0000000F;
+  --shadow-dialogue-name: 0 4px 16px 0 #7BA23F59;
+  --shadow-dialogue: 0 24px 56px -16px #000000BF, inset 0 1px 0 0 #FCFAF212;
+  --shadow-overlay: 0 20px 50px 0 #00000099;
 }
 
 @layer base {

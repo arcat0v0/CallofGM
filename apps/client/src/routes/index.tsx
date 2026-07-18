@@ -1,9 +1,11 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { Link, createFileRoute } from "@tanstack/react-router";
 import { ChevronRight, KeyRound, Link as LinkIcon } from "lucide-react";
 import { useState } from "react";
 import { Logo } from "@/components/brand/logo";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
+import { Separator } from "@/components/ui/separator";
 
 export const Route = createFileRoute("/")({
   component: HomePage,
@@ -26,7 +28,7 @@ function HomePage() {
   }
 
   return (
-    <div className="bg-background relative flex min-h-screen w-full flex-col items-center justify-center gap-9 overflow-hidden px-6">
+    <main className="bg-background relative flex min-h-dvh w-full flex-col items-center justify-center gap-9 overflow-hidden px-6">
       <div className="flex flex-col items-center gap-3.5">
         <Logo className="size-13" />
         <h1 className="text-foreground font-serif text-[34px] font-bold">CoGM</h1>
@@ -34,54 +36,58 @@ function HomePage() {
       </div>
 
       <form onSubmit={handleSubmit} className="flex w-full max-w-105 items-center gap-2.5">
-        <div className="border-separator-secondary bg-field flex h-11 min-w-0 flex-1 items-center gap-2.5 rounded-xl border px-4">
-          <LinkIcon className="text-foreground-tertiary size-[15px] shrink-0" />
-          <input
+        <InputGroup className="h-11 flex-1 px-4">
+          <InputGroupAddon>
+            <LinkIcon />
+          </InputGroupAddon>
+          <InputGroupInput
             value={code}
             onChange={(event) => setCode(event.target.value)}
             aria-label="团链接或编号"
             placeholder="输入团链接或编号…"
-            className="text-foreground placeholder:text-field-placeholder min-w-0 flex-1 bg-transparent text-sm outline-none"
           />
-        </div>
+        </InputGroup>
         <Button
           type="submit"
-          className="from-accent to-accent-hover h-11 shrink-0 rounded-xl bg-linear-to-b px-[22px] font-semibold"
+          variant="primaryGradient"
+          className="h-11 shrink-0 rounded-xl px-[22px] font-semibold"
         >
           进入
         </Button>
       </form>
 
       <div className="flex w-full max-w-105 items-center gap-3">
-        <div className="bg-separator-secondary h-px flex-1" />
+        <Separator className="bg-separator-secondary flex-1" />
         <span className="text-foreground-tertiary shrink-0 text-[11px]">进行中的团</span>
-        <div className="bg-separator-secondary h-px flex-1" />
+        <Separator className="bg-separator-secondary flex-1" />
       </div>
 
       <div className="flex w-full max-w-105 flex-col gap-2">
         {sessions.map((session) => (
-          <a
+          <Button
             key={session.id}
-            href={`/join/${session.id}`}
-            className="border-separator-secondary bg-surface hover:bg-surface-hover flex h-13 items-center gap-2.5 rounded-xl border px-4 transition-colors"
+            asChild
+            variant="outline"
+            className="bg-surface h-13 justify-start rounded-xl border-separator-secondary px-4 hover:bg-surface-hover"
           >
-            <span className="text-foreground text-sm font-medium">{session.name}</span>
-            <span className="flex-1" />
-            <Badge tone={session.tone} variant="soft" size="sm">
-              {session.status}
-            </Badge>
-            <ChevronRight className="text-foreground-tertiary size-4 shrink-0" />
-          </a>
+            <Link to="/join/$sessionId" params={{ sessionId: session.id }}>
+              <span className="text-foreground text-sm font-medium">{session.name}</span>
+              <span className="flex-1" />
+              <Badge tone={session.tone} variant="soft" size="sm">
+                {session.status}
+              </Badge>
+              <ChevronRight className="text-foreground-tertiary size-4 shrink-0" />
+            </Link>
+          </Button>
         ))}
       </div>
 
-      <a
-        href="/gm/login"
-        className="text-foreground-secondary hover:text-foreground absolute inset-x-0 bottom-6 flex h-8 items-center justify-center gap-1.5 transition-colors"
-      >
-        <KeyRound className="text-foreground-tertiary size-[13px]" />
-        <span className="text-xs">主持人入口</span>
-      </a>
-    </div>
+      <Button asChild variant="ghost" size="sm" className="text-foreground-secondary absolute bottom-6">
+        <Link to="/gm/login">
+          <KeyRound className="text-foreground-tertiary" />
+          主持人入口
+        </Link>
+      </Button>
+    </main>
   );
 }

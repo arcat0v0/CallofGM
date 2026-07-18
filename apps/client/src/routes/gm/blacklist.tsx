@@ -2,8 +2,19 @@ import { createFileRoute } from "@tanstack/react-router";
 import { ScanLine, Search, ShieldBan, ShieldOff, ShieldX, Timer, UserX } from "lucide-react";
 import { useState } from "react";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { MetricCard } from "@/components/shared/metric-card";
+import { PageHeader } from "@/components/shared/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { AdminLayout } from "@/features/gm-admin/admin-layout";
 import { BanPlayerDialog } from "@/features/gm-admin/dialogs/ban-player-dialog";
 import { cn } from "@/lib/utils";
@@ -78,87 +89,78 @@ function BlacklistPage() {
   return (
     <AdminLayout active="blacklist">
       <div className="flex h-full flex-col gap-5">
-        <div className="flex items-center justify-between">
-          <div className="flex flex-col gap-0.5">
-            <h1 className="text-foreground font-serif text-[22px] font-bold">黑名单</h1>
-            <p className="text-foreground-secondary text-[13px]">
-              基于浏览器指纹的尽力封禁 · HTTP 与 WS 握手时校验 · 指纹不保证绝对可靠
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2.5">
-            <div className="border-separator-secondary bg-field flex h-9 w-[220px] items-center gap-2 rounded-[10px] border px-3">
-              <Search className="text-foreground-tertiary size-3.5 shrink-0" />
-              <input
+        <PageHeader
+          title="黑名单"
+          description="基于浏览器指纹的尽力封禁 · HTTP 与 WS 握手时校验 · 指纹不保证绝对可靠"
+          actions={
+            <>
+              <InputGroup className="h-9 w-[220px] rounded-[10px] border-separator-secondary">
+                <InputGroupAddon>
+                  <Search />
+                </InputGroupAddon>
+                <InputGroupInput
                 placeholder="搜索指纹 / 备注…"
-                className="placeholder:text-field-placeholder text-field-foreground w-full bg-transparent font-sans text-[13px] outline-none"
-              />
-            </div>
-            <Button variant="dangerSoft" className="font-semibold" onClick={() => setBanDialog({ open: true })}>
-              <UserX />
-              手动拉黑
-            </Button>
-          </div>
-        </div>
+                  aria-label="搜索黑名单"
+                  className="text-[13px]"
+                />
+              </InputGroup>
+              <Button variant="dangerSoft" className="font-semibold" onClick={() => setBanDialog({ open: true })}>
+                <UserX />
+                手动拉黑
+              </Button>
+            </>
+          }
+        />
 
         <div className="flex gap-3.5">
           {stats.map((stat) => {
-            const Icon = stat.icon;
             return (
-              <div
+              <MetricCard
                 key={stat.label}
-                className="border-separator bg-surface flex flex-1 items-center gap-3 rounded-[14px] border p-4"
-              >
-                <span className="bg-danger-soft flex size-9 items-center justify-center rounded-[10px]">
-                  <Icon className={cn("size-[17px]", stat.iconClass)} />
-                </span>
-                <div className="flex flex-col gap-0.5">
-                  <span className="text-foreground font-chip text-xl font-bold">{stat.value}</span>
-                  <span className="text-foreground-secondary text-[11px]">{stat.label}</span>
-                </div>
-              </div>
+                icon={stat.icon}
+                value={stat.value}
+                label={stat.label}
+                iconContainerClassName="bg-danger-soft"
+                iconClassName={stat.iconClass}
+              />
             );
           })}
         </div>
 
-        <div className="border-separator bg-surface flex flex-1 flex-col overflow-hidden rounded-[14px] border">
-          <div className="bg-surface-secondary text-foreground-secondary flex items-center gap-3 px-4 py-2.5 text-xs font-semibold">
-            <span className="w-[210px]">指纹</span>
-            <span className="flex-1">备注 / 曾用名</span>
-            <span className="w-[120px]">封禁时长</span>
-            <span className="w-[130px]">剩余</span>
-            <span className="w-[120px]">封禁时间</span>
-            <span className="w-[100px]">操作</span>
-          </div>
-
-          {entries.map((entry) => (
-            <div
-              key={entry.fingerprint}
-              className="border-separator flex items-center gap-3 border-t px-4 py-3"
-            >
-              <div className="flex w-[210px] items-center gap-2">
+        <Table className="table-fixed">
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-58">指纹</TableHead>
+              <TableHead>备注 / 曾用名</TableHead>
+              <TableHead className="w-30">封禁时长</TableHead>
+              <TableHead className="w-32">剩余</TableHead>
+              <TableHead className="w-30">封禁时间</TableHead>
+              <TableHead className="w-28">操作</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {entries.map((entry) => (
+              <TableRow key={entry.fingerprint}>
+                <TableCell>
+                  <div className="flex items-center gap-2">
                 <span className="bg-default flex size-[26px] items-center justify-center rounded-[7px]">
                   <ScanLine className="text-foreground-secondary size-3.5" />
                 </span>
                 <span className="text-foreground font-mono text-xs">{entry.fingerprint}</span>
-              </div>
-              <div className="text-foreground-secondary flex-1 text-[13px]">{entry.note}</div>
-              <div className="w-[120px]">
-                <Badge variant="soft" tone={entry.durationTone} size="sm" className="font-sans">
-                  {entry.duration}
-                </Badge>
-              </div>
-              <div
-                className={cn(
-                  "w-[130px] text-xs",
-                  entry.remainingMuted ? "text-foreground-tertiary" : "text-foreground",
-                )}
-              >
-                {entry.remaining}
-              </div>
-              <div className="text-foreground-tertiary w-[120px] font-mono text-xs">{entry.bannedAt}</div>
-              <div className="w-[100px]">
-                {entry.active ? (
+                  </div>
+                </TableCell>
+                <TableCell className="text-foreground-secondary truncate text-[13px]">{entry.note}</TableCell>
+                <TableCell>
+                  <Badge variant="soft" tone={entry.durationTone} size="sm" className="font-sans">
+                    {entry.duration}
+                  </Badge>
+                </TableCell>
+                <TableCell className={cn("text-xs", entry.remainingMuted ? "text-foreground-tertiary" : "text-foreground")}>
+                  {entry.remaining}
+                </TableCell>
+                <TableCell className="text-foreground-tertiary font-mono text-xs">{entry.bannedAt}</TableCell>
+                <TableCell>
+                  {entry.active ? (
                   <Button
                     variant="tertiary"
                     size="sm"
@@ -177,10 +179,11 @@ function BlacklistPage() {
                     再次封禁
                   </Button>
                 )}
-              </div>
-            </div>
-          ))}
-        </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       </div>
 
       <BanPlayerDialog

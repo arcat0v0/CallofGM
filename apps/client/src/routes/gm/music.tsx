@@ -16,9 +16,11 @@ import {
   Upload,
   Zap,
 } from "lucide-react";
+import { PageHeader } from "@/components/shared/page-header";
 import { AdminLayout } from "@/features/gm-admin/admin-layout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/gm/music")({
@@ -77,17 +79,20 @@ function Waveform({ progress }: { progress: number }) {
 
 function BgmRow({ track }: { track: BgmTrack }) {
   return (
-    <div
+    <Card
       className={cn(
-        "flex items-center gap-3 rounded-xl border px-3 py-2.5",
+        "flex-row items-center gap-3 rounded-xl border px-3 py-2.5 shadow-none",
         track.playing ? "bg-accent-soft border-accent-hover" : "bg-surface border-separator",
       )}
     >
-      <button
+      <Button
         type="button"
+        variant={track.playing ? "primaryGradient" : "tertiary"}
+        size="icon-md"
+        aria-label={track.playing ? `暂停 ${track.name}` : `播放 ${track.name}`}
         className={cn(
-          "flex size-[34px] shrink-0 items-center justify-center rounded-full",
-          track.playing ? "from-accent to-accent-hover bg-linear-to-br" : "bg-default",
+          "size-[34px]",
+          track.playing ? "bg-linear-to-br" : "bg-default",
         )}
       >
         {track.playing ? (
@@ -95,7 +100,7 @@ function BgmRow({ track }: { track: BgmTrack }) {
         ) : (
           <Play className="text-foreground size-3.5" />
         )}
-      </button>
+      </Button>
 
       <div className="flex min-w-0 flex-1 flex-col gap-[3px]">
         <div className="flex items-center gap-1.5">
@@ -112,27 +117,28 @@ function BgmRow({ track }: { track: BgmTrack }) {
       <div className="flex items-center gap-2">
         {track.loop && <Repeat className="text-foreground-tertiary size-[13px]" />}
         <span className="text-foreground-tertiary font-mono text-xs">{track.duration}</span>
-        <Button variant="ghost" size="icon-sm" className="text-foreground-tertiary size-7">
+        <Button variant="ghost" size="icon-sm" aria-label={`${track.name} 更多操作`} className="text-foreground-tertiary size-7">
           <Ellipsis />
         </Button>
       </div>
-    </div>
+    </Card>
   );
 }
 
 function SeTile({ effect }: { effect: SoundEffect }) {
   const Icon = effect.icon;
   return (
-    <button
+    <Button
       type="button"
-      className="border-separator bg-surface flex flex-1 items-center gap-2.5 rounded-[10px] border px-3 py-2.5"
+      variant="outline"
+      className="border-separator bg-surface h-auto flex-1 justify-start gap-2.5 rounded-[10px] px-3 py-2.5"
     >
       <span className="bg-warning-soft flex size-[30px] shrink-0 items-center justify-center rounded-lg">
         <Icon className="text-warning size-[15px]" />
       </span>
       <span className="text-foreground flex-1 truncate text-left text-[13px] font-medium">{effect.name}</span>
       <Play className="text-foreground-tertiary size-3.5 shrink-0" />
-    </button>
+    </Button>
   );
 }
 
@@ -145,18 +151,16 @@ function MusicResourcesPage() {
   return (
     <AdminLayout active="music">
       <div className="flex h-full min-h-0 flex-col gap-5">
-        <header className="flex items-start justify-between">
-          <div className="flex flex-col gap-[3px]">
-            <h1 className="text-foreground font-serif text-[22px] font-bold">音乐资源</h1>
-            <p className="text-foreground-secondary text-[13px]">
-              归属模组「沉没的记忆」· 团进行中由 GM 全局控制播放
-            </p>
-          </div>
-          <Button className="from-accent to-accent-hover bg-linear-to-b font-semibold">
-            <Upload />
-            上传音频
-          </Button>
-        </header>
+        <PageHeader
+          title="音乐资源"
+          description="归属模组「沉没的记忆」· 团进行中由 GM 全局控制播放"
+          actions={
+            <Button variant="primaryGradient" className="font-semibold">
+              <Upload />
+              上传音频
+            </Button>
+          }
+        />
 
         <div className="flex min-h-0 flex-1 gap-5">
           <section className="flex min-h-0 flex-1 flex-col gap-3">
@@ -191,11 +195,15 @@ function MusicResourcesPage() {
                 </div>
               ))}
             </div>
-            <div className="border-separator-tertiary flex min-h-0 flex-1 flex-col items-center justify-center gap-1.5 rounded-xl border-[1.5px] border-dashed">
+            <Button
+              type="button"
+              variant="outline"
+              className="border-separator-tertiary min-h-0 flex-1 flex-col gap-1.5 rounded-xl border-[1.5px] border-dashed whitespace-normal"
+            >
               <CloudUpload className="text-foreground-tertiary size-6" />
               <span className="text-foreground-secondary text-xs">拖入音频文件上传</span>
               <span className="text-foreground-tertiary text-[11px]">MP3 / OGG / WAV · 单文件 ≤ 20MB</span>
-            </div>
+            </Button>
           </section>
         </div>
       </div>

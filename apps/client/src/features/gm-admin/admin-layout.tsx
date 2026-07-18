@@ -59,7 +59,7 @@ function AdminLayout({ active, children }: { active: AdminNavKey; children: Reac
             <span className="text-foreground font-sans text-[13px] font-semibold">主持人</span>
             <span className="text-foreground-tertiary font-sans text-[10px]">已登录</span>
           </div>
-          <Button variant="ghost" size="icon-sm" className="text-foreground-secondary">
+          <Button variant="ghost" size="icon-sm" aria-label="退出登录" className="text-foreground-secondary">
             <LogOut />
           </Button>
         </div>

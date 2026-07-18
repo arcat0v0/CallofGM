@@ -23,6 +23,8 @@ import { useState } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Slider } from "@/components/ui/slider";
+import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import {
   bgmState,
@@ -61,10 +63,10 @@ function GmHead() {
           GM 控制台
         </span>
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon-sm">
+          <Button variant="ghost" size="icon-sm" aria-label="返回后台">
             <LayoutDashboard />
           </Button>
-          <Button variant="ghost" size="icon-sm">
+          <Button variant="ghost" size="icon-sm" aria-label="复制团链接">
             <LinkIcon />
           </Button>
         </div>
@@ -97,14 +99,13 @@ function PhaseSection() {
         {phases.map((phase) => {
           const isActive = phase.key === active;
           return (
-            <button
+            <Button
               key={phase.key}
               type="button"
               onClick={() => setActive(phase.key)}
-              className={cn(
-                "flex flex-col gap-0.5 rounded-[10px] px-2.5 py-2 text-left",
-                isActive ? "from-accent to-accent-hover bg-gradient-to-b" : "bg-default",
-              )}
+              variant={isActive ? "primaryGradient" : "tertiary"}
+              aria-pressed={isActive}
+              className="h-auto flex-col items-start gap-0.5 rounded-[10px] px-2.5 py-2 text-left whitespace-normal"
             >
               <span className={cn("font-sans text-[13px] font-semibold", isActive ? "text-accent-foreground" : "text-foreground")}>
                 {phase.label}
@@ -112,7 +113,7 @@ function PhaseSection() {
               <span className={cn("font-sans text-[10px]", isActive ? "text-accent-foreground/70" : "text-foreground-tertiary")}>
                 {phase.desc}
               </span>
-            </button>
+            </Button>
           );
         })}
       </div>
@@ -162,13 +163,15 @@ function SpeakQueueSection() {
                   {item.kindLabel}
                 </Badge>
                 <span className="flex-1" />
-                <button
+                <Button
                   type="button"
-                  className="from-accent to-accent-hover text-accent-foreground flex h-6 shrink-0 items-center justify-center rounded-full bg-gradient-to-b px-3 font-sans text-xs font-medium"
+                  variant="primaryGradient"
+                  size="sm"
+                  className="h-6 px-3 text-xs"
                 >
                   放行
-                </button>
-                <Button variant="ghost" size="icon-sm" className="text-danger-soft-foreground size-[26px]">
+                </Button>
+                <Button variant="ghost" size="icon-sm" aria-label={`丢弃 ${item.name} 的待呈现发言`} className="text-danger-soft-foreground size-[26px]">
                   <Trash2 className="size-[15px]" />
                 </Button>
               </div>
@@ -177,9 +180,9 @@ function SpeakQueueSection() {
                   {item.preview}
                 </span>
                 {item.emotion && (
-                  <span className="bg-accent-soft text-accent-soft-foreground shrink-0 rounded-full px-1.5 py-0.5 font-sans text-[10px]">
+                  <Badge variant="soft" tone="accent" size="sm" className="text-[10px]">
                     {item.emotion}
-                  </span>
+                  </Badge>
                 )}
               </div>
             </div>
@@ -198,21 +201,28 @@ function SceneSection() {
       </SectionTitle>
       <div className="grid grid-cols-3 gap-2">
         {scenes.map((scene) => (
-          <button key={scene.id} type="button" className="flex flex-col gap-1">
-            <div
+          <Button
+            key={scene.id}
+            type="button"
+            variant="ghost"
+            aria-pressed={scene.active}
+            className="h-auto flex-col gap-1 rounded-lg p-0 hover:bg-transparent"
+          >
+            <span
               className={cn(
                 "h-[58px] w-full overflow-hidden rounded-lg border-2 bg-cover bg-center",
                 scene.active ? "border-accent-hover" : "border-separator-secondary border",
               )}
-              style={{ backgroundImage: `url(${scene.thumb})` }}
-            />
-            <div className="flex items-center justify-center gap-1">
+            >
+              <img src={scene.thumb} alt={scene.name} className="size-full object-cover" />
+            </span>
+            <span className="flex items-center justify-center gap-1">
               {scene.active && <span className="bg-accent-hover size-1.5 rounded-full" />}
               <span className={cn("font-sans text-[11px]", scene.active ? "text-foreground" : "text-foreground-tertiary")}>
                 {scene.name}
               </span>
-            </div>
-          </button>
+            </span>
+          </Button>
         ))}
       </div>
     </div>
@@ -235,23 +245,11 @@ function CharactersSection() {
               <span className="text-foreground truncate font-sans text-[13px] font-medium">{char.name}</span>
               <span className="text-foreground-tertiary font-chip text-[10px]">{char.kindLabel}</span>
             </div>
-            <button type="button" className="bg-default flex h-[26px] shrink-0 items-center gap-1 rounded-full px-2.5">
-              <span className="text-foreground font-sans text-[11px]">{char.expression}</span>
+            <Button type="button" variant="tertiary" size="sm" className="h-[26px] gap-1 px-2.5 text-[11px]">
+              {char.expression}
               <ChevronDown className="text-foreground-tertiary size-3" />
-            </button>
-            <span
-              className={cn(
-                "relative h-[18px] w-8 shrink-0 rounded-full",
-                char.visible ? "bg-accent" : "bg-default",
-              )}
-            >
-              <span
-                className={cn(
-                  "bg-foreground-inverse absolute top-0.5 size-3.5 rounded-full transition-all",
-                  char.visible ? "left-4" : "left-0.5",
-                )}
-              />
-            </span>
+            </Button>
+            <Switch checked={char.visible} size="sm" aria-label={`${char.name}立绘可见性`} />
           </div>
         ))}
       </div>
@@ -268,56 +266,51 @@ function AudioSection() {
 
       <div className="bg-surface border-separator-secondary flex flex-col gap-2 rounded-xl border px-2.5 py-2.5">
         <div className="flex items-center gap-2">
-          <button
+          <Button
             type="button"
-            className="from-accent to-accent-hover flex size-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br"
+            variant="primaryGradient"
+            size="icon-sm"
+            aria-label="暂停背景音乐"
+            className="size-7 bg-linear-to-br"
           >
             <Pause className="text-accent-foreground size-[13px]" />
-          </button>
+          </Button>
           <div className="flex min-w-0 flex-1 flex-col">
             <span className="text-foreground truncate font-sans text-xs font-semibold">{bgmState.name}</span>
             <span className="text-foreground-tertiary font-chip text-[10px]">{bgmState.meta}</span>
           </div>
-          <Button variant="ghost" size="icon-sm" className="text-accent-hover">
+          <Button variant="ghost" size="icon-sm" aria-label="切换循环播放" className="text-accent-hover">
             <Repeat />
           </Button>
-          <Button variant="ghost" size="icon-sm">
+          <Button variant="ghost" size="icon-sm" aria-label="下一首背景音乐">
             <SkipForward />
           </Button>
         </div>
         <div className="flex items-center gap-2.5">
           <Volume2 className="text-foreground-secondary size-[13px] shrink-0" />
-          <div className="relative h-3.5 flex-1">
-            <div className="bg-default absolute top-1/2 h-1 w-full -translate-y-1/2 rounded-full" />
-            <div
-              className="bg-accent-hover absolute top-1/2 h-1 -translate-y-1/2 rounded-full"
-              style={{ width: `${bgmState.volume}%` }}
-            />
-            <div
-              className="bg-foreground absolute top-1/2 size-3 -translate-y-1/2 rounded-full"
-              style={{ left: `calc(${bgmState.volume}% - 6px)` }}
-            />
-          </div>
+          <Slider value={[bgmState.volume]} size="sm" aria-label="背景音乐音量" className="flex-1 py-1" />
           <span className="text-foreground-secondary w-6 shrink-0 text-right font-chip text-[11px]">
             {bgmState.volume}
           </span>
-          <button type="button" className="bg-default flex h-6 shrink-0 items-center rounded-full px-2.5">
-            <span className="text-foreground font-sans text-[11px]">淡出</span>
-          </button>
+          <Button type="button" variant="tertiary" size="sm" className="h-6 px-2.5 text-[11px]">
+            淡出
+          </Button>
         </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-1.5">
         <span className="text-foreground-tertiary font-chip text-[11px] font-semibold">SE</span>
         {soundEffects.map((se) => (
-          <button
+          <Button
             key={se}
             type="button"
-            className="border-separator-tertiary flex h-[26px] items-center gap-1 rounded-full border px-2.5"
+            variant="outline"
+            size="sm"
+            className="border-separator-tertiary h-[26px] gap-1 px-2.5"
           >
             <Zap className="text-warning size-[11px]" />
             <span className="text-foreground font-sans text-[11px]">{se}</span>
-          </button>
+          </Button>
         ))}
       </div>
     </div>
@@ -339,10 +332,10 @@ function OnlineSection() {
             <Badge variant="soft" tone="accent" size="sm" className="shrink-0">
               {player.roleLabel}
             </Badge>
-            <Button variant="ghost" size="icon-sm" className="text-danger-soft-foreground size-7 shrink-0">
+            <Button variant="ghost" size="icon-sm" aria-label={`踢出 ${player.name}`} className="text-danger-soft-foreground size-7 shrink-0">
               <Users className="size-3.5" />
             </Button>
-            <Button variant="ghost" size="icon-sm" className="text-foreground-tertiary size-7 shrink-0">
+            <Button variant="ghost" size="icon-sm" aria-label={`拉黑 ${player.name}`} className="text-foreground-tertiary size-7 shrink-0">
               <ShieldBan className="size-3.5" />
             </Button>
           </div>

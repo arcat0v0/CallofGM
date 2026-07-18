@@ -1,5 +1,7 @@
 import { Info, ShieldBan, X } from "lucide-react";
 import { useState } from "react";
+import { FormField } from "@/components/shared/form-field";
+import { Alert, AlertDescription, AlertIcon } from "@/components/ui/alert";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,7 +12,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { cn } from "@/lib/utils";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Textarea } from "@/components/ui/textarea";
 
 const durations = ["1 小时", "24 小时", "7 天", "30 天", "永久", "自定义"];
 
@@ -42,7 +46,7 @@ function BanPlayerDialog({
               <DialogDescription>将该浏览器指纹加入黑名单，握手时拦截</DialogDescription>
             </div>
           </div>
-          <Button variant="ghost" size="icon-sm" onClick={() => onOpenChange(false)}>
+          <Button variant="ghost" size="icon-sm" aria-label="关闭拉黑玩家弹窗" onClick={() => onOpenChange(false)}>
             <X />
           </Button>
         </DialogHeader>
@@ -63,48 +67,42 @@ function BanPlayerDialog({
             </div>
           </div>
 
-          <div className="flex flex-col gap-2">
-            <span className="text-foreground font-sans text-[13px] font-semibold">封禁时长</span>
-            <div className="grid grid-cols-3 gap-2">
+          <FormField label="封禁时长">
+            <RadioGroup value={duration} onValueChange={setDuration} className="grid-cols-3">
               {durations.map((option) => {
                 const selected = option === duration;
                 return (
-                  <button
+                  <Label
                     key={option}
-                    type="button"
-                    onClick={() => setDuration(option)}
-                    className={cn(
-                      "flex h-[38px] items-center justify-center gap-2 rounded-[10px] font-sans text-[13px]",
-                      selected ? "bg-danger-soft text-danger-soft-foreground font-semibold" : "bg-surface-tertiary text-foreground-secondary",
-                    )}
+                    className={selected
+                      ? "bg-danger-soft text-danger-soft-foreground h-[38px] cursor-pointer justify-center rounded-[10px] text-[13px] font-semibold"
+                      : "bg-surface-tertiary text-foreground-secondary h-[38px] cursor-pointer justify-center rounded-[10px] text-[13px]"
+                    }
                   >
-                    <span
-                      className={cn(
-                        "size-[15px] rounded-full border-[1.5px]",
-                        selected ? "border-[4.5px] border-danger-soft-foreground" : "border-separator-tertiary",
-                      )}
-                    />
+                    <RadioGroupItem value={option} className="data-checked:border-danger-soft-foreground data-checked:bg-danger-soft-foreground" />
                     {option}
-                  </button>
+                  </Label>
                 );
               })}
-            </div>
-          </div>
+            </RadioGroup>
+          </FormField>
 
-          <div className="flex flex-col gap-1.5">
-            <span className="text-foreground font-sans text-[13px] font-semibold">封禁备注（可选）</span>
-            <textarea
+          <FormField label="封禁备注（可选）" htmlFor="ban-note">
+            <Textarea
+              id="ban-note"
               placeholder="例如：多次恶意刷屏、剧透、人身攻击…"
-              className="border-separator-secondary bg-field text-field-foreground placeholder:text-field-placeholder h-16 resize-none rounded-[10px] border px-3 py-2.5 font-sans text-[13px] outline-none"
+              className="h-16 min-h-16 resize-none border-separator-secondary text-[13px]"
             />
-          </div>
+          </FormField>
 
-          <div className="bg-surface-tertiary flex items-start gap-2.5 rounded-[10px] px-3 py-3">
-            <Info className="text-foreground-tertiary mt-0.5 size-[15px] shrink-0" />
-            <p className="text-foreground-secondary font-sans text-xs leading-[1.6]">
+          <Alert className="bg-surface-tertiary gap-2.5 rounded-[10px] px-3 py-3 shadow-none">
+            <AlertIcon className="mt-0.5 text-foreground-tertiary">
+              <Info />
+            </AlertIcon>
+            <AlertDescription className="text-foreground-secondary text-xs leading-[1.6]">
               指纹为尽力而为的标识，更换浏览器或清除数据后可能失效；拉黑同时会立即断开该连接。
-            </p>
-          </div>
+            </AlertDescription>
+          </Alert>
         </div>
 
         <div className="bg-background-secondary border-separator flex items-center justify-end gap-2.5 border-t px-5 py-4">

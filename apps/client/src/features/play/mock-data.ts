@@ -1,31 +1,4 @@
-export type ChatMessage = {
-  id: string;
-  speakerName: string;
-  speakerRoleLabel: string;
-  avatarInitials: string;
-  avatarBg: string;
-  avatarFg: string;
-  time: string;
-  body: string;
-};
-
-export const sceneImage = "/demo/scenes/library.png";
-
-export const portraits = {
-  mio: "/demo/portraits/tono-mio.png",
-  takuma: "/demo/portraits/shiraishi-takuma.png",
-};
-
-export const sessionTitle = "沉没的记忆 · 第三夜";
-export const sessionStatusLabel = "进行中";
-export const sessionPhaseLabel = "阶段 · 自由演绎";
-export const bgmTrackName = "BGM · 雨夜的图书馆";
-
-export const dialogue = {
-  speaker: "远野 澪",
-  roleLabel: "PC",
-  text: "……如果日记里写的是真的，那么七年前沉入湖底的，恐怕就不只是那辆车。（她把煤油灯举高，火光在水面上摇晃。）我们得在雨停之前赶到船屋。",
-};
+import type { ChatMessage } from "@/features/chat/types";
 
 export const messages: ChatMessage[] = [
   {

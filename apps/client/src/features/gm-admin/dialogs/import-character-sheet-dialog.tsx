@@ -8,6 +8,7 @@ import {
   TriangleAlert,
   X,
 } from "lucide-react";
+import { Alert, AlertDescription, AlertIcon } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -48,7 +49,7 @@ function ImportCharacterSheetDialog({
             <DialogTitle>导入人物卡 Excel</DialogTitle>
             <DialogDescription>按 CoC 7e 模板解析 · 确认无误后入库</DialogDescription>
           </div>
-          <Button variant="ghost" size="icon-sm" onClick={() => onOpenChange(false)}>
+          <Button variant="ghost" size="icon-sm" aria-label="关闭导入人物卡弹窗" onClick={() => onOpenChange(false)}>
             <X />
           </Button>
         </DialogHeader>
@@ -92,7 +93,7 @@ function ImportCharacterSheetDialog({
                 32 KB · 解析成功 · 匹配 CoC 7e 模板
               </span>
             </div>
-            <Button variant="ghost" size="icon-sm">
+            <Button variant="ghost" size="icon-sm" aria-label="重新解析人物卡">
               <RefreshCw />
             </Button>
           </div>
@@ -114,12 +115,14 @@ function ImportCharacterSheetDialog({
             ))}
           </div>
 
-          <div className="bg-warning-soft flex items-start gap-2.5 rounded-[10px] px-3 py-3">
-            <TriangleAlert className="text-warning mt-0.5 size-[15px] shrink-0" />
-            <span className="text-warning font-sans text-xs">
+          <Alert variant="warning" className="bg-warning-soft gap-2.5 rounded-[10px] px-3 py-3 shadow-none">
+            <AlertIcon className="mt-0.5">
+              <TriangleAlert />
+            </AlertIcon>
+            <AlertDescription className="text-warning text-xs">
               「克苏鲁神话」技能列为自定义技能，将按原值导入
-            </span>
-          </div>
+            </AlertDescription>
+          </Alert>
         </div>
 
         <div className="bg-background-secondary border-separator flex items-center justify-end gap-2.5 border-t px-5 py-4">

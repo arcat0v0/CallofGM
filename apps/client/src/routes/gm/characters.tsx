@@ -15,9 +15,12 @@ import {
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { SegmentedControl } from "@/components/shared/segmented-control";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { AdminLayout } from "@/features/gm-admin/admin-layout";
 import { ImportCharacterSheetDialog } from "@/features/gm-admin/dialogs/import-character-sheet-dialog";
 import {
@@ -131,46 +134,41 @@ function CharList({
       <div className="flex flex-col gap-3 px-4 pt-5 pb-3">
         <div className="flex items-center justify-between">
           <h1 className="text-foreground font-serif text-lg font-bold">人物</h1>
-          <button
+          <Button
             type="button"
             onClick={onNew}
-            className="from-accent to-accent-hover text-accent-foreground flex h-[30px] items-center gap-1.5 rounded-full bg-linear-to-b px-3 font-sans text-xs font-semibold"
+            variant="primaryGradient"
+            size="sm"
+            className="h-[30px] px-3 text-xs font-semibold"
           >
-            <Plus className="size-3.5" />
+            <Plus />
             新建
-          </button>
+          </Button>
         </div>
 
-        <label className="bg-field border-separator-secondary flex h-9 items-center gap-2 rounded-[10px] border px-3">
-          <Search className="text-foreground-tertiary size-3.5 shrink-0" />
-          <input
+        <InputGroup className="h-9 rounded-[10px] border-separator-secondary">
+          <InputGroupAddon>
+            <Search />
+          </InputGroupAddon>
+          <InputGroupInput
             value={query}
             onChange={(event) => onQueryChange(event.target.value)}
             placeholder="搜索人物…"
-            className="text-field-foreground placeholder:text-field-placeholder min-w-0 flex-1 bg-transparent font-sans text-[13px] outline-none"
+            aria-label="搜索人物"
+            className="text-[13px]"
           />
-        </label>
+        </InputGroup>
 
-        <div className="flex gap-1.5">
-          {FILTERS.map((item) => {
-            const active = item.key === filter;
-            return (
-              <button
-                key={item.key}
-                type="button"
-                onClick={() => onFilterChange(item.key)}
-                className={cn(
-                  "flex h-[26px] items-center justify-center rounded-full px-3 font-sans text-xs",
-                  active
-                    ? "bg-default text-foreground font-semibold"
-                    : "border-separator-secondary text-foreground-secondary border",
-                )}
-              >
-                {item.label} {counts[item.key]}
-              </button>
-            );
-          })}
-        </div>
+        <SegmentedControl
+          value={filter}
+          options={FILTERS.map((item) => ({
+            value: item.key,
+            label: `${item.label} ${counts[item.key]}`,
+          }))}
+          onValueChange={onFilterChange}
+          className="gap-1.5 bg-transparent p-0"
+          itemClassName="h-[26px] rounded-full border border-separator-secondary data-[state=on]:border-transparent"
+        />
       </div>
 
       <div className="flex flex-1 flex-col gap-1 overflow-y-auto px-2.5 pt-1 pb-2.5">
@@ -197,12 +195,14 @@ function CharListItem({
   onSelect: () => void;
 }) {
   return (
-    <button
+    <Button
       type="button"
       onClick={onSelect}
+      variant="ghost"
+      aria-pressed={selected}
       className={cn(
-        "flex items-center gap-2.5 rounded-[10px] px-2.5 py-2 text-left transition-colors",
-        selected ? "bg-default" : "hover:bg-surface-hover/40",
+        "h-auto w-full justify-start gap-2.5 rounded-[10px] px-2.5 py-2 text-left whitespace-normal",
+        selected ? "bg-default hover:bg-default" : "hover:bg-surface-hover/40",
       )}
     >
       <Avatar
@@ -218,7 +218,7 @@ function CharListItem({
         </span>
       </div>
       <KindBadge kind={character.kind} />
-    </button>
+    </Button>
   );
 }
 
@@ -304,13 +304,15 @@ function DetailHead({
               </div>
             );
           })}
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="icon-md"
             className="border-separator-tertiary text-foreground-tertiary hover:text-foreground flex size-10 items-center justify-center rounded-[9px] border-[1.5px] transition-colors"
             aria-label="新增立绘"
           >
             <Plus className="size-4" />
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -354,9 +356,9 @@ function Derived({ derived }: { derived: DerivedStats }) {
   return (
     <div className="flex shrink-0 gap-3">
       {DERIVED_CONFIG.map(({ key, label, icon: Icon, iconColor }) => (
-        <div
+        <Card
           key={key}
-          className="bg-surface border-separator flex flex-1 flex-col gap-1.5 rounded-xl border p-3.5"
+          className="border-separator flex flex-1 gap-1.5 rounded-xl border p-3.5"
         >
           <div className="flex items-center gap-1.5">
             <Icon className={cn("size-[13px]", iconColor)} />
@@ -365,7 +367,7 @@ function Derived({ derived }: { derived: DerivedStats }) {
             </span>
           </div>
           <span className="text-foreground font-mono text-lg font-bold">{formatDerived(derived, key)}</span>
-        </div>
+        </Card>
       ))}
     </div>
   );
@@ -374,7 +376,7 @@ function Derived({ derived }: { derived: DerivedStats }) {
 function AttrsCard({ character }: { character: GameCharacter }) {
   const rows = chunk(character.attributes, 3);
   return (
-    <div className="bg-surface border-separator flex w-[420px] shrink-0 flex-col gap-3 rounded-[14px] border p-4">
+    <Card className="border-separator w-[420px] shrink-0 gap-3 rounded-[14px] border p-4">
       <h3 className="text-foreground-secondary font-sans text-xs font-semibold tracking-[1px]">基础属性</h3>
       <div className="flex flex-col gap-2">
         {rows.map((row, rowIndex) => (
@@ -398,14 +400,14 @@ function AttrsCard({ character }: { character: GameCharacter }) {
           </div>
         ))}
       </div>
-    </div>
+    </Card>
   );
 }
 
 function SkillsCard({ character }: { character: GameCharacter }) {
   const rows = chunk(character.skills, 3);
   return (
-    <div className="bg-surface border-separator flex min-h-0 flex-1 flex-col gap-3 overflow-hidden rounded-[14px] border p-4">
+    <Card className="border-separator min-h-0 flex-1 gap-3 overflow-hidden rounded-[14px] border p-4">
       <div className="flex items-center justify-between">
         <h3 className="text-foreground-secondary font-sans text-xs font-semibold tracking-[1px]">技能</h3>
         <span className="text-foreground-tertiary font-sans text-[11px]">高于初始值已标记</span>
@@ -442,6 +444,6 @@ function SkillsCard({ character }: { character: GameCharacter }) {
           </div>
         ))}
       </div>
-    </div>
+    </Card>
   );
 }

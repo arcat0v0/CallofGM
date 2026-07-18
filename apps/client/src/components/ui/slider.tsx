@@ -9,8 +9,9 @@ function Slider({
   value,
   min = 0,
   max = 100,
+  size = "md",
   ...props
-}: React.ComponentProps<typeof SliderPrimitive.Root>) {
+}: Omit<React.ComponentProps<typeof SliderPrimitive.Root>, "size"> & { size?: "sm" | "md" }) {
   const _values = React.useMemo(
     () => (Array.isArray(value) ? value : Array.isArray(defaultValue) ? defaultValue : [min, max]),
     [value, defaultValue, min, max],
@@ -23,6 +24,7 @@ function Slider({
       value={value}
       min={min}
       max={max}
+      data-size={size}
       className={cn(
         "relative flex w-full touch-none items-center py-2 select-none data-disabled:opacity-50",
         className,
@@ -31,7 +33,7 @@ function Slider({
     >
       <SliderPrimitive.Track
         data-slot="slider-track"
-        className="bg-default relative h-5 w-full grow overflow-hidden rounded-full"
+        className={cn("bg-default relative w-full grow overflow-hidden rounded-full", size === "sm" ? "h-1" : "h-5")}
       >
         <SliderPrimitive.Range data-slot="slider-range" className="bg-accent absolute h-full" />
       </SliderPrimitive.Track>
@@ -39,7 +41,10 @@ function Slider({
         <SliderPrimitive.Thumb
           data-slot="slider-thumb"
           key={index}
-          className="shadow-switch-thumb bg-white block h-5 w-[26px] shrink-0 rounded-full outline-none disabled:pointer-events-none"
+          className={cn(
+            "shadow-switch-thumb bg-white block shrink-0 rounded-full outline-none disabled:pointer-events-none",
+            size === "sm" ? "size-3" : "h-5 w-[26px]",
+          )}
         />
       ))}
     </SliderPrimitive.Root>
