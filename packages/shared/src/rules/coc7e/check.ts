@@ -52,16 +52,3 @@ export const SanCheckResult = z.object({
   sanAfter: z.number().int().min(0),
 });
 export type SanCheckResult = z.infer<typeof SanCheckResult>;
-
-export const CheckRequest = z.object({
-  id: z.string(),
-  sessionId: z.string(),
-  characterId: z.string(),
-  skillKey: z.string(),
-  difficulty: CheckDifficulty,
-  bonusDice: z.number().int().min(0).max(2),
-  penaltyDice: z.number().int().min(0).max(2),
-  hidden: z.boolean(),
-  sanLossExpression: z.string().optional(),
-});
-export type CheckRequest = z.infer<typeof CheckRequest>;

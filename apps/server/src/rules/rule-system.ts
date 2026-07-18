@@ -1,0 +1,73 @@
+import { z } from "zod";
+import { type RuleId } from "@cogm/shared";
+import { type RandomSource } from "@/platform/ports";
+
+export interface CharacterSheetPreview<T> {
+  characterName: string;
+  sheetData: T;
+  errors: Array<{
+    cell: string;
+    message: string;
+  }>;
+}
+
+export interface SkillCheckInput {
+  characterId: string;
+  skillKey: string;
+  targetValue: number;
+  difficulty: "regular" | "hard" | "extreme";
+  bonusDice: number;
+  penaltyDice: number;
+}
+
+export interface SanCheckInput {
+  characterId: string;
+  sanCurrent: number;
+  /** 成功时损失表达式（如 "0"、"1"、"1d3"） */
+  successLoss: string;
+  /** 失败时损失表达式（如 "1d6"、"1d10"） */
+  failureLoss: string;
+}
+
+export interface StateMutationResult<TSessionState> {
+  state: TSessionState;
+  /** 越阈提示（重伤线/濒死/单次 SAN 损失 ≥ 5 等），仅提示不自动挂状态 */
+  hints: string[];
+}
+
+export interface RuleCommandDefinition {
+  name: string;
+  alias: string[];
+  description: string;
+}
+
+export abstract class RuleSystem<TSheet, TSessionState> {
+  abstract readonly id: RuleId;
+  abstract readonly characterSheetSchema: z.ZodType<TSheet>;
+  abstract readonly sessionStateSchema: z.ZodType<TSessionState>;
+
+  abstract parseCharacterSheet(input: ArrayBuffer): Promise<CharacterSheetPreview<TSheet>>;
+  abstract initializeSessionState(sheet: TSheet): TSessionState;
+  abstract evaluateSkillCheck(input: SkillCheckInput, random: RandomSource): unknown;
+  abstract evaluateSanCheck(input: SanCheckInput, random: RandomSource): unknown;
+
+  /** 从人物卡读取指定技能/属性的目标值；不存在返回 null */
+  abstract getSkillTargetValue(sheet: TSheet, skillKey: string): number | null;
+
+  /** 从团内状态读取当前 SAN（无 SAN 概念的规则应抛出 RULE_ACTION_UNSUPPORTED） */
+  abstract getSanCurrent(state: TSessionState): number;
+
+  /** GM 状态编辑：规则负责合并、钳制与阈值提示（edit 为 GM 指令的原始 JSON） */
+  abstract applyGmStateEdit(
+    state: TSessionState,
+    edit: Record<string, unknown>
+  ): StateMutationResult<TSessionState>;
+
+  /** SAN 自动扣减（理智检定入口） */
+  abstract applySanLoss(state: TSessionState, loss: number): StateMutationResult<TSessionState>;
+
+  /** 鉴定常规成功及以上时的成长标记写入 */
+  abstract markSkillGrowth(state: TSessionState, skillKey: string): TSessionState;
+
+  abstract getChatCommands(): readonly RuleCommandDefinition[];
+}

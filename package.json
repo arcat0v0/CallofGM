@@ -12,6 +12,11 @@
     "build:client": "bun run --cwd apps/client build",
     "typecheck": "bun run --cwd packages/shared typecheck && bun run --cwd apps/server typecheck && bun run --cwd apps/client typecheck",
     "audit": "bun audit --audit-level=high",
-    "verify:deps": "bun install --frozen-lockfile && bun audit --audit-level=high && bun run typecheck"
+    "verify:deps": "bun install --frozen-lockfile && bun audit --audit-level=high && bun run typecheck",
+    "test": "bun run --cwd apps/server test",
+    "check:boundaries": "bun run --cwd apps/server check:boundaries",
+    "db:generate": "bun run --cwd apps/server db:generate",
+    "db:migrate": "bun run --cwd apps/server db:migrate",
+    "db:check": "bun run --cwd apps/server db:check"
   }
 }

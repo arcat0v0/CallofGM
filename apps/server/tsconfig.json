@@ -3,7 +3,10 @@
   "compilerOptions": {
     "lib": ["ESNext"],
     "types": ["bun"],
-    "noEmit": true
+    "noEmit": true,
+    "paths": {
+      "@/*": ["./src/*"]
+    }
   },
-  "include": ["src"]
+  "include": ["src", "tests", "scripts"]
 }

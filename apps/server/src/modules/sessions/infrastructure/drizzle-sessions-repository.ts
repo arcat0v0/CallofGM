@@ -1,0 +1,232 @@
+import { eq, and, inArray, isNull } from "drizzle-orm";
+import type { DbClient } from "@/platform/db/client";
+import {
+  sessions,
+  sessionCharacters,
+  sessionClaims,
+  characters,
+  modules,
+} from "@/platform/db/schema";
+
+export class DrizzleSessionsRepository {
+  constructor(private readonly db: DbClient) {}
+
+  async findSessionById(id: string) {
+    const result = await this.db
+      .select()
+      .from(sessions)
+      .where(eq(sessions.id, id))
+      .limit(1);
+    return result[0] || null;
+  }
+
+  async saveSession(session: typeof sessions.$inferInsert): Promise<void> {
+    await this.db.insert(sessions).values(session);
+  }
+
+  async updateSession(
+    id: string,
+    updates: Partial<Omit<typeof sessions.$inferInsert, "id" | "createdAt">>
+  ) {
+    await this.db
+      .update(sessions)
+      .set(updates)
+      .where(eq(sessions.id, id));
+  }
+
+  async createSession(
+    session: typeof sessions.$inferInsert,
+    charactersToSave: (typeof sessionCharacters.$inferInsert)[]
+  ): Promise<void> {
+    await this.db.transaction(async (tx) => {
+      await tx.insert(sessions).values(session);
+      if (charactersToSave.length > 0) {
+        await tx.insert(sessionCharacters).values(charactersToSave);
+      }
+    });
+  }
+
+  async findCharactersByIds(ids: string[]) {
+    if (ids.length === 0) {
+      return [];
+    }
+    return await this.db
+      .select()
+      .from(characters)
+      .where(inArray(characters.id, ids));
+  }
+
+  async moduleExists(moduleId: string): Promise<boolean> {
+    const result = await this.db
+      .select({ id: modules.id })
+      .from(modules)
+      .where(eq(modules.id, moduleId))
+      .limit(1);
+    return result.length > 0;
+  }
+
+  async findModuleById(moduleId: string) {
+    const result = await this.db.select().from(modules).where(eq(modules.id, moduleId)).limit(1);
+    return result[0] ?? null;
+  }
+
+  async isCharacterInSession(sessionId: string, characterId: string): Promise<boolean> {
+    const result = await this.db
+      .select({ id: sessionCharacters.id })
+      .from(sessionCharacters)
+      .where(
+        and(
+          eq(sessionCharacters.sessionId, sessionId),
+          eq(sessionCharacters.characterId, characterId)
+        )
+      )
+      .limit(1);
+    return result.length > 0;
+  }
+
+  async findActiveClaimByCharacterId(sessionId: string, characterId: string) {
+    const result = await this.db
+      .select()
+      .from(sessionClaims)
+      .where(
+        and(
+          eq(sessionClaims.sessionId, sessionId),
+          eq(sessionClaims.characterId, characterId),
+          isNull(sessionClaims.releasedAt)
+        )
+      )
+      .limit(1);
+    return result[0] || null;
+  }
+
+  async releasePlayerClaims(sessionId: string, playerId: string, releasedAt: number): Promise<void> {
+    await this.db
+      .update(sessionClaims)
+      .set({ releasedAt })
+      .where(
+        and(
+          eq(sessionClaims.sessionId, sessionId),
+          eq(sessionClaims.playerId, playerId),
+          isNull(sessionClaims.releasedAt)
+        )
+      );
+  }
+
+  async saveClaim(claim: typeof sessionClaims.$inferInsert): Promise<void> {
+    await this.db.insert(sessionClaims).values(claim);
+  }
+
+  async replacePlayerClaim(
+    claim: typeof sessionClaims.$inferInsert,
+    releasedAt: number
+  ): Promise<boolean> {
+    return await this.db.transaction(async (tx) => {
+      if (claim.characterId) {
+        const occupied = await tx.select({ id: sessionClaims.id })
+          .from(sessionClaims)
+          .where(and(
+            eq(sessionClaims.sessionId, claim.sessionId),
+            eq(sessionClaims.characterId, claim.characterId),
+            isNull(sessionClaims.releasedAt)
+          ))
+          .limit(1);
+        if (occupied.length > 0) return false;
+      }
+      await tx.update(sessionClaims).set({ releasedAt }).where(and(
+        eq(sessionClaims.sessionId, claim.sessionId),
+        eq(sessionClaims.playerId, claim.playerId),
+        isNull(sessionClaims.releasedAt)
+      ));
+      await tx.insert(sessionClaims).values(claim);
+      return true;
+    });
+  }
+
+  async listSessions() {
+    return await this.db.select().from(sessions);
+  }
+
+  async findSessionCharactersWithClaims(sessionId: string) {
+    const sessionChars = await this.db
+      .select({
+        id: sessionCharacters.id,
+        characterId: sessionCharacters.characterId,
+        kind: sessionCharacters.kind,
+        currentExpressionKey: sessionCharacters.currentExpressionKey,
+        stateJson: sessionCharacters.stateJson,
+      })
+      .from(sessionCharacters)
+      .where(eq(sessionCharacters.sessionId, sessionId));
+
+    if (sessionChars.length === 0) {
+      return [];
+    }
+
+    const charIds = sessionChars.map((sc) => sc.characterId);
+    const charsList = await this.db
+      .select({
+        id: characters.id,
+        name: characters.name,
+      })
+      .from(characters)
+      .where(inArray(characters.id, charIds));
+
+    const charMap = new Map(charsList.map((c) => [c.id, c.name]));
+
+    const activeClaims = await this.db
+      .select({
+        id: sessionClaims.id,
+        playerId: sessionClaims.playerId,
+        role: sessionClaims.role,
+        characterId: sessionClaims.characterId,
+      })
+      .from(sessionClaims)
+      .where(
+        and(
+          eq(sessionClaims.sessionId, sessionId),
+          isNull(sessionClaims.releasedAt)
+        )
+      );
+
+    const claimMap = new Map();
+    for (const claim of activeClaims) {
+      if (claim.characterId) {
+        claimMap.set(claim.characterId, {
+          playerId: claim.playerId,
+          role: claim.role,
+        });
+      }
+    }
+
+    return sessionChars.map((sc) => {
+      const name = charMap.get(sc.characterId) || "Unknown Character";
+      const claim = claimMap.get(sc.characterId) || null;
+      return {
+        id: sc.characterId,
+        characterId: sc.characterId,
+        name,
+        kind: sc.kind,
+        currentExpressionKey: sc.currentExpressionKey,
+        state: JSON.parse(sc.stateJson),
+        claim: claim
+          ? {
+              playerId: claim.playerId,
+              role: claim.role,
+            }
+          : null,
+      };
+    });
+  }
+
+  async findActiveClaims(sessionId: string) {
+    return await this.db
+      .select()
+      .from(sessionClaims)
+      .where(
+        and(
+          eq(sessionClaims.sessionId, sessionId),
+          isNull(sessionClaims.releasedAt)
+        )
+      );
+  }
+}

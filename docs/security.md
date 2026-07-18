@@ -28,7 +28,7 @@ CI must always install via `bun install --frozen-lockfile`. The flag is redundan
 The project's `bun.lock` is treated as an evidence artifact. Current fingerprint:
 
 ```
-SHA256(bun.lock) = e8c10c0d9f04b01bc0cf26dd7991cd0f5e8c50264d1eaf97fbdc8dbddfa63585
+SHA256(bun.lock) = ddf90cdde7485a20cd3bbdcf6d3286b109596703a94d1acb5e76002037358d6d
 ```
 
 Recompute locally with: `sha256sum bun.lock`. Any drift is investigated before merging.
