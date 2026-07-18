@@ -17,3 +17,4 @@
 - 发言权限、团状态机、掷骰等规则判定必须服务端权威，见 `docs/architecture.md`。
 - WS 消息协议与数据 schema 一律定义在 `packages/shared`（zod），禁止两端各写一份。
 - 一律使用 Bun 工具链：`bun install` / `bun run` / `bunx` / `bun test`。
+- 样式文件职责分离（硬性）：`apps/client/src/styles/globals.css` 仅作为全局样式入口（聚合 `@import` 与 `@layer base`）；全部设计 token（颜色、阴影、圆角、字体）必须定义在 `apps/client/src/styles/theme.css` 的 `@theme` 块中并按文件内分区归类，禁止写回 `globals.css` 或在其他文件中新建 `@theme`。

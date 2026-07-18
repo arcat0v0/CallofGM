@@ -24,3 +24,4 @@
 - 现有组件不能直接满足需求时，优先通过组合已有组件、增加通用 props 或 variant 扩展能力。只有组件与某个特殊业务语义或交互强绑定，且无法合理抽象为通用能力时，才允许在对应 `apps/client/src/features/{domain}/` 下新增业务组件；业务逻辑不得下沉到 `components/ui/` 的通用基础组件中。
 - 样式统一使用 Tailwind CSS v4 的 utility class 与全站 CSS 变量语义 token；颜色、间距、圆角、阴影等视觉值不得在各页面随意硬编码。禁止为普通组件新增成套的页面级/组件级 CSS、复制重复样式或以大量内联 `style` 代替 Tailwind。
 - 独立 CSS 仅限 Tailwind 难以合理表达的全局 reset、主题 token、字体、关键帧、第三方样式覆盖和运行时动态值，并应保持最小范围；重复出现的 utility class 组合必须收敛为通用组件或统一 variant，避免散落复制。
+- 样式文件职责分离（硬性）：`apps/client/src/styles/globals.css` 仅作为全局样式入口，负责聚合 `@import` 与 `@layer base` 全局基础样式；全部设计 token（颜色、阴影、圆角、字体）必须定义在 `apps/client/src/styles/theme.css` 的 `@theme` 块中，并按文件内分区注释就近归类，禁止写回 `globals.css` 或在其他文件中新建 `@theme`。

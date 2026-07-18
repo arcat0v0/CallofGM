@@ -1,0 +1,141 @@
+/*
+ * 设计 token（Tailwind CSS v4 `@theme`）
+ *
+ * 全站唯一的视觉值来源：颜色、阴影、圆角、字体一律在此定义为语义 token，
+ * 组件中只使用生成的 utility class（如 bg-stage-scrim、shadow-dialogue），
+ * 禁止硬编码字面量。新增 token 时按下方分区就近归类。
+ */
+
+@theme {
+  /* ── 字体 ─────────────────────────────────────────────── */
+  --font-sans: "Noto Sans SC", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Noto Serif SC", ui-serif, serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --font-chip: "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  /* ── 语义色：强调 / 状态 ──────────────────────────────── */
+  --color-accent: #7BA23F;
+  --color-accent-foreground: #1C1C1C;
+  --color-accent-hover: #86C166;
+  --color-accent-soft: #7BA23F2E;
+  --color-accent-soft-foreground: #9DC163;
+  --color-accent-soft-hover: #7BA23F40;
+
+  --color-danger: #CB1B45;
+  --color-danger-foreground: #FCFAF2;
+  --color-danger-hover: #D93F63;
+  --color-danger-soft: #CB1B4529;
+  --color-danger-soft-foreground: #E96E8B;
+  --color-danger-soft-hover: #CB1B4536;
+
+  --color-warning: #FFB11B;
+  --color-warning-foreground: #1C1C1C;
+  --color-warning-hover: #FFC24C;
+  --color-warning-soft: #FFB11B29;
+  --color-warning-soft-foreground: #FFB11B;
+  --color-warning-soft-hover: #FFB11B38;
+
+  --color-success: #5DAC81;
+  --color-success-foreground: #1C1C1C;
+  --color-success-hover: #6FBE93;
+  --color-success-soft: #5DAC8129;
+  --color-success-soft-foreground: #7CC49B;
+  --color-success-soft-hover: #5DAC8138;
+
+  --color-default: #333331;
+  --color-default-foreground: #FCFAF2;
+  --color-default-hover: #3C3C3A;
+
+  /* ── 语义色：背景 / 前景 / 表面 ──────────────────────── */
+  --color-background: #1C1C1C;
+  --color-background-secondary: #232322;
+  --color-background-tertiary: #2A2A29;
+  --color-background-inverse: #FCFAF2;
+
+  --color-foreground: #FCFAF2;
+  --color-foreground-inverse: #1C1C1C;
+  --color-foreground-link: #FCFAF2;
+  --color-foreground-muted: #99A0A5;
+  --color-foreground-overlay: #FCFAF2;
+  --color-foreground-secondary: #A5ABB0;
+  --color-foreground-segment: #FCFAF2;
+  --color-foreground-tertiary: #7A8087;
+
+  --color-surface: #262625;
+  --color-surface-foreground: #FCFAF2;
+  --color-surface-hover: #393937;
+  --color-surface-secondary: #2E2E2C;
+  --color-surface-secondary-foreground: #FCFAF2;
+  --color-surface-tertiary: #343433;
+  --color-surface-tertiary-foreground: #FCFAF2;
+  --color-surface-transparent: #00000000;
+
+  /* ── 语义色：控件（field / segment / focus）────────────── */
+  --color-field: #232321;
+  --color-field-focus: #232321;
+  --color-field-hover: #292927EB;
+  --color-field-border: #28282C00;
+  --color-field-border-focus: #7BA23F;
+  --color-field-border-hover: #46464600;
+  --color-field-foreground: #FCFAF2;
+  --color-field-placeholder: #8A9095;
+
+  --color-segment: #4A4A48;
+  --color-segment-foreground: #FCFCFC;
+  --color-focus-ring: #7BA23F;
+
+  /* ── 语义色：边界 / 分隔 ──────────────────────────────── */
+  --color-border: #3B3B39;
+  --color-separator: #2B2B2A;
+  --color-separator-secondary: #383836;
+  --color-separator-tertiary: #434341;
+
+  /* ── 语义色：遮罩 / 滚动条 ────────────────────────────── */
+  --color-muted: #99A0A5;
+  --color-overlay: #292927;
+  --color-overlay-shadow: #FFFFFF4D;
+  --color-backdrop: #00000080;
+  --color-modal-backdrop: #060607F2;
+  --color-scrollbar: #8A9095;
+
+  /* ── 舞台 / 对话（沉浸式场景、立绘、演绎发言）───────────── */
+  --color-stage-scrim: #1C1C1CD9;
+  --color-stage-scrim-strong: #1C1C1CE6;
+  --color-stage-panel: #1C1C1CCC;
+  --color-dialogue-start: #232321E6;
+  --color-dialogue-end: #131312F5;
+  --color-dialogue-text: #E8E6DF;
+
+  /* ── 阴影色料 ─────────────────────────────────────────── */
+  --color-shadow-inner: #FFFFFF4D;
+  --color-shadow-scroll: #1C1C1C;
+  --color-shadow-scroll-blur: #1C1C1CB2;
+  --color-shadow-scroll-blur-on-surface: #262625B2;
+  --color-shadow-scroll-on-surface: #262625;
+
+  /* ── 品牌色（和风传统色）──────────────────────────────── */
+  --color-brand-fuji: #8B81C3;
+  --color-brand-ginnezumi: #91989F;
+  --color-brand-kurenai: #CB1B45;
+  --color-brand-moegi: #7BA23F;
+  --color-brand-nae: #86C166;
+  --color-brand-shironeri: #FCFAF2;
+  --color-brand-sora: #58B2DC;
+  --color-brand-sumi: #1C1C1C;
+  --color-brand-wakatake: #5DAC81;
+  --color-brand-yamabuki: #FFB11B;
+
+  /* ── 圆角 ─────────────────────────────────────────────── */
+  --radius-modal: 18px;
+
+  /* ── 阴影 ─────────────────────────────────────────────── */
+  --shadow-card: 0 2px 4px 0 #0000000A;
+  --shadow-modal: 0 24px 60px 0 #00000080;
+  --shadow-tab: 0 1px 3px 0 #0000000A;
+  --shadow-switch-thumb: 0 1px 3px 0 #0000001A;
+  --shadow-dropdown: 0 4px 12px 0 #00000014;
+  --shadow-tooltip: 0 2px 8px 0 #0000000F;
+  --shadow-dialogue-name: 0 4px 16px 0 #7BA23F59;
+  --shadow-dialogue: 0 24px 56px -16px #000000BF, inset 0 1px 0 0 #FCFAF212;
+  --shadow-overlay: 0 20px 50px 0 #00000099;
+}
