@@ -30,7 +30,8 @@ import {
   CheckRequestAlreadyResolvedError,
   InvalidSanLossExpressionError,
 } from "../domain/errors";
-import { DrizzleGameplayRepository } from "../infrastructure/drizzle-gameplay-repository";
+import type { DbClient } from "@/platform/db/client";
+import type { GameplayRepository } from "./ports";
 
 interface LoadedCharacterContext {
   character: { id: string; name: string; kind: string; ruleId: string; sheetJson: string };
@@ -42,7 +43,7 @@ interface LoadedCharacterContext {
 
 async function loadCharacterContext(
   ctx: CommandHandlerContext,
-  repo: DrizzleGameplayRepository,
+  repo: GameplayRepository,
   characterId: string,
   ruleRegistry: RuleRegistry
 ): Promise<LoadedCharacterContext> {
@@ -77,7 +78,7 @@ async function loadCharacterContext(
 /** 持久化新状态并生成 state:changed（PC 全员可见 / NPC 仅 GM）与 state:hint（仅 GM） */
 async function persistStateAndBuildEvents(
   ctx: CommandHandlerContext,
-  repo: DrizzleGameplayRepository,
+  repo: GameplayRepository,
   characterId: string,
   kind: string,
   newState: unknown,
@@ -207,7 +208,10 @@ export class RollDiceHandler implements CommandHandler {
 export class PerformCheckHandler implements CommandHandler {
   readonly type = "check:perform" as const;
 
-  constructor(private readonly ruleRegistry: RuleRegistry) {}
+  constructor(
+    private readonly ruleRegistry: RuleRegistry,
+    private readonly repoFactory: (tx: DbClient) => GameplayRepository
+  ) {}
 
   async execute(ctx: CommandHandlerContext, payload: unknown): Promise<CommandHandlerResult> {
     const parsed = PerformCheckCommand.safeParse(payload);
@@ -228,7 +232,7 @@ export class PerformCheckHandler implements CommandHandler {
     }
     const hidden = isGm && input.hidden === true;
 
-    const repo = new DrizzleGameplayRepository(ctx.tx);
+    const repo = this.repoFactory(ctx.tx);
     const { character, sessionCharacter, rule, sheet, state } = await loadCharacterContext(
       ctx,
       repo,
@@ -290,7 +294,10 @@ export class PerformCheckHandler implements CommandHandler {
 export class PerformSanCheckHandler implements CommandHandler {
   readonly type = "check:san" as const;
 
-  constructor(private readonly ruleRegistry: RuleRegistry) {}
+  constructor(
+    private readonly ruleRegistry: RuleRegistry,
+    private readonly repoFactory: (tx: DbClient) => GameplayRepository
+  ) {}
 
   async execute(ctx: CommandHandlerContext, payload: unknown): Promise<CommandHandlerResult> {
     if (ctx.actor.type !== "gm") {
@@ -304,7 +311,7 @@ export class PerformSanCheckHandler implements CommandHandler {
     const { successLoss, failureLoss } = parseSanLossExpression(input.sanLossExpression);
     const hidden = input.hidden === true;
 
-    const repo = new DrizzleGameplayRepository(ctx.tx);
+    const repo = this.repoFactory(ctx.tx);
     const { character, sessionCharacter, rule, state } = await loadCharacterContext(
       ctx,
       repo,
@@ -357,7 +364,10 @@ export class PerformSanCheckHandler implements CommandHandler {
 export class CreateCheckRequestHandler implements CommandHandler {
   readonly type = "check:request" as const;
 
-  constructor(private readonly ruleRegistry: RuleRegistry) {}
+  constructor(
+    private readonly ruleRegistry: RuleRegistry,
+    private readonly repoFactory: (tx: DbClient) => GameplayRepository
+  ) {}
 
   async execute(ctx: CommandHandlerContext, payload: unknown): Promise<CommandHandlerResult> {
     if (ctx.actor.type !== "gm") {
@@ -368,7 +378,7 @@ export class CreateCheckRequestHandler implements CommandHandler {
       throw validationFailed(parsed.error);
     }
     const input = parsed.data;
-    const repo = new DrizzleGameplayRepository(ctx.tx);
+    const repo = this.repoFactory(ctx.tx);
     const { sessionCharacter, rule, sheet } = await loadCharacterContext(
       ctx,
       repo,
@@ -430,14 +440,17 @@ export class CreateCheckRequestHandler implements CommandHandler {
 export class RespondCheckRequestHandler implements CommandHandler {
   readonly type = "check:respond" as const;
 
-  constructor(private readonly ruleRegistry: RuleRegistry) {}
+  constructor(
+    private readonly ruleRegistry: RuleRegistry,
+    private readonly repoFactory: (tx: DbClient) => GameplayRepository
+  ) {}
 
   async execute(ctx: CommandHandlerContext, payload: unknown): Promise<CommandHandlerResult> {
     const parsed = RespondCheckRequestCommand.safeParse(payload);
     if (!parsed.success) {
       throw validationFailed(parsed.error);
     }
-    const repo = new DrizzleGameplayRepository(ctx.tx);
+    const repo = this.repoFactory(ctx.tx);
 
     const request = await repo.findCheckRequest(parsed.data.requestId);
     if (!request || request.sessionId !== ctx.sessionId) {
@@ -521,7 +534,10 @@ export class RespondCheckRequestHandler implements CommandHandler {
 export class EditCharacterStateHandler implements CommandHandler {
   readonly type = "state:edit" as const;
 
-  constructor(private readonly ruleRegistry: RuleRegistry) {}
+  constructor(
+    private readonly ruleRegistry: RuleRegistry,
+    private readonly repoFactory: (tx: DbClient) => GameplayRepository
+  ) {}
 
   async execute(ctx: CommandHandlerContext, payload: unknown): Promise<CommandHandlerResult> {
     if (ctx.actor.type !== "gm") {
@@ -533,7 +549,7 @@ export class EditCharacterStateHandler implements CommandHandler {
     }
     const input = parsed.data;
 
-    const repo = new DrizzleGameplayRepository(ctx.tx);
+    const repo = this.repoFactory(ctx.tx);
     const { sessionCharacter, rule, state } = await loadCharacterContext(
       ctx,
       repo,
@@ -560,13 +576,16 @@ export class EditCharacterStateHandler implements CommandHandler {
   }
 }
 
-export function createGameplayCommandHandlers(ruleRegistry: RuleRegistry): CommandHandler[] {
+export function createGameplayCommandHandlers(
+  ruleRegistry: RuleRegistry,
+  repoFactory: (tx: DbClient) => GameplayRepository
+): CommandHandler[] {
   return [
     new RollDiceHandler(),
-    new PerformCheckHandler(ruleRegistry),
-    new PerformSanCheckHandler(ruleRegistry),
-    new CreateCheckRequestHandler(ruleRegistry),
-    new RespondCheckRequestHandler(ruleRegistry),
-    new EditCharacterStateHandler(ruleRegistry),
+    new PerformCheckHandler(ruleRegistry, repoFactory),
+    new PerformSanCheckHandler(ruleRegistry, repoFactory),
+    new CreateCheckRequestHandler(ruleRegistry, repoFactory),
+    new RespondCheckRequestHandler(ruleRegistry, repoFactory),
+    new EditCharacterStateHandler(ruleRegistry, repoFactory),
   ];
 }

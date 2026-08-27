@@ -195,4 +195,17 @@ describe("Identity and Auth contract tests", () => {
     const body = await response.json();
     expect(body.code).toBe("BLACKLISTED_FINGERPRINT");
   });
+
+  test("clientIp prefers forwarded header only when trustProxy is true", async () => {
+    const { clientIp } = await import("@/platform/security/request-ip");
+    const req = new Request("http://localhost", {
+      headers: { "x-forwarded-for": "203.0.113.195, 10.0.0.1" },
+    });
+    const fakeServer = {
+      requestIP: () => ({ address: "172.18.0.2" }),
+    };
+
+    expect(clientIp(req, fakeServer, true)).toBe("203.0.113.195");
+    expect(clientIp(req, fakeServer, false)).toBe("172.18.0.2");
+  });
 });

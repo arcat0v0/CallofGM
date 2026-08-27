@@ -61,7 +61,7 @@ export const EditCharacterStateCommand = z.object({
   removeStatuses: z.array(z.string().max(32)).optional(),
   addTags: z.array(z.string().max(64)).optional(),
   removeTags: z.array(z.string().max(64)).optional(),
-});
+}).passthrough();
 export type EditCharacterStateCommand = z.infer<typeof EditCharacterStateCommand>;
 
 // ---------- events & DTO ----------

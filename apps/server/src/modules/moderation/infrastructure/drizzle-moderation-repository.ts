@@ -1,8 +1,9 @@
 import { eq } from "drizzle-orm";
 import type { DbClient } from "@/platform/db/client";
 import { anonymousPlayers, blacklistEntries } from "@/platform/db/schema";
+import type { ModerationRepository, BlacklistEntryInput } from "../application/ports";
 
-export class DrizzleModerationRepository {
+export class DrizzleModerationRepository implements ModerationRepository {
   constructor(private readonly db: DbClient) {}
 
   async findPlayerFingerprintHash(playerId: string): Promise<string | null> {
@@ -14,13 +15,7 @@ export class DrizzleModerationRepository {
   }
 
   /** 写入/覆盖黑名单条目（fingerprintHash 唯一） */
-  async upsertBlacklistEntry(entry: {
-    id: string;
-    fingerprintHash: string;
-    reason: string;
-    expiresAt: number | null;
-    createdAt: number;
-  }): Promise<void> {
+  async upsertBlacklistEntry(entry: BlacklistEntryInput): Promise<void> {
     await this.db
       .insert(blacklistEntries)
       .values(entry)

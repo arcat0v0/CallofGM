@@ -317,39 +317,57 @@ export class BuildSessionSnapshotUseCase {
     claimedCharacterId: string | null,
     connectionId?: string
   ): Promise<SessionSnapshotPayload["recentEvents"]> {
-    const rows = await this.db
-      .select()
-      .from(sessionOutbox)
-      .where(
-        and(
-          eq(sessionOutbox.sessionId, sessionId),
-          inArray(sessionOutbox.type, [...RECENT_EVENT_TYPES])
-        )
-      )
-      .orderBy(desc(sessionOutbox.eventId))
-      .limit(RECENT_EVENTS_LIMIT);
-
+    let offset = 0;
+    const batchSize = RECENT_EVENTS_LIMIT;
+    const maxScan = 500;
     const visible: SessionSnapshotPayload["recentEvents"] = [];
-    for (const row of rows) {
-      let visibility: VisibilityScope;
-      try {
-        visibility = JSON.parse(row.visibilityJson) as VisibilityScope;
-      } catch {
-        continue;
+
+    while (visible.length < RECENT_EVENTS_LIMIT && offset < maxScan) {
+      const rows = await this.db
+        .select()
+        .from(sessionOutbox)
+        .where(
+          and(
+            eq(sessionOutbox.sessionId, sessionId),
+            inArray(sessionOutbox.type, [...RECENT_EVENT_TYPES])
+          )
+        )
+        .orderBy(desc(sessionOutbox.eventId))
+        .limit(batchSize)
+        .offset(offset);
+
+      if (rows.length === 0) {
+        break;
       }
-      if (!checkVisibility(actor, claimedCharacterId, visibility, connectionId ?? "")) {
-        continue;
+
+      for (const row of rows) {
+        let visibility: VisibilityScope;
+        try {
+          visibility = JSON.parse(row.visibilityJson) as VisibilityScope;
+        } catch {
+          continue;
+        }
+        if (!checkVisibility(actor, claimedCharacterId, visibility, connectionId ?? "")) {
+          continue;
+        }
+        visible.push({
+          eventId: row.eventId,
+          type: row.type,
+          occurredAt: row.createdAt,
+          payload: JSON.parse(row.payloadJson),
+        });
+        if (visible.length >= RECENT_EVENTS_LIMIT) {
+          break;
+        }
       }
-      visible.push({
-        eventId: row.eventId,
-        type: row.type,
-        occurredAt: row.createdAt,
-        payload: JSON.parse(row.payloadJson),
-      });
+
+      offset += rows.length;
+      if (rows.length < batchSize) {
+        break;
+      }
     }
     return visible.reverse();
   }
-
   /** 可见情报：公开 + 目标含请求者认领 PC 的秘密情报；GM 全量 */
   private async buildVisibleHandouts(
     sessionId: string,

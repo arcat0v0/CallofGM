@@ -1,4 +1,3 @@
-import { eq } from "drizzle-orm";
 import {
   SendChatMessageCommand,
   ReleaseChatMessageCommand,
@@ -16,13 +15,13 @@ import type {
 import { AppError } from "@/platform/errors/app-error";
 import { ForbiddenError } from "@/modules/identity";
 import { SessionPhaseForbidsActionError } from "@/modules/sessions";
-import { sessionOutbox } from "@/platform/db/schema";
 import { decideChatMessage } from "../domain/message-policy";
 import { MessageNotFoundError, MessageNotPendingError, ExpressionNotFoundError } from "../domain/errors";
-import { DrizzleChatRepository, type MessageRow } from "../infrastructure/drizzle-chat-repository";
+import type { DbClient } from "@/platform/db/client";
+import type { ChatRepository, MessageRow } from "./ports";
 
 async function toDto(
-  repo: DrizzleChatRepository,
+  repo: ChatRepository,
   row: MessageRow,
   nameCache: Map<string, string | null>
 ): Promise<ChatMessageDto> {
@@ -51,32 +50,28 @@ async function toDto(
 }
 
 async function persistPresentedEventId(
-  tx: CommandHandlerContext["tx"],
+  repo: ChatRepository,
   staged: StagedEvents,
   dto: ChatMessageDto,
   messageId: string
 ): Promise<void> {
   const entry = staged.entries[0];
   const eventId = entry?.event.eventId;
-  const outboxId = staged.outboxIds[0];
   if (eventId === undefined) {
     return;
   }
-  await new DrizzleChatRepository(tx).assignEventId(messageId, eventId);
+  await repo.assignEventId(messageId, eventId);
   dto.eventId = eventId;
   const payload = { message: dto };
   if (entry) {
     entry.event.payload = payload;
-  }
-  if (outboxId) {
-    await tx.update(sessionOutbox).set({ payloadJson: JSON.stringify(payload) }).where(eq(sessionOutbox.id, outboxId));
   }
 }
 
 /** 向 GM 推送最新待呈现队列（DirectControlMessage） */
 async function queueUpdate(
   ctx: CommandHandlerContext,
-  repo: DrizzleChatRepository
+  repo: ChatRepository
 ): Promise<{ type: string; payload: unknown }> {
   const pending = await repo.listPending(ctx.sessionId);
   const nameCache = new Map<string, string | null>();
@@ -92,13 +87,15 @@ export class SendChatMessageHandler implements CommandHandler {
   readonly type = "chat:send" as const;
   readonly allowedStatuses = ["waiting", "preparing", "active"] as const;
 
+  constructor(private readonly repoFactory: (tx: DbClient) => ChatRepository) {}
+
   async execute(ctx: CommandHandlerContext, payload: unknown): Promise<CommandHandlerResult> {
     const parsed = SendChatMessageCommand.safeParse(payload);
     if (!parsed.success) {
       throw new AppError("VALIDATION_FAILED", parsed.error.message, 400);
     }
     const input = parsed.data;
-    const repo = new DrizzleChatRepository(ctx.tx);
+    const repo = this.repoFactory(ctx.tx);
 
     const isGm = ctx.actor.type === "gm";
     const characterId = isGm ? null : (ctx.seat?.characterId ?? null);
@@ -159,8 +156,8 @@ export class SendChatMessageHandler implements CommandHandler {
             visibility: { type: "public" },
           },
         ],
-        finalizeAfterStaged: async (tx, staged) => {
-          await persistPresentedEventId(tx, staged, dto, messageId);
+        finalizeAfterStaged: async (_tx, staged) => {
+          await persistPresentedEventId(repo, staged, dto, messageId);
         },
         replyPayload: { messageId, presented: true },
       };
@@ -199,6 +196,8 @@ export class ReleaseChatMessageHandler implements CommandHandler {
   readonly type = "chat:release" as const;
   readonly allowedStatuses = ["waiting", "preparing", "active"] as const;
 
+  constructor(private readonly repoFactory: (tx: DbClient) => ChatRepository) {}
+
   async execute(ctx: CommandHandlerContext, payload: unknown): Promise<CommandHandlerResult> {
     if (ctx.actor.type !== "gm") {
       throw new ForbiddenError("Only the GM can release queued messages");
@@ -207,7 +206,7 @@ export class ReleaseChatMessageHandler implements CommandHandler {
     if (!parsed.success) {
       throw new AppError("VALIDATION_FAILED", parsed.error.message, 400);
     }
-    const repo = new DrizzleChatRepository(ctx.tx);
+    const repo = this.repoFactory(ctx.tx);
 
     const row = await repo.findMessageById(parsed.data.messageId);
     if (!row || row.sessionId !== ctx.sessionId) {
@@ -242,8 +241,8 @@ export class ReleaseChatMessageHandler implements CommandHandler {
     return {
       events,
       directToGms: [await queueUpdate(ctx, repo)],
-      finalizeAfterStaged: async (tx, staged) => {
-        await persistPresentedEventId(tx, staged, dto, row.id);
+      finalizeAfterStaged: async (_tx, staged) => {
+        await persistPresentedEventId(repo, staged, dto, row.id);
       },
       replyPayload: { messageId: row.id },
     };
@@ -255,6 +254,8 @@ export class DiscardChatMessageHandler implements CommandHandler {
   readonly type = "chat:discard" as const;
   readonly allowedStatuses = ["waiting", "preparing", "active"] as const;
 
+  constructor(private readonly repoFactory: (tx: DbClient) => ChatRepository) {}
+
   async execute(ctx: CommandHandlerContext, payload: unknown): Promise<CommandHandlerResult> {
     if (ctx.actor.type !== "gm") {
       throw new ForbiddenError("Only the GM can discard queued messages");
@@ -263,7 +264,7 @@ export class DiscardChatMessageHandler implements CommandHandler {
     if (!parsed.success) {
       throw new AppError("VALIDATION_FAILED", parsed.error.message, 400);
     }
-    const repo = new DrizzleChatRepository(ctx.tx);
+    const repo = this.repoFactory(ctx.tx);
 
     const row = await repo.findMessageById(parsed.data.messageId);
     if (!row || row.sessionId !== ctx.sessionId) {
@@ -286,6 +287,8 @@ export class ReorderChatQueueHandler implements CommandHandler {
   readonly type = "chat:reorder" as const;
   readonly allowedStatuses = ["waiting", "preparing", "active"] as const;
 
+  constructor(private readonly repoFactory: (tx: DbClient) => ChatRepository) {}
+
   async execute(ctx: CommandHandlerContext, payload: unknown): Promise<CommandHandlerResult> {
     if (ctx.actor.type !== "gm") {
       throw new ForbiddenError("Only the GM can reorder the queue");
@@ -294,7 +297,7 @@ export class ReorderChatQueueHandler implements CommandHandler {
     if (!parsed.success) {
       throw new AppError("VALIDATION_FAILED", parsed.error.message, 400);
     }
-    const repo = new DrizzleChatRepository(ctx.tx);
+    const repo = this.repoFactory(ctx.tx);
 
     const pending = await repo.listPending(ctx.sessionId);
     const pendingIds = new Set(pending.map((row) => row.id));
@@ -310,11 +313,13 @@ export class ReorderChatQueueHandler implements CommandHandler {
   }
 }
 
-export function createChatCommandHandlers(): CommandHandler[] {
+export function createChatCommandHandlers(
+  repoFactory: (tx: DbClient) => ChatRepository
+): CommandHandler[] {
   return [
-    new SendChatMessageHandler(),
-    new ReleaseChatMessageHandler(),
-    new DiscardChatMessageHandler(),
-    new ReorderChatQueueHandler(),
+    new SendChatMessageHandler(repoFactory),
+    new ReleaseChatMessageHandler(repoFactory),
+    new DiscardChatMessageHandler(repoFactory),
+    new ReorderChatQueueHandler(repoFactory),
   ];
 }

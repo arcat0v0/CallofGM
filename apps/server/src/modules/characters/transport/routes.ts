@@ -7,7 +7,11 @@ import { validationFailed } from "@/platform/errors/validation";
 import {
   CursorPageQuery,
   LinkModuleCharacterRequest,
-  type RuleId,
+  CreateCharacterRequest,
+  UpdateCharacterRequest,
+  ImportConfirmRequest,
+  AddPortraitRequest,
+  RuleId,
 } from "@cogm/shared";
 import {
   CreateCharacterUseCase,
@@ -24,32 +28,13 @@ import {
   UnlinkModuleCharacterUseCase,
 } from "../application/use-cases";
 
-interface CreateCharacterBody {
-  name: string;
-  kind: string;
-  ruleId: RuleId;
-  sheetData: unknown;
+function parseBody<T>(schema: { safeParse: (data: unknown) => { success: true; data: T } | { success: false; error: unknown } }, body: unknown): T {
+  const parsed = schema.safeParse(body);
+  if (!parsed.success) {
+    throw validationFailed(parsed.error);
+  }
+  return parsed.data;
 }
-
-interface UpdateCharacterBody {
-  name?: string;
-  kind?: string;
-  sheetData?: unknown;
-}
-
-interface ImportConfirmBody {
-  importToken: string;
-  kind: string;
-  ruleId?: RuleId;
-  moduleId?: string;
-}
-
-interface AddPortraitBody {
-  expressionKey: string;
-  portraitAssetId: string;
-  isDefault: boolean;
-}
-
 function parsePageQuery(query: unknown) {
   const parsed = CursorPageQuery.safeParse(query ?? {});
   if (!parsed.success) {
@@ -95,10 +80,7 @@ export function createCharactersRoutes(container: Container) {
       requireGm(actor);
     })
     .post("/", async ({ body }) => {
-      const data = body as CreateCharacterBody;
-      if (!data.name || !data.kind || !data.ruleId || data.sheetData === undefined) {
-        throw new AppError("VALIDATION_FAILED", "Missing required fields", 400);
-      }
+      const data = parseBody(CreateCharacterRequest, body);
       return await createCharacter.execute({
         name: data.name,
         kind: data.kind,
@@ -113,7 +95,7 @@ export function createCharactersRoutes(container: Container) {
       return await getCharacter.execute(id);
     })
     .patch("/:id", async ({ params: { id }, body }) => {
-      const data = body as UpdateCharacterBody;
+      const data = parseBody(UpdateCharacterRequest, body);
       return await updateCharacter.execute(id, {
         name: data.name,
         kind: data.kind,
@@ -128,11 +110,14 @@ export function createCharactersRoutes(container: Container) {
       "/import/preview",
       async ({ body, actor }) => {
         const file = body.file as Blob;
-        const ruleId = body.ruleId;
+        const parsedRuleId = RuleId.safeParse(body.ruleId);
+        if (!parsedRuleId.success) {
+          throw validationFailed(parsedRuleId.error);
+        }
         const arrayBuffer = await file.arrayBuffer();
         return await importPreview.execute({
           fileBuffer: arrayBuffer,
-          ruleId: ruleId as RuleId,
+          ruleId: parsedRuleId.data,
           gmSessionId: gmSessionIdOf(actor),
         });
       },
@@ -146,10 +131,7 @@ export function createCharactersRoutes(container: Container) {
     .post(
       "/import/confirm",
       async ({ body, actor }) => {
-        const data = body as ImportConfirmBody;
-        if (!data.importToken || !data.kind) {
-          throw validationFailed();
-        }
+        const data = parseBody(ImportConfirmRequest, body);
         return await importConfirm.execute({
           importToken: data.importToken,
           kind: data.kind,
@@ -162,10 +144,7 @@ export function createCharactersRoutes(container: Container) {
     .post(
       "/:id/portraits",
       async ({ params: { id: characterId }, body }) => {
-        const data = body as AddPortraitBody;
-        if (!data.expressionKey || !data.portraitAssetId) {
-          throw new AppError("VALIDATION_FAILED", "Missing required fields", 400);
-        }
+        const data = parseBody(AddPortraitRequest, body);
         return await addPortrait.execute({
           characterId,
           expressionKey: data.expressionKey,

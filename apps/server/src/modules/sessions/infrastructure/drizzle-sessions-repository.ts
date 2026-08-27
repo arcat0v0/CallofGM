@@ -8,8 +8,9 @@ import {
   modules,
   moduleCharacters,
 } from "@/platform/db/schema";
+import type { SessionsRepository } from "../application/ports";
 
-export class DrizzleSessionsRepository {
+export class DrizzleSessionsRepository implements SessionsRepository {
   constructor(private readonly db: DbClient) {}
 
   async findSessionById(id: string, db: DbClient = this.db) {

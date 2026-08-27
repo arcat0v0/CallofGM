@@ -1,11 +1,12 @@
 import { and, asc, eq, max } from "drizzle-orm";
 import type { DbClient } from "@/platform/db/client";
 import { sessionMessages, sessionCharacters, characters, characterPortraits } from "@/platform/db/schema";
+import type { ChatRepository } from "../application/ports";
 
 export type MessageRow = typeof sessionMessages.$inferSelect;
 export type NewMessageRow = typeof sessionMessages.$inferInsert;
 
-export class DrizzleChatRepository {
+export class DrizzleChatRepository implements ChatRepository {
   constructor(private readonly db: DbClient) {}
 
   async insertMessage(message: NewMessageRow): Promise<void> {

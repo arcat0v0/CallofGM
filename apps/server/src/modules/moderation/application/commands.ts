@@ -8,7 +8,8 @@ import type {
 } from "@/modules/realtime";
 import { AppError } from "@/platform/errors/app-error";
 import { ForbiddenError } from "@/modules/identity";
-import { DrizzleModerationRepository } from "../infrastructure/drizzle-moderation-repository";
+import type { DbClient } from "@/platform/db/client";
+import type { ModerationRepository } from "./ports";
 
 export class PlayerNotFoundError extends AppError {
   constructor(message = "Player not found") {
@@ -57,6 +58,8 @@ export class BanFingerprintHandler implements CommandHandler {
   readonly type = "player:ban" as const;
   readonly allowWhenEnded = true;
 
+  constructor(private readonly repoFactory: (tx: DbClient) => ModerationRepository) {}
+
   async execute(ctx: CommandHandlerContext, payload: unknown): Promise<CommandHandlerResult> {
     if (ctx.actor.type !== "gm") {
       throw new ForbiddenError("Only the GM can ban players");
@@ -67,7 +70,7 @@ export class BanFingerprintHandler implements CommandHandler {
     }
     const input = parsed.data;
 
-    const repo = new DrizzleModerationRepository(ctx.tx);
+    const repo = this.repoFactory(ctx.tx);
     const fingerprintHash = await repo.findPlayerFingerprintHash(input.playerId);
     if (!fingerprintHash) {
       throw new PlayerNotFoundError();
@@ -98,6 +101,8 @@ export class UnbanFingerprintHandler implements CommandHandler {
   readonly type = "player:unban" as const;
   readonly allowWhenEnded = true;
 
+  constructor(private readonly repoFactory: (tx: DbClient) => ModerationRepository) {}
+
   async execute(ctx: CommandHandlerContext, payload: unknown): Promise<CommandHandlerResult> {
     if (ctx.actor.type !== "gm") {
       throw new ForbiddenError("Only the GM can unban players");
@@ -107,12 +112,18 @@ export class UnbanFingerprintHandler implements CommandHandler {
       throw new AppError("VALIDATION_FAILED", parsed.error.message, 400);
     }
 
-    const repo = new DrizzleModerationRepository(ctx.tx);
+    const repo = this.repoFactory(ctx.tx);
     const removed = await repo.deleteBlacklistEntry(parsed.data.fingerprintHash);
     return { replyPayload: { removed } };
   }
 }
 
-export function createModerationCommandHandlers(): CommandHandler[] {
-  return [new KickPlayerHandler(), new BanFingerprintHandler(), new UnbanFingerprintHandler()];
+export function createModerationCommandHandlers(
+  repoFactory: (tx: DbClient) => ModerationRepository
+): CommandHandler[] {
+  return [
+    new KickPlayerHandler(),
+    new BanFingerprintHandler(repoFactory),
+    new UnbanFingerprintHandler(repoFactory),
+  ];
 }

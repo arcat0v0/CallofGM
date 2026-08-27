@@ -33,4 +33,21 @@ export const CharacterSessionState = z.object({
   tags: z.array(z.string()),
   growthMarks: z.array(z.string()),
 });
+
+export const Coc7eStateEditInput = z.object({
+  hp: z.number().int().min(0).optional(),
+  maxHp: z.number().int().min(1).optional(),
+  mp: z.number().int().min(0).optional(),
+  maxMp: z.number().int().min(0).optional(),
+  san: z.number().int().min(0).optional(),
+  maxSan: z.number().int().min(0).optional(),
+  hpDelta: z.number().int().optional(),
+  mpDelta: z.number().int().optional(),
+  sanDelta: z.number().int().optional(),
+  addStatuses: z.array(z.string().max(32)).optional(),
+  removeStatuses: z.array(z.string().max(32)).optional(),
+  addTags: z.array(z.string().max(64)).optional(),
+  removeTags: z.array(z.string().max(64)).optional(),
+});
+export type Coc7eStateEditInput = z.infer<typeof Coc7eStateEditInput>;
 export type CharacterSessionState = z.infer<typeof CharacterSessionState>;

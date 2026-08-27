@@ -1,8 +1,9 @@
 import { and, eq } from "drizzle-orm";
 import type { DbClient } from "@/platform/db/client";
 import { characters, sessionCharacters, checkRequests } from "@/platform/db/schema";
+import type { GameplayRepository } from "../application/ports";
 
-export class DrizzleGameplayRepository {
+export class DrizzleGameplayRepository implements GameplayRepository {
   constructor(private readonly db: DbClient) {}
 
   async findCharacter(characterId: string) {

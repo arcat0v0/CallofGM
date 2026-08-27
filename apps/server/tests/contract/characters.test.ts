@@ -436,4 +436,43 @@ describe("Characters contract tests", () => {
     const body = await confirmRes.json() as { code: string };
     expect(body.code).toBe("STAGING_OWNER_MISMATCH");
   });
+
+  test("Create and update character reject invalid kind and ruleId", async () => {
+    const badKindRes = await app.handle(
+      new Request("http://localhost/api/v1/gm/characters", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${gmToken}`,
+        },
+        body: JSON.stringify({
+          name: "测试人物",
+          kind: "INVALID_KIND",
+          ruleId: "coc7e",
+          sheetData: {
+            attributes: { str: 50, con: 50, siz: 50, dex: 50, app: 50, int: 50, pow: 50, edu: 50, luck: 50 },
+            skills: {},
+          },
+        }),
+      })
+    );
+    expect(badKindRes.status).toBe(400);
+
+    const badRuleRes = await app.handle(
+      new Request("http://localhost/api/v1/gm/characters", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${gmToken}`,
+        },
+        body: JSON.stringify({
+          name: "测试人物",
+          kind: "pc",
+          ruleId: "unregistered_rule",
+          sheetData: {},
+        }),
+      })
+    );
+    expect(badRuleRes.status).toBe(400);
+  });
 });

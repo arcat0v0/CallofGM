@@ -14,12 +14,9 @@ import {
   StagingConsumedError,
   ModuleCharacterNotLinkedError,
 } from "../domain/errors";
+import type { CharactersRepository, CursorPageOptions } from "../application/ports";
 
-export type CursorPageOptions = {
-  limit: number;
-  offset?: number;
-  cursor?: string;
-};
+
 
 function paginated<T extends { id: string }>(items: T[], limit: number) {
   const hasMore = items.length > limit;
@@ -31,7 +28,7 @@ function paginated<T extends { id: string }>(items: T[], limit: number) {
   };
 }
 
-export class DrizzleCharactersRepository {
+export class DrizzleCharactersRepository implements CharactersRepository {
   constructor(private readonly db: DbClient) {}
 
   async findCharacterById(id: string) {

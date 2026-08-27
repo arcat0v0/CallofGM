@@ -46,7 +46,7 @@ export abstract class RuleSystem<TSheet, TSessionState> {
   abstract readonly characterSheetSchema: z.ZodType<TSheet>;
   abstract readonly sessionStateSchema: z.ZodType<TSessionState>;
 
-  abstract parseCharacterSheet(input: ArrayBuffer): Promise<CharacterSheetPreview<TSheet>>;
+  parseCharacterSheet?(input: ArrayBuffer): Promise<CharacterSheetPreview<TSheet>>;
   abstract initializeSessionState(sheet: TSheet): TSessionState;
   abstract evaluateSkillCheck(input: SkillCheckInput, random: RandomSource): unknown;
   abstract evaluateSanCheck(input: SanCheckInput, random: RandomSource): unknown;

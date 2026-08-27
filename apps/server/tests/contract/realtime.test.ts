@@ -556,4 +556,62 @@ describe("Realtime contract tests", () => {
     await closeWs(gmWs);
     await server.stop(true);
   });
+
+  test("Snapshot recovers visible events when preceded by many hidden events", async () => {
+    const sessionsRepo = new DrizzleSessionsRepository(container.db);
+    const createSession = new CreateSessionUseCase(
+      sessionsRepo,
+      container.ruleRegistry,
+      container.idGenerator,
+      container.clock
+    );
+    const created = await createSession.execute({
+      moduleId: "module-rt",
+      characterIds: ["char-rt-1"],
+    });
+    const testSessionId = created.session.id;
+
+    const claimSeat = new ClaimSeatUseCase(sessionsRepo, container.idGenerator, container.clock);
+    await claimSeat.execute({
+      sessionId: testSessionId,
+      playerId: player1Id,
+      role: "pc",
+      characterId: "char-rt-1",
+    });
+
+    await container.sessionEventBus.emit(testSessionId, [
+      {
+        type: "dice:rolled",
+        payload: { rollerType: "player", result: { total: 42, expression: "1d100", detail: "42" }, hidden: false },
+        visibility: { type: "public" },
+      },
+    ]);
+
+    for (let i = 0; i < 55; i++) {
+      await container.sessionEventBus.emit(testSessionId, [
+        {
+          type: "dice:rolled",
+          payload: { rollerType: "gm", result: { total: i, expression: "1d100", detail: String(i) }, hidden: true },
+          visibility: { type: "gmOnly" },
+        },
+      ]);
+    }
+
+    const playerSnapshot = await container.snapshotBuilder.execute({
+      sessionId: testSessionId,
+      actor: { type: "player", playerId: player1Id },
+      claimedCharacterId: "char-rt-1",
+    });
+
+    const hasTargetRoll = playerSnapshot.recentEvents.some((e) => {
+      if (e.payload && typeof e.payload === "object" && "result" in e.payload) {
+        const res = e.payload.result;
+        if (res && typeof res === "object" && "total" in res) {
+          return res.total === 42;
+        }
+      }
+      return false;
+    });
+    expect(hasTargetRoll).toBe(true);
+  });
 });

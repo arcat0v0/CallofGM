@@ -1,7 +1,7 @@
 import type { RuleId } from "@cogm/shared";
 import type { IdGenerator, Clock } from "@/platform/ports";
 import type { RuleRegistry } from "@/rules/registry";
-import type { DrizzleSessionsRepository } from "../infrastructure/drizzle-sessions-repository";
+import type { SessionsRepository } from "./ports";
 import { CharacterNotFoundError } from "@/modules/characters";
 import { ModuleNotFoundError } from "@/modules/catalog";
 import {
@@ -16,7 +16,7 @@ import type { SessionEventBus } from "@/modules/realtime";
 
 export class CreateSessionUseCase {
   constructor(
-    private readonly repo: DrizzleSessionsRepository,
+    private readonly repo: SessionsRepository,
     private readonly ruleRegistry: RuleRegistry,
     private readonly idGenerator: IdGenerator,
     private readonly clock: Clock
@@ -89,7 +89,7 @@ export class CreateSessionUseCase {
 
 export class ClaimSeatUseCase {
   constructor(
-    private readonly repo: DrizzleSessionsRepository,
+    private readonly repo: SessionsRepository,
     private readonly idGenerator: IdGenerator,
     private readonly clock: Clock
   ) {}
@@ -149,7 +149,7 @@ export class ClaimSeatUseCase {
 
 export class ReleaseSeatUseCase {
   constructor(
-    private readonly repo: DrizzleSessionsRepository,
+    private readonly repo: SessionsRepository,
     private readonly clock: Clock
   ) {}
 
@@ -166,7 +166,7 @@ export class ReleaseSeatUseCase {
 
 export class UpdateSessionStatusUseCase {
   constructor(
-    private readonly repo: DrizzleSessionsRepository,
+    private readonly repo: SessionsRepository,
     private readonly transactionRunner: TransactionRunner,
     private readonly eventBus: SessionEventBus,
     private readonly afterEnded?: (sessionId: string) => void
@@ -219,7 +219,7 @@ export class UpdateSessionStatusUseCase {
 
 export class UpdateSessionPhaseUseCase {
   constructor(
-    private readonly repo: DrizzleSessionsRepository,
+    private readonly repo: SessionsRepository,
     private readonly transactionRunner: TransactionRunner,
     private readonly eventBus: SessionEventBus
   ) {}
@@ -252,8 +252,7 @@ export class UpdateSessionPhaseUseCase {
 }
 
 export class GetSessionSnapshotUseCase {
-  constructor(private readonly repo: DrizzleSessionsRepository) {}
-
+  constructor(private readonly repo: SessionsRepository) {}
   async execute(sessionId: string) {
     const session = await this.repo.findSessionById(sessionId);
     if (!session) {
@@ -270,8 +269,7 @@ export class GetSessionSnapshotUseCase {
 }
 
 export class ListSessionsUseCase {
-  constructor(private readonly repo: DrizzleSessionsRepository) {}
-
+  constructor(private readonly repo: SessionsRepository) {}
   async execute(options: { limit: number; offset?: number; cursor?: string }) {
     return await this.repo.listSessions(options);
   }

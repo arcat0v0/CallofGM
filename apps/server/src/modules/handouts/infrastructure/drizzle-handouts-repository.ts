@@ -1,8 +1,9 @@
 import { and, eq, inArray } from "drizzle-orm";
 import type { DbClient } from "@/platform/db/client";
 import { handouts, handoutGrants, handoutGrantRecipients, sessionCharacters } from "@/platform/db/schema";
+import type { HandoutsRepository } from "../application/ports";
 
-export class DrizzleHandoutsRepository {
+export class DrizzleHandoutsRepository implements HandoutsRepository {
   constructor(private readonly db: DbClient) {}
 
   async findHandoutById(id: string) {

@@ -1,6 +1,7 @@
 import { type IdGenerator, type Clock } from "@/platform/ports";
 import { type RuleRegistry } from "@/rules/registry";
-import { type DrizzleCharactersRepository, type CursorPageOptions } from "../infrastructure/drizzle-characters-repository";
+import { type CharactersRepository, type CursorPageOptions } from "./ports";
+import { AppError } from "@/platform/errors/app-error";
 import {
   CharacterNotFoundError,
   StagingRecordNotFoundError,
@@ -35,7 +36,7 @@ function parseStagingErrors(errorsJson: string): unknown[] {
 
 export class CreateCharacterUseCase {
   constructor(
-    private readonly repo: DrizzleCharactersRepository,
+    private readonly repo: CharactersRepository,
     private readonly ruleRegistry: RuleRegistry,
     private readonly idGenerator: IdGenerator,
     private readonly clock: Clock
@@ -47,6 +48,7 @@ export class CreateCharacterUseCase {
     ruleId: RuleId;
     sheetData: unknown;
   }) {
+    assertKind(input.kind);
     const sheetData = this.ruleRegistry.get(input.ruleId).characterSheetSchema.parse(input.sheetData);
     const id = this.idGenerator.nextId();
     const character = {
@@ -64,7 +66,7 @@ export class CreateCharacterUseCase {
 
 export class UpdateCharacterUseCase {
   constructor(
-    private readonly repo: DrizzleCharactersRepository,
+    private readonly repo: CharactersRepository,
     private readonly ruleRegistry: RuleRegistry
   ) {}
 
@@ -78,7 +80,10 @@ export class UpdateCharacterUseCase {
   ) {
     const updates: { name?: string; kind?: string; sheetJson?: string } = {};
     if (input.name !== undefined) updates.name = input.name;
-    if (input.kind !== undefined) updates.kind = input.kind;
+    if (input.kind !== undefined) {
+      assertKind(input.kind);
+      updates.kind = input.kind;
+    }
     if (input.sheetData !== undefined) {
       const character = await this.repo.findCharacterById(id);
       if (!character) {
@@ -94,16 +99,14 @@ export class UpdateCharacterUseCase {
 }
 
 export class DeleteCharacterUseCase {
-  constructor(private readonly repo: DrizzleCharactersRepository) {}
-
+  constructor(private readonly repo: CharactersRepository) {}
   async execute(id: string) {
     await this.repo.deleteCharacter(id);
   }
 }
 
 export class GetCharacterUseCase {
-  constructor(private readonly repo: DrizzleCharactersRepository) {}
-
+  constructor(private readonly repo: CharactersRepository) {}
   async execute(id: string) {
     const character = await this.repo.findCharacterById(id);
     if (!character) {
@@ -118,8 +121,7 @@ export class GetCharacterUseCase {
 }
 
 export class ListCharactersUseCase {
-  constructor(private readonly repo: DrizzleCharactersRepository) {}
-
+  constructor(private readonly repo: CharactersRepository) {}
   async execute(options: CursorPageOptions) {
     return await this.repo.listCharacters(options);
   }
@@ -127,7 +129,7 @@ export class ListCharactersUseCase {
 
 export class AddPortraitUseCase {
   constructor(
-    private readonly repo: DrizzleCharactersRepository,
+    private readonly repo: CharactersRepository,
     private readonly idGenerator: IdGenerator,
     private readonly clock: Clock
   ) {}
@@ -167,8 +169,7 @@ export class AddPortraitUseCase {
 }
 
 export class DeletePortraitUseCase {
-  constructor(private readonly repo: DrizzleCharactersRepository) {}
-
+  constructor(private readonly repo: CharactersRepository) {}
   async execute(id: string) {
     await this.repo.deletePortrait(id);
   }
@@ -176,7 +177,7 @@ export class DeletePortraitUseCase {
 
 export class ImportPreviewUseCase {
   constructor(
-    private readonly repo: DrizzleCharactersRepository,
+    private readonly repo: CharactersRepository,
     private readonly ruleRegistry: RuleRegistry,
     private readonly idGenerator: IdGenerator,
     private readonly clock: Clock
@@ -188,6 +189,9 @@ export class ImportPreviewUseCase {
     gmSessionId: string | null;
   }) {
     const ruleSystem = this.ruleRegistry.get(input.ruleId);
+    if (!ruleSystem.parseCharacterSheet) {
+      throw new AppError("RULE_ACTION_UNSUPPORTED", `Character sheet parsing is not supported for rule: ${input.ruleId}`, 400);
+    }
     const preview = await ruleSystem.parseCharacterSheet(input.fileBuffer);
     const now = this.clock.nowEpochMs();
     const importToken = this.idGenerator.nextId();
@@ -211,7 +215,7 @@ export class ImportPreviewUseCase {
 
 export class ImportConfirmUseCase {
   constructor(
-    private readonly repo: DrizzleCharactersRepository,
+    private readonly repo: CharactersRepository,
     private readonly idGenerator: IdGenerator,
     private readonly clock: Clock
   ) {}
@@ -272,8 +276,7 @@ export class ImportConfirmUseCase {
 }
 
 export class ListModuleCharactersUseCase {
-  constructor(private readonly repo: DrizzleCharactersRepository) {}
-
+  constructor(private readonly repo: CharactersRepository) {}
   async execute(moduleId: string, options: CursorPageOptions) {
     const exists = await this.repo.moduleExists(moduleId);
     if (!exists) {
@@ -285,7 +288,7 @@ export class ListModuleCharactersUseCase {
 
 export class LinkModuleCharacterUseCase {
   constructor(
-    private readonly repo: DrizzleCharactersRepository,
+    private readonly repo: CharactersRepository,
     private readonly idGenerator: IdGenerator,
     private readonly clock: Clock
   ) {}
@@ -318,8 +321,7 @@ export class LinkModuleCharacterUseCase {
 }
 
 export class UnlinkModuleCharacterUseCase {
-  constructor(private readonly repo: DrizzleCharactersRepository) {}
-
+  constructor(private readonly repo: CharactersRepository) {}
   async execute(moduleId: string, characterId: string) {
     const exists = await this.repo.moduleExists(moduleId);
     if (!exists) {

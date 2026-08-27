@@ -1,4 +1,14 @@
-export { createHandoutCommandHandlers } from "./application/commands";
+import { createHandoutCommandHandlers as createRawHandlers } from "./application/commands";
+import { DrizzleHandoutsRepository } from "./infrastructure/drizzle-handouts-repository";
+import type { DbClient } from "@/platform/db/client";
+import type { HandoutsRepository } from "./application/ports";
+import type { CommandHandler } from "@/modules/realtime";
+
+export function createHandoutCommandHandlers(
+  repoFactory: (tx: DbClient) => HandoutsRepository = (tx) => new DrizzleHandoutsRepository(tx)
+): CommandHandler[] {
+  return createRawHandlers(repoFactory);
+}
 export {
   GrantHandoutHandler,
   AppendHandoutRecipientsHandler,

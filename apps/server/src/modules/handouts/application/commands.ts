@@ -7,7 +7,8 @@ import type {
 import { AppError } from "@/platform/errors/app-error";
 import { ForbiddenError } from "@/modules/identity";
 import { HandoutNotFoundError, HandoutGrantNotFoundError } from "../domain/errors";
-import { DrizzleHandoutsRepository } from "../infrastructure/drizzle-handouts-repository";
+import type { DbClient } from "@/platform/db/client";
+import type { HandoutsRepository } from "./ports";
 
 function toGrantedDto(
   grant: { id: string; isPublic: number; createdAt: number },
@@ -34,6 +35,8 @@ export class GrantHandoutHandler implements CommandHandler {
   readonly type = "handout:grant" as const;
   readonly allowedStatuses = ["preparing", "active"] as const;
 
+  constructor(private readonly repoFactory: (tx: DbClient) => HandoutsRepository) {}
+
   async execute(ctx: CommandHandlerContext, payload: unknown): Promise<CommandHandlerResult> {
     if (ctx.actor.type !== "gm") {
       throw new ForbiddenError("Only the GM can grant handouts");
@@ -43,7 +46,7 @@ export class GrantHandoutHandler implements CommandHandler {
       throw new AppError("VALIDATION_FAILED", parsed.error.message, 400);
     }
     const input = parsed.data;
-    const repo = new DrizzleHandoutsRepository(ctx.tx);
+    const repo = this.repoFactory(ctx.tx);
 
     const handout = await repo.findHandoutById(input.handoutId);
     if (!handout || handout.moduleId !== ctx.session.moduleId) {
@@ -104,6 +107,8 @@ export class AppendHandoutRecipientsHandler implements CommandHandler {
   readonly type = "handout:append" as const;
   readonly allowedStatuses = ["preparing", "active"] as const;
 
+  constructor(private readonly repoFactory: (tx: DbClient) => HandoutsRepository) {}
+
   async execute(ctx: CommandHandlerContext, payload: unknown): Promise<CommandHandlerResult> {
     if (ctx.actor.type !== "gm") {
       throw new ForbiddenError("Only the GM can append handout recipients");
@@ -113,7 +118,7 @@ export class AppendHandoutRecipientsHandler implements CommandHandler {
       throw new AppError("VALIDATION_FAILED", parsed.error.message, 400);
     }
     const input = parsed.data;
-    const repo = new DrizzleHandoutsRepository(ctx.tx);
+    const repo = this.repoFactory(ctx.tx);
 
     const grant = await repo.findGrantById(input.grantId);
     if (!grant || grant.sessionId !== ctx.sessionId) {
@@ -165,6 +170,8 @@ export class AppendHandoutRecipientsHandler implements CommandHandler {
   }
 }
 
-export function createHandoutCommandHandlers(): CommandHandler[] {
-  return [new GrantHandoutHandler(), new AppendHandoutRecipientsHandler()];
+export function createHandoutCommandHandlers(
+  repoFactory: (tx: DbClient) => HandoutsRepository
+): CommandHandler[] {
+  return [new GrantHandoutHandler(repoFactory), new AppendHandoutRecipientsHandler(repoFactory)];
 }
