@@ -36,6 +36,8 @@ export interface CommandHandlerResult {
   directToSession?: Array<{ type: string; payload: unknown }>;
   /** 提交后需要强制关闭的玩家连接（踢出/拉黑） */
   closeConnectionsOfPlayerIds?: string[];
+  /** 为 true 时关闭该玩家全部团的连接（拉黑）；默认只关本团 */
+  closeConnectionsGlobally?: boolean;
   /** 提交后向 GM 刷新在线列表 */
   refreshPresence?: boolean;
   /** command:accepted 回执 payload */
@@ -57,5 +59,7 @@ export interface CommandHandler {
   readonly type: ClientCommandType;
   /** 已结团的团是否仍允许执行（默认 false，如踢人/拉黑等管理动作可放行） */
   readonly allowWhenEnded?: boolean;
+  /** 未结团时允许的团状态；缺省仅 `active` */
+  readonly allowedStatuses?: ReadonlyArray<"waiting" | "preparing" | "active">;
   execute(ctx: CommandHandlerContext, payload: unknown): Promise<CommandHandlerResult>;
 }

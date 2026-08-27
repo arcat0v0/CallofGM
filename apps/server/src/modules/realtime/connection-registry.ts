@@ -11,6 +11,8 @@ export interface ActiveConnection {
   sessionId: string;
   playerId: string | null;
   actor: ActorContext;
+  state?: "hydrating" | "active";
+  hydrateBuffer?: Array<{ event: SessionEvent; visibility: VisibilityScope }>;
 }
 
 /**
@@ -25,6 +27,8 @@ export class ConnectionRegistry {
   constructor(private readonly db: DbClient) {}
 
   register(conn: ActiveConnection): void {
+    conn.state = conn.state ?? "hydrating";
+    conn.hydrateBuffer = conn.hydrateBuffer ?? [];
     this.connections.set(conn.connectionId, conn);
 
     if (!this.bySession.has(conn.sessionId)) {
@@ -38,6 +42,17 @@ export class ConnectionRegistry {
       }
       this.byPlayer.get(conn.playerId)!.add(conn.connectionId);
     }
+  }
+
+  markActive(connectionId: string): Array<{ event: SessionEvent; visibility: VisibilityScope }> {
+    const conn = this.connections.get(connectionId);
+    if (!conn) {
+      return [];
+    }
+    const buffered = conn.hydrateBuffer ?? [];
+    conn.hydrateBuffer = [];
+    conn.state = "active";
+    return buffered;
   }
 
   unregister(connectionId: string): void {
@@ -120,6 +135,11 @@ export class ConnectionRegistry {
         conn.playerId ? playerToCharacterMap.get(conn.playerId) || null : null;
 
       if (checkVisibility(conn.actor, claimedCharacterId, visibility, conn.connectionId)) {
+        if (conn.state === "hydrating") {
+          conn.hydrateBuffer = conn.hydrateBuffer ?? [];
+          conn.hydrateBuffer.push({ event, visibility });
+          continue;
+        }
         try {
           conn.ws.send(serialized);
         } catch {
@@ -187,6 +207,31 @@ export class ConnectionRegistry {
           ws.close(code, reason);
         } catch {
           // 忽略已断开的连接
+        }
+      }, 0);
+      this.unregister(connectionId);
+      closed += 1;
+    }
+    return closed;
+  }
+
+  closeSessionConnections(sessionId: string, code = 1001, reason = "session ended"): number {
+    const ids = this.bySession.get(sessionId);
+    if (!ids) {
+      return 0;
+    }
+    let closed = 0;
+    for (const connectionId of [...ids]) {
+      const conn = this.connections.get(connectionId);
+      if (!conn) {
+        continue;
+      }
+      const ws = conn.ws;
+      setTimeout(() => {
+        try {
+          ws.close(code, reason);
+        } catch {
+          // ignore
         }
       }, 0);
       this.unregister(connectionId);

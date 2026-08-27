@@ -46,4 +46,8 @@ export class EventRingBuffer {
     const targetEventId = lastEventId + 1;
     return buf.filter((e) => e.event.eventId >= targetEventId);
   }
+
+  evict(sessionId: string): void {
+    this.buffers.delete(sessionId);
+  }
 }

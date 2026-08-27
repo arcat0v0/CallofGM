@@ -12,6 +12,7 @@ import {
   handouts
 } from "@/platform/db/schema";
 import { eq } from "drizzle-orm";
+import { resetHttpLimits } from "@/platform/security/http-limits";
 
 describe("Catalog contract tests", () => {
   let container: Container;
@@ -21,6 +22,7 @@ describe("Catalog contract tests", () => {
   let playerToken = "";
 
   beforeAll(async () => {
+    resetHttpLimits();
     process.env.DATABASE_URL = ":memory:";
     const hash = await Bun.password.hash(gmPassword);
     process.env.GM_PASSWORD_HASH = hash;
@@ -82,6 +84,16 @@ describe("Catalog contract tests", () => {
       mimeType: "image/png",
       size: 100,
       sha256: "dummy-hash",
+      createdAt: Date.now()
+    });
+    await container.db.insert(mediaAssets).values({
+      id: "audio-asset-id",
+      purpose: "audio",
+      storageKey: "audio-key",
+      filename: "test.mp3",
+      mimeType: "audio/mpeg",
+      size: 100,
+      sha256: "dummy-audio-hash",
       createdAt: Date.now()
     });
   });
@@ -255,8 +267,8 @@ describe("Catalog contract tests", () => {
     );
     expect(listRes.status).toBe(200);
     const list = await listRes.json();
-    expect(list.length).toBe(1);
-    expect(list[0].id).toBe(sceneSuccess.id);
+    expect(list.items.length).toBe(1);
+    expect(list.items[0].id).toBe(sceneSuccess.id);
 
     const updateFailRes = await app.handle(
       new Request(
@@ -349,7 +361,7 @@ describe("Catalog contract tests", () => {
         },
         body: JSON.stringify({
           name: "Track Success",
-          audioAssetId: "media-asset-id",
+          audioAssetId: "audio-asset-id",
           type: "bgm",
           duration: 120
         })
@@ -366,7 +378,7 @@ describe("Catalog contract tests", () => {
     );
     expect(listRes.status).toBe(200);
     const list = await listRes.json();
-    expect(list.length).toBe(1);
+    expect(list.items.length).toBe(1);
 
     const deleteRes = await app.handle(
       new Request(
@@ -438,7 +450,7 @@ describe("Catalog contract tests", () => {
     );
     expect(listRes.status).toBe(200);
     const list = await listRes.json();
-    expect(list.length).toBe(1);
+    expect(list.items.length).toBe(1);
 
     const deleteRes = await app.handle(
       new Request(
@@ -493,7 +505,7 @@ describe("Catalog contract tests", () => {
         },
         body: JSON.stringify({
           name: "Track to cascade",
-          audioAssetId: "media-asset-id",
+          audioAssetId: "audio-asset-id",
           type: "bgm",
           duration: 60
         })

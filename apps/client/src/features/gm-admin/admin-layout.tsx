@@ -1,22 +1,30 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { AudioLines, LogOut, Package, ShieldBan, Swords, VenetianMask } from "lucide-react";
 import type { ReactNode } from "react";
 import { Logo } from "@/components/brand/logo";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { logoutGm } from "@/lib/identity";
 import { cn } from "@/lib/utils";
 
 type AdminNavKey = "sessions" | "modules" | "characters" | "music" | "blacklist";
 
 const NAV_ITEMS: { key: AdminNavKey; label: string; icon: typeof Swords; to: string }[] = [
   { key: "sessions", label: "团管理", icon: Swords, to: "/gm" },
-  { key: "modules", label: "模组管理", icon: Package, to: "/gm" },
+  { key: "modules", label: "模组管理", icon: Package, to: "/gm/modules" },
   { key: "characters", label: "人物管理", icon: VenetianMask, to: "/gm/characters" },
   { key: "music", label: "音乐资源", icon: AudioLines, to: "/gm/music" },
   { key: "blacklist", label: "黑名单", icon: ShieldBan, to: "/gm/blacklist" },
 ];
 
 function AdminLayout({ active, children }: { active: AdminNavKey; children: ReactNode }) {
+  const navigate = useNavigate();
+
+  async function handleLogout() {
+    await logoutGm();
+    await navigate({ to: "/gm/login" });
+  }
+
   return (
     <div className="bg-background flex h-screen">
       <aside className="border-separator bg-background-secondary flex w-[248px] shrink-0 flex-col gap-1.5 border-r p-5">
@@ -59,7 +67,13 @@ function AdminLayout({ active, children }: { active: AdminNavKey; children: Reac
             <span className="text-foreground font-sans text-[13px] font-semibold">主持人</span>
             <span className="text-foreground-tertiary font-sans text-[10px]">已登录</span>
           </div>
-          <Button variant="ghost" size="icon-sm" aria-label="退出登录" className="text-foreground-secondary">
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="退出登录"
+            className="text-foreground-secondary"
+            onClick={() => void handleLogout()}
+          >
             <LogOut />
           </Button>
         </div>

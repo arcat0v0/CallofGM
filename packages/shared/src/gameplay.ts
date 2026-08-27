@@ -17,6 +17,7 @@ export const PerformCheckCommand = z.object({
   bonusDice: z.number().int().min(0).max(2).default(0),
   penaltyDice: z.number().int().min(0).max(2).default(0),
   hidden: z.boolean().optional(),
+  ruleId: z.string().min(1).max(32).optional(),
 });
 export type PerformCheckCommand = z.infer<typeof PerformCheckCommand>;
 
@@ -27,8 +28,7 @@ export const CreateCheckRequestCommand = z.object({
   bonusDice: z.number().int().min(0).max(2).default(0),
   penaltyDice: z.number().int().min(0).max(2).default(0),
   hidden: z.boolean().optional(),
-  /** SAN 检定时提供："成功损失/失败损失"，如 "1/1d6" */
-  sanLossExpression: z.string().max(64).optional(),
+  ruleId: z.string().min(1).max(32).optional(),
 });
 export type CreateCheckRequestCommand = z.infer<typeof CreateCheckRequestCommand>;
 
@@ -36,6 +36,15 @@ export const RespondCheckRequestCommand = z.object({
   requestId: z.string().min(1),
 });
 export type RespondCheckRequestCommand = z.infer<typeof RespondCheckRequestCommand>;
+
+export const PerformSanCheckCommand = z.object({
+  characterId: z.string().min(1),
+  /** "成功损失/失败损失"，如 "1/1d6" */
+  sanLossExpression: z.string().min(1).max(64),
+  hidden: z.boolean().optional(),
+  ruleId: z.string().min(1).max(32).optional(),
+});
+export type PerformSanCheckCommand = z.infer<typeof PerformSanCheckCommand>;
 
 export const EditCharacterStateCommand = z.object({
   characterId: z.string().min(1),
@@ -77,7 +86,7 @@ export const CheckRequestDto = z.object({
   bonusDice: z.number().int(),
   penaltyDice: z.number().int(),
   hidden: z.boolean(),
-  sanLossExpression: z.string().nullable(),
+  sanLossExpression: z.string().nullable().optional(),
   status: z.enum(["pending", "resolved"]),
   createdAt: z.number().int(),
 });

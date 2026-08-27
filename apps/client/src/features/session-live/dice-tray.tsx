@@ -1,0 +1,154 @@
+import { Dices } from "lucide-react";
+import { useMemo, useState } from "react";
+import { toast } from "sonner";
+import { coc7e } from "@cogm/shared";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { ATTR_LABELS } from "@/lib/format";
+import { skillKeysFor, skillValue } from "@/lib/coc-live";
+import { sendSessionCommand } from "@/lib/session-socket";
+import { cn } from "@/lib/utils";
+import { usePlayStore } from "@/stores/play-store";
+
+const DICE_PRESETS = ["1d100", "1d6", "1d4", "1d8", "1d10", "3d6"];
+
+function DiceTray({
+  characterId,
+  className,
+  gm = false,
+  disabled = false,
+}: {
+  characterId?: string | null;
+  className?: string;
+  gm?: boolean;
+  disabled?: boolean;
+}) {
+  const characters = usePlayStore((state) => state.characters);
+  const [selectedId, setSelectedId] = useState(characterId ?? "");
+  const resolvedId = gm ? selectedId || characterId || characters[0]?.characterId : characterId;
+  const character = characters.find((item) => item.characterId === resolvedId);
+  const skills = useMemo(() => skillKeysFor(character), [character]);
+  const [expression, setExpression] = useState("1d100");
+  const [comment, setComment] = useState("");
+  const [skillKey, setSkillKey] = useState(skills[0] ?? "侦查");
+  const [difficulty, setDifficulty] = useState<"regular" | "hard" | "extreme">("regular");
+  const [bonusDice, setBonusDice] = useState(0);
+  const [penaltyDice, setPenaltyDice] = useState(0);
+  const [hidden, setHidden] = useState(false);
+  const value = skillValue(character, skillKey);
+
+  function roll() {
+    const sent = sendSessionCommand("dice:roll", {
+      expression,
+      ...(comment.trim() ? { comment: comment.trim() } : {}),
+      ...(gm && hidden ? { hidden: true } : {}),
+    });
+    if (!sent) toast.error("尚未连接到团");
+  }
+
+  function check() {
+    if (!resolvedId) {
+      toast.error("没有可鉴定的角色");
+      return;
+    }
+    const sent = sendSessionCommand("check:perform", {
+      characterId: resolvedId,
+      skillKey,
+      difficulty,
+      bonusDice,
+      penaltyDice,
+      ...(gm && hidden ? { hidden: true } : {}),
+    });
+    if (!sent) toast.error("尚未连接到团");
+  }
+
+  return (
+    <div className={cn("flex flex-col gap-2", className)}>
+      {gm ? (
+        <Select value={resolvedId ?? ""} onValueChange={setSelectedId}>
+          <SelectTrigger className="h-8 text-xs">
+            <SelectValue placeholder="鉴定对象" />
+          </SelectTrigger>
+          <SelectContent>
+            {characters.map((item) => (
+              <SelectItem key={item.characterId} value={item.characterId}>
+                {item.name} · {item.kind === "npc" ? "NPC" : "PC"}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      ) : null}
+      <div className="flex flex-wrap gap-1">
+        {DICE_PRESETS.map((preset) => (
+          <Button
+            key={preset}
+            type="button"
+            size="sm"
+            disabled={disabled}
+            variant={expression === preset ? "primaryGradient" : "tertiary"}
+            className="h-6 px-2 text-[11px]"
+            onClick={() => setExpression(preset)}
+          >
+            {preset}
+          </Button>
+        ))}
+      </div>
+      <div className="flex items-center gap-1.5">
+        <Input value={expression} onChange={(event) => setExpression(event.target.value)} aria-label="骰点表达式" disabled={disabled} className="h-8 flex-1 text-xs" />
+        <Input value={comment} onChange={(event) => setComment(event.target.value)} placeholder="说明" aria-label="骰点说明" disabled={disabled} className="h-8 flex-1 text-xs" />
+        <Button type="button" size="sm" variant="tertiary" className="h-8 px-2.5" disabled={disabled} onClick={roll}>
+          <Dices className="size-3.5" />
+          掷骰
+        </Button>
+      </div>
+      <div className="flex items-center gap-1.5">
+        <Select value={skillKey} onValueChange={setSkillKey} disabled={disabled}>
+          <SelectTrigger className="h-8 flex-1 text-xs">
+            <SelectValue placeholder="技能 / 属性" />
+          </SelectTrigger>
+          <SelectContent>
+            {skills.map((skill) => (
+              <SelectItem key={skill} value={skill}>
+                {ATTR_LABELS[skill]?.label ?? skill}
+                {skillValue(character, skill) !== null ? ` ${skillValue(character, skill)}` : ""}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={difficulty} onValueChange={(next) => setDifficulty(next as typeof difficulty)} disabled={disabled}>
+          <SelectTrigger className="h-8 w-[88px] text-xs"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            {(["regular", "hard", "extreme"] as const).map((item) => (
+              <SelectItem key={item} value={item}>{coc7e.CheckDifficultyLabel[item]}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button type="button" size="sm" variant="tertiary" className="h-8 px-2.5" onClick={check} disabled={disabled || !resolvedId}>
+          鉴定{value !== null ? ` ${value}` : ""}
+        </Button>
+      </div>
+      <div className="flex items-center gap-1.5">
+        <Button type="button" size="sm" variant={bonusDice ? "accentSoft" : "tertiary"} className="h-6 px-2 text-[11px]" disabled={disabled} onClick={() => setBonusDice((n) => (n + 1) % 3)}>
+          奖励 {bonusDice}
+        </Button>
+        <Button type="button" size="sm" variant={penaltyDice ? "dangerSoft" : "tertiary"} className="h-6 px-2 text-[11px]" disabled={disabled} onClick={() => setPenaltyDice((n) => (n + 1) % 3)}>
+          惩罚 {penaltyDice}
+        </Button>
+        {gm ? (
+          <Button type="button" size="sm" variant={hidden ? "dangerSoft" : "tertiary"} className="h-6 px-2.5 text-[11px]" disabled={disabled} onClick={() => setHidden((value) => !value)}>
+            {hidden ? "暗骰" : "公开"}
+          </Button>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+export { DiceTray };

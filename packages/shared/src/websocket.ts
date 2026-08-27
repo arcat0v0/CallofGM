@@ -13,6 +13,7 @@ export const ClientCommandType = z.enum([
   "check:perform",
   "check:request",
   "check:respond",
+  "check:san",
   "state:edit",
   "scene:switch",
   "expression:set",

@@ -49,19 +49,41 @@ export interface CatalogRepository {
   saveScene(scene: CatalogScene): Promise<void>;
   updateScene(id: string, updates: Partial<Omit<CatalogScene, "id" | "moduleId" | "createdAt">>): Promise<CatalogScene>;
   deleteScene(id: string): Promise<void>;
-  listScenesByModuleId(moduleId: string): Promise<CatalogScene[]>;
+  listScenesByModuleId(
+    moduleId: string,
+    options: {
+      limit: number;
+      offset?: number;
+      cursor?: string;
+    }
+  ): Promise<{ items: CatalogScene[]; nextCursor: string | null }>;
 
   findTrackById(id: string): Promise<CatalogTrack | null>;
   saveTrack(track: CatalogTrack): Promise<void>;
   updateTrack(id: string, updates: Partial<Omit<CatalogTrack, "id" | "moduleId" | "createdAt">>): Promise<CatalogTrack>;
   deleteTrack(id: string): Promise<void>;
-  listTracksByModuleId(moduleId: string): Promise<CatalogTrack[]>;
+  listTracksByModuleId(
+    moduleId: string,
+    options: {
+      limit: number;
+      offset?: number;
+      cursor?: string;
+    }
+  ): Promise<{ items: CatalogTrack[]; nextCursor: string | null }>;
 
   findHandoutById(id: string): Promise<CatalogHandout | null>;
   saveHandout(handout: CatalogHandout): Promise<void>;
   updateHandout(id: string, updates: Partial<Omit<CatalogHandout, "id" | "moduleId" | "createdAt">>): Promise<CatalogHandout>;
   deleteHandout(id: string): Promise<void>;
-  listHandoutsByModuleId(moduleId: string): Promise<CatalogHandout[]>;
+  listHandoutsByModuleId(
+    moduleId: string,
+    options: {
+      limit: number;
+      offset?: number;
+      cursor?: string;
+    }
+  ): Promise<{ items: CatalogHandout[]; nextCursor: string | null }>;
 
   mediaAssetExists(id: string): Promise<boolean>;
+  findMediaAsset(id: string): Promise<{ id: string; purpose: string; mimeType: string } | null>;
 }

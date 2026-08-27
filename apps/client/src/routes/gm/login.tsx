@@ -1,7 +1,8 @@
-import { Link, createFileRoute } from "@tanstack/react-router";
+import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, Eye, EyeOff, Lock } from "lucide-react";
 import { useState } from "react";
 import type * as React from "react";
+import { toast } from "sonner";
 import { Logo } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,6 +11,8 @@ import {
   InputGroupButton,
   InputGroupInput,
 } from "@/components/ui/input-group";
+import { isApiError } from "@/lib/api";
+import { loginGm } from "@/lib/identity";
 
 export const Route = createFileRoute("/gm/login")({
   component: GmLoginPage,
@@ -17,9 +20,24 @@ export const Route = createFileRoute("/gm/login")({
 
 function GmLoginPage() {
   const [showPassword, setShowPassword] = useState(false);
+  const [password, setPassword] = useState("");
+  const [pending, setPending] = useState(false);
+  const navigate = useNavigate();
 
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!password || pending) {
+      return;
+    }
+    setPending(true);
+    try {
+      await loginGm(password);
+      await navigate({ to: "/gm" });
+    } catch (error) {
+      toast.error(isApiError(error) ? error.message : "登录失败");
+    } finally {
+      setPending(false);
+    }
   }
 
   return (
@@ -43,8 +61,11 @@ function GmLoginPage() {
           </InputGroupAddon>
           <InputGroupInput
             type={showPassword ? "text" : "password"}
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
             placeholder="主持人密码"
             aria-label="主持人密码"
+            autoComplete="current-password"
           />
           <InputGroupButton
             type="button"
@@ -58,9 +79,10 @@ function GmLoginPage() {
         <Button
           type="submit"
           variant="primaryGradient"
+          disabled={pending || !password}
           className="h-11 w-full rounded-xl text-sm font-semibold"
         >
-          登录
+          {pending ? "登录中…" : "登录"}
         </Button>
       </form>
 

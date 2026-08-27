@@ -38,7 +38,10 @@ export const SkillCheckResult = z.object({
   tensCandidates: z.array(z.number().int().min(0).max(9)),
   roll: z.number().int().min(1).max(100),
   outcome: CheckOutcome,
+  /** 是否达到 GM 指定难度 */
   success: z.boolean(),
+  /** 掷出常规成功及以上（成长标记用，与难度无关） */
+  growthEligible: z.boolean(),
 });
 export type SkillCheckResult = z.infer<typeof SkillCheckResult>;
 

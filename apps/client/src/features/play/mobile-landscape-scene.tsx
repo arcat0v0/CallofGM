@@ -1,39 +1,45 @@
 import { DialogueBox } from "@/features/session-stage/dialogue-box";
-import { bgmTrackName, dialogue, portraits, sceneImage, sessionTitle } from "@/features/session-stage/mock-data";
+import { PortraitLayer } from "@/features/session-stage/portrait-layer";
+import { SceneBackdrop } from "@/features/session-stage/scene-backdrop";
+import { mediaUrl } from "@/lib/api";
 import { SceneAudioStatus } from "@/features/session-stage/scene-audio-status";
+import { usePlayStore } from "@/stores/play-store";
 
 function MobileLandscapeScene() {
+  const scene = usePlayStore((state) => state.scene);
+  const bgm = usePlayStore((state) => state.bgm);
+  const muted = usePlayStore((state) => state.muted);
+  const setMuted = usePlayStore((state) => state.setMuted);
+  const messages = usePlayStore((state) => state.messages);
+  const latest = [...messages].reverse().find((message) => message.tone !== "ooc");
+  const sceneSrc = scene?.bgAssetId ? mediaUrl(scene.bgAssetId) : undefined;
+
   return (
-    <div className="relative h-full min-w-0 flex-1 overflow-hidden">
-      <img
-        src={sceneImage}
-        alt="雨夜的图书馆场景"
-        className="absolute top-[-40px] left-[-30px] h-[470px] w-[620px] max-w-none object-cover"
-      />
-      <img
-        src={portraits.mio}
-        alt="远野澪"
-        className="absolute top-9 left-[70px] h-[454px] w-[230px] object-cover object-top"
-      />
-      <img
-        src={portraits.takuma}
-        alt="白石拓真"
-        className="absolute top-[70px] left-[300px] h-[420px] w-[210px] object-cover object-top opacity-85"
-      />
+    <div className="relative h-full min-w-0 flex-1 overflow-hidden bg-background">
+      <SceneBackdrop src={sceneSrc} alt={scene?.name ?? "当前场景"} />
       <div className="absolute inset-x-0 top-0 h-20 bg-linear-to-b from-stage-scrim to-transparent" />
 
       <div className="absolute inset-x-0 top-0 flex h-12 items-center justify-between px-3.5">
-        <span className="text-foreground truncate font-serif text-sm font-semibold">{sessionTitle}</span>
-        <SceneAudioStatus trackName={bgmTrackName.replace("BGM · ", "")} compact />
+        <span className="text-foreground truncate font-serif text-sm font-semibold">{scene?.name ?? "团"}</span>
+        <SceneAudioStatus
+          trackName={bgm?.playing ? (bgm.name ?? "BGM") : "未播放"}
+          compact
+          muted={muted}
+          onMuteToggle={() => setMuted(!muted)}
+        />
       </div>
 
-      <DialogueBox
-        speaker={dialogue.speaker}
-        roleLabel={dialogue.roleLabel}
-        text={dialogue.text}
-        size="sm"
-        className="absolute inset-x-4 top-[290px]"
-      />
+      <PortraitLayer compact />
+
+      {latest ? (
+        <DialogueBox
+          speaker={latest.speakerName}
+          roleLabel={latest.speakerRoleLabel}
+          text={latest.body}
+          size="sm"
+          className="absolute inset-x-4 bottom-3"
+        />
+      ) : null}
     </div>
   );
 }

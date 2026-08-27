@@ -5,7 +5,8 @@ import { createIdentityRoutes } from "@/modules/identity/transport/routes";
 import { createCharactersRoutes } from "@/modules/characters/transport/routes";
 import { createSessionsRoutes } from "@/modules/sessions/transport/routes";
 import { AppError } from "@/platform/errors/app-error";
-import { modules, characters, sessions } from "@/platform/db/schema";
+import { resetHttpLimits } from "@/platform/security/http-limits";
+import { modules, characters, sessions, moduleCharacters } from "@/platform/db/schema";
 
 describe("Sessions contract tests", () => {
   let container: Container;
@@ -18,6 +19,7 @@ describe("Sessions contract tests", () => {
   let player2Id = "";
 
   beforeAll(async () => {
+    resetHttpLimits();
     process.env.DATABASE_URL = ":memory:";
     const hash = await Bun.password.hash(gmPassword);
     process.env.GM_PASSWORD_HASH = hash;
@@ -114,6 +116,33 @@ describe("Sessions contract tests", () => {
       createdAt: Date.now(),
     });
 
+    await container.db.insert(characters).values({
+      id: "char-3",
+      name: "Character 3",
+      kind: "pc",
+      ruleId: "coc7e",
+      sheetJson: JSON.stringify({
+        attributes: {
+          str: 50,
+          con: 50,
+          siz: 50,
+          dex: 50,
+          app: 50,
+          int: 50,
+          pow: 50,
+          edu: 50,
+          luck: 50,
+        },
+        skills: {},
+      }),
+      createdAt: Date.now(),
+    });
+
+    await container.db.insert(moduleCharacters).values([
+      { id: "mc-1", moduleId: "module-1", characterId: "char-1", createdAt: Date.now() },
+      { id: "mc-2", moduleId: "module-1", characterId: "char-2", createdAt: Date.now() },
+    ]);
+
     const p1Res = await app.handle(
       new Request("http://localhost/api/v1/player/identity", {
         method: "POST",
@@ -168,7 +197,8 @@ describe("Sessions contract tests", () => {
       })
     );
     expect(listRes.status).toBe(200);
-    const listBody = (await listRes.json()) as any[];
+    const listPage = (await listRes.json()) as { items?: Array<{ id: string }> };
+    const listBody = Array.isArray(listPage) ? listPage : (listPage.items ?? []);
     expect(listBody.some((s) => s.id === sessionId)).toBe(true);
 
     const snapshotRes = await app.handle(
@@ -238,7 +268,7 @@ describe("Sessions contract tests", () => {
     expect(publicJoinBody.session.id).toBe(sessionId);
     const char1Join = publicJoinBody.characters.find((c: any) => c.id === "char-1");
     expect(char1Join.claimed).toBe(true);
-    expect(char1Join.claimedBy).toBe(player1Id);
+    expect(char1Join.claimedBy).toBeUndefined();
     const char2Join = publicJoinBody.characters.find((c: any) => c.id === "char-2");
     expect(char2Join.claimed).toBe(false);
 
@@ -347,5 +377,24 @@ describe("Sessions contract tests", () => {
     expect(p1ClaimRes2.status).toBe(400);
     const p1ClaimRes2Err = (await p1ClaimRes2.json()) as any;
     expect(p1ClaimRes2Err.code).toBe("SESSION_STATE_INVALID");
+  });
+
+  test("Create session rejects characters not linked to the module", async () => {
+    const res = await app.handle(
+      new Request("http://localhost/api/v1/gm/sessions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${gmToken}`,
+        },
+        body: JSON.stringify({
+          moduleId: "module-1",
+          characterIds: ["char-3"],
+        }),
+      })
+    );
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { code: string };
+    expect(body.code).toBe("CHARACTER_NOT_IN_MODULE");
   });
 });

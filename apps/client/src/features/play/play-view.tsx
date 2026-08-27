@@ -1,18 +1,33 @@
 import { PanelLeftOpen } from "lucide-react";
 import { useState } from "react";
+import { useParams } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
+import { CheckPrompt } from "@/features/session-live/check-prompt";
+import { HandoutPrompt } from "@/features/session-live/handout-prompt";
+import { usePlayAudio } from "@/lib/bgm";
+import { sendSessionCommand } from "@/lib/session-socket";
+import { useSessionConnection } from "@/lib/use-session-connection";
+import { usePlayStore } from "@/stores/play-store";
 import { ChatArea } from "./chat-area";
+import { ConnectionBanner } from "./connection-banner";
 import { DesktopScene } from "./desktop-scene";
 import { MobileLandscapeScene } from "./mobile-landscape-scene";
 import { MobilePortraitScene } from "./mobile-portrait-scene";
 import { RotateSuggestionOverlay } from "./rotate-suggestion-overlay";
 
 function PlayView() {
+  const { sessionId } = useParams({ from: "/play/$sessionId" });
+  useSessionConnection(sessionId);
+  usePlayAudio();
+  const pendingChecks = usePlayStore((state) => state.pendingChecks);
+  const handouts = usePlayStore((state) => state.handouts);
+  const check = pendingChecks[0] ?? null;
   const [showRotateSuggestion, setShowRotateSuggestion] = useState(true);
   const [landscapeChatOpen, setLandscapeChatOpen] = useState(true);
 
   return (
-    <div className="bg-background h-dvh w-full overflow-hidden">
+    <div className="bg-background relative h-dvh w-full overflow-hidden">
+      <ConnectionBanner />
       <div className="hidden h-full lg:flex">
         <div className="min-w-0 flex-1">
           <DesktopScene />
@@ -49,6 +64,14 @@ function PlayView() {
           <RotateSuggestionOverlay onDismiss={() => setShowRotateSuggestion(false)} />
         )}
       </div>
+
+      {check ? (
+        <CheckPrompt
+          request={check}
+          onRespond={() => sendSessionCommand("check:respond", { requestId: check.id })}
+        />
+      ) : null}
+      <HandoutPrompt handouts={handouts} />
     </div>
   );
 }

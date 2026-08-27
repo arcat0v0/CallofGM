@@ -57,3 +57,8 @@ export const UpdateHandoutRequest = z.object({
   imageAssetId: z.string().nullable().optional(),
 });
 export type UpdateHandoutRequest = z.infer<typeof UpdateHandoutRequest>;
+
+export const LinkModuleCharacterRequest = z.object({
+  characterId: z.string().min(1),
+});
+export type LinkModuleCharacterRequest = z.infer<typeof LinkModuleCharacterRequest>;

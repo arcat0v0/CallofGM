@@ -9,7 +9,10 @@ import {
   SessionStateInvalidError,
   SeatAlreadyClaimedError,
   CharacterAlreadyParticipatingError,
+  CharacterNotInModuleError,
 } from "../domain/errors";
+import type { TransactionRunner } from "@/platform/db/transaction";
+import type { SessionEventBus } from "@/modules/realtime";
 
 export class CreateSessionUseCase {
   constructor(
@@ -35,6 +38,12 @@ export class CreateSessionUseCase {
     }
     if (loadedCharacters.some((character) => character.ruleId !== moduleRecord.ruleId)) {
       throw new SessionStateInvalidError("Every character must use the module's rule system");
+    }
+    if (input.characterIds.length > 0) {
+      const linkedIds = await this.repo.findLinkedCharacterIds(input.moduleId, input.characterIds);
+      if (linkedIds.length !== input.characterIds.length) {
+        throw new CharacterNotInModuleError();
+      }
     }
 
     const sessionId = this.idGenerator.nextId();
@@ -104,9 +113,12 @@ export class ClaimSeatUseCase {
         throw new SessionStateInvalidError("Character ID is required for pc role");
       }
 
-      const inSession = await this.repo.isCharacterInSession(input.sessionId, input.characterId);
-      if (!inSession) {
+      const kind = await this.repo.findSessionCharacterKind(input.sessionId, input.characterId);
+      if (!kind) {
         throw new CharacterNotFoundError("Character not participating in this session");
+      }
+      if (kind !== "pc") {
+        throw new SessionStateInvalidError("Only PC seats can be claimed");
       }
 
       const activeClaim = await this.repo.findActiveClaimByCharacterId(input.sessionId, input.characterId);
@@ -153,48 +165,89 @@ export class ReleaseSeatUseCase {
 }
 
 export class UpdateSessionStatusUseCase {
-  constructor(private readonly repo: DrizzleSessionsRepository) {}
+  constructor(
+    private readonly repo: DrizzleSessionsRepository,
+    private readonly transactionRunner: TransactionRunner,
+    private readonly eventBus: SessionEventBus,
+    private readonly afterEnded?: (sessionId: string) => void
+  ) {}
 
   async execute(input: { sessionId: string; status: "waiting" | "preparing" | "active" | "ended" }) {
-    const session = await this.repo.findSessionById(input.sessionId);
-    if (!session) {
-      throw new SessionNotFoundError();
-    }
-
     const allowedTransition: Record<string, string> = {
       waiting: "preparing",
       preparing: "active",
       active: "ended",
     };
 
-    if (session.status !== input.status) {
-      if (allowedTransition[session.status] !== input.status) {
-        throw new SessionStateInvalidError(`Invalid transition from ${session.status} to ${input.status}`);
+    const { session, staged, ended } = await this.transactionRunner.run(async (tx) => {
+      const current = await this.repo.findSessionById(input.sessionId, tx);
+      if (!current) {
+        throw new SessionNotFoundError();
       }
-      await this.repo.updateSession(input.sessionId, { status: input.status });
-    }
+      if (current.status === input.status) {
+        return {
+          session: current,
+          staged: { sessionId: input.sessionId, outboxIds: [], entries: [] },
+          ended: false,
+        };
+      }
+      if (allowedTransition[current.status] !== input.status) {
+        throw new SessionStateInvalidError(`Invalid transition from ${current.status} to ${input.status}`);
+      }
+      await this.repo.updateSession(input.sessionId, { status: input.status }, tx);
+      const stagedEvents = await this.eventBus.stage(tx, input.sessionId, [
+        {
+          type: "session:status-changed",
+          payload: { status: input.status },
+          visibility: { type: "public" },
+        },
+      ]);
+      return {
+        session: { ...current, status: input.status },
+        staged: stagedEvents,
+        ended: input.status === "ended",
+      };
+    });
 
-    return { ...session, status: input.status };
+    await this.eventBus.deliver(staged);
+    if (ended) {
+      this.afterEnded?.(input.sessionId);
+    }
+    return session;
   }
 }
 
 export class UpdateSessionPhaseUseCase {
-  constructor(private readonly repo: DrizzleSessionsRepository) {}
+  constructor(
+    private readonly repo: DrizzleSessionsRepository,
+    private readonly transactionRunner: TransactionRunner,
+    private readonly eventBus: SessionEventBus
+  ) {}
 
   async execute(input: {
     sessionId: string;
     phase: "free_discussion" | "performance_time" | "forced_cg" | "free_performance";
   }) {
-    const session = await this.repo.findSessionById(input.sessionId);
-    if (!session) {
-      throw new SessionNotFoundError();
-    }
-    if (session.status !== "active") {
-      throw new SessionStateInvalidError("Phase updates are only allowed in active sessions");
-    }
-
-    await this.repo.updateSession(input.sessionId, { phase: input.phase });
-    return { ...session, phase: input.phase };
+    const { session, staged } = await this.transactionRunner.run(async (tx) => {
+      const current = await this.repo.findSessionById(input.sessionId, tx);
+      if (!current) {
+        throw new SessionNotFoundError();
+      }
+      if (current.status !== "active") {
+        throw new SessionStateInvalidError("Phase updates are only allowed in active sessions");
+      }
+      await this.repo.updateSession(input.sessionId, { phase: input.phase }, tx);
+      const stagedEvents = await this.eventBus.stage(tx, input.sessionId, [
+        {
+          type: "session:phase-changed",
+          payload: { phase: input.phase },
+          visibility: { type: "public" },
+        },
+      ]);
+      return { session: { ...current, phase: input.phase }, staged: stagedEvents };
+    });
+    await this.eventBus.deliver(staged);
+    return session;
   }
 }
 
@@ -219,7 +272,9 @@ export class GetSessionSnapshotUseCase {
 export class ListSessionsUseCase {
   constructor(private readonly repo: DrizzleSessionsRepository) {}
 
-  async execute() {
-    return await this.repo.listSessions();
+  async execute(options: { limit: number; offset?: number; cursor?: string }) {
+    return await this.repo.listSessions(options);
   }
 }
+
+export { CharacterAlreadyParticipatingError };

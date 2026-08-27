@@ -1,54 +1,14 @@
-import { createHash, createHmac, timingSafeEqual } from "crypto";
+import { createHash } from "crypto";
 import type { Clock, IdGenerator } from "@/platform/ports";
-import type { IdentityRepository, TokenSigner, AnonymousPlayer, PlayerToken } from "./ports";
-import { BlacklistedFingerprintError, InvalidTokenError } from "../domain/errors";
-
-export class HmacTokenSigner implements TokenSigner {
-  constructor(private readonly secret: string) {}
-
-  sign(playerId: string, expiresAt: number): string {
-    const payload = `${playerId}:${expiresAt}`;
-    const signature = createHmac("sha256", this.secret).update(payload).digest("base64url");
-    return `${payload}.${signature}`;
-  }
-
-  verify(token: string): { playerId: string; expiresAt: number } | null {
-    const dotIndex = token.lastIndexOf(".");
-    if (dotIndex === -1) {
-      return null;
-    }
-    const payloadStr = token.substring(0, dotIndex);
-    const sigStr = token.substring(dotIndex + 1);
-
-    const expectedSig = createHmac("sha256", this.secret).update(payloadStr).digest("base64url");
-    const sigBuf = Buffer.from(sigStr);
-    const expectedBuf = Buffer.from(expectedSig);
-
-    if (sigBuf.length !== expectedBuf.length || !timingSafeEqual(sigBuf, expectedBuf)) {
-      return null;
-    }
-
-    const colonIndex = payloadStr.indexOf(":");
-    if (colonIndex === -1) {
-      return null;
-    }
-    const playerId = payloadStr.substring(0, colonIndex);
-    const expiresAt = parseInt(payloadStr.substring(colonIndex + 1), 10);
-
-    if (isNaN(expiresAt)) {
-      return null;
-    }
-
-    return { playerId, expiresAt };
-  }
-}
+import type { IdentityRepository, AnonymousPlayer, PlayerToken } from "./ports";
+import { hashToken, issueOpaqueToken } from "./token";
+import { BlacklistedFingerprintError } from "../domain/errors";
 
 export class PlayerIdentityUseCase {
   constructor(
     private readonly idGenerator: IdGenerator,
     private readonly clock: Clock,
-    private readonly repo: IdentityRepository,
-    private readonly tokenSigner: TokenSigner
+    private readonly repo: IdentityRepository
   ) {}
 
   async execute(
@@ -64,16 +24,13 @@ export class PlayerIdentityUseCase {
     const now = this.clock.nowEpochMs();
 
     if (token) {
-      const verified = this.tokenSigner.verify(token);
-      if (verified && verified.expiresAt > now) {
-        const tokenHash = createHash("sha256").update(token).digest("hex");
-        const dbToken = await this.repo.findPlayerTokenByTokenHash(tokenHash);
-        if (dbToken && dbToken.revokedAt === null) {
-          const player = await this.repo.findAnonymousPlayerById(dbToken.playerId);
-          if (player) {
-            await this.repo.updateAnonymousPlayerActiveTime(player.id, now);
-            return { playerId: player.id, token };
-          }
+      const tokenHash = hashToken(token);
+      const dbToken = await this.repo.findPlayerTokenByTokenHash(tokenHash);
+      if (dbToken && dbToken.revokedAt === null && dbToken.expiresAt > now) {
+        const player = await this.repo.findAnonymousPlayerById(dbToken.playerId);
+        if (player) {
+          await this.repo.updateAnonymousPlayerActiveTime(player.id, now);
+          return { playerId: player.id, token };
         }
       }
     }
@@ -105,14 +62,15 @@ export class PlayerIdentityUseCase {
       }
     }
 
-    const randomMs = Math.floor(Math.random() * 1000000);
+    const jitterBytes = new Uint8Array(3);
+    crypto.getRandomValues(jitterBytes);
+    const randomMs = (jitterBytes[0]! << 16 | jitterBytes[1]! << 8 | jitterBytes[2]!) % 1_000_000;
     const expiresAt = now + 30 * 24 * 60 * 60 * 1000 + randomMs;
-    const newToken = this.tokenSigner.sign(playerId, expiresAt);
-    const newTokenHash = createHash("sha256").update(newToken).digest("hex");
+    const issued = issueOpaqueToken();
 
     const playerToken: PlayerToken = {
       id: this.idGenerator.nextId(),
-      tokenHash: newTokenHash,
+      tokenHash: issued.tokenHash,
       playerId,
       expiresAt,
       revokedAt: null,
@@ -120,7 +78,6 @@ export class PlayerIdentityUseCase {
     };
 
     await this.repo.savePlayerToken(playerToken);
-
-    return { playerId, token: newToken };
+    return { playerId, token: issued.token };
   }
 }

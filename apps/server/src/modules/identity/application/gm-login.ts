@@ -1,11 +1,7 @@
-import { createHash } from "crypto";
 import type { Clock, IdGenerator } from "@/platform/ports";
 import type { IdentityRepository, GmLoginSession } from "./ports";
 import { InvalidCredentialsError } from "../domain/errors";
-
-export function hashToken(token: string): string {
-  return createHash("sha256").update(token).digest("hex");
-}
+import { issueOpaqueToken } from "./token";
 
 export class GmLoginUseCase {
   constructor(
@@ -21,8 +17,9 @@ export class GmLoginUseCase {
       throw new InvalidCredentialsError();
     }
 
-    const sessionToken = crypto.randomUUID() + crypto.randomUUID();
-    const sessionTokenHash = hashToken(sessionToken);
+    const issued = issueOpaqueToken();
+    const sessionToken = issued.token;
+    const sessionTokenHash = issued.tokenHash;
     const id = this.idGenerator.nextId();
     const now = this.clock.nowEpochMs();
     const expiresAt = now + 24 * 60 * 60 * 1000;

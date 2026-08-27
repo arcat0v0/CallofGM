@@ -5,8 +5,11 @@ import { Container } from "@/bootstrap/container";
 import { createIdentityRoutes } from "@/modules/identity/transport/routes";
 import { createCharactersRoutes } from "@/modules/characters/transport/routes";
 import { AppError } from "@/platform/errors/app-error";
+import { resetHttpLimits } from "@/platform/security/http-limits";
 import {
-  mediaAssets
+  mediaAssets,
+  gmLoginSessions,
+  importStagings,
 } from "@/platform/db/schema";
 
 interface TestCharacterResponse {
@@ -24,6 +27,7 @@ describe("Characters contract tests", () => {
   let gmToken = "";
 
   beforeAll(async () => {
+    resetHttpLimits();
     process.env.DATABASE_URL = ":memory:";
     const hash = await Bun.password.hash(gmPassword);
     process.env.GM_PASSWORD_HASH = hash;
@@ -69,7 +73,7 @@ describe("Characters contract tests", () => {
 
     await container.db.insert(mediaAssets).values({
       id: "media-asset-id",
-      purpose: "test",
+      purpose: "portrait",
       storageKey: "test-key",
       filename: "test.png",
       mimeType: "image/png",
@@ -160,7 +164,8 @@ describe("Characters contract tests", () => {
       })
     );
     expect(listRes.status).toBe(200);
-    const list = await listRes.json() as TestCharacterResponse[];
+    const listPage = await listRes.json() as { items: TestCharacterResponse[] };
+    const list = listPage.items ?? listPage as unknown as TestCharacterResponse[];
     expect(list.length).toBeGreaterThan(0);
     expect(list.some((c: { id: string }) => c.id === character.id)).toBe(true);
 
@@ -348,8 +353,7 @@ describe("Characters contract tests", () => {
         body: JSON.stringify({
           importToken: previewBody.importToken,
           kind: "pc",
-          ruleId: "coc7e",
-          moduleId: "optional-module-id"
+          ruleId: "coc7e"
         })
       })
     );
@@ -379,5 +383,57 @@ describe("Characters contract tests", () => {
     expect(sheet.attributes.siz).toBe(80);
     expect(sheet.attributes.pow).toBe(75);
     expect(sheet.skills["侦查"]).toBe(30);
+  });
+
+  test("Import confirm rejects staging owned by another GM session", async () => {
+    await container.db.insert(gmLoginSessions).values({
+      id: "other-gm-session",
+      sessionTokenHash: "foreign-gm-session-hash",
+      expiresAt: Date.now() + 60 * 60 * 1000,
+      revokedAt: null,
+      createdAt: Date.now(),
+    });
+    await container.db.insert(importStagings).values({
+      id: "foreign-staging",
+      characterName: "Foreign Owner",
+      sheetJson: JSON.stringify({
+        attributes: {
+          str: 50,
+          con: 50,
+          siz: 50,
+          dex: 50,
+          app: 50,
+          int: 50,
+          pow: 50,
+          edu: 50,
+          luck: 50,
+        },
+        skills: {},
+      }),
+      ruleId: "coc7e",
+      errorsJson: "[]",
+      expiresAt: Date.now() + 60 * 60 * 1000,
+      consumedAt: null,
+      gmSessionId: "other-gm-session",
+      createdAt: Date.now(),
+    });
+
+    const confirmRes = await app.handle(
+      new Request("http://localhost/api/v1/gm/characters/import/confirm", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${gmToken}`
+        },
+        body: JSON.stringify({
+          importToken: "foreign-staging",
+          kind: "pc",
+          ruleId: "coc7e"
+        })
+      })
+    );
+    expect(confirmRes.status).toBe(403);
+    const body = await confirmRes.json() as { code: string };
+    expect(body.code).toBe("STAGING_OWNER_MISMATCH");
   });
 });

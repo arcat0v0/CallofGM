@@ -10,10 +10,10 @@ import {
   ForbiddenError,
   type ActorContext,
 } from "@/modules/identity";
-import { ClientCommand, type SessionSnapshot } from "@cogm/shared";
+import { ClientCommand, type CommandReply, type SessionSnapshot } from "@cogm/shared";
 import { checkVisibility } from "../domain/visibility";
+import { logger } from "@/platform/logging/logger";
 
-/** 每连接命令限速：滑动窗口内最多执行的命令数（宽松上限，防滥用不影响正常使用） */
 const RATE_LIMIT_WINDOW_MS = 5_000;
 const RATE_LIMIT_MAX_COMMANDS = 50;
 
@@ -38,9 +38,29 @@ async function resolveClaimedCharacterId(
   return rows[0]?.characterId ?? null;
 }
 
+function parseLastEventId(raw: string | undefined): number | null {
+  if (raw === undefined || raw === "") {
+    return null;
+  }
+  if (!/^\d+$/.test(raw)) {
+    return null;
+  }
+  return Number.parseInt(raw, 10);
+}
+
+function rejectCommand(ws: { send: (data: string) => void }, commandId: string, code: string, message: string): void {
+  const reply: CommandReply = {
+    protocolVersion: 1,
+    commandId,
+    type: "command:rejected",
+    payload: { code, message },
+  };
+  ws.send(JSON.stringify(reply));
+}
+
 export function createRealtimeRoutes(container: Container) {
   const identityRepo = new DrizzleIdentityRepository(container.db);
-  const authPlugin = createAuthPlugin(identityRepo, container.playerTokenSigner);
+  const authPlugin = createAuthPlugin(identityRepo);
   const { connectionRegistry, eventRingBuffer, sessionCommandExecutor, presenceService, snapshotBuilder } = container;
 
   return new Elysia()
@@ -82,7 +102,6 @@ export function createRealtimeRoutes(container: Container) {
           ws: {
             send: (data: string) => ws.send(data),
             close: (code?: number, reason?: string) => {
-              // 优先走底层 raw socket 关闭（Elysia 包装层行为以 raw 为准）
               const raw = (ws as unknown as { raw?: { close(code?: number, reason?: string): void } }).raw;
               if (raw?.close) {
                 raw.close(code, reason);
@@ -94,51 +113,55 @@ export function createRealtimeRoutes(container: Container) {
           sessionId,
           playerId: actor.type === "player" ? actor.playerId : null,
           actor,
+          state: "hydrating" as const,
+          hydrateBuffer: [],
         };
 
         const claimedCharacterId = await resolveClaimedCharacterId(container, sessionId, actor);
-        const lastEventIdStr = ws.data.query.lastEventId;
-        const lastEventId = lastEventIdStr !== undefined ? parseInt(lastEventIdStr, 10) : NaN;
+        const lastEventId = parseLastEventId(ws.data.query.lastEventId);
 
-        // 短线重连：ring buffer 能覆盖缺口时按可见性补发
-        if (!isNaN(lastEventId) && eventRingBuffer.hasSequencedEventsFrom(sessionId, lastEventId)) {
-          for (const { event, visibility } of eventRingBuffer.getEventsFrom(sessionId, lastEventId)) {
-            if (checkVisibility(actor, claimedCharacterId, visibility, connectionId)) {
-              ws.send(JSON.stringify(event));
-            }
-          }
-        } else {
-          // 首次加入或日志缺口：全量快照（已按请求者可见性裁剪）
-          const snapshot = await snapshotBuilder.execute({
-            sessionId,
-            actor,
-            claimedCharacterId,
-            connectionId,
-          });
-          const snapshotMessage: SessionSnapshot = {
-            protocolVersion: 1,
-            type: "snapshot",
-            watermark: snapshot.session.lastEventId,
-            payload: snapshot,
-          };
-          ws.send(JSON.stringify(snapshotMessage));
-
-          // 刷出快照水位之后的缓冲事件
-          for (const { event, visibility } of eventRingBuffer.getEvents(sessionId)) {
-            if (
-              event.eventId > snapshot.session.lastEventId &&
-              checkVisibility(actor, claimedCharacterId, visibility, connectionId)
-            ) {
-              ws.send(JSON.stringify(event));
-            }
-          }
-        }
-
-        // 快照/补发期间不加入广播注册表，避免实时事件插入快照序列中间；
-        // 快照水位之后的事件已由上面的 ring-buffer 刷新覆盖。
         connectionRegistry.register(connection);
 
-        await presenceService.broadcast(sessionId);
+        try {
+          let watermark = lastEventId ?? -1;
+          if (lastEventId !== null && eventRingBuffer.hasSequencedEventsFrom(sessionId, lastEventId)) {
+            for (const { event, visibility } of eventRingBuffer.getEventsFrom(sessionId, lastEventId)) {
+              if (checkVisibility(actor, claimedCharacterId, visibility, connectionId)) {
+                ws.send(JSON.stringify(event));
+              }
+            }
+          } else {
+            const snapshot = await sessionCommandExecutor.runExclusive(sessionId, () =>
+              snapshotBuilder.execute({
+                sessionId,
+                actor,
+                claimedCharacterId,
+                connectionId,
+              })
+            );
+            const snapshotMessage: SessionSnapshot = {
+              protocolVersion: 1,
+              type: "snapshot",
+              watermark: snapshot.session.lastEventId,
+              payload: snapshot,
+            };
+            ws.send(JSON.stringify(snapshotMessage));
+            watermark = snapshot.session.lastEventId;
+          }
+
+          const buffered = connectionRegistry.markActive(connectionId);
+          for (const { event, visibility } of buffered) {
+            if (event.eventId > watermark && checkVisibility(actor, claimedCharacterId, visibility, connectionId)) {
+              ws.send(JSON.stringify(event));
+            }
+          }
+
+          await presenceService.broadcast(sessionId);
+        } catch (error) {
+          logger.error("ws.hydrate.failed", { error: error instanceof Error ? error.message : String(error) });
+          connectionRegistry.unregister(connectionId);
+          ws.close();
+        }
       },
       async message(ws, message) {
         const actor = ws.data.actor;
@@ -158,6 +181,7 @@ export function createRealtimeRoutes(container: Container) {
         try {
           parsedJson = JSON.parse(raw);
         } catch {
+          rejectCommand(ws, "invalid", "VALIDATION_FAILED", "Invalid command");
           return;
         }
         if (
@@ -171,24 +195,21 @@ export function createRealtimeRoutes(container: Container) {
 
         const parsed = ClientCommand.safeParse(parsedJson);
         if (!parsed.success) {
+          const commandId =
+            parsedJson && typeof parsedJson === "object" && typeof (parsedJson as { commandId?: unknown }).commandId === "string"
+              ? (parsedJson as { commandId: string }).commandId
+              : "invalid";
+          rejectCommand(ws, commandId, "VALIDATION_FAILED", "Invalid command");
           return;
         }
 
-        // 命令限速：超过窗口配额直接拒绝，不进入串行队列
         const timestamps = (ws.data as Record<string, unknown>).commandTimestamps as number[];
         const now = Date.now();
         while (timestamps.length > 0 && now - (timestamps[0] ?? 0) > RATE_LIMIT_WINDOW_MS) {
           timestamps.shift();
         }
         if (timestamps.length >= RATE_LIMIT_MAX_COMMANDS) {
-          ws.send(
-            JSON.stringify({
-              protocolVersion: 1,
-              commandId: parsed.data.commandId,
-              type: "command:rejected",
-              payload: { code: "RATE_LIMITED", message: "Too many commands" },
-            })
-          );
+          rejectCommand(ws, parsed.data.commandId, "RATE_LIMITED", "Too many commands");
           return;
         }
         timestamps.push(now);
@@ -214,7 +235,8 @@ async function hasObClaim(container: Container, sessionId: string, playerId: str
       and(
         eq(sessionClaims.sessionId, sessionId),
         eq(sessionClaims.playerId, playerId),
-        isNull(sessionClaims.releasedAt)
+        isNull(sessionClaims.releasedAt),
+        isNull(sessionClaims.characterId)
       )
     );
   return rows.length > 0;

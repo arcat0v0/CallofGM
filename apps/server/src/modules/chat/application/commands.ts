@@ -1,3 +1,4 @@
+import { eq } from "drizzle-orm";
 import {
   SendChatMessageCommand,
   ReleaseChatMessageCommand,
@@ -10,10 +11,12 @@ import type {
   CommandHandler,
   CommandHandlerContext,
   CommandHandlerResult,
+  StagedEvents,
 } from "@/modules/realtime";
 import { AppError } from "@/platform/errors/app-error";
 import { ForbiddenError } from "@/modules/identity";
 import { SessionPhaseForbidsActionError } from "@/modules/sessions";
+import { sessionOutbox } from "@/platform/db/schema";
 import { decideChatMessage } from "../domain/message-policy";
 import { MessageNotFoundError, MessageNotPendingError, ExpressionNotFoundError } from "../domain/errors";
 import { DrizzleChatRepository, type MessageRow } from "../infrastructure/drizzle-chat-repository";
@@ -47,6 +50,29 @@ async function toDto(
   };
 }
 
+async function persistPresentedEventId(
+  tx: CommandHandlerContext["tx"],
+  staged: StagedEvents,
+  dto: ChatMessageDto,
+  messageId: string
+): Promise<void> {
+  const entry = staged.entries[0];
+  const eventId = entry?.event.eventId;
+  const outboxId = staged.outboxIds[0];
+  if (eventId === undefined) {
+    return;
+  }
+  await new DrizzleChatRepository(tx).assignEventId(messageId, eventId);
+  dto.eventId = eventId;
+  const payload = { message: dto };
+  if (entry) {
+    entry.event.payload = payload;
+  }
+  if (outboxId) {
+    await tx.update(sessionOutbox).set({ payloadJson: JSON.stringify(payload) }).where(eq(sessionOutbox.id, outboxId));
+  }
+}
+
 /** 向 GM 推送最新待呈现队列（DirectControlMessage） */
 async function queueUpdate(
   ctx: CommandHandlerContext,
@@ -64,6 +90,7 @@ async function queueUpdate(
  */
 export class SendChatMessageHandler implements CommandHandler {
   readonly type = "chat:send" as const;
+  readonly allowedStatuses = ["waiting", "preparing", "active"] as const;
 
   async execute(ctx: CommandHandlerContext, payload: unknown): Promise<CommandHandlerResult> {
     const parsed = SendChatMessageCommand.safeParse(payload);
@@ -133,12 +160,7 @@ export class SendChatMessageHandler implements CommandHandler {
           },
         ],
         finalizeAfterStaged: async (tx, staged) => {
-          const eventId = staged.entries[0]?.event.eventId;
-          if (eventId !== undefined) {
-            const finalizeRepo = new DrizzleChatRepository(tx);
-            await finalizeRepo.assignEventId(messageId, eventId);
-            dto.eventId = eventId;
-          }
+          await persistPresentedEventId(tx, staged, dto, messageId);
         },
         replyPayload: { messageId, presented: true },
       };
@@ -175,6 +197,7 @@ export class SendChatMessageHandler implements CommandHandler {
  */
 export class ReleaseChatMessageHandler implements CommandHandler {
   readonly type = "chat:release" as const;
+  readonly allowedStatuses = ["waiting", "preparing", "active"] as const;
 
   async execute(ctx: CommandHandlerContext, payload: unknown): Promise<CommandHandlerResult> {
     if (ctx.actor.type !== "gm") {
@@ -220,12 +243,7 @@ export class ReleaseChatMessageHandler implements CommandHandler {
       events,
       directToGms: [await queueUpdate(ctx, repo)],
       finalizeAfterStaged: async (tx, staged) => {
-        const eventId = staged.entries[0]?.event.eventId;
-        if (eventId !== undefined) {
-          const finalizeRepo = new DrizzleChatRepository(tx);
-          await finalizeRepo.assignEventId(row.id, eventId);
-          dto.eventId = eventId;
-        }
+        await persistPresentedEventId(tx, staged, dto, row.id);
       },
       replyPayload: { messageId: row.id },
     };
@@ -235,6 +253,7 @@ export class ReleaseChatMessageHandler implements CommandHandler {
 /** chat:discard — GM 丢弃队列消息（对玩家无通知，保留最小审计记录） */
 export class DiscardChatMessageHandler implements CommandHandler {
   readonly type = "chat:discard" as const;
+  readonly allowedStatuses = ["waiting", "preparing", "active"] as const;
 
   async execute(ctx: CommandHandlerContext, payload: unknown): Promise<CommandHandlerResult> {
     if (ctx.actor.type !== "gm") {
@@ -265,6 +284,7 @@ export class DiscardChatMessageHandler implements CommandHandler {
 /** chat:reorder — GM 调整待呈现队列顺序（全量有序 id 列表，稳定重排） */
 export class ReorderChatQueueHandler implements CommandHandler {
   readonly type = "chat:reorder" as const;
+  readonly allowedStatuses = ["waiting", "preparing", "active"] as const;
 
   async execute(ctx: CommandHandlerContext, payload: unknown): Promise<CommandHandlerResult> {
     if (ctx.actor.type !== "gm") {

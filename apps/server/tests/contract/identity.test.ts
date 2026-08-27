@@ -5,6 +5,7 @@ import { createIdentityRoutes } from "@/modules/identity/transport/routes";
 import { AppError } from "@/platform/errors/app-error";
 import { blacklistEntries } from "@/platform/db/schema";
 import { createHash } from "crypto";
+import { resetHttpLimits } from "@/platform/security/http-limits";
 
 describe("Identity and Auth contract tests", () => {
   let container: Container;
@@ -12,6 +13,7 @@ describe("Identity and Auth contract tests", () => {
   const gmPassword = "test-gm-password";
 
   beforeAll(async () => {
+    resetHttpLimits();
     process.env.DATABASE_URL = ":memory:";
     const hash = await Bun.password.hash(gmPassword);
     process.env.GM_PASSWORD_HASH = hash;

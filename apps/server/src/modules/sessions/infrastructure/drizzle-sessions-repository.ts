@@ -1,4 +1,4 @@
-import { eq, and, inArray, isNull } from "drizzle-orm";
+import { eq, and, inArray, isNull, or, gt, asc } from "drizzle-orm";
 import type { DbClient } from "@/platform/db/client";
 import {
   sessions,
@@ -6,13 +6,14 @@ import {
   sessionClaims,
   characters,
   modules,
+  moduleCharacters,
 } from "@/platform/db/schema";
 
 export class DrizzleSessionsRepository {
   constructor(private readonly db: DbClient) {}
 
-  async findSessionById(id: string) {
-    const result = await this.db
+  async findSessionById(id: string, db: DbClient = this.db) {
+    const result = await db
       .select()
       .from(sessions)
       .where(eq(sessions.id, id))
@@ -26,9 +27,10 @@ export class DrizzleSessionsRepository {
 
   async updateSession(
     id: string,
-    updates: Partial<Omit<typeof sessions.$inferInsert, "id" | "createdAt">>
+    updates: Partial<Omit<typeof sessions.$inferInsert, "id" | "createdAt">>,
+    db: DbClient = this.db
   ) {
-    await this.db
+    await db
       .update(sessions)
       .set(updates)
       .where(eq(sessions.id, id));
@@ -56,6 +58,17 @@ export class DrizzleSessionsRepository {
       .where(inArray(characters.id, ids));
   }
 
+  async findLinkedCharacterIds(moduleId: string, ids: string[]): Promise<string[]> {
+    if (ids.length === 0) {
+      return [];
+    }
+    const rows = await this.db
+      .select({ characterId: moduleCharacters.characterId })
+      .from(moduleCharacters)
+      .where(and(eq(moduleCharacters.moduleId, moduleId), inArray(moduleCharacters.characterId, ids)));
+    return rows.map((row) => row.characterId);
+  }
+
   async moduleExists(moduleId: string): Promise<boolean> {
     const result = await this.db
       .select({ id: modules.id })
@@ -68,6 +81,20 @@ export class DrizzleSessionsRepository {
   async findModuleById(moduleId: string) {
     const result = await this.db.select().from(modules).where(eq(modules.id, moduleId)).limit(1);
     return result[0] ?? null;
+  }
+
+  async findSessionCharacterKind(sessionId: string, characterId: string): Promise<string | null> {
+    const result = await this.db
+      .select({ kind: sessionCharacters.kind })
+      .from(sessionCharacters)
+      .where(
+        and(
+          eq(sessionCharacters.sessionId, sessionId),
+          eq(sessionCharacters.characterId, characterId)
+        )
+      )
+      .limit(1);
+    return result[0]?.kind ?? null;
   }
 
   async isCharacterInSession(sessionId: string, characterId: string): Promise<boolean> {
@@ -142,10 +169,52 @@ export class DrizzleSessionsRepository {
     });
   }
 
-  async listSessions() {
-    return await this.db.select().from(sessions);
+  async listSessions(options: { limit: number; offset?: number; cursor?: string }) {
+    const limit = options.limit;
+    let items: (typeof sessions.$inferSelect)[];
+    if (options.cursor) {
+      const cursorRow = await this.db
+        .select()
+        .from(sessions)
+        .where(eq(sessions.id, options.cursor))
+        .limit(1);
+      const c = cursorRow[0];
+      if (!c) {
+        return { items: [], nextCursor: null };
+      }
+      items = await this.db
+        .select()
+        .from(sessions)
+        .where(
+          or(
+            gt(sessions.createdAt, c.createdAt),
+            and(eq(sessions.createdAt, c.createdAt), gt(sessions.id, c.id))
+          )
+        )
+        .orderBy(asc(sessions.createdAt), asc(sessions.id))
+        .limit(limit + 1);
+    } else if (options.offset !== undefined) {
+      items = await this.db
+        .select()
+        .from(sessions)
+        .orderBy(asc(sessions.createdAt), asc(sessions.id))
+        .limit(limit + 1)
+        .offset(options.offset);
+    } else {
+      items = await this.db
+        .select()
+        .from(sessions)
+        .orderBy(asc(sessions.createdAt), asc(sessions.id))
+        .limit(limit + 1);
+    }
+    const hasMore = items.length > limit;
+    const returnedItems = hasMore ? items.slice(0, limit) : items;
+    const lastItem = returnedItems[returnedItems.length - 1];
+    return {
+      items: returnedItems,
+      nextCursor: hasMore && lastItem ? lastItem.id : null,
+    };
   }
-
   async findSessionCharactersWithClaims(sessionId: string) {
     const sessionChars = await this.db
       .select({

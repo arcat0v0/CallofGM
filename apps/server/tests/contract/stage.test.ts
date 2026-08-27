@@ -5,6 +5,7 @@ import {
   closeWs,
   sendCommand,
   listenTestApp,
+  setSessionPhase,
   type TestContext,
   type TestWebSocket,
 } from "../helpers/setup";
@@ -52,6 +53,7 @@ describe("Stage control contract tests", () => {
       { id: "track-bgm-other", moduleId: "module-other", name: "别模组BGM", audioAssetId: "asset-audio", type: "bgm", duration: 60000, createdAt: Date.now() },
       { id: "track-se-1", moduleId: "module-test", name: "开门声", audioAssetId: "asset-audio", type: "se", duration: 2000, createdAt: Date.now() },
     ]);
+    await setSessionPhase(ctx, "free_discussion");
   });
 
   afterAll(async () => {

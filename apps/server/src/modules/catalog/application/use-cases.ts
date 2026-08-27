@@ -4,7 +4,8 @@ import {
   SceneNotFoundError,
   TrackNotFoundError,
   HandoutNotFoundError,
-  MediaAssetNotFoundError
+  MediaAssetNotFoundError,
+  MediaAssetInvalidError
 } from "../domain/errors";
 import type {
   CatalogRepository,
@@ -13,6 +14,26 @@ import type {
   CatalogTrack,
   CatalogHandout
 } from "./ports";
+
+async function requireImageAsset(repo: CatalogRepository, assetId: string): Promise<void> {
+  const asset = await repo.findMediaAsset(assetId);
+  if (!asset) {
+    throw new MediaAssetNotFoundError();
+  }
+  if (!asset.mimeType.startsWith("image/")) {
+    throw new MediaAssetInvalidError();
+  }
+}
+
+async function requireAudioAsset(repo: CatalogRepository, assetId: string): Promise<void> {
+  const asset = await repo.findMediaAsset(assetId);
+  if (!asset) {
+    throw new MediaAssetNotFoundError();
+  }
+  if (asset.purpose !== "audio" || !asset.mimeType.startsWith("audio/")) {
+    throw new MediaAssetInvalidError();
+  }
+}
 
 export class CreateModuleUseCase {
   constructor(
@@ -99,10 +120,7 @@ export class CreateSceneUseCase {
       throw new ModuleNotFoundError();
     }
     if (input.bgAssetId) {
-      const assetExists = await this.repo.mediaAssetExists(input.bgAssetId);
-      if (!assetExists) {
-        throw new MediaAssetNotFoundError();
-      }
+      await requireImageAsset(this.repo, input.bgAssetId);
     }
     const scene: CatalogScene = {
       id: this.idGenerator.nextId(),
@@ -129,10 +147,7 @@ export class UpdateSceneUseCase {
       throw new SceneNotFoundError();
     }
     if (updates.bgAssetId) {
-      const assetExists = await this.repo.mediaAssetExists(updates.bgAssetId);
-      if (!assetExists) {
-        throw new MediaAssetNotFoundError();
-      }
+      await requireImageAsset(this.repo, updates.bgAssetId);
     }
     return this.repo.updateScene(id, updates);
   }
@@ -149,12 +164,19 @@ export class DeleteSceneUseCase {
 export class ListScenesUseCase {
   constructor(private readonly repo: CatalogRepository) {}
 
-  async execute(moduleId: string): Promise<CatalogScene[]> {
+  async execute(
+    moduleId: string,
+    options: {
+      limit: number;
+      offset?: number;
+      cursor?: string;
+    }
+  ): Promise<{ items: CatalogScene[]; nextCursor: string | null }> {
     const module = await this.repo.findModuleById(moduleId);
     if (!module) {
       throw new ModuleNotFoundError();
     }
-    return this.repo.listScenesByModuleId(moduleId);
+    return this.repo.listScenesByModuleId(moduleId, options);
   }
 }
 
@@ -176,10 +198,7 @@ export class CreateTrackUseCase {
     if (!moduleExists) {
       throw new ModuleNotFoundError();
     }
-    const assetExists = await this.repo.mediaAssetExists(input.audioAssetId);
-    if (!assetExists) {
-      throw new MediaAssetNotFoundError();
-    }
+    await requireAudioAsset(this.repo, input.audioAssetId);
     const track: CatalogTrack = {
       id: this.idGenerator.nextId(),
       moduleId: input.moduleId,
@@ -206,10 +225,7 @@ export class UpdateTrackUseCase {
       throw new TrackNotFoundError();
     }
     if (updates.audioAssetId) {
-      const assetExists = await this.repo.mediaAssetExists(updates.audioAssetId);
-      if (!assetExists) {
-        throw new MediaAssetNotFoundError();
-      }
+      await requireAudioAsset(this.repo, updates.audioAssetId);
     }
     return this.repo.updateTrack(id, updates);
   }
@@ -226,12 +242,19 @@ export class DeleteTrackUseCase {
 export class ListTracksUseCase {
   constructor(private readonly repo: CatalogRepository) {}
 
-  async execute(moduleId: string): Promise<CatalogTrack[]> {
+  async execute(
+    moduleId: string,
+    options: {
+      limit: number;
+      offset?: number;
+      cursor?: string;
+    }
+  ): Promise<{ items: CatalogTrack[]; nextCursor: string | null }> {
     const module = await this.repo.findModuleById(moduleId);
     if (!module) {
       throw new ModuleNotFoundError();
     }
-    return this.repo.listTracksByModuleId(moduleId);
+    return this.repo.listTracksByModuleId(moduleId, options);
   }
 }
 
@@ -253,10 +276,7 @@ export class CreateHandoutUseCase {
       throw new ModuleNotFoundError();
     }
     if (input.imageAssetId) {
-      const assetExists = await this.repo.mediaAssetExists(input.imageAssetId);
-      if (!assetExists) {
-        throw new MediaAssetNotFoundError();
-      }
+      await requireImageAsset(this.repo, input.imageAssetId);
     }
     const handout: CatalogHandout = {
       id: this.idGenerator.nextId(),
@@ -283,10 +303,7 @@ export class UpdateHandoutUseCase {
       throw new HandoutNotFoundError();
     }
     if (updates.imageAssetId) {
-      const assetExists = await this.repo.mediaAssetExists(updates.imageAssetId);
-      if (!assetExists) {
-        throw new MediaAssetNotFoundError();
-      }
+      await requireImageAsset(this.repo, updates.imageAssetId);
     }
     return this.repo.updateHandout(id, updates);
   }
@@ -303,11 +320,18 @@ export class DeleteHandoutUseCase {
 export class ListHandoutsUseCase {
   constructor(private readonly repo: CatalogRepository) {}
 
-  async execute(moduleId: string): Promise<CatalogHandout[]> {
+  async execute(
+    moduleId: string,
+    options: {
+      limit: number;
+      offset?: number;
+      cursor?: string;
+    }
+  ): Promise<{ items: CatalogHandout[]; nextCursor: string | null }> {
     const module = await this.repo.findModuleById(moduleId);
     if (!module) {
       throw new ModuleNotFoundError();
     }
-    return this.repo.listHandoutsByModuleId(moduleId);
+    return this.repo.listHandoutsByModuleId(moduleId, options);
   }
 }

@@ -1,9 +1,38 @@
 import { RotateCw, Smartphone } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
+async function lockLandscape(): Promise<boolean> {
+  const orientation = screen.orientation as ScreenOrientation & { lock?: (mode: OrientationLockType) => Promise<void> };
+  if (!orientation.lock) {
+    return false;
+  }
+  try {
+    await orientation.lock("landscape");
+    return true;
+  } catch {
+    try {
+      await document.documentElement.requestFullscreen();
+      await orientation.lock("landscape");
+      return true;
+    } catch {
+      return false;
+    }
+  }
+}
+
 function RotateSuggestionOverlay({ onDismiss, className }: { onDismiss: () => void; className?: string }) {
+  async function handleRotate() {
+    const locked = await lockLandscape();
+    if (locked) {
+      onDismiss();
+      return;
+    }
+    toast.message("当前浏览器不支持自动旋转，请手动横持设备");
+  }
+
   return (
     <div
       className={cn(
@@ -26,6 +55,7 @@ function RotateSuggestionOverlay({ onDismiss, className }: { onDismiss: () => vo
             type="button"
             variant="primaryGradient"
             className="h-11 w-full bg-linear-to-r"
+            onClick={() => void handleRotate()}
           >
             <RotateCw className="size-4" />
             自动旋转屏幕

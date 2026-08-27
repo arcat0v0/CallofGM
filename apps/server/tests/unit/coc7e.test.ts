@@ -23,11 +23,13 @@ class FakeRandomSource implements RandomSource {
 const rule = new Coc7eRuleSystem();
 
 const baseSheet: coc7e.Coc7eCharacterSheet = {
+  schemaVersion: 1,
   attributes: { str: 50, con: 60, siz: 70, dex: 50, app: 50, int: 60, pow: 60, edu: 50, luck: 50 },
   skills: { 侦查: 60, 图书馆: 45 },
 };
 
 const baseState: coc7e.CharacterSessionState = {
+  schemaVersion: 1,
   sessionId: "s1",
   characterId: "c1",
   hp: 13,
@@ -105,23 +107,34 @@ describe("CoC 7e evaluateSkillCheck 判级边界", () => {
     expect(result.outcome).toBe("regular_success");
   });
 
-  test("难度等级影响判定", () => {
+  test("难度等级影响判定，成长仍按常规成功及以上", () => {
     // roll 34，目标 60：掷出常规成功等级；hard 难度下未达到 = 失败
     const hard = check({ tens: [3], units: 4 }, { difficulty: "hard" });
     expect(hard.outcome).toBe("regular_success");
     expect(hard.success).toBe(false);
-    // 同一掷点在 regular 难度下成功
+    expect(hard.growthEligible).toBe(true);
     const regular = check({ tens: [3], units: 4 }, { difficulty: "regular" });
     expect(regular.outcome).toBe("regular_success");
     expect(regular.success).toBe(true);
-    // roll 12 = 极难成功等级，extreme 难度下成功
+    expect(regular.growthEligible).toBe(true);
     const extreme = check({ tens: [1], units: 2 }, { difficulty: "extreme" });
     expect(extreme.outcome).toBe("extreme_success");
     expect(extreme.success).toBe(true);
-    // hard_success 等级在 extreme 难度下失败
     const hardLevel = check({ tens: [3], units: 0 }, { difficulty: "extreme" });
     expect(hardLevel.outcome).toBe("hard_success");
     expect(hardLevel.success).toBe(false);
+    expect(hardLevel.growthEligible).toBe(true);
+    const fail = check({ tens: [9], units: 0 });
+    expect(fail.growthEligible).toBe(false);
+  });
+
+  test("奖励骰与惩罚骰互相抵消", () => {
+    const cancelled = check({ tens: [3], units: 4 }, { bonusDice: 1, penaltyDice: 1 });
+    expect(cancelled.tensCandidates).toHaveLength(1);
+    expect(cancelled.roll).toBe(34);
+    const netPenalty = check({ tens: [3, 5], units: 4 }, { bonusDice: 1, penaltyDice: 2 });
+    expect(netPenalty.tensCandidates).toHaveLength(2);
+    expect(netPenalty.roll).toBe(54);
   });
 });
 
@@ -208,5 +221,55 @@ describe("CoC 7e 状态变更", () => {
     expect(rule.getSkillTargetValue(baseSheet, "侦查")).toBe(60);
     expect(rule.getSkillTargetValue(baseSheet, "pow")).toBe(60);
     expect(rule.getSkillTargetValue(baseSheet, "不存在的技能")).toBeNull();
+  });
+
+  test("Excel 解析覆盖完整技能目录与派生技能", async () => {
+    const xlsx = await import("xlsx");
+    const workbook = xlsx.utils.book_new();
+    const sheet = xlsx.utils.aoa_to_sheet([
+      ["姓名", "李四"],
+      ["力量", 50],
+      ["体质", 60],
+      ["体型", 55],
+      ["敏捷", 70],
+      ["外貌", 45],
+      ["智力", 80],
+      ["意志", 65],
+      ["教育", 75],
+      ["幸运", 40],
+      ["侦查", 80],
+      ["聆听", 45],
+      ["克苏鲁神话", 5],
+      ["格斗：斗殴", 55],
+    ]);
+    xlsx.utils.book_append_sheet(workbook, sheet, "Sheet1");
+    const buffer = xlsx.write(workbook, { type: "array", bookType: "xlsx" }) as ArrayBuffer;
+    const preview = await rule.parseCharacterSheet(buffer);
+    expect(preview.errors).toEqual([]);
+    expect(preview.characterName).toBe("李四");
+    expect(preview.sheetData.skills["侦查"]).toBe(80);
+    expect(preview.sheetData.skills["聆听"]).toBe(45);
+    expect(preview.sheetData.skills["克苏鲁神话"]).toBe(5);
+    expect(preview.sheetData.skills["格斗"]).toBe(55);
+    expect(preview.sheetData.skills["闪避"]).toBe(35);
+    expect(preview.sheetData.skills["母语"]).toBe(75);
+    expect(preview.sheetData.skills["会计"]).toBe(5);
+  });
+
+  test("缺属性会记入错误而不是静默当成功", async () => {
+    const xlsx = await import("xlsx");
+    const workbook = xlsx.utils.book_new();
+    const sheet = xlsx.utils.aoa_to_sheet([
+      ["姓名", "王五"],
+      ["体质", 50],
+      ["体型", 50],
+      ["意志", 50],
+    ]);
+    xlsx.utils.book_append_sheet(workbook, sheet, "Sheet1");
+    const buffer = xlsx.write(workbook, { type: "array", bookType: "xlsx" }) as ArrayBuffer;
+    const preview = await rule.parseCharacterSheet(buffer);
+    expect(preview.errors.some((error) => error.cell === "LUCK")).toBe(true);
+    expect(preview.errors.some((error) => error.cell === "STR")).toBe(true);
+    expect(preview.sheetData.attributes.luck).toBe(50);
   });
 });

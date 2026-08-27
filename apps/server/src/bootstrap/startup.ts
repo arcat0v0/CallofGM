@@ -4,13 +4,20 @@ import { runMigrations } from "@/platform/db/migration";
 import { sessionOutbox, blacklistEntries } from "@/platform/db/schema";
 import { mkdir } from "fs/promises";
 import { dirname } from "path";
+import { logger } from "@/platform/logging/logger";
+import type { Database } from "bun:sqlite";
+
+const BLACKLIST_CLEANUP_MS = 60 * 60 * 1000;
 
 export class StartupService {
   private db: DbClient;
+  private sqlite: Database;
   private databaseUrl: string;
   private ready = false;
+  private cleanupTimer: ReturnType<typeof setInterval> | null = null;
 
-  constructor(db: DbClient, databaseUrl: string) {
+  constructor(sqlite: Database, db: DbClient, databaseUrl: string) {
+    this.sqlite = sqlite;
     this.db = db;
     this.databaseUrl = databaseUrl;
   }
@@ -24,7 +31,29 @@ export class StartupService {
     await runMigrations(this.db);
     await this.recoverOutbox();
     await this.cleanupExpiredBlacklist();
+    this.cleanupTimer = setInterval(() => {
+      this.cleanupExpiredBlacklist().catch((err) => {
+        logger.error("periodic blacklist cleanup failed", { err });
+      });
+    }, BLACKLIST_CLEANUP_MS);
     this.ready = true;
+  }
+
+  stop(): void {
+    if (this.cleanupTimer) {
+      clearInterval(this.cleanupTimer);
+      this.cleanupTimer = null;
+    }
+    this.ready = false;
+  }
+
+  pingDatabase(): boolean {
+    try {
+      this.sqlite.query("SELECT 1").get();
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   /**
@@ -39,7 +68,7 @@ export class StartupService {
       .where(eq(sessionOutbox.status, "pending"))
       .returning({ id: sessionOutbox.id });
     if (recovered.length > 0) {
-      console.log(`[Startup] Recovered ${recovered.length} pending outbox events`);
+      logger.info("recovered pending outbox events", { count: recovered.length });
     }
   }
 
@@ -51,7 +80,7 @@ export class StartupService {
       .where(and(isNotNull(blacklistEntries.expiresAt), lt(blacklistEntries.expiresAt, now)))
       .returning({ id: blacklistEntries.id });
     if (removed.length > 0) {
-      console.log(`[Startup] Cleaned up ${removed.length} expired blacklist entries`);
+      logger.info("cleaned expired blacklist entries", { count: removed.length });
     }
   }
 

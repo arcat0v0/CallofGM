@@ -34,13 +34,13 @@ export class DrizzleHandoutsRepository {
     return rows.map((r) => r.characterId);
   }
 
-  /** 校验给定人物是否都在团内，返回不在团内的人物 id */
+  /** 校验给定人物是否都是团内 PC，返回无效 id */
   async findCharactersNotInSession(sessionId: string, characterIds: string[]): Promise<string[]> {
     if (characterIds.length === 0) {
       return [];
     }
     const rows = await this.db
-      .select({ characterId: sessionCharacters.characterId })
+      .select({ characterId: sessionCharacters.characterId, kind: sessionCharacters.kind })
       .from(sessionCharacters)
       .where(
         and(
@@ -48,7 +48,7 @@ export class DrizzleHandoutsRepository {
           inArray(sessionCharacters.characterId, characterIds)
         )
       );
-    const inSession = new Set(rows.map((r) => r.characterId));
-    return characterIds.filter((id) => !inSession.has(id));
+    const valid = new Set(rows.filter((row) => row.kind === "pc").map((row) => row.characterId));
+    return characterIds.filter((id) => !valid.has(id));
   }
 }

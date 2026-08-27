@@ -42,25 +42,39 @@ class CharacterNotInSessionError extends AppError {
 }
 
 async function loadAudioState(tx: DbClient, sessionId: string): Promise<BgmState | null> {
-  const rows = await tx.select().from(sessionAudioState).where(eq(sessionAudioState.sessionId, sessionId));
+  const rows = await tx
+    .select({
+      audio: sessionAudioState,
+      duration: tracks.duration,
+      name: tracks.name,
+      audioAssetId: tracks.audioAssetId,
+    })
+    .from(sessionAudioState)
+    .leftJoin(tracks, eq(sessionAudioState.trackId, tracks.id))
+    .where(eq(sessionAudioState.sessionId, sessionId));
   const row = rows[0];
   if (!row) {
     return null;
   }
+  const audio = row.audio;
   return {
-    trackId: row.trackId ?? null,
-    playing: row.playing === 1,
-    volume: row.volume,
-    loop: row.loop === 1,
-    seekOffsetMs: row.seekOffsetMs,
-    startedAtMs: row.startedAtMs,
-    version: row.version,
+    trackId: audio.trackId ?? null,
+    playing: audio.playing === 1,
+    volume: audio.volume,
+    loop: audio.loop === 1,
+    seekOffsetMs: audio.seekOffsetMs,
+    startedAtMs: audio.startedAtMs,
+    version: audio.version,
+    durationMs: row.duration ?? 0,
+    name: row.name ?? undefined,
+    audioAssetId: row.audioAssetId ?? null,
   };
 }
 
 /** scene:switch — 切换当前场景（仅允许本模组场景） */
 export class SwitchSceneHandler implements CommandHandler {
   readonly type = "scene:switch" as const;
+  readonly allowedStatuses = ["preparing", "active"] as const;
 
   async execute(ctx: CommandHandlerContext, payload: unknown): Promise<CommandHandlerResult> {
     if (ctx.actor.type !== "gm") {
@@ -96,6 +110,7 @@ export class SwitchSceneHandler implements CommandHandler {
 /** expression:set — GM 切换任意团内人物的当前表情立绘 */
 export class SetExpressionHandler implements CommandHandler {
   readonly type = "expression:set" as const;
+  readonly allowedStatuses = ["preparing", "active"] as const;
 
   async execute(ctx: CommandHandlerContext, payload: unknown): Promise<CommandHandlerResult> {
     if (ctx.actor.type !== "gm") {
@@ -162,6 +177,7 @@ export class SetExpressionHandler implements CommandHandler {
  */
 export class UpdateBgmHandler implements CommandHandler {
   readonly type = "audio:bgm" as const;
+  readonly allowedStatuses = ["preparing", "active"] as const;
 
   async execute(ctx: CommandHandlerContext, payload: unknown): Promise<CommandHandlerResult> {
     if (ctx.actor.type !== "gm") {
@@ -190,12 +206,17 @@ export class UpdateBgmHandler implements CommandHandler {
       version: 0,
     };
 
-    /** 播放中的实时位置（服务器时钟推导） */
+    /** 播放中的实时位置（服务器时钟推导；循环曲目对 duration 取模） */
     const currentPosition = (): number => {
-      if (!base.playing) {
-        return base.seekOffsetMs;
+      const duration = base.durationMs ?? 0;
+      let position = base.seekOffsetMs;
+      if (base.playing) {
+        position = base.seekOffsetMs + Math.max(0, now - base.startedAtMs);
       }
-      return base.seekOffsetMs + Math.max(0, now - base.startedAtMs);
+      if (base.loop && duration > 0) {
+        return position % duration;
+      }
+      return position;
     };
 
     const next: BgmState = { ...base };
@@ -215,6 +236,9 @@ export class UpdateBgmHandler implements CommandHandler {
         next.playing = true;
         next.seekOffsetMs = input.seekOffsetMs ?? (isSameTrack ? base.seekOffsetMs : 0);
         next.startedAtMs = now;
+        next.durationMs = track.duration;
+        next.name = track.name;
+        next.audioAssetId = track.audioAssetId;
         break;
       }
       case "pause": {
@@ -297,7 +321,6 @@ export class UpdateBgmHandler implements CommandHandler {
   }
 }
 
-/** audio:se — 一次性音效（fire-and-forget，不进快照、不补播） */
 export class PlaySeHandler implements CommandHandler {
   readonly type = "audio:se" as const;
 
@@ -320,7 +343,12 @@ export class PlaySeHandler implements CommandHandler {
     return {
       directToSession: [{
         type: "audio:se",
-        payload: { trackId: track.id, volume: input.volume ?? 100 },
+        payload: {
+          trackId: track.id,
+          volume: input.volume ?? 100,
+          audioAssetId: track.audioAssetId,
+          name: track.name,
+        },
       }],
       replyPayload: { ok: true },
     };
@@ -335,3 +363,4 @@ export function createStageCommandHandlers(): CommandHandler[] {
     new PlaySeHandler(),
   ];
 }
+

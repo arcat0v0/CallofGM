@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { toast } from "sonner";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
@@ -6,15 +7,47 @@ import { ChatPanelHeader } from "@/features/chat/chat-panel-header";
 import { MessageInput } from "@/features/chat/message-input";
 import { MessageList } from "@/features/chat/message-list";
 import { type MessageMode, MessageModeSwitch } from "@/features/chat/message-mode-switch";
-import { gmMessages } from "./mock-data";
+import { DiceTray } from "@/features/session-live/dice-tray";
+import { sendSessionCommand } from "@/lib/session-socket";
+import { phaseChatHint } from "@/lib/format";
+import { usePlayStore } from "@/stores/play-store";
 
 function GmChatPanel({ className }: { className?: string }) {
   const [channel, setChannel] = useState("all");
   const [mode, setMode] = useState<MessageMode>("roleplay");
+  const [draft, setDraft] = useState("");
+  const messages = usePlayStore((state) => state.messages);
+  const phase = usePlayStore((state) => state.phase);
+  const firstPcId = usePlayStore((state) => state.characters.find((character) => character.kind === "pc")?.characterId);
+  const visible = useMemo(() => {
+    if (channel === "ic") {
+      return messages.filter((message) => message.tone !== "ooc");
+    }
+    if (channel === "ooc") {
+      return messages.filter((message) => message.tone === "ooc");
+    }
+    return messages;
+  }, [channel, messages]);
+
+  function handleSend() {
+    const content = draft.trim();
+    if (!content) {
+      return;
+    }
+    const sent = sendSessionCommand("chat:send", {
+      channel: mode === "ooc" ? "ooc" : "roleplay",
+      content,
+    });
+    if (!sent) {
+      toast.error("尚未连接到团");
+      return;
+    }
+    setDraft("");
+  }
 
   return (
     <div className={cn("bg-background-secondary border-separator flex h-full flex-col border-l", className)}>
-      <ChatPanelHeader />
+      <ChatPanelHeader browseAllSheets />
 
       <div className="px-4 pb-2.5">
         <Tabs value={channel} onValueChange={setChannel}>
@@ -26,7 +59,7 @@ function GmChatPanel({ className }: { className?: string }) {
         </Tabs>
       </div>
 
-      <MessageList messages={gmMessages} showRoleBadge={false} className="min-h-0 flex-1 overflow-y-auto px-4 py-1.5" />
+      <MessageList messages={visible} showRoleBadge={false} className="min-h-0 flex-1 overflow-y-auto px-4 py-1.5" />
 
       <div className="border-separator-secondary bg-background-tertiary flex flex-col gap-2.5 border-t px-4 pt-3 pb-3.5">
         <div className="flex items-center justify-between">
@@ -39,9 +72,16 @@ function GmChatPanel({ className }: { className?: string }) {
           <MessageModeSwitch value={mode} onValueChange={setMode} />
         </div>
 
-        <MessageInput placeholder="以 KP 身份发言 / 旁白…" />
+        <DiceTray gm characterId={firstPcId} />
 
-        <p className="text-foreground-tertiary font-sans text-[11px]">演绎时间 · 玩家需申请发言，由你逐条授权</p>
+        <MessageInput
+          placeholder="以 KP 身份发言 / 旁白…"
+          value={draft}
+          onChange={setDraft}
+          onSubmit={handleSend}
+        />
+
+        <p className="text-foreground-tertiary font-sans text-[11px]">{phaseChatHint(phase, "gm")}</p>
       </div>
     </div>
   );

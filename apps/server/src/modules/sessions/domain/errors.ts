@@ -29,3 +29,9 @@ export class CharacterAlreadyParticipatingError extends AppError {
     super("CHARACTER_ALREADY_PARTICIPATING", message, 400);
   }
 }
+
+export class CharacterNotInModuleError extends AppError {
+  constructor(message = "Character is not linked to this module") {
+    super("CHARACTER_NOT_IN_MODULE", message, 400);
+  }
+}

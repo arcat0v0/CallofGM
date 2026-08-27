@@ -14,6 +14,7 @@ export const Coc7eAttributes = z.object({
 export type Coc7eAttributes = z.infer<typeof Coc7eAttributes>;
 
 export const Coc7eCharacterSheet = z.object({
+  schemaVersion: z.literal(1).default(1),
   attributes: Coc7eAttributes,
   skills: z.record(z.string(), z.number().int().min(0).max(99)),
 });

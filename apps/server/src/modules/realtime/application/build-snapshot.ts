@@ -14,6 +14,8 @@ import {
   handoutGrantRecipients,
   handouts,
   sessionOutbox,
+  tracks,
+  characterPortraits,
 } from "@/platform/db/schema";
 import type {
   SessionSnapshotPayload,
@@ -51,6 +53,14 @@ export class BuildSessionSnapshotUseCase {
     return rows[0] ?? null;
   }
 
+  async listVisibleHandouts(
+    sessionId: string,
+    isGm: boolean,
+    claimedCharacterId: string | null
+  ): Promise<GrantedHandoutDto[]> {
+    return this.buildVisibleHandouts(sessionId, isGm, claimedCharacterId);
+  }
+
   async execute(input: {
     sessionId: string;
     actor: ActorContext;
@@ -67,10 +77,11 @@ export class BuildSessionSnapshotUseCase {
     }
 
     const moduleRows = await this.db
-      .select({ ruleId: modules.ruleId })
+      .select({ ruleId: modules.ruleId, name: modules.name })
       .from(modules)
       .where(eq(modules.id, session.moduleId));
     const ruleId = (moduleRows[0]?.ruleId ?? "coc7e") as RuleId;
+    const moduleName = moduleRows[0]?.name ?? "";
 
     const [
       charactersSnapshot,
@@ -83,7 +94,7 @@ export class BuildSessionSnapshotUseCase {
       pendingQueue,
       online,
     ] = await Promise.all([
-      this.buildCharacters(sessionId, ruleId, isGm),
+      this.buildCharacters(sessionId, ruleId, actor),
       this.buildCurrentScene(session.currentSceneId),
       this.buildBgm(sessionId),
       this.buildRecentMessages(sessionId),
@@ -98,6 +109,7 @@ export class BuildSessionSnapshotUseCase {
       session: {
         id: session.id,
         moduleId: session.moduleId,
+        moduleName,
         status: session.status as SessionSnapshotPayload["session"]["status"],
         phase: session.phase as SessionSnapshotPayload["session"]["phase"],
         currentSceneId: session.currentSceneId ?? null,
@@ -119,8 +131,10 @@ export class BuildSessionSnapshotUseCase {
   private async buildCharacters(
     sessionId: string,
     ruleId: RuleId,
-    isGm: boolean
+    actor: ActorContext
   ): Promise<SnapshotCharacter[]> {
+    const isGm = actor.type === "gm";
+    const playerId = actor.type === "player" ? actor.playerId : null;
     const sessionChars = await this.db
       .select()
       .from(sessionCharacters)
@@ -131,10 +145,31 @@ export class BuildSessionSnapshotUseCase {
 
     const charIds = sessionChars.map((sc) => sc.characterId);
     const charRows = await this.db
-      .select({ id: characters.id, name: characters.name })
+      .select({ id: characters.id, name: characters.name, sheetJson: characters.sheetJson })
       .from(characters)
       .where(inArray(characters.id, charIds));
     const nameMap = new Map(charRows.map((c) => [c.id, c.name]));
+    const sheetMap = new Map(charRows.map((c) => [c.id, c.sheetJson]));
+
+    const portraitRows = await this.db
+      .select({
+        characterId: characterPortraits.characterId,
+        expressionKey: characterPortraits.expressionKey,
+        portraitAssetId: characterPortraits.portraitAssetId,
+        isDefault: characterPortraits.isDefault,
+      })
+      .from(characterPortraits)
+      .where(inArray(characterPortraits.characterId, charIds));
+    const portraitsByCharacter = new Map<string, SnapshotCharacter["portraits"]>();
+    for (const portrait of portraitRows) {
+      const list = portraitsByCharacter.get(portrait.characterId) ?? [];
+      list.push({
+        expressionKey: portrait.expressionKey,
+        portraitAssetId: portrait.portraitAssetId,
+        isDefault: portrait.isDefault === 1,
+      });
+      portraitsByCharacter.set(portrait.characterId, list);
+    }
 
     const activeClaims = await this.db
       .select()
@@ -168,15 +203,33 @@ export class BuildSessionSnapshotUseCase {
       }
 
       const claim = claimMap.get(sc.characterId) ?? null;
+      const ownPc =
+        playerId !== null &&
+        kind === "pc" &&
+        claim?.playerId === playerId &&
+        claim.role === "pc";
+      let sheet: unknown = null;
+      if (isGm || ownPc) {
+        const raw = sheetMap.get(sc.characterId);
+        if (raw) {
+          try {
+            sheet = JSON.parse(raw);
+          } catch {
+            sheet = null;
+          }
+        }
+      }
       return {
         characterId: sc.characterId,
         name: nameMap.get(sc.characterId) ?? "Unknown",
         kind,
         currentExpressionKey: sc.currentExpressionKey ?? null,
         state,
+        portraits: portraitsByCharacter.get(sc.characterId) ?? [],
         claim: claim
           ? { playerId: claim.playerId, role: claim.role === "pc" ? ("pc" as const) : ("ob" as const) }
           : null,
+        sheet,
       };
     });
   }
@@ -200,13 +253,20 @@ export class BuildSessionSnapshotUseCase {
 
   private async buildBgm(sessionId: string): Promise<BgmState | null> {
     const rows = await this.db
-      .select()
+      .select({
+        audio: sessionAudioState,
+        duration: tracks.duration,
+        name: tracks.name,
+        audioAssetId: tracks.audioAssetId,
+      })
       .from(sessionAudioState)
+      .leftJoin(tracks, eq(sessionAudioState.trackId, tracks.id))
       .where(eq(sessionAudioState.sessionId, sessionId));
-    const audio = rows[0];
-    if (!audio) {
+    const row = rows[0];
+    if (!row) {
       return null;
     }
+    const audio = row.audio;
     return {
       trackId: audio.trackId ?? null,
       playing: audio.playing === 1,
@@ -215,6 +275,9 @@ export class BuildSessionSnapshotUseCase {
       seekOffsetMs: audio.seekOffsetMs,
       startedAtMs: audio.startedAtMs,
       version: audio.version,
+      durationMs: row.duration ?? 0,
+      name: row.name ?? undefined,
+      audioAssetId: row.audioAssetId ?? null,
     };
   }
 

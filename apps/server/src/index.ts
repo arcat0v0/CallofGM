@@ -44,6 +44,7 @@ async function shutdown() {
   }
 
   try {
+    container.startupService.stop();
     container.dbContext.sqlite.close();
   } catch (err) {
     console.error("Error closing database:", err);

@@ -1,5 +1,5 @@
 export type ActorContext =
-  | { type: "gm" }
+  | { type: "gm"; loginSessionId?: string }
   | { type: "player"; playerId: string };
 
 export type SessionActorContext =

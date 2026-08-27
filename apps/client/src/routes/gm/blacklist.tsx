@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { ScanLine, Search, ShieldBan, ShieldOff, ShieldX, Timer, UserX } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { MetricCard } from "@/components/shared/metric-card";
 import { PageHeader } from "@/components/shared/page-header";
@@ -17,15 +18,27 @@ import {
 } from "@/components/ui/table";
 import { AdminLayout } from "@/features/gm-admin/admin-layout";
 import { BanPlayerDialog } from "@/features/gm-admin/dialogs/ban-player-dialog";
+import { api, isApiError, unwrapItems } from "@/lib/api";
+import { requireGmAuth } from "@/lib/identity";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/gm/blacklist")({
+  beforeLoad: requireGmAuth,
   component: BlacklistPage,
 });
 
 type DurationTone = "warning" | "danger" | "default";
 
+type BlacklistRow = {
+  id: string;
+  fingerprintHash: string;
+  reason: string;
+  expiresAt: number | null;
+  createdAt: number;
+};
+
 type BlacklistEntry = {
+  fingerprintHash: string;
   fingerprint: string;
   note: string;
   duration: string;
@@ -36,55 +49,77 @@ type BlacklistEntry = {
   active: boolean;
 };
 
-const entries: BlacklistEntry[] = [
-  {
-    fingerprint: "8c1d·4f2a·9e01",
-    note: "阿飞 · 恶意刷屏",
-    duration: "7 天",
-    durationTone: "warning",
-    remaining: "剩 5 天 12 时",
-    bannedAt: "07-11",
-    active: true,
-  },
-  {
-    fingerprint: "2b7e·88c0·1af3",
-    note: "捣乱访客",
-    duration: "24 小时",
-    durationTone: "warning",
-    remaining: "剩 3 小时",
-    bannedAt: "07-13",
-    active: true,
-  },
-  {
-    fingerprint: "f09a·3d21·7cc8",
-    note: "开盒威胁 · 永久",
-    duration: "永久",
-    durationTone: "danger",
-    remaining: "—",
-    bannedAt: "07-02",
-    active: true,
-  },
-  {
-    fingerprint: "55ab·9012·ee34",
-    note: "已到期 · 自动解封",
-    duration: "3 天",
-    durationTone: "default",
-    remaining: "已解封",
-    remainingMuted: true,
-    bannedAt: "07-08",
-    active: false,
-  },
-];
+function formatStamp(epochMs: number): string {
+  const date = new Date(epochMs);
+  return `${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
 
-const stats = [
-  { icon: ShieldBan, iconClass: "text-danger-soft-foreground", value: "3", label: "生效中封禁" },
-  { icon: ShieldX, iconClass: "text-danger-soft-foreground", value: "1", label: "永久封禁" },
-  { icon: Timer, iconClass: "text-warning", value: "2", label: "近 7 天新增" },
-];
+function shortHash(hash: string): string {
+  return hash.length <= 16 ? hash : `${hash.slice(0, 8)}…${hash.slice(-4)}`;
+}
+
+function mapEntry(row: BlacklistRow, now: number): BlacklistEntry {
+  const active = row.expiresAt === null || row.expiresAt > now;
+  let duration = "永久";
+  let durationTone: DurationTone = "danger";
+  let remaining = "—";
+  if (row.expiresAt !== null) {
+    durationTone = "warning";
+    const ms = row.expiresAt - row.createdAt;
+    const hours = Math.round(ms / 3600_000);
+    duration = hours >= 24 ? `${Math.round(hours / 24)} 天` : `${Math.max(1, hours)} 小时`;
+    if (!active) {
+      remaining = "已解封";
+    } else {
+      const left = row.expiresAt - now;
+      const leftHours = Math.max(1, Math.round(left / 3600_000));
+      remaining = leftHours >= 24 ? `剩 ${Math.round(leftHours / 24)} 天` : `剩 ${leftHours} 小时`;
+    }
+  }
+  return {
+    fingerprintHash: row.fingerprintHash,
+    fingerprint: shortHash(row.fingerprintHash),
+    note: row.reason || "—",
+    duration,
+    durationTone: active ? durationTone : "default",
+    remaining: active ? remaining : "已解封",
+    remainingMuted: !active,
+    bannedAt: formatStamp(row.createdAt),
+    active,
+  };
+}
 
 function BlacklistPage() {
-  const [banDialog, setBanDialog] = useState<{ open: boolean; fingerprint?: string }>({ open: false });
+  const [banOpen, setBanOpen] = useState(false);
   const [unbanTarget, setUnbanTarget] = useState<BlacklistEntry | null>(null);
+  const [rows, setRows] = useState<BlacklistRow[]>([]);
+  const [query, setQuery] = useState("");
+
+  async function reload() {
+    try {
+      const data = await api<unknown>("/gm/blacklist");
+      setRows(unwrapItems<BlacklistRow>(data).length ? unwrapItems<BlacklistRow>(data) : Array.isArray(data) ? (data as BlacklistRow[]) : []);
+    } catch (error) {
+      toast.error(isApiError(error) ? error.message : "无法加载黑名单");
+    }
+  }
+
+  useEffect(() => {
+    void reload();
+  }, []);
+
+  const entries = useMemo(() => {
+    const now = Date.now();
+    const mapped = rows.map((row) => mapEntry(row, now));
+    const q = query.trim();
+    if (!q) {
+      return mapped;
+    }
+    return mapped.filter((entry) => entry.fingerprint.includes(q) || entry.note.includes(q) || entry.fingerprintHash.includes(q));
+  }, [rows, query]);
+
+  const activeCount = entries.filter((entry) => entry.active).length;
+  const permanentCount = entries.filter((entry) => entry.active && entry.duration === "永久").length;
 
   return (
     <AdminLayout active="blacklist">
@@ -99,12 +134,14 @@ function BlacklistPage() {
                   <Search />
                 </InputGroupAddon>
                 <InputGroupInput
-                placeholder="搜索指纹 / 备注…"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="搜索指纹 / 备注…"
                   aria-label="搜索黑名单"
                   className="text-[13px]"
                 />
               </InputGroup>
-              <Button variant="dangerSoft" className="font-semibold" onClick={() => setBanDialog({ open: true })}>
+              <Button variant="dangerSoft" className="font-semibold" onClick={() => setBanOpen(true)}>
                 <UserX />
                 手动拉黑
               </Button>
@@ -113,18 +150,9 @@ function BlacklistPage() {
         />
 
         <div className="flex gap-3.5">
-          {stats.map((stat) => {
-            return (
-              <MetricCard
-                key={stat.label}
-                icon={stat.icon}
-                value={stat.value}
-                label={stat.label}
-                iconContainerClassName="bg-danger-soft"
-                iconClassName={stat.iconClass}
-              />
-            );
-          })}
+          <MetricCard icon={ShieldBan} value={String(activeCount)} label="生效中封禁" iconContainerClassName="bg-danger-soft" iconClassName="text-danger-soft-foreground" />
+          <MetricCard icon={ShieldX} value={String(permanentCount)} label="永久封禁" iconContainerClassName="bg-danger-soft" iconClassName="text-danger-soft-foreground" />
+          <MetricCard icon={Timer} value={String(rows.length)} label="全部记录" iconContainerClassName="bg-danger-soft" iconClassName="text-warning" />
         </div>
 
         <Table className="table-fixed">
@@ -140,7 +168,7 @@ function BlacklistPage() {
           </TableHeader>
           <TableBody>
             {entries.map((entry) => (
-              <TableRow key={entry.fingerprint}>
+              <TableRow key={entry.fingerprintHash}>
                 <TableCell>
                   <div className="flex items-center gap-2">
                 <span className="bg-default flex size-[26px] items-center justify-center rounded-[7px]">
@@ -174,7 +202,7 @@ function BlacklistPage() {
                     variant="tertiary"
                     size="sm"
                     className="h-7 rounded-full px-3 text-xs font-semibold"
-                    onClick={() => setBanDialog({ open: true, fingerprint: entry.fingerprint })}
+                    onClick={() => setBanOpen(true)}
                   >
                     再次封禁
                   </Button>
@@ -187,9 +215,24 @@ function BlacklistPage() {
       </div>
 
       <BanPlayerDialog
-        open={banDialog.open}
-        onOpenChange={(open) => setBanDialog((state) => ({ ...state, open }))}
-        fingerprint={banDialog.fingerprint ? `指纹 ${banDialog.fingerprint}` : undefined}
+        open={banOpen}
+        onOpenChange={setBanOpen}
+        onBan={async (input) => {
+          try {
+            await api("/gm/blacklist", {
+              method: "POST",
+              body: JSON.stringify({
+                playerId: input.playerId,
+                reason: input.reason,
+                ...(input.durationSeconds ? { durationSeconds: input.durationSeconds } : {}),
+              }),
+            });
+            await reload();
+          } catch (error) {
+            toast.error(isApiError(error) ? error.message : "拉黑失败");
+            throw error;
+          }
+        }}
       />
       <ConfirmDialog
         open={unbanTarget !== null}
@@ -200,7 +243,19 @@ function BlacklistPage() {
         confirmLabel="解封"
         confirmIcon={ShieldOff}
         variant="warning"
-        onConfirm={() => setUnbanTarget(null)}
+        onConfirm={() => {
+          const target = unbanTarget;
+          setUnbanTarget(null);
+          if (!target) {
+            return;
+          }
+          void api("/gm/blacklist/unban", {
+            method: "POST",
+            body: JSON.stringify({ fingerprintHash: target.fingerprintHash }),
+          })
+            .then(() => reload())
+            .catch((error) => toast.error(isApiError(error) ? error.message : "解封失败"));
+        }}
       />
     </AdminLayout>
   );

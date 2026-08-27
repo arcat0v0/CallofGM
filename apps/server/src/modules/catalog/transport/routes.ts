@@ -2,7 +2,7 @@ import { Elysia } from "elysia";
 import { type Container } from "@/bootstrap/container";
 import { DrizzleCatalogRepository } from "../infrastructure/drizzle-catalog-repository";
 import { DrizzleIdentityRepository, createAuthPlugin, AuthRequiredError } from "@/modules/identity";
-import { AppError } from "@/platform/errors/app-error";
+import { validationFailed } from "@/platform/errors/validation";
 import {
   CreateModuleRequest,
   UpdateModuleRequest,
@@ -11,7 +11,8 @@ import {
   CreateTrackRequest,
   UpdateTrackRequest,
   CreateHandoutRequest,
-  UpdateHandoutRequest
+  UpdateHandoutRequest,
+  CursorPageQuery
 } from "@cogm/shared";
 import {
   CreateModuleUseCase,
@@ -33,11 +34,26 @@ import {
   ListHandoutsUseCase
 } from "../application/use-cases";
 
+function parsePageQuery(query: unknown) {
+  const parsed = CursorPageQuery.safeParse(query ?? {});
+  if (!parsed.success) {
+    throw validationFailed(parsed.error);
+  }
+  return parsed.data;
+}
+
+function parseBody<T>(schema: { safeParse: (data: unknown) => { success: true; data: T } | { success: false; error: unknown } }, body: unknown): T {
+  const parsed = schema.safeParse(body);
+  if (!parsed.success) {
+    throw validationFailed(parsed.error);
+  }
+  return parsed.data;
+}
+
 export function createCatalogRoutes(container: Container) {
   const repo = new DrizzleCatalogRepository(container.db);
   const identityRepo = new DrizzleIdentityRepository(container.db);
-  const tokenSigner = container.playerTokenSigner;
-  const authPlugin = createAuthPlugin(identityRepo, tokenSigner);
+  const authPlugin = createAuthPlugin(identityRepo);
 
   const createModule = new CreateModuleUseCase(repo, container.idGenerator, container.clock);
   const updateModule = new UpdateModuleUseCase(repo);
@@ -68,147 +84,67 @@ export function createCatalogRoutes(container: Container) {
       }
     })
     .post("/", async ({ body }) => {
-      let parsed;
-      try {
-        parsed = CreateModuleRequest.parse(body);
-      } catch (e: unknown) {
-        throw new AppError(
-          "VALIDATION_FAILED",
-          e instanceof Error ? e.message : "Validation failed",
-          400
-        );
-      }
-      return createModule.execute(parsed);
+      return createModule.execute(parseBody(CreateModuleRequest, body));
     })
     .get("/", async ({ query }) => {
-      const limit = parseInt(query?.limit || "20", 10);
-      const offset = query?.offset ? parseInt(query.offset, 10) : undefined;
-      const cursor = query?.cursor || undefined;
-      return listModules.execute({ limit, offset, cursor });
+      return listModules.execute(parsePageQuery(query));
     })
     .get("/:id", async ({ params }) => {
       return getModule.execute(params.id);
     })
     .patch("/:id", async ({ params, body }) => {
-      let parsed;
-      try {
-        parsed = UpdateModuleRequest.parse(body);
-      } catch (e: unknown) {
-        throw new AppError(
-          "VALIDATION_FAILED",
-          e instanceof Error ? e.message : "Validation failed",
-          400
-        );
-      }
-      return updateModule.execute(params.id, parsed);
+      return updateModule.execute(params.id, parseBody(UpdateModuleRequest, body));
     })
     .delete("/:id", async ({ params }) => {
       await deleteModule.execute(params.id);
       return { success: true };
     })
     .post("/:id/scenes", async ({ params, body }) => {
-      let parsed;
-      try {
-        parsed = CreateSceneRequest.parse(body);
-      } catch (e: unknown) {
-        throw new AppError(
-          "VALIDATION_FAILED",
-          e instanceof Error ? e.message : "Validation failed",
-          400
-        );
-      }
+      const parsed = parseBody(CreateSceneRequest, body);
       return createScene.execute({
         moduleId: params.id,
         ...parsed
       });
     })
-    .get("/:id/scenes", async ({ params }) => {
-      return listScenes.execute(params.id);
+    .get("/:id/scenes", async ({ params, query }) => {
+      return listScenes.execute(params.id, parsePageQuery(query));
     })
     .patch("/scenes/:id", async ({ params, body }) => {
-      let parsed;
-      try {
-        parsed = UpdateSceneRequest.parse(body);
-      } catch (e: unknown) {
-        throw new AppError(
-          "VALIDATION_FAILED",
-          e instanceof Error ? e.message : "Validation failed",
-          400
-        );
-      }
-      return updateScene.execute(params.id, parsed);
+      return updateScene.execute(params.id, parseBody(UpdateSceneRequest, body));
     })
     .delete("/scenes/:id", async ({ params }) => {
       await deleteScene.execute(params.id);
       return { success: true };
     })
     .post("/:id/tracks", async ({ params, body }) => {
-      let parsed;
-      try {
-        parsed = CreateTrackRequest.parse(body);
-      } catch (e: unknown) {
-        throw new AppError(
-          "VALIDATION_FAILED",
-          e instanceof Error ? e.message : "Validation failed",
-          400
-        );
-      }
+      const parsed = parseBody(CreateTrackRequest, body);
       return createTrack.execute({
         moduleId: params.id,
         ...parsed
       });
     })
-    .get("/:id/tracks", async ({ params }) => {
-      return listTracks.execute(params.id);
+    .get("/:id/tracks", async ({ params, query }) => {
+      return listTracks.execute(params.id, parsePageQuery(query));
     })
     .patch("/tracks/:id", async ({ params, body }) => {
-      let parsed;
-      try {
-        parsed = UpdateTrackRequest.parse(body);
-      } catch (e: unknown) {
-        throw new AppError(
-          "VALIDATION_FAILED",
-          e instanceof Error ? e.message : "Validation failed",
-          400
-        );
-      }
-      return updateTrack.execute(params.id, parsed);
+      return updateTrack.execute(params.id, parseBody(UpdateTrackRequest, body));
     })
     .delete("/tracks/:id", async ({ params }) => {
       await deleteTrack.execute(params.id);
       return { success: true };
     })
     .post("/:id/handouts", async ({ params, body }) => {
-      let parsed;
-      try {
-        parsed = CreateHandoutRequest.parse(body);
-      } catch (e: unknown) {
-        throw new AppError(
-          "VALIDATION_FAILED",
-          e instanceof Error ? e.message : "Validation failed",
-          400
-        );
-      }
+      const parsed = parseBody(CreateHandoutRequest, body);
       return createHandout.execute({
         moduleId: params.id,
         ...parsed
       });
     })
-    .get("/:id/handouts", async ({ params }) => {
-      return listHandouts.execute(params.id);
+    .get("/:id/handouts", async ({ params, query }) => {
+      return listHandouts.execute(params.id, parsePageQuery(query));
     })
     .patch("/handouts/:id", async ({ params, body }) => {
-      let parsed;
-      try {
-        parsed = UpdateHandoutRequest.parse(body);
-      } catch (e: unknown) {
-        throw new AppError(
-          "VALIDATION_FAILED",
-          e instanceof Error ? e.message : "Validation failed",
-          400
-        );
-      }
-      return updateHandout.execute(params.id, parsed);
+      return updateHandout.execute(params.id, parseBody(UpdateHandoutRequest, body));
     })
     .delete("/handouts/:id", async ({ params }) => {
       await deleteHandout.execute(params.id);

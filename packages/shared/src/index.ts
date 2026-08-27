@@ -4,6 +4,7 @@ export * from "./rules/rule-id";
 export * as coc7e from "./rules/coc7e";
 export * from "./identity";
 export * from "./catalog";
+export * from "./pagination";
 export * from "./websocket";
 export * from "./chat";
 export * from "./gameplay";

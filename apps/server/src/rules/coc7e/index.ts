@@ -24,20 +24,8 @@ export class Coc7eRuleSystem extends RuleSystem<coc7e.Coc7eCharacterSheet, coc7e
     const skills: Record<string, number> = {};
     const errors: Array<{ cell: string; message: string }> = [];
 
-    const attrMap: Record<string, string[]> = {
-      str: ["力量", "str"],
-      con: ["体质", "con"],
-      siz: ["体型", "siz"],
-      dex: ["敏捷", "dex"],
-      app: ["外貌", "app"],
-      int: ["智力", "int", "灵感"],
-      pow: ["意志", "pow"],
-      edu: ["教育", "edu"],
-      luck: ["幸运", "luck"],
-    };
-
     const nameQueries = ["姓名", "角色姓名", "调查员姓名", "name", "character name"];
-    const knownSkillsList = ["侦查", "图书馆", "心理学", "聆听", "潜行", "乔装", "说服", "话术", "魅惑", "信用评级"];
+    const attrMap = coc7e.COC7E_ATTRIBUTE_ALIASES;
 
     const getNumber = (val: any): number | null => {
       if (typeof val === "number") {
@@ -107,39 +95,57 @@ export class Coc7eRuleSystem extends RuleSystem<coc7e.Coc7eCharacterSheet, coc7e
             }
           }
 
-          for (const skill of knownSkillsList) {
-            if (text.includes(skill)) {
-              const num = findAdjacentNumber(rows, r, c);
-              if (num !== null && num >= 0 && num <= 99) {
-                if (skills[skill] === undefined) {
-                  skills[skill] = num;
-                }
-              }
+          const skillKey = coc7e.matchCoc7eSkillCell(text);
+          if (skillKey) {
+            let num = findAdjacentNumber(rows, r, c);
+            if (num === null) {
+              const trailing = text.match(/(\d{1,2})\s*$/);
+              num = trailing ? getNumber(trailing[1]) : null;
+            }
+            if (num !== null && num >= 0 && num <= 99 && skills[skillKey] === undefined) {
+              skills[skillKey] = num;
             }
           }
         }
       }
     }
 
-    const criticals = ["con", "siz", "pow"];
-    for (const crit of criticals) {
-      const val = attributes[crit];
-      if (val === undefined || val < 1 || val > 99) {
-        errors.push({
-          cell: crit.toUpperCase(),
-          message: `关键属性 ${crit.toUpperCase()} 缺失或无效 (必须在 1-99 之间)`,
-        });
-      }
-    }
-
-    const keys = ["str", "con", "siz", "dex", "app", "int", "pow", "edu", "luck"];
+    const keys = ["str", "con", "siz", "dex", "app", "int", "pow", "edu", "luck"] as const;
+    const criticals = new Set(["con", "siz", "pow"]);
     for (const key of keys) {
       if (attributes[key] === undefined) {
+        if (criticals.has(key)) {
+          errors.push({
+            cell: key.toUpperCase(),
+            message: `关键属性 ${key.toUpperCase()} 缺失或无效 (必须在 1-99 之间)`,
+          });
+        } else {
+          errors.push({
+            cell: key.toUpperCase(),
+            message: `属性 ${key.toUpperCase()} 缺失`,
+          });
+        }
         attributes[key] = 50;
       }
     }
 
+    const dex = attributes.dex ?? 50;
+    const edu = attributes.edu ?? 50;
+    for (const skill of coc7e.COC7E_SKILL_CATALOG) {
+      if (skills[skill.key] !== undefined) {
+        continue;
+      }
+      if (skill.key === "闪避") {
+        skills[skill.key] = Math.max(1, Math.min(99, Math.floor(dex / 2)));
+      } else if (skill.key === "母语") {
+        skills[skill.key] = Math.max(1, Math.min(99, edu));
+      } else {
+        skills[skill.key] = skill.base;
+      }
+    }
+
     const sheetData: coc7e.Coc7eCharacterSheet = {
+      schemaVersion: 1,
       attributes: {
         str: attributes.str ?? 50,
         con: attributes.con ?? 50,
@@ -170,6 +176,7 @@ export class Coc7eRuleSystem extends RuleSystem<coc7e.Coc7eCharacterSheet, coc7e
     const maxSan = 99;
 
     return {
+      schemaVersion: 1,
       sessionId: "",
       characterId: "",
       hp: maxHp,
@@ -187,7 +194,9 @@ export class Coc7eRuleSystem extends RuleSystem<coc7e.Coc7eCharacterSheet, coc7e
   evaluateSkillCheck(input: SkillCheckInput, random: RandomSource): coc7e.SkillCheckResult {
     const { characterId, skillKey, targetValue, difficulty, bonusDice, penaltyDice } = input;
     const unitsDigit = random.randomInt(0, 9);
-    const numTensDice = Math.max(bonusDice, penaltyDice) + 1;
+    const netBonus = Math.max(0, bonusDice - penaltyDice);
+    const netPenalty = Math.max(0, penaltyDice - bonusDice);
+    const numTensDice = Math.max(netBonus, netPenalty) + 1;
     const tensCandidates: number[] = [];
     for (let i = 0; i < numTensDice; i++) {
       tensCandidates.push(random.randomInt(0, 9));
@@ -201,9 +210,9 @@ export class Coc7eRuleSystem extends RuleSystem<coc7e.Coc7eCharacterSheet, coc7e
     });
 
     let selectedValue = rollValues[0] ?? 100;
-    if (bonusDice > 0) {
+    if (netBonus > 0) {
       selectedValue = Math.min(...rollValues);
-    } else if (penaltyDice > 0) {
+    } else if (netPenalty > 0) {
       selectedValue = Math.max(...rollValues);
     }
 
@@ -252,6 +261,11 @@ export class Coc7eRuleSystem extends RuleSystem<coc7e.Coc7eCharacterSheet, coc7e
       roll: selectedValue,
       outcome,
       success,
+      growthEligible:
+        outcome === "critical" ||
+        outcome === "extreme_success" ||
+        outcome === "hard_success" ||
+        outcome === "regular_success",
     };
   }
 

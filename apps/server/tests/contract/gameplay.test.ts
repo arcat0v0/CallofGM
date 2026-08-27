@@ -238,40 +238,47 @@ describe("Gameplay contract tests", () => {
     await closeAll(gm, pc1, pc2);
   });
 
-  test("理智检定：自动扣减 SAN、事件顺序与大额损失 GM 提示", async () => {
+  test("理智检定：GM 立即判定、自动扣减 SAN、事件顺序与大额损失 GM 提示", async () => {
     await setSessionPhase(ctx, "free_performance");
     const { gm, pc1, pc2 } = await openAll();
 
-    // pc1 当前 SAN=60（pow 60 初始化）
-    sendCommand(
-      gm,
-      "check:request",
-      { characterId: "char-pc1", skillKey: "san", sanLossExpression: "1d3/1d6" },
-      "s-1"
-    );
-    const requested = await pc1.waitFor((m) => m.type === "check:requested" && m.payload.request.sanLossExpression === "1d3/1d6");
-    const requestId = requested.payload.request.id;
-
-    // SAN 检定失败：roll 80 > 60，损失 1d6 = 6
     random.push(80, 6);
-    sendCommand(pc1, "check:respond", { requestId }, "s-2");
-    const resolved = await gm.waitFor((m) => m.type === "check:resolved" && m.payload.requestId === requestId);
+    sendCommand(gm, "check:san", { characterId: "char-pc1", sanLossExpression: "1d3/1d6" }, "s-1");
+    const resolved = await gm.waitFor((m) => m.type === "check:resolved" && m.payload.skillKey === "san");
     expect(resolved.payload.result.success).toBe(false);
     expect(resolved.payload.result.loss).toBe(6);
     expect(resolved.payload.result.sanAfter).toBe(54);
 
-    // 事件顺序：check:resolved 在前，state:changed 在后且 eventId 连续
     const stateChanged = await gm.waitFor(
       (m) => m.type === "state:changed" && m.payload.characterId === "char-pc1" && m.payload.state.san === 54
     );
     expect(stateChanged.eventId).toBe(resolved.eventId + 1);
+    await pc1.waitFor((m) => m.type === "state:changed" && m.payload.state.san === 54);
+    await pc2.waitFor((m) => m.type === "state:changed" && m.payload.state.san === 54);
 
-    // 单次损失 >= 5 的提示仅 GM 可见
     const hint = await gm.waitFor((m) => m.type === "state:hint");
     expect(hint.payload.hints.some((h: string) => h.includes("临时疯狂"))).toBe(true);
     await new Promise((r) => setTimeout(r, 200));
     expect(pc1.messages.some((m) => m.type === "state:hint")).toBe(false);
     expect(pc2.messages.some((m) => m.type === "state:hint")).toBe(false);
+
+    await closeAll(gm, pc1, pc2);
+  });
+
+  test("暗骰成长：鉴定结果仅 GM 可见，PC 状态变更仍全员广播", async () => {
+    await setSessionPhase(ctx, "free_performance");
+    const { gm, pc1, pc2 } = await openAll();
+
+    random.push(1, 2);
+    sendCommand(gm, "check:perform", { characterId: "char-pc1", skillKey: "侦查", hidden: true }, "hid-1");
+    await gm.waitFor((m) => m.type === "check:resolved" && m.payload.hidden === true);
+    const publicState = await pc2.waitFor(
+      (m) => m.type === "state:changed" && m.payload.characterId === "char-pc1"
+    );
+    expect(publicState.payload.state.growthMarks).toContain("侦查");
+    await new Promise((r) => setTimeout(r, 200));
+    expect(pc1.messages.some((m) => m.type === "check:resolved" && m.payload.hidden === true)).toBe(false);
+    expect(pc2.messages.some((m) => m.type === "check:resolved" && m.payload.hidden === true)).toBe(false);
 
     await closeAll(gm, pc1, pc2);
   });

@@ -20,6 +20,7 @@ export const CharacterStatusFlagLabel: Record<CharacterStatusFlag, string> = {
 };
 
 export const CharacterSessionState = z.object({
+  schemaVersion: z.literal(1).default(1),
   sessionId: z.string(),
   characterId: z.string(),
   hp: z.number().int().min(0),

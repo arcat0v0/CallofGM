@@ -47,8 +47,3 @@ export interface IdentityRepository {
   isFingerprintBlacklisted(fingerprintHash: string): Promise<boolean>;
   listBlacklistEntries(): Promise<BlacklistEntry[]>;
 }
-
-export interface TokenSigner {
-  sign(playerId: string, expiresAt: number): string;
-  verify(token: string): { playerId: string; expiresAt: number } | null;
-}

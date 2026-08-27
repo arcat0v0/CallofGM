@@ -13,6 +13,7 @@ import type { SessionEventBus, StagedEvents } from "./session-event-bus";
 import type { PresenceService } from "./presence-service";
 import type { ConnectionRegistry } from "./connection-registry";
 import type { CommandHandler, CommandHandlerContext, CommandHandlerResult } from "./application/command-handler";
+import { logger } from "@/platform/logging/logger";
 
 const MAX_CACHED_REPLIES_PER_SESSION = 500;
 
@@ -61,12 +62,22 @@ export class SessionCommandExecutor {
       }
 
       const reply = await this.processCommand(sessionId, actor, command, connectionId);
-      // 只缓存确定性回执；内部错误不缓存，允许重试
-      if (reply.type === "command:accepted" || (reply.payload as { code?: string })?.code !== "INTERNAL_SERVER_ERROR") {
+      if (reply.type === "command:accepted") {
+        this.cacheReply(sessionId, command.commandId, reply);
+      } else if ((reply.payload as { code?: string })?.code !== "INTERNAL_SERVER_ERROR") {
         this.cacheReply(sessionId, command.commandId, reply);
       }
       return reply;
     });
+  }
+
+  /** 与命令共用串行队列，用于无竞态快照 */
+  runExclusive<T>(sessionId: string, work: () => Promise<T>): Promise<T> {
+    return this.enqueue(sessionId, work);
+  }
+
+  evictSession(sessionId: string): void {
+    this.cachedReplies.delete(sessionId);
   }
 
   private enqueue<T>(sessionId: string, work: () => Promise<T>): Promise<T> {
@@ -115,8 +126,15 @@ export class SessionCommandExecutor {
         if (!session) {
           throw new SessionNotFoundError();
         }
-        if (session.status === "ended" && !handler.allowWhenEnded) {
-          throw new SessionStateInvalidError("Session has ended");
+        if (session.status === "ended") {
+          if (!handler.allowWhenEnded) {
+            throw new SessionStateInvalidError("Session has ended");
+          }
+        } else {
+          const allowed = handler.allowedStatuses ?? ["active"];
+          if (!allowed.includes(session.status as "waiting" | "preparing" | "active")) {
+            throw new SessionStateInvalidError(`Command not allowed while session is ${session.status}`);
+          }
         }
 
         const seat = await this.resolveSeat(tx, sessionId, actor);
@@ -140,9 +158,7 @@ export class SessionCommandExecutor {
         return { staged, result };
       });
 
-      await this.afterCommit(sessionId, staged, result);
-
-      return {
+      const accepted: CommandReply = {
         protocolVersion: 1,
         commandId: command.commandId,
         type: "command:accepted",
@@ -150,6 +166,19 @@ export class SessionCommandExecutor {
           eventIds: staged.entries.map((e) => e.event.eventId),
         },
       };
+
+      try {
+        await this.afterCommit(sessionId, staged, result);
+      } catch (err) {
+        logger.error("afterCommit failed after command commit", {
+          sessionId,
+          commandId: command.commandId,
+          commandType: command.type,
+          err,
+        });
+      }
+
+      return accepted;
     } catch (err) {
       return this.reject(command, err);
     }
@@ -199,7 +228,10 @@ export class SessionCommandExecutor {
     }
 
     for (const playerId of result.closeConnectionsOfPlayerIds ?? []) {
-      this.connectionRegistry.closePlayerConnections(playerId, sessionId);
+      this.connectionRegistry.closePlayerConnections(
+        playerId,
+        result.closeConnectionsGlobally ? undefined : sessionId
+      );
       result.refreshPresence = true;
     }
 
@@ -217,7 +249,7 @@ export class SessionCommandExecutor {
         payload: { code: err.code, message: err.message },
       };
     }
-    console.error(`[WS] Command ${command.type} (${command.commandId}) failed:`, err);
+    logger.error("command failed", { commandType: command.type, commandId: command.commandId, err });
     return {
       protocolVersion: 1,
       commandId: command.commandId,

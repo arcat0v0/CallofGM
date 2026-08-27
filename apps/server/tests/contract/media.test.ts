@@ -19,6 +19,7 @@ import {
 } from "@/platform/db/schema";
 import { rm } from "fs/promises";
 import { existsSync } from "fs";
+import { resetHttpLimits } from "@/platform/security/http-limits";
 
 describe("Media Storage contract tests", () => {
   let container: Container;
@@ -29,6 +30,7 @@ describe("Media Storage contract tests", () => {
   let playerId = "";
 
   beforeAll(async () => {
+    resetHttpLimits();
     process.env.DATABASE_URL = ":memory:";
     const hash = await Bun.password.hash(gmPassword);
     process.env.GM_PASSWORD_HASH = hash;

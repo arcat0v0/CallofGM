@@ -11,3 +11,20 @@ export const PlayerIdentityResponse = z.object({
   token: z.string(),
 });
 export type PlayerIdentityResponse = z.infer<typeof PlayerIdentityResponse>;
+
+export const GmMeResponse = z.object({
+  type: z.literal("gm"),
+});
+export type GmMeResponse = z.infer<typeof GmMeResponse>;
+
+export const BanPlayerRequest = z.object({
+  playerId: z.string().min(1),
+  reason: z.string().max(500).default(""),
+  durationSeconds: z.number().int().min(60).optional(),
+});
+export type BanPlayerRequest = z.infer<typeof BanPlayerRequest>;
+
+export const UnbanFingerprintRequest = z.object({
+  fingerprintHash: z.string().min(1),
+});
+export type UnbanFingerprintRequest = z.infer<typeof UnbanFingerprintRequest>;

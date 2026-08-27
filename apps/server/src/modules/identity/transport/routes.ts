@@ -1,15 +1,20 @@
 import { Elysia } from "elysia";
 import type { Container } from "@/bootstrap/container";
 import { DrizzleIdentityRepository } from "../infrastructure/drizzle-identity-repository";
-import { HmacTokenSigner } from "../application/player-identity";
 import { GmLoginUseCase } from "../application/gm-login";
 import { GmLogoutUseCase } from "../application/gm-logout";
 import { PlayerIdentityUseCase } from "../application/player-identity";
 import { createAuthPlugin } from "./auth-middleware";
-import { GmLoginRequest } from "@cogm/shared";
+import { BanPlayerRequest, GmLoginRequest, UnbanFingerprintRequest } from "@cogm/shared";
 import { AppError } from "@/platform/errors/app-error";
-import { RateLimiter } from "@/platform/security/rate-limiter";
+import { validationFailed } from "@/platform/errors/validation";
 import { AuthRequiredError } from "../domain/errors";
+import { identityRateLimiter, loginRateLimiter } from "@/platform/security/http-limits";
+import { clientIp } from "@/platform/security/request-ip";
+import { assertTrustedOrigin } from "@/platform/security/origin";
+import { corsOriginsFor } from "@/config/env";
+import { logger } from "@/platform/logging/logger";
+import { DrizzleModerationRepository, PlayerNotFoundError } from "@/modules/moderation";
 
 function parseCookie(cookieHeader: string, name: string): string | null {
   const pairs = cookieHeader.split(";");
@@ -29,7 +34,7 @@ function parseCookie(cookieHeader: string, name: string): string | null {
 
 export function createIdentityRoutes(container: Container) {
   const repo = new DrizzleIdentityRepository(container.db);
-  const tokenSigner = container.playerTokenSigner;
+  const moderationRepo = new DrizzleModerationRepository(container.db);
   const gmLoginUseCase = new GmLoginUseCase(
     container.idGenerator,
     container.clock,
@@ -40,37 +45,28 @@ export function createIdentityRoutes(container: Container) {
   const playerIdentityUseCase = new PlayerIdentityUseCase(
     container.idGenerator,
     container.clock,
-    repo,
-    tokenSigner
+    repo
   );
 
-  const authPlugin = createAuthPlugin(repo, tokenSigner);
-  // 登录限速：每 IP 每分钟最多 10 次尝试，失败计入审计日志
-  const loginRateLimiter = new RateLimiter(10, 60_000);
+  const authPlugin = createAuthPlugin(repo);
+  const allowedOrigins = corsOriginsFor(container.env);
 
   return new Elysia()
     .use(authPlugin)
     .post("/api/v1/gm/auth/login", async ({ body, cookie, request, server }) => {
-      const clientIp =
-        server?.requestIP(request)?.address ??
-        request.headers.get("x-forwarded-for") ??
-        "unknown";
-      loginRateLimiter.assert(clientIp);
+      assertTrustedOrigin(request, allowedOrigins);
+      loginRateLimiter.assert(clientIp(request, server, container.env.TRUST_PROXY));
 
-      let parsed;
-      try {
-        parsed = GmLoginRequest.parse(body);
-      } catch (e: unknown) {
-        const message = e instanceof Error ? e.message : "Validation failed";
-        throw new AppError("VALIDATION_FAILED", message, 400);
+      const parsed = GmLoginRequest.safeParse(body);
+      if (!parsed.success) {
+        throw validationFailed(parsed.error);
       }
 
       let result;
       try {
-        result = await gmLoginUseCase.execute(parsed.password);
+        result = await gmLoginUseCase.execute(parsed.data.password);
       } catch (err) {
-        // 登录失败审计：不泄露密码是否正确等内部信息，仅记录来源
-        console.log(`[Audit] GM login failed from ${clientIp}`);
+        logger.audit("gm.login.failed", { ip: clientIp(request, server, container.env.TRUST_PROXY) });
         throw err;
       }
 
@@ -86,12 +82,14 @@ export function createIdentityRoutes(container: Container) {
         });
       }
 
+      logger.audit("gm.login.ok");
       return {
         ...(container.env.NODE_ENV === "production" ? {} : { sessionToken: result.sessionToken }),
         expiresAt: result.expiresAt,
       };
     })
     .post("/api/v1/gm/auth/logout", async ({ actor, request, cookie }) => {
+      assertTrustedOrigin(request, allowedOrigins);
       if (!actor || actor.type !== "gm") {
         throw new AuthRequiredError();
       }
@@ -111,10 +109,15 @@ export function createIdentityRoutes(container: Container) {
       }
 
       await gmLogoutUseCase.execute(token);
-
       cookie?.gm_session?.remove();
-
+      logger.audit("gm.logout");
       return { success: true };
+    })
+    .get("/api/v1/gm/auth/me", ({ actor }) => {
+      if (!actor || actor.type !== "gm") {
+        throw new AuthRequiredError();
+      }
+      return { type: "gm" as const };
     })
     .get("/api/v1/gm/blacklist", async ({ actor }) => {
       if (!actor || actor.type !== "gm") {
@@ -122,7 +125,47 @@ export function createIdentityRoutes(container: Container) {
       }
       return await repo.listBlacklistEntries();
     })
-    .post("/api/v1/player/identity", async ({ body, cookie }) => {
+    .post("/api/v1/gm/blacklist", async ({ actor, body }) => {
+      if (!actor || actor.type !== "gm") {
+        throw new AuthRequiredError();
+      }
+      const parsed = BanPlayerRequest.safeParse(body);
+      if (!parsed.success) {
+        throw validationFailed(parsed.error);
+      }
+      const fingerprintHash = await moderationRepo.findPlayerFingerprintHash(parsed.data.playerId);
+      if (!fingerprintHash) {
+        throw new PlayerNotFoundError();
+      }
+      const now = container.clock.nowEpochMs();
+      const expiresAt = parsed.data.durationSeconds ? now + parsed.data.durationSeconds * 1000 : null;
+      await moderationRepo.upsertBlacklistEntry({
+        id: container.idGenerator.nextId(),
+        fingerprintHash,
+        reason: parsed.data.reason,
+        expiresAt,
+        createdAt: now,
+      });
+      container.connectionRegistry.closePlayerConnections(parsed.data.playerId);
+      logger.audit("gm.blacklist.ban", { playerId: parsed.data.playerId });
+      return { banned: parsed.data.playerId, permanent: expiresAt === null, fingerprintHash };
+    })
+    .post("/api/v1/gm/blacklist/unban", async ({ actor, body }) => {
+      if (!actor || actor.type !== "gm") {
+        throw new AuthRequiredError();
+      }
+      const parsed = UnbanFingerprintRequest.safeParse(body);
+      if (!parsed.success) {
+        throw validationFailed(parsed.error);
+      }
+      const removed = await moderationRepo.deleteBlacklistEntry(parsed.data.fingerprintHash);
+      logger.audit("gm.blacklist.unban", { fingerprintHash: parsed.data.fingerprintHash, removed });
+      return { removed };
+    })
+    .post("/api/v1/player/identity", async ({ body, cookie, request, server }) => {
+      assertTrustedOrigin(request, allowedOrigins);
+      identityRateLimiter.assert(clientIp(request, server, container.env.TRUST_PROXY));
+
       const payload = body as Record<string, unknown> | null;
       const fingerprint = payload?.fingerprint;
       const token = payload?.token;

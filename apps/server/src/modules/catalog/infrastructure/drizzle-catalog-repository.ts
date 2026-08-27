@@ -1,4 +1,4 @@
-import { eq, and, or, gt, asc, desc } from "drizzle-orm";
+import { eq, and, or, gt, asc } from "drizzle-orm";
 import type { DbClient } from "@/platform/db/client";
 import {
   modules,
@@ -21,6 +21,22 @@ import {
   HandoutNotFoundError
 } from "../domain/errors";
 
+
+function paginated<T extends { id: string }>(items: T[], limit: number) {
+  const hasMore = items.length > limit;
+  const returnedItems = hasMore ? items.slice(0, limit) : items;
+  const lastItem = returnedItems[returnedItems.length - 1];
+  return {
+    items: returnedItems,
+    nextCursor: hasMore && lastItem ? lastItem.id : null
+  };
+}
+
+type CursorPageOptions = {
+  limit: number;
+  offset?: number;
+  cursor?: string;
+};
 export class DrizzleCatalogRepository implements CatalogRepository {
   constructor(private readonly db: DbClient) {}
 
@@ -107,15 +123,7 @@ export class DrizzleCatalogRepository implements CatalogRepository {
         .limit(limit + 1);
     }
 
-    const hasMore = items.length > limit;
-    const returnedItems = hasMore ? items.slice(0, limit) : items;
-    const lastItem = returnedItems[returnedItems.length - 1];
-    const nextCursor = (hasMore && lastItem) ? lastItem.id : null;
-
-    return {
-      items: returnedItems,
-      nextCursor
-    };
+    return paginated(items, limit);
   }
 
   async findSceneById(id: string): Promise<CatalogScene | null> {
@@ -157,12 +165,58 @@ export class DrizzleCatalogRepository implements CatalogRepository {
     }
   }
 
-  async listScenesByModuleId(moduleId: string): Promise<CatalogScene[]> {
-    return this.db
-      .select()
-      .from(scenes)
-      .where(eq(scenes.moduleId, moduleId))
-      .orderBy(asc(scenes.sortOrder), asc(scenes.createdAt));
+  async listScenesByModuleId(
+    moduleId: string,
+    options: CursorPageOptions
+  ): Promise<{ items: CatalogScene[]; nextCursor: string | null }> {
+    const limit = options.limit;
+    let items: CatalogScene[];
+    if (options.cursor) {
+      const cursorRow = await this.db
+        .select()
+        .from(scenes)
+        .where(eq(scenes.id, options.cursor))
+        .limit(1);
+      const c = cursorRow[0];
+      if (!c) {
+        return { items: [], nextCursor: null };
+      }
+      items = await this.db
+        .select()
+        .from(scenes)
+        .where(
+          and(
+            eq(scenes.moduleId, moduleId),
+            or(
+              gt(scenes.sortOrder, c.sortOrder),
+              and(eq(scenes.sortOrder, c.sortOrder), gt(scenes.createdAt, c.createdAt)),
+              and(
+                eq(scenes.sortOrder, c.sortOrder),
+                eq(scenes.createdAt, c.createdAt),
+                gt(scenes.id, c.id)
+              )
+            )
+          )
+        )
+        .orderBy(asc(scenes.sortOrder), asc(scenes.createdAt), asc(scenes.id))
+        .limit(limit + 1);
+    } else if (options.offset !== undefined) {
+      items = await this.db
+        .select()
+        .from(scenes)
+        .where(eq(scenes.moduleId, moduleId))
+        .orderBy(asc(scenes.sortOrder), asc(scenes.createdAt), asc(scenes.id))
+        .limit(limit + 1)
+        .offset(options.offset);
+    } else {
+      items = await this.db
+        .select()
+        .from(scenes)
+        .where(eq(scenes.moduleId, moduleId))
+        .orderBy(asc(scenes.sortOrder), asc(scenes.createdAt), asc(scenes.id))
+        .limit(limit + 1);
+    }
+    return paginated(items, limit);
   }
 
   async findTrackById(id: string): Promise<CatalogTrack | null> {
@@ -216,16 +270,57 @@ export class DrizzleCatalogRepository implements CatalogRepository {
     }
   }
 
-  async listTracksByModuleId(moduleId: string): Promise<CatalogTrack[]> {
-    const result = await this.db
-      .select()
-      .from(tracks)
-      .where(eq(tracks.moduleId, moduleId))
-      .orderBy(asc(tracks.createdAt));
-    return result.map(t => ({
+  async listTracksByModuleId(
+    moduleId: string,
+    options: CursorPageOptions
+  ): Promise<{ items: CatalogTrack[]; nextCursor: string | null }> {
+    const limit = options.limit;
+    const mapTrack = (t: typeof tracks.$inferSelect): CatalogTrack => ({
       ...t,
       type: t.type as "bgm" | "se"
-    }));
+    });
+    let rows: (typeof tracks.$inferSelect)[];
+    if (options.cursor) {
+      const cursorRow = await this.db
+        .select()
+        .from(tracks)
+        .where(eq(tracks.id, options.cursor))
+        .limit(1);
+      const c = cursorRow[0];
+      if (!c) {
+        return { items: [], nextCursor: null };
+      }
+      rows = await this.db
+        .select()
+        .from(tracks)
+        .where(
+          and(
+            eq(tracks.moduleId, moduleId),
+            or(
+              gt(tracks.createdAt, c.createdAt),
+              and(eq(tracks.createdAt, c.createdAt), gt(tracks.id, c.id))
+            )
+          )
+        )
+        .orderBy(asc(tracks.createdAt), asc(tracks.id))
+        .limit(limit + 1);
+    } else if (options.offset !== undefined) {
+      rows = await this.db
+        .select()
+        .from(tracks)
+        .where(eq(tracks.moduleId, moduleId))
+        .orderBy(asc(tracks.createdAt), asc(tracks.id))
+        .limit(limit + 1)
+        .offset(options.offset);
+    } else {
+      rows = await this.db
+        .select()
+        .from(tracks)
+        .where(eq(tracks.moduleId, moduleId))
+        .orderBy(asc(tracks.createdAt), asc(tracks.id))
+        .limit(limit + 1);
+    }
+    return paginated(rows.map(mapTrack), limit);
   }
 
   async findHandoutById(id: string): Promise<CatalogHandout | null> {
@@ -267,20 +362,69 @@ export class DrizzleCatalogRepository implements CatalogRepository {
     }
   }
 
-  async listHandoutsByModuleId(moduleId: string): Promise<CatalogHandout[]> {
-    return this.db
-      .select()
-      .from(handouts)
-      .where(eq(handouts.moduleId, moduleId))
-      .orderBy(asc(handouts.createdAt));
+  async listHandoutsByModuleId(
+    moduleId: string,
+    options: CursorPageOptions
+  ): Promise<{ items: CatalogHandout[]; nextCursor: string | null }> {
+    const limit = options.limit;
+    let items: CatalogHandout[];
+    if (options.cursor) {
+      const cursorRow = await this.db
+        .select()
+        .from(handouts)
+        .where(eq(handouts.id, options.cursor))
+        .limit(1);
+      const c = cursorRow[0];
+      if (!c) {
+        return { items: [], nextCursor: null };
+      }
+      items = await this.db
+        .select()
+        .from(handouts)
+        .where(
+          and(
+            eq(handouts.moduleId, moduleId),
+            or(
+              gt(handouts.createdAt, c.createdAt),
+              and(eq(handouts.createdAt, c.createdAt), gt(handouts.id, c.id))
+            )
+          )
+        )
+        .orderBy(asc(handouts.createdAt), asc(handouts.id))
+        .limit(limit + 1);
+    } else if (options.offset !== undefined) {
+      items = await this.db
+        .select()
+        .from(handouts)
+        .where(eq(handouts.moduleId, moduleId))
+        .orderBy(asc(handouts.createdAt), asc(handouts.id))
+        .limit(limit + 1)
+        .offset(options.offset);
+    } else {
+      items = await this.db
+        .select()
+        .from(handouts)
+        .where(eq(handouts.moduleId, moduleId))
+        .orderBy(asc(handouts.createdAt), asc(handouts.id))
+        .limit(limit + 1);
+    }
+    return paginated(items, limit);
   }
 
   async mediaAssetExists(id: string): Promise<boolean> {
+    return (await this.findMediaAsset(id)) !== null;
+  }
+
+  async findMediaAsset(id: string): Promise<{ id: string; purpose: string; mimeType: string } | null> {
     const result = await this.db
-      .select()
+      .select({
+        id: mediaAssets.id,
+        purpose: mediaAssets.purpose,
+        mimeType: mediaAssets.mimeType,
+      })
       .from(mediaAssets)
       .where(eq(mediaAssets.id, id))
       .limit(1);
-    return result.length > 0;
+    return result[0] ?? null;
   }
 }

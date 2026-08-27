@@ -2,6 +2,7 @@ export { createGameplayCommandHandlers } from "./application/commands";
 export {
   RollDiceHandler,
   PerformCheckHandler,
+  PerformSanCheckHandler,
   CreateCheckRequestHandler,
   RespondCheckRequestHandler,
   EditCharacterStateHandler,

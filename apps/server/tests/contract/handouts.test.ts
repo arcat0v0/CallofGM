@@ -6,6 +6,7 @@ import {
   sendCommand,
   stopServer,
   listenTestApp,
+  setSessionPhase,
   type TestContext,
   type TestWebSocket,
 } from "../helpers/setup";
@@ -64,6 +65,7 @@ describe("Handouts & moderation contract tests", () => {
       { id: "handout-secret-img", moduleId: "module-test", title: "带图秘密线索", content: "只有目标能看", imageAssetId: "asset-handout-img", createdAt: Date.now() },
       { id: "handout-other", moduleId: "module-other-x", title: "别模组情报", content: "x", imageAssetId: null, createdAt: Date.now() },
     ]).onConflictDoNothing();
+    await setSessionPhase(ctx, "free_discussion");
   });
 
   afterAll(async () => {

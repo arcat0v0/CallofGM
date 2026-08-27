@@ -7,7 +7,6 @@ import {
   sessions,
   sessionClaims,
   scenes,
-  sessionAudioState,
   tracks,
   sessionCharacters,
   characterPortraits,
@@ -26,6 +25,8 @@ import { DrizzleIdentityRepository } from "@/modules/identity";
 import { AuthRequiredError } from "@/modules/identity";
 import { ForbiddenError } from "@/modules/identity";
 import { type ActorContext } from "@/modules/identity";
+import { uploadRateLimiter } from "@/platform/security/http-limits";
+import { clientIp } from "@/platform/security/request-ip";
 
 async function checkMediaAccess(
   db: DbClient,
@@ -57,16 +58,14 @@ async function checkMediaAccess(
   }
 
   const trackAccess = await db
-    .select({ id: sessions.id })
-    .from(sessions)
+    .select({ id: tracks.id })
+    .from(tracks)
+    .innerJoin(sessions, eq(sessions.moduleId, tracks.moduleId))
     .innerJoin(sessionClaims, eq(sessions.id, sessionClaims.sessionId))
-    .innerJoin(sessionAudioState, eq(sessions.id, sessionAudioState.sessionId))
-    .innerJoin(tracks, eq(sessionAudioState.trackId, tracks.id))
     .where(
       and(
         eq(sessionClaims.playerId, playerId),
         isNull(sessionClaims.releasedAt),
-        eq(sessionAudioState.playing, 1),
         eq(tracks.audioAssetId, assetId)
       )
     )
@@ -154,20 +153,20 @@ export function createMediaRoutes(container: Container) {
   );
 
   const identityRepo = new DrizzleIdentityRepository(container.db);
-  const tokenSigner = container.playerTokenSigner;
-  const authPlugin = createAuthPlugin(identityRepo, tokenSigner);
+  const authPlugin = createAuthPlugin(identityRepo);
 
   return new Elysia()
     .use(authPlugin)
     .post(
       "/api/v1/media/upload",
-      async ({ body, actor }) => {
+      async ({ body, actor, request, server }) => {
         if (!actor) {
           throw new AuthRequiredError();
         }
         if (actor.type !== "gm") {
           throw new ForbiddenError("Only the GM can upload media");
         }
+        uploadRateLimiter.assert(clientIp(request, server, container.env.TRUST_PROXY));
         const file = body.file as Blob;
         const purpose = body.purpose || "general";
         const filename = body.filename || "file";

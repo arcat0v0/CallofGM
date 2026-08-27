@@ -5,7 +5,6 @@ import { SystemClock, UuidGenerator, SecureRandomSource, type Clock, type IdGene
 import { StartupService } from "./startup";
 import { RuleRegistry } from "@/rules/registry";
 import { Coc7eRuleSystem } from "@/rules/coc7e";
-import { HmacTokenSigner } from "@/modules/identity";
 import {
   ConnectionRegistry,
   EventRingBuffer,
@@ -26,7 +25,6 @@ export class Container {
   readonly randomSource: RandomSource;
   readonly startupService: StartupService;
   readonly ruleRegistry: RuleRegistry;
-  readonly playerTokenSigner: HmacTokenSigner;
 
   readonly connectionRegistry: ConnectionRegistry;
   readonly eventRingBuffer: EventRingBuffer;
@@ -46,8 +44,7 @@ export class Container {
     this.clock = overrides.clock ?? new SystemClock();
     this.idGenerator = overrides.idGenerator ?? new UuidGenerator();
     this.randomSource = overrides.randomSource ?? new SecureRandomSource();
-    this.startupService = new StartupService(this.db, this.env.DATABASE_URL);
-    this.playerTokenSigner = new HmacTokenSigner(this.env.PLAYER_TOKEN_SECRET);
+    this.startupService = new StartupService(this.dbContext.sqlite, this.db, this.env.DATABASE_URL);
 
     this.ruleRegistry = new RuleRegistry();
     this.ruleRegistry.register(new Coc7eRuleSystem());

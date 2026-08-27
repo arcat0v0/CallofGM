@@ -1,4 +1,6 @@
 import { KickPlayerCommand, BanFingerprintCommand, UnbanFingerprintCommand } from "@cogm/shared";
+import { and, eq, isNull } from "drizzle-orm";
+import { sessionClaims } from "@/platform/db/schema";
 import type {
   CommandHandler,
   CommandHandlerContext,
@@ -26,6 +28,20 @@ export class KickPlayerHandler implements CommandHandler {
     const parsed = KickPlayerCommand.safeParse(payload);
     if (!parsed.success) {
       throw new AppError("VALIDATION_FAILED", parsed.error.message, 400);
+    }
+
+    const claims = await ctx.tx
+      .select({ id: sessionClaims.id })
+      .from(sessionClaims)
+      .where(
+        and(
+          eq(sessionClaims.sessionId, ctx.sessionId),
+          eq(sessionClaims.playerId, parsed.data.playerId),
+          isNull(sessionClaims.releasedAt)
+        )
+      );
+    if (claims.length === 0) {
+      throw new PlayerNotFoundError("Player has no active claim in this session");
     }
 
     return {

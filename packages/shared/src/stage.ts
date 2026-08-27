@@ -56,6 +56,10 @@ export const BgmState = z.object({
   seekOffsetMs: z.number().int().min(0),
   startedAtMs: z.number().int(),
   version: z.number().int().min(0),
+  /** 曲目时长，供循环取模；未知时为 0 */
+  durationMs: z.number().int().min(0).optional(),
+  name: z.string().optional(),
+  audioAssetId: z.string().nullable().optional(),
 });
 export type BgmState = z.infer<typeof BgmState>;
 
@@ -70,5 +74,7 @@ export type BgmUpdatedEvent = z.infer<typeof BgmUpdatedEvent>;
 export const SePlayedEvent = z.object({
   trackId: z.string(),
   volume: z.number().int().min(0).max(100),
+  audioAssetId: z.string().optional(),
+  name: z.string().optional(),
 });
 export type SePlayedEvent = z.infer<typeof SePlayedEvent>;

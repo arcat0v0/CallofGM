@@ -29,3 +29,9 @@ export class MediaAssetNotFoundError extends AppError {
     super("MEDIA_NOT_FOUND", message, 404);
   }
 }
+
+export class MediaAssetInvalidError extends AppError {
+  constructor(message = "Media asset is not valid for this purpose") {
+    super("MEDIA_INVALID", message, 400);
+  }
+}

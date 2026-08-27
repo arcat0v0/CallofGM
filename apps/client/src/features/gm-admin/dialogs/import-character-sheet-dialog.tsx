@@ -2,12 +2,12 @@ import {
   ArrowLeft,
   Check,
   CircleCheck,
-  Database,
   FileSpreadsheet,
-  RefreshCw,
   TriangleAlert,
   X,
 } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
 import { Alert, AlertDescription, AlertIcon } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,29 +18,81 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { api, isApiError } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
-const previewFields = [
-  { key: "姓名", value: "远野 澪" },
-  { key: "职业", value: "私家侦探" },
-  { key: "力量 / 敏捷 / 智力", value: "55 / 70 / 80" },
-  { key: "HP / MP / SAN", value: "11 / 14 / 58" },
-  { key: "侦查 / 图书馆 / 心理学", value: "65 / 70 / 60" },
-];
-
-const steps = [
-  { label: "上传文件", state: "done" as const },
-  { label: "核对映射", state: "current" as const },
-  { label: "确认入库", state: "upcoming" as const },
-];
+type Preview = {
+  importToken: string;
+  preview: {
+    characterName: string;
+    sheetData: {
+      attributes?: Record<string, number>;
+      skills?: Record<string, number>;
+    };
+    errors: Array<{ cell?: string; message: string }>;
+  };
+};
 
 function ImportCharacterSheetDialog({
   open,
   onOpenChange,
+  onImported,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onImported?: () => void;
 }) {
+  const [file, setFile] = useState<File | null>(null);
+  const [preview, setPreview] = useState<Preview | null>(null);
+  const [kind, setKind] = useState<"pc" | "npc">("pc");
+  const [pending, setPending] = useState(false);
+
+  async function uploadPreview(next: File) {
+    setPending(true);
+    try {
+      const body = new FormData();
+      body.append("file", next);
+      body.append("ruleId", "coc7e");
+      const result = await api<Preview>("/gm/characters/import/preview", { method: "POST", body });
+      setFile(next);
+      setPreview(result);
+    } catch (error) {
+      toast.error(isApiError(error) ? error.message : "解析失败");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function confirm() {
+    if (!preview) {
+      return;
+    }
+    if (preview.preview.errors.length > 0) {
+      toast.error("存在解析错误，无法入库");
+      return;
+    }
+    setPending(true);
+    try {
+      await api("/gm/characters/import/confirm", {
+        method: "POST",
+        body: JSON.stringify({ importToken: preview.importToken, kind }),
+      });
+      toast.success("人物卡已入库");
+      onOpenChange(false);
+      setPreview(null);
+      setFile(null);
+      onImported?.();
+    } catch (error) {
+      toast.error(isApiError(error) ? error.message : "入库失败");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  const attributes = preview?.preview.sheetData.attributes ?? {};
+  const skills = Object.entries(preview?.preview.sheetData.skills ?? {}).slice(0, 6);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-160 gap-0 p-0" showCloseButton={false}>
@@ -49,89 +101,72 @@ function ImportCharacterSheetDialog({
             <DialogTitle>导入人物卡 Excel</DialogTitle>
             <DialogDescription>按 CoC 7e 模板解析 · 确认无误后入库</DialogDescription>
           </div>
-          <Button variant="ghost" size="icon-sm" aria-label="关闭导入人物卡弹窗" onClick={() => onOpenChange(false)}>
+          <Button variant="ghost" size="icon-sm" aria-label="关闭导入弹窗" onClick={() => onOpenChange(false)}>
             <X />
           </Button>
         </DialogHeader>
-
-        <div className="border-separator flex items-center border-b px-5 py-3.5">
-          {steps.map((step, index) => (
-            <div key={step.label} className="flex flex-1 items-center last:flex-none">
-              <div className="flex items-center gap-2 px-2.5">
-                <span
-                  className={cn(
-                    "flex size-6 shrink-0 items-center justify-center rounded-full font-chip text-xs font-bold",
-                    step.state === "upcoming" ? "bg-default text-foreground-tertiary" : "from-accent to-accent-hover bg-gradient-to-br text-accent-foreground",
-                  )}
-                >
-                  {step.state === "done" ? <Check className="size-3" /> : index + 1}
-                </span>
-                <span
-                  className={cn(
-                    "font-sans text-xs",
-                    step.state === "current" ? "text-foreground font-semibold" : step.state === "done" ? "text-foreground" : "text-foreground-tertiary",
-                  )}
-                >
-                  {step.label}
-                </span>
-              </div>
-              {index < steps.length - 1 && (
-                <span className={cn("h-0.5 flex-1 rounded-full", step.state === "done" ? "bg-accent-hover" : "bg-separator-tertiary")} />
-              )}
-            </div>
-          ))}
-        </div>
-
         <div className="flex flex-col gap-4 px-5 py-5">
-          <div className="border-success-soft-foreground bg-success-soft flex items-center gap-3 rounded-xl border px-3 py-3">
-            <span className="flex size-9 shrink-0 items-center justify-center rounded-[9px] bg-black/25">
-              <FileSpreadsheet className="text-success-soft-foreground size-[18px]" />
-            </span>
-            <div className="flex flex-1 flex-col gap-0.5">
-              <span className="text-foreground font-sans text-[13px] font-semibold">远野澪_CoC7e.xlsx</span>
-              <span className="text-success-soft-foreground font-sans text-[11px]">
-                32 KB · 解析成功 · 匹配 CoC 7e 模板
-              </span>
+          <Input
+            type="file"
+            accept=".xlsx,.xls"
+            aria-label="选择人物卡 Excel"
+            onChange={(event) => {
+              const next = event.target.files?.[0];
+              if (next) {
+                void uploadPreview(next);
+              }
+            }}
+          />
+          {file ? (
+            <div className="flex items-center gap-2">
+              <FileSpreadsheet className="text-accent-hover size-4" />
+              <span className="text-foreground text-sm">{file.name}</span>
             </div>
-            <Button variant="ghost" size="icon-sm" aria-label="重新解析人物卡">
-              <RefreshCw />
-            </Button>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <span className="text-foreground font-sans text-[13px] font-semibold">解析预览</span>
-            <Badge variant="soft" tone="success" size="sm">
-              9 项属性 · 24 项技能 已识别
-            </Badge>
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            {previewFields.map((field) => (
-              <div key={field.key} className="bg-surface-tertiary flex items-center gap-3 rounded-lg px-3 py-2">
-                <span className="text-foreground-secondary w-50 shrink-0 font-sans text-xs">{field.key}</span>
-                <span className="text-foreground flex-1 font-mono text-xs font-semibold">{field.value}</span>
-                <CircleCheck className="text-success-soft-foreground size-[15px] shrink-0" />
+          ) : null}
+          {preview ? (
+            <>
+              <div className="flex items-center gap-2">
+                <span className="text-foreground font-serif text-lg font-semibold">{preview.preview.characterName}</span>
+                <Badge variant="soft" tone={kind === "pc" ? "accent" : "default"} size="sm">
+                  {kind.toUpperCase()}
+                </Badge>
+                <Button type="button" size="sm" variant="tertiary" className="h-7" onClick={() => setKind(kind === "pc" ? "npc" : "pc")}>
+                  切换为 {kind === "pc" ? "NPC" : "PC"}
+                </Button>
               </div>
-            ))}
-          </div>
-
-          <Alert variant="warning" className="bg-warning-soft gap-2.5 rounded-[10px] px-3 py-3 shadow-none">
-            <AlertIcon className="mt-0.5">
-              <TriangleAlert />
-            </AlertIcon>
-            <AlertDescription className="text-warning text-xs">
-              「克苏鲁神话」技能列为自定义技能，将按原值导入
-            </AlertDescription>
-          </Alert>
+              <p className="text-foreground-secondary text-xs">
+                STR {attributes.str ?? "—"} / DEX {attributes.dex ?? "—"} / INT {attributes.int ?? "—"}
+              </p>
+              <p className="text-foreground-secondary text-xs">
+                {skills.map(([name, value]) => `${name} ${value}`).join(" · ")}
+              </p>
+              {preview.preview.errors.length > 0 ? (
+                <Alert>
+                  <AlertIcon>
+                    <TriangleAlert />
+                  </AlertIcon>
+                  <AlertDescription>
+                    {preview.preview.errors.map((error) => error.message).join("；")}
+                  </AlertDescription>
+                </Alert>
+              ) : (
+                <Alert>
+                  <AlertIcon>
+                    <CircleCheck />
+                  </AlertIcon>
+                  <AlertDescription>映射无错误，可以入库。</AlertDescription>
+                </Alert>
+              )}
+            </>
+          ) : null}
         </div>
-
-        <div className="bg-background-secondary border-separator flex items-center justify-end gap-2.5 border-t px-5 py-4">
-          <Button variant="tertiary" size="sm">
-            <ArrowLeft className="size-4" />
-            上一步
+        <div className="border-separator flex items-center justify-between border-t px-5 py-4">
+          <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>
+            <ArrowLeft />
+            取消
           </Button>
-          <Button variant="primary" size="sm" onClick={() => onOpenChange(false)}>
-            <Database className="size-4" />
+          <Button variant="primary" size="sm" disabled={!preview || pending} onClick={() => void confirm()}>
+            <Check className={cn("size-4", pending && "opacity-50")} />
             确认入库
           </Button>
         </div>

@@ -5,7 +5,7 @@ import { createIdentityRoutes } from "@/modules/identity/transport/routes";
 import { createSessionsRoutes } from "@/modules/sessions/transport/routes";
 import { createCharactersRoutes } from "@/modules/characters/transport/routes";
 import { AppError } from "@/platform/errors/app-error";
-import { modules, characters, sessionOutbox } from "@/platform/db/schema";
+import { modules, characters, sessionOutbox, moduleCharacters } from "@/platform/db/schema";
 import { routes as realtimeRoutes } from "@/modules/realtime";
 import type { CommandHandler, CommandHandlerContext, CommandHandlerResult } from "@/modules/realtime";
 import type { VisibilityScope } from "@/modules/realtime";
@@ -13,6 +13,7 @@ import { CreateSessionUseCase, ClaimSeatUseCase } from "@/modules/sessions/appli
 import { DrizzleSessionsRepository } from "@/modules/sessions/infrastructure/drizzle-sessions-repository";
 import { eq } from "drizzle-orm";
 import { listenTestApp } from "../helpers/setup";
+import { resetHttpLimits } from "@/platform/security/http-limits";
 
 interface TestWebSocket extends WebSocket {
   messages: any[];
@@ -83,6 +84,7 @@ function closeWs(ws: WebSocket): Promise<void> {
 /** 测试用事件探针：生产环境不注册此处理器 */
 class TestEventProbeHandler implements CommandHandler {
   readonly type = "test:command" as const;
+  readonly allowedStatuses = ["waiting", "preparing", "active"] as const;
 
   async execute(ctx: CommandHandlerContext, payload: unknown): Promise<CommandHandlerResult> {
     const p = (payload ?? {}) as {
@@ -116,6 +118,7 @@ describe("Realtime contract tests", () => {
   let sessionId = "";
 
   beforeAll(async () => {
+    resetHttpLimits();
     process.env.DATABASE_URL = ":memory:";
     const hash = await Bun.password.hash(gmPassword);
     process.env.GM_PASSWORD_HASH = hash;
@@ -191,6 +194,11 @@ describe("Realtime contract tests", () => {
       }),
       createdAt: Date.now(),
     });
+
+    await container.db.insert(moduleCharacters).values([
+      { id: "link-rt-1", moduleId: "module-rt", characterId: "char-rt-1", createdAt: Date.now() },
+      { id: "link-rt-2", moduleId: "module-rt", characterId: "char-rt-2", createdAt: Date.now() },
+    ]);
 
     const p1Res = await app.handle(
       new Request("http://localhost/api/v1/player/identity", {
@@ -295,6 +303,7 @@ describe("Realtime contract tests", () => {
     const gmMsgsPromise = gmWs.waitForMessages(9);
     const p1MsgsPromise = p1Ws.waitForMessages(4);
     const p2MsgsPromise = p2Ws.waitForMessages(3);
+
 
     p1Ws.send(
       JSON.stringify({
@@ -496,6 +505,55 @@ describe("Realtime contract tests", () => {
     expect(recoveredMessages[0].watermark).toBeDefined();
 
     await closeWs(reconnectedWs);
+    await server.stop(true);
+  });
+
+  test("Ended session still hydrates a snapshot and rejects gameplay writes", async () => {
+    const auth = { Authorization: `Bearer ${gmToken}`, "Content-Type": "application/json" };
+    for (const status of ["preparing", "active", "ended"] as const) {
+      const res = await app.handle(
+        new Request(`http://localhost/api/v1/gm/sessions/${sessionId}/status`, {
+          method: "POST",
+          headers: auth,
+          body: JSON.stringify({ status }),
+        })
+      );
+      expect(res.status).toBe(200);
+    }
+
+    const server = listenTestApp(app);
+    const port = server.server?.port;
+    const wsUrl = `ws://localhost:${port}/api/v1/sessions/${sessionId}/ws`;
+    const gmWs = await connectWs(wsUrl, gmToken);
+    const snapshot = await gmWs.waitForMessages(1);
+    expect(snapshot[0].type).toBe("snapshot");
+    expect(snapshot[0].payload.session.status).toBe("ended");
+
+    gmWs.send(
+      JSON.stringify({
+        protocolVersion: 1,
+        commandId: "ended-write",
+        type: "test:command",
+        payload: {
+          eventType: "should:not:emit",
+          eventPayload: {},
+          visibility: { type: "public" },
+        },
+      })
+    );
+    const deadline = Date.now() + 3000;
+    let reply: { type?: string; payload?: { code?: string } } | undefined;
+    while (Date.now() < deadline) {
+      reply = gmWs.messages.find((m: { commandId?: string }) => m.commandId === "ended-write");
+      if (reply) {
+        break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    expect(reply?.type).toBe("command:rejected");
+    expect(reply?.payload?.code).toBe("SESSION_STATE_INVALID");
+
+    await closeWs(gmWs);
     await server.stop(true);
   });
 });

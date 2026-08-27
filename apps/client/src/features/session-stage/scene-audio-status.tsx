@@ -1,4 +1,5 @@
-import { Music2, Volume2 } from "lucide-react";
+import { Music2, Volume2, VolumeX } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 
@@ -6,11 +7,15 @@ function SceneAudioStatus({
   trackName,
   volume = 64,
   compact = false,
+  muted = false,
+  onMuteToggle,
   className,
 }: {
   trackName: string;
   volume?: number;
   compact?: boolean;
+  muted?: boolean;
+  onMuteToggle?: () => void;
   className?: string;
 }) {
   return (
@@ -26,10 +31,19 @@ function SceneAudioStatus({
         {trackName}
       </span>
       {!compact ? (
-        <>
-          <Progress value={volume} className="w-16 bg-foreground/15" aria-label={`音量 ${volume}%`} />
-          <Volume2 className="size-[15px] shrink-0 text-foreground-secondary" />
-        </>
+        <Progress value={muted ? 0 : volume} className="w-16 bg-foreground/15" aria-label={`音量 ${volume}%`} />
+      ) : null}
+      {onMuteToggle ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          aria-label={muted ? "取消静音" : "本地静音"}
+          className={cn("text-foreground-secondary", compact ? "size-6" : "size-7")}
+          onClick={onMuteToggle}
+        >
+          {muted ? <VolumeX className="size-[15px]" /> : <Volume2 className="size-[15px]" />}
+        </Button>
       ) : null}
     </div>
   );

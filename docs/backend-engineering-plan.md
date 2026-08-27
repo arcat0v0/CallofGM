@@ -254,7 +254,7 @@ abstract class RuleSystem<TSheet, TSessionState> {
   abstract initializeSessionState(sheet: TSheet): TSessionState;
   abstract evaluateSkillCheck(input: SkillCheckInput, random: RandomSource): SkillCheckResult;
   abstract executeSpecialAction(input: RuleActionInput, deps: RuleActionDependencies): RuleActionResult;
-  abstract getChatCommands(): readonly RuleCommandDefinition[];
+  abstract getSupportedActions(): readonly RuleActionDefinition[];
 }
 ```
 
@@ -264,7 +264,7 @@ abstract class RuleSystem<TSheet, TSessionState> {
 - application 用例负责加载人物卡/团内状态、验证操作者、调用规则系统、持久化和生成事件。
 - `RuleRegistry.get(ruleId)` 是通用业务取得规则实现的唯一入口。
 - 模组记录 `ruleId`，团从模组继承并在创建后不可静默改变。
-- 普通骰点表达式属于通用 `DiceEngine`；`.ra`、`.sc` 等命令由 CoC 7e 注册。
+- 普通骰点表达式属于通用 `DiceEngine`；技能鉴定、SAN 检定等规则动作由 CoC 7e 实现并通过结构化 WS command 暴露。v1 不解析聊天文本命令。
 - 规则 JSON 携带 `schemaVersion`，未来升级由对应规则实现负责迁移。
 
 ### 7.2 CoC 7e 实现清单
@@ -277,7 +277,7 @@ abstract class RuleSystem<TSheet, TSessionState> {
 - GM 指定难度
 - SAN 检定及成功/失败损失表达式
 - 成长标记写入意图
-- `.ra`、`.sc` 等命令解析
+- 技能鉴定与 SAN 检定的结构化 command 校验及执行
 - 所有边界值的确定性单元测试
 
 ## 8. 数据持久化设计
@@ -801,8 +801,8 @@ bun audit --audit-level=high
 
 任务：
 
-- 通用 DiceEngine 与 `.r`
-- CoC `.ra`、奖惩骰、难度
+- 通用 DiceEngine 与骰点面板的结构化 `dice:roll` 指令
+- CoC 技能鉴定的结构化 `check:perform` 指令、奖惩骰与难度
 - GM 鉴定请求和响应
 - 暗骰
 - SAN 检定、状态统一变更入口、成长标记、GM 提示

@@ -1,5 +1,7 @@
 import { Check, Package, X } from "lucide-react";
-import { useState } from "react";
+import { Link } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { FormField } from "@/components/shared/form-field";
 import { SegmentedControl } from "@/components/shared/segmented-control";
 import { Badge } from "@/components/ui/badge";
@@ -13,7 +15,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -22,29 +23,106 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { api, fetchAllPages, isApiError } from "@/lib/api";
 import { cn } from "@/lib/utils";
-
-const pcCandidates = [
-  { id: "mio", name: "远野 澪", role: "侦探" },
-  { id: "takuma", name: "白石 拓真", role: "记者" },
-  { id: "tsubaki", name: "南 椿", role: "医生" },
-  { id: "rui", name: "神谷 累", role: "学生" },
-];
 
 const statusOptions = ["等待开始", "准备中", "进行中"] as const;
 const statusSegments = statusOptions.map((option) => ({ value: option, label: option }));
 
-function CreateSessionDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
-  const [selectedPcs, setSelectedPcs] = useState(new Set(["mio", "takuma", "tsubaki"]));
-  const [status, setStatus] = useState<(typeof statusOptions)[number]>("等待开始");
+type ModuleRow = { id: string; name: string };
+type CharacterRow = { id: string; name: string; kind: string };
 
-  function togglePc(id: string) {
-    setSelectedPcs((prev) => {
+function kindLabel(kind: string): "PC" | "NPC" {
+  return kind.toLowerCase() === "npc" ? "NPC" : "PC";
+}
+
+function CreateSessionDialog({
+  open,
+  onOpenChange,
+  onCreated,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onCreated?: () => void;
+}) {
+  const [modules, setModules] = useState<ModuleRow[]>([]);
+  const [characters, setCharacters] = useState<CharacterRow[]>([]);
+  const [moduleId, setModuleId] = useState<string>("");
+  const [selectedIds, setSelectedIds] = useState(new Set<string>());
+  const [status, setStatus] = useState<(typeof statusOptions)[number]>("等待开始");
+  const [pending, setPending] = useState(false);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    void (async () => {
+      try {
+        const nextModules = await fetchAllPages<ModuleRow>("/gm/modules");
+        setModules(nextModules);
+        setModuleId((current) => current || nextModules[0]?.id || "");
+      } catch (error) {
+        toast.error(isApiError(error) ? error.message : "无法加载模组");
+      }
+    })();
+  }, [open]);
+
+  useEffect(() => {
+    if (!open || !moduleId) {
+      setCharacters([]);
+      return;
+    }
+    setSelectedIds(new Set());
+    void fetchAllPages<CharacterRow>(`/gm/modules/${encodeURIComponent(moduleId)}/characters`)
+      .then(setCharacters)
+      .catch((error) => toast.error(isApiError(error) ? error.message : "无法加载模组人物"));
+  }, [open, moduleId]);
+
+  function toggleCharacter(id: string) {
+    setSelectedIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
     });
+  }
+
+  async function handleCreate() {
+    if (!moduleId || pending) {
+      return;
+    }
+    setPending(true);
+    try {
+      const created = await api<{ session: { id: string } }>("/gm/sessions", {
+        method: "POST",
+        body: JSON.stringify({
+          moduleId,
+          characterIds: [...selectedIds],
+        }),
+      });
+      if (status === "准备中") {
+        await api(`/gm/sessions/${encodeURIComponent(created.session.id)}/status`, {
+          method: "POST",
+          body: JSON.stringify({ status: "preparing" }),
+        });
+      }
+      if (status === "进行中") {
+        await api(`/gm/sessions/${encodeURIComponent(created.session.id)}/status`, {
+          method: "POST",
+          body: JSON.stringify({ status: "preparing" }),
+        });
+        await api(`/gm/sessions/${encodeURIComponent(created.session.id)}/status`, {
+          method: "POST",
+          body: JSON.stringify({ status: "active" }),
+        });
+      }
+      onOpenChange(false);
+      onCreated?.();
+    } catch (error) {
+      toast.error(isApiError(error) ? error.message : "创建失败");
+    } finally {
+      setPending(false);
+    }
   }
 
   return (
@@ -53,7 +131,7 @@ function CreateSessionDialog({ open, onOpenChange }: { open: boolean; onOpenChan
         <DialogHeader className="border-separator flex-row items-center justify-between border-b px-5 py-[18px]">
           <div className="flex flex-col gap-0.5">
             <DialogTitle>新建团</DialogTitle>
-            <DialogDescription>每个团对应一个模组，创建时指定参与的 PC</DialogDescription>
+            <DialogDescription>从当前模组已关联的人物中选择 PC / NPC。</DialogDescription>
           </div>
           <Button variant="ghost" size="icon-sm" aria-label="关闭新建团弹窗" onClick={() => onOpenChange(false)}>
             <X />
@@ -61,45 +139,61 @@ function CreateSessionDialog({ open, onOpenChange }: { open: boolean; onOpenChan
         </DialogHeader>
 
         <div className="flex flex-col gap-4 px-5 py-5">
-          <FormField label="团名称" htmlFor="session-name">
-            <Input id="session-name" defaultValue="沉没的记忆 · 第三夜" className="border-separator-secondary" />
-          </FormField>
-
           <FormField label="选择模组">
-            <Select defaultValue="sunk-memory">
+            <Select value={moduleId} onValueChange={setModuleId}>
               <SelectTrigger className="h-10 border-separator-secondary">
                 <Package className="text-accent-hover" />
                 <SelectValue placeholder="选择模组" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="sunk-memory">沉没的记忆</SelectItem>
-                <SelectItem value="abandoned-mine">无人矿坑</SelectItem>
-                <SelectItem value="color-out-of-space">星之彩</SelectItem>
+                {modules.map((module) => (
+                  <SelectItem key={module.id} value={module.id}>
+                    {module.name}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </FormField>
 
-          <FormField label="指定参与 PC">
+          <FormField label="指定参与人物">
             <div className="flex flex-col gap-1.5">
-              {pcCandidates.map((pc) => {
-                const selected = selectedPcs.has(pc.id);
-                return (
-                  <Label
-                    key={pc.id}
-                    className={cn(
-                      "cursor-pointer items-center gap-2.5 rounded-[10px] border px-3 py-2.5 text-left",
-                      selected ? "bg-accent-soft border-accent-hover" : "bg-surface-tertiary border-transparent",
-                    )}
-                  >
-                    <Checkbox checked={selected} onCheckedChange={() => togglePc(pc.id)} />
-                    <span className="text-foreground font-sans text-[13px] font-semibold">{pc.name}</span>
-                    <span className="text-foreground-tertiary flex-1 font-sans text-xs">{pc.role}</span>
-                    <Badge variant="soft" tone={selected ? "accent" : "default"} size="sm">
-                      {selected ? "已选" : "未选"}
-                    </Badge>
-                  </Label>
-                );
-              })}
+              {characters.length === 0 ? (
+                <p className="text-foreground-tertiary text-xs leading-relaxed">
+                  当前模组尚未关联人物。可在模组页关联 PC / NPC 后再选，也可以先创建空团。
+                  {moduleId ? (
+                    <>
+                      {" "}
+                      <Link to="/gm/module/$moduleId" params={{ moduleId }} className="text-accent">
+                        去模组页关联
+                      </Link>
+                    </>
+                  ) : null}
+                </p>
+              ) : (
+                characters.map((character) => {
+                  const selected = selectedIds.has(character.id);
+                  const kind = kindLabel(character.kind);
+                  return (
+                    <Label
+                      key={character.id}
+                      className={cn(
+                        "cursor-pointer items-center gap-2.5 rounded-[10px] border px-3 py-2.5 text-left",
+                        selected ? "bg-accent-soft border-accent-hover" : "bg-surface-tertiary border-transparent",
+                      )}
+                    >
+                      <Checkbox checked={selected} onCheckedChange={() => toggleCharacter(character.id)} />
+                      <span className="text-foreground font-sans text-[13px] font-semibold">{character.name}</span>
+                      <span className="flex-1" />
+                      <Badge variant="soft" tone={kind === "NPC" ? "warning" : "accent"} size="sm">
+                        {kind}
+                      </Badge>
+                      <Badge variant="soft" tone={selected ? "accent" : "default"} size="sm">
+                        {selected ? "已选" : "未选"}
+                      </Badge>
+                    </Label>
+                  );
+                })
+              )}
             </div>
           </FormField>
 
@@ -120,7 +214,7 @@ function CreateSessionDialog({ open, onOpenChange }: { open: boolean; onOpenChan
             <Button variant="tertiary" size="sm" onClick={() => onOpenChange(false)}>
               取消
             </Button>
-            <Button variant="primary" size="sm" onClick={() => onOpenChange(false)}>
+            <Button variant="primary" size="sm" disabled={!moduleId || pending} onClick={() => void handleCreate()}>
               <Check className="size-4" />
               创建团
             </Button>

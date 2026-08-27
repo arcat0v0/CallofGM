@@ -12,26 +12,61 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
 
-const durations = ["1 小时", "24 小时", "7 天", "30 天", "永久", "自定义"];
+const durations = ["1 小时", "24 小时", "7 天", "30 天", "永久", "自定义"] as const;
+
+const durationSeconds: Record<(typeof durations)[number], number | undefined> = {
+  "1 小时": 3600,
+  "24 小时": 86400,
+  "7 天": 7 * 86400,
+  "30 天": 30 * 86400,
+  永久: undefined,
+  自定义: undefined,
+};
 
 function BanPlayerDialog({
   open,
   onOpenChange,
-  playerName = "匿名访客 #f2a9",
-  roleLabel = "OB · 观战",
-  fingerprint = "指纹 8c1d·4f2a·9e01·f2a9",
+  playerName = "匿名访客",
+  roleLabel = "玩家",
+  fingerprint = "",
+  defaultPlayerId = "",
+  onBan,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   playerName?: string;
   roleLabel?: string;
   fingerprint?: string;
+  defaultPlayerId?: string;
+  onBan?: (input: { playerId: string; reason: string; durationSeconds?: number }) => void | Promise<void>;
 }) {
-  const [duration, setDuration] = useState("7 天");
+  const [duration, setDuration] = useState<(typeof durations)[number]>("7 天");
+  const [playerId, setPlayerId] = useState(defaultPlayerId);
+  const [reason, setReason] = useState("");
+  const [pending, setPending] = useState(false);
+
+  async function handleBan() {
+    const trimmed = playerId.trim();
+    if (!trimmed || pending) {
+      return;
+    }
+    setPending(true);
+    try {
+      await onBan?.({
+        playerId: trimmed,
+        reason,
+        durationSeconds: durationSeconds[duration],
+      });
+      onOpenChange(false);
+    } finally {
+      setPending(false);
+    }
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -63,12 +98,22 @@ function BanPlayerDialog({
                   {roleLabel}
                 </Badge>
               </div>
-              <span className="text-foreground-tertiary font-mono text-[11px]">{fingerprint}</span>
+              <span className="text-foreground-tertiary font-mono text-[11px]">{fingerprint || "输入玩家 ID 封禁"}</span>
             </div>
           </div>
 
+          <FormField label="玩家 ID" htmlFor="ban-player-id">
+            <Input
+              id="ban-player-id"
+              value={playerId}
+              onChange={(event) => setPlayerId(event.target.value)}
+              placeholder="playerId"
+              className="border-separator-secondary font-mono text-[13px]"
+            />
+          </FormField>
+
           <FormField label="封禁时长">
-            <RadioGroup value={duration} onValueChange={setDuration} className="grid-cols-3">
+            <RadioGroup value={duration} onValueChange={(value) => setDuration(value as (typeof durations)[number])} className="grid-cols-3">
               {durations.map((option) => {
                 const selected = option === duration;
                 return (
@@ -90,6 +135,8 @@ function BanPlayerDialog({
           <FormField label="封禁备注（可选）" htmlFor="ban-note">
             <Textarea
               id="ban-note"
+              value={reason}
+              onChange={(event) => setReason(event.target.value)}
               placeholder="例如：多次恶意刷屏、剧透、人身攻击…"
               className="h-16 min-h-16 resize-none border-separator-secondary text-[13px]"
             />
@@ -109,7 +156,7 @@ function BanPlayerDialog({
           <Button variant="tertiary" size="sm" onClick={() => onOpenChange(false)}>
             取消
           </Button>
-          <Button variant="danger" size="sm" onClick={() => onOpenChange(false)}>
+          <Button variant="danger" size="sm" disabled={!playerId.trim() || pending} onClick={() => void handleBan()}>
             <ShieldBan className="size-[15px]" />
             确认拉黑 {duration}
           </Button>

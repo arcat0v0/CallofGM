@@ -32,6 +32,7 @@ function toGrantedDto(
  */
 export class GrantHandoutHandler implements CommandHandler {
   readonly type = "handout:grant" as const;
+  readonly allowedStatuses = ["preparing", "active"] as const;
 
   async execute(ctx: CommandHandlerContext, payload: unknown): Promise<CommandHandlerResult> {
     if (ctx.actor.type !== "gm") {
@@ -101,6 +102,7 @@ export class GrantHandoutHandler implements CommandHandler {
  */
 export class AppendHandoutRecipientsHandler implements CommandHandler {
   readonly type = "handout:append" as const;
+  readonly allowedStatuses = ["preparing", "active"] as const;
 
   async execute(ctx: CommandHandlerContext, payload: unknown): Promise<CommandHandlerResult> {
     if (ctx.actor.type !== "gm") {
