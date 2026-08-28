@@ -5,7 +5,7 @@ const EnvSchema = z.object({
   PORT: z.coerce.number().int().default(15632),
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
   DATABASE_URL: z.string().default("data/db.sqlite"),
-  GM_PASSWORD_HASH: z.string().default("$argon2id$v=19$m=65536,t=2,p=1$67s8bMY7vudyDYlrt6OO97+VgLsFP/+Ok80EMkwESHQ$bs1IpVx/mtJ6wOI8HnrTodq3aYmC1KIIuMTEpv02yTc"),
+  GM_PASSWORD_HASH: z.string().default("$argon2id$v=19$m=65536,t=2,p=1$npi5iaUalSoKbb21jzwXOSSfb0xdW2n8ZVFBbw3L1jQ$WupJUJPiAB0gXzuOlOIMf17UDal+hZKZytb1+6cTKdg"),
   /** 历史配置项；opaque player token 不再使用 HMAC，生产仍要求显式设置以免空仓库误部署 */
   PLAYER_TOKEN_SECRET: z.string().default("dev-player-secret-key"),
   /** 上传媒体根目录 */
