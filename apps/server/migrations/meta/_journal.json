@@ -57,6 +57,13 @@
       "when": 1784374800000,
       "tag": "0007_module_fk_staging_owner",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1787898524291,
+      "tag": "0008_natural_pet_avengers",
+      "breakpoints": true
     }
   ]
 }

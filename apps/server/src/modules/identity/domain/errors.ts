@@ -18,6 +18,12 @@ export class InvalidCredentialsError extends AppError {
   }
 }
 
+export class GmPasswordNotConfiguredError extends AppError {
+  constructor() {
+    super("GM_PASSWORD_NOT_CONFIGURED", "尚未设置 GM 密码。请运行 bun run --cwd apps/server setup:gm <密码> 完成初始化", 503);
+  }
+}
+
 export class SessionExpiredError extends AppError {
   constructor(message = "Session expired") {
     super("SESSION_EXPIRED", message, 401);

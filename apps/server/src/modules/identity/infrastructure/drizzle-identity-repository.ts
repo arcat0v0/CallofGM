@@ -1,10 +1,26 @@
 import { eq, and, gt, isNull, or } from "drizzle-orm";
 import type { DbClient } from "@/platform/db/client";
-import { gmLoginSessions, anonymousPlayers, playerTokens, blacklistEntries } from "@/platform/db/schema";
+import { gmLoginSessions, gmCredentials, anonymousPlayers, playerTokens, blacklistEntries } from "@/platform/db/schema";
 import type { IdentityRepository, GmLoginSession, AnonymousPlayer, PlayerToken } from "../application/ports";
 
 export class DrizzleIdentityRepository implements IdentityRepository {
   constructor(private readonly db: DbClient) {}
+
+  async findGmPasswordHash(): Promise<string | null> {
+    const result = await this.db
+      .select({ passwordHash: gmCredentials.passwordHash })
+      .from(gmCredentials)
+      .where(eq(gmCredentials.id, "gm"))
+      .limit(1);
+    return result[0]?.passwordHash ?? null;
+  }
+
+  async saveGmPasswordHash(passwordHash: string, updatedAt: number): Promise<void> {
+    await this.db
+      .insert(gmCredentials)
+      .values({ id: "gm", passwordHash, updatedAt })
+      .onConflictDoUpdate({ target: gmCredentials.id, set: { passwordHash, updatedAt } });
+  }
 
   async findGmSessionByTokenHash(tokenHash: string): Promise<GmLoginSession | null> {
     const result = await this.db

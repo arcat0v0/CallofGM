@@ -39,8 +39,7 @@ export function createIdentityRoutes(container: Container) {
   const gmLoginUseCase = new GmLoginUseCase(
     container.idGenerator,
     container.clock,
-    repo,
-    container.env.GM_PASSWORD_HASH
+    repo
   );
   const gmLogoutUseCase = new GmLogoutUseCase(container.clock, repo);
   const playerIdentityUseCase = new PlayerIdentityUseCase(

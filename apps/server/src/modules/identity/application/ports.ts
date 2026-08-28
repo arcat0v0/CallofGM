@@ -31,6 +31,9 @@ export interface BlacklistEntry {
 }
 
 export interface IdentityRepository {
+  findGmPasswordHash(): Promise<string | null>;
+  saveGmPasswordHash(passwordHash: string, updatedAt: number): Promise<void>;
+
   findGmSessionByTokenHash(tokenHash: string): Promise<GmLoginSession | null>;
   saveGmSession(session: GmLoginSession): Promise<void>;
   revokeGmSession(id: string, revokedAt: number): Promise<void>;

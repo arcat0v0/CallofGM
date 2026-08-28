@@ -20,6 +20,7 @@ import {
 import { rm } from "fs/promises";
 import { existsSync } from "fs";
 import { resetHttpLimits } from "@/platform/security/http-limits";
+import { seedGmPassword } from "../helpers/setup";
 
 describe("Media Storage contract tests", () => {
   let container: Container;
@@ -32,11 +33,9 @@ describe("Media Storage contract tests", () => {
   beforeAll(async () => {
     resetHttpLimits();
     process.env.DATABASE_URL = ":memory:";
-    const hash = await Bun.password.hash(gmPassword);
-    process.env.GM_PASSWORD_HASH = hash;
-
     container = new Container();
     await container.startupService.startup();
+    await seedGmPassword(container.db, gmPassword);
 
     app = new Elysia()
       .onError(({ error, code, set }) => {

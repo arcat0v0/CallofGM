@@ -11,6 +11,8 @@ import type { RandomSource } from "@/platform/ports";
 import { AppError } from "@/platform/errors/app-error";
 import { resetHttpLimits } from "@/platform/security/http-limits";
 import { modules, characters, characterPortraits, moduleCharacters } from "@/platform/db/schema";
+import { DrizzleIdentityRepository } from "@/modules/identity";
+import type { DbClient } from "@/platform/db/client";
 import { CreateSessionUseCase, ClaimSeatUseCase } from "@/modules/sessions/application/use-cases";
 import { DrizzleSessionsRepository } from "@/modules/sessions/infrastructure/drizzle-sessions-repository";
 
@@ -182,15 +184,19 @@ export class ScriptedRandomSource implements RandomSource {
   }
 }
 
+export async function seedGmPassword(db: DbClient, password: string): Promise<void> {
+  await new DrizzleIdentityRepository(db).saveGmPasswordHash(await Bun.password.hash(password), Date.now());
+}
+
 /** 搭建带真实数据库与 WS 的测试应用（随机端口，无需手工 listen） */
 export async function setupTestApp(options: TestSetupOptions = {}): Promise<TestContext> {
   resetHttpLimits();
   const gmPassword = options.gmPassword ?? "test-gm-password";
   process.env.DATABASE_URL = ":memory:";
-  process.env.GM_PASSWORD_HASH = await Bun.password.hash(gmPassword);
 
   const container = new Container([], { randomSource: options.randomSource });
   await container.startupService.startup();
+  await seedGmPassword(container.db, gmPassword);
   container.sessionCommandExecutor.registerHandlers([
     ...buildCommandHandlers(container),
     ...(options.extraHandlers ?? []),

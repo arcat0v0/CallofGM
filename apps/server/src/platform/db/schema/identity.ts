@@ -32,3 +32,9 @@ export const blacklistEntries = sqliteTable("blacklist_entries", {
   expiresAt: integer("expires_at"),
   createdAt: integer("created_at").notNull(),
 });
+
+export const gmCredentials = sqliteTable("gm_credentials", {
+  id: text("id").primaryKey(),
+  passwordHash: text("password_hash").notNull(),
+  updatedAt: integer("updated_at").notNull(),
+});

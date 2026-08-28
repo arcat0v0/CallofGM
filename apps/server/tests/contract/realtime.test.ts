@@ -12,7 +12,7 @@ import type { VisibilityScope } from "@/modules/realtime";
 import { CreateSessionUseCase, ClaimSeatUseCase } from "@/modules/sessions/application/use-cases";
 import { DrizzleSessionsRepository } from "@/modules/sessions/infrastructure/drizzle-sessions-repository";
 import { eq } from "drizzle-orm";
-import { listenTestApp } from "../helpers/setup";
+import { listenTestApp, seedGmPassword } from "../helpers/setup";
 import { resetHttpLimits } from "@/platform/security/http-limits";
 
 interface TestWebSocket extends WebSocket {
@@ -120,11 +120,9 @@ describe("Realtime contract tests", () => {
   beforeAll(async () => {
     resetHttpLimits();
     process.env.DATABASE_URL = ":memory:";
-    const hash = await Bun.password.hash(gmPassword);
-    process.env.GM_PASSWORD_HASH = hash;
-
     container = new Container([new TestEventProbeHandler()]);
     await container.startupService.startup();
+    await seedGmPassword(container.db, gmPassword);
 
     app = new Elysia()
       .onError(({ error, code, set }) => {

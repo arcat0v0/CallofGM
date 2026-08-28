@@ -13,6 +13,7 @@ import {
 } from "@/platform/db/schema";
 import { eq } from "drizzle-orm";
 import { resetHttpLimits } from "@/platform/security/http-limits";
+import { seedGmPassword } from "../helpers/setup";
 
 describe("Catalog contract tests", () => {
   let container: Container;
@@ -24,11 +25,9 @@ describe("Catalog contract tests", () => {
   beforeAll(async () => {
     resetHttpLimits();
     process.env.DATABASE_URL = ":memory:";
-    const hash = await Bun.password.hash(gmPassword);
-    process.env.GM_PASSWORD_HASH = hash;
-
     container = new Container();
     await container.startupService.startup();
+    await seedGmPassword(container.db, gmPassword);
 
     app = new Elysia()
       .onError(({ error, code, set }) => {

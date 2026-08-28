@@ -1,18 +1,21 @@
 import type { Clock, IdGenerator } from "@/platform/ports";
 import type { IdentityRepository, GmLoginSession } from "./ports";
-import { InvalidCredentialsError } from "../domain/errors";
+import { GmPasswordNotConfiguredError, InvalidCredentialsError } from "../domain/errors";
 import { issueOpaqueToken } from "./token";
 
 export class GmLoginUseCase {
   constructor(
     private readonly idGenerator: IdGenerator,
     private readonly clock: Clock,
-    private readonly repo: IdentityRepository,
-    private readonly gmPasswordHash: string
+    private readonly repo: IdentityRepository
   ) {}
 
   async execute(password: string): Promise<{ sessionToken: string; expiresAt: number }> {
-    const isValid = await Bun.password.verify(password, this.gmPasswordHash);
+    const gmPasswordHash = await this.repo.findGmPasswordHash();
+    if (!gmPasswordHash) {
+      throw new GmPasswordNotConfiguredError();
+    }
+    const isValid = await Bun.password.verify(password, gmPasswordHash);
     if (!isValid) {
       throw new InvalidCredentialsError();
     }

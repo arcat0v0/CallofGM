@@ -6,6 +6,7 @@ import { createCharactersRoutes } from "@/modules/characters/transport/routes";
 import { createSessionsRoutes } from "@/modules/sessions/transport/routes";
 import { AppError } from "@/platform/errors/app-error";
 import { resetHttpLimits } from "@/platform/security/http-limits";
+import { seedGmPassword } from "../helpers/setup";
 import { modules, characters, sessions, moduleCharacters } from "@/platform/db/schema";
 
 describe("Sessions contract tests", () => {
@@ -21,11 +22,9 @@ describe("Sessions contract tests", () => {
   beforeAll(async () => {
     resetHttpLimits();
     process.env.DATABASE_URL = ":memory:";
-    const hash = await Bun.password.hash(gmPassword);
-    process.env.GM_PASSWORD_HASH = hash;
-
     container = new Container();
     await container.startupService.startup();
+    await seedGmPassword(container.db, gmPassword);
 
     app = new Elysia()
       .onError(({ error, code, set }) => {
