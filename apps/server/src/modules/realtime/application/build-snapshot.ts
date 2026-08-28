@@ -61,6 +61,10 @@ export class BuildSessionSnapshotUseCase {
     return this.buildVisibleHandouts(sessionId, isGm, claimedCharacterId);
   }
 
+  async listPendingQueue(sessionId: string): Promise<ChatMessageDto[]> {
+    return this.buildPendingQueue(sessionId);
+  }
+
   async execute(input: {
     sessionId: string;
     actor: ActorContext;

@@ -17,7 +17,7 @@ function ConsoleStage() {
   const muted = usePlayStore((state) => state.muted);
   const setMuted = usePlayStore((state) => state.setMuted);
   const latest = [...messages].reverse().find((message) => message.tone !== "ooc");
-  const sceneSrc = scene?.bgAssetId ? mediaUrl(scene.bgAssetId) : undefined;
+  const sceneSrc = mediaUrl(scene?.bgAssetId) ?? undefined;
   const trackName = tracks.find((track) => track.id === bgm?.trackId)?.name ?? (bgm?.playing ? "BGM 播放中" : "未播放");
 
   return (

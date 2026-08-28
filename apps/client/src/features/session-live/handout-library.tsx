@@ -8,7 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { mediaUrl } from "@/lib/media";
+import { mediaUrl } from "@/lib/api";
 
 export function HandoutLibrary({
   handouts,

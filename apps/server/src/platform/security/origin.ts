@@ -10,7 +10,7 @@ export function parseCorsOrigins(raw: string | undefined, nodeEnv: string): stri
   if (nodeEnv === "production") {
     return [];
   }
-  return ["http://localhost:15633"];
+  return ["http://localhost:15633", "http://localhost:15632"];
 }
 
 export function isAllowedOrigin(origin: string, allowed: string[], requestUrl: string): boolean {

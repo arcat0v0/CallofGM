@@ -12,8 +12,7 @@ import {
 import { MessageInput } from "@/features/chat/message-input";
 import { type MessageMode, MessageModeSwitch } from "@/features/chat/message-mode-switch";
 import { DiceTray } from "@/features/session-live/dice-tray";
-import { expressionLabel, phaseChatHint } from "@/lib/format";
-import { initialsOf } from "@/lib/chat-map";
+import { expressionLabel, initialsOf, phaseChatHint } from "@/lib/format";
 import { mediaUrl } from "@/lib/api";
 import { sendSessionCommand } from "@/lib/session-socket";
 import { cn } from "@/lib/utils";
@@ -105,7 +104,7 @@ function Composer({ compact = false, className }: { compact?: boolean; className
             </Button>
           </div>
           <div className="flex gap-1.5">
-            {(expressionOptions.length > 0 ? expressionOptions : [{ key: "default", label: "默认", src: "" }]).map((tile) => {
+            {(expressionOptions.length > 0 ? expressionOptions : [{ key: "default", label: "默认", src: null }]).map((tile) => {
               const isActive = tile.key === expression;
               return (
                 <Button

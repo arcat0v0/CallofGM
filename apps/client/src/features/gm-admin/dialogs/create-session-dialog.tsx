@@ -1,5 +1,6 @@
 import { Check, Package, X } from "lucide-react";
 import { Link } from "@tanstack/react-router";
+import type { CharacterDto, CreateSessionResponse, ModuleDto } from "@cogm/shared";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { FormField } from "@/components/shared/form-field";
@@ -29,9 +30,6 @@ import { cn } from "@/lib/utils";
 const statusOptions = ["等待开始", "准备中", "进行中"] as const;
 const statusSegments = statusOptions.map((option) => ({ value: option, label: option }));
 
-type ModuleRow = { id: string; name: string };
-type CharacterRow = { id: string; name: string; kind: string };
-
 function kindLabel(kind: string): "PC" | "NPC" {
   return kind.toLowerCase() === "npc" ? "NPC" : "PC";
 }
@@ -45,8 +43,8 @@ function CreateSessionDialog({
   onOpenChange: (open: boolean) => void;
   onCreated?: () => void;
 }) {
-  const [modules, setModules] = useState<ModuleRow[]>([]);
-  const [characters, setCharacters] = useState<CharacterRow[]>([]);
+  const [modules, setModules] = useState<ModuleDto[]>([]);
+  const [characters, setCharacters] = useState<CharacterDto[]>([]);
   const [moduleId, setModuleId] = useState<string>("");
   const [selectedIds, setSelectedIds] = useState(new Set<string>());
   const [status, setStatus] = useState<(typeof statusOptions)[number]>("等待开始");
@@ -58,7 +56,7 @@ function CreateSessionDialog({
     }
     void (async () => {
       try {
-        const nextModules = await fetchAllPages<ModuleRow>("/gm/modules");
+        const nextModules = await fetchAllPages<ModuleDto>("/gm/modules");
         setModules(nextModules);
         setModuleId((current) => current || nextModules[0]?.id || "");
       } catch (error) {
@@ -73,7 +71,7 @@ function CreateSessionDialog({
       return;
     }
     setSelectedIds(new Set());
-    void fetchAllPages<CharacterRow>(`/gm/modules/${encodeURIComponent(moduleId)}/characters`)
+    void fetchAllPages<CharacterDto>(`/gm/modules/${encodeURIComponent(moduleId)}/characters`)
       .then(setCharacters)
       .catch((error) => toast.error(isApiError(error) ? error.message : "无法加载模组人物"));
   }, [open, moduleId]);
@@ -93,7 +91,7 @@ function CreateSessionDialog({
     }
     setPending(true);
     try {
-      const created = await api<{ session: { id: string } }>("/gm/sessions", {
+      const created = await api<CreateSessionResponse>("/gm/sessions", {
         method: "POST",
         body: JSON.stringify({
           moduleId,

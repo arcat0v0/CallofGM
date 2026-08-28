@@ -16,9 +16,12 @@ function HomePage() {
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     const trimmed = code.trim();
-    if (trimmed) {
-      void navigate({ to: "/join/$sessionId", params: { sessionId: trimmed } });
+    if (!trimmed) {
+      return;
     }
+    const fromLink = trimmed.match(/\/join\/([^/?#]+)/)?.[1];
+    const sessionId = decodeURIComponent(fromLink ?? trimmed);
+    void navigate({ to: "/join/$sessionId", params: { sessionId } });
   }
 
   return (

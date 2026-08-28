@@ -1,9 +1,4 @@
-import {
-  SessionPhaseLabel,
-  SessionStatusLabel,
-  type SessionPhase,
-  type SessionStatus,
-} from "@cogm/shared";
+import { SessionPhaseLabel, type SessionPhase, type SessionStatus } from "@cogm/shared";
 
 export const EXPRESSION_LABELS: Record<string, string> = {
   default: "默认",
@@ -30,7 +25,9 @@ export function initialsOf(name: string): string {
   if (!trimmed) {
     return "?";
   }
-  return trimmed.slice(-1);
+  const parts = trimmed.split(/\s+/);
+  const last = parts[parts.length - 1] ?? trimmed;
+  return last.slice(0, 1);
 }
 
 export function formatClock(epochMs: number): string {
@@ -43,19 +40,6 @@ export function formatDurationMmSs(ms: number): string {
   const minutes = Math.floor(total / 60);
   const seconds = total % 60;
   return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-}
-
-export function formatDateTime(epochMs: number): string {
-  const date = new Date(epochMs);
-  return `${date.getMonth() + 1}/${date.getDate()} ${formatClock(epochMs)}`;
-}
-
-export function statusLabel(status: SessionStatus): string {
-  return SessionStatusLabel[status];
-}
-
-export function phaseLabel(phase: SessionPhase): string {
-  return SessionPhaseLabel[phase];
 }
 
 export function statusTone(status: SessionStatus): "success" | "accent" | "warning" | "default" {

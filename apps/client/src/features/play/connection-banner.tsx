@@ -2,8 +2,10 @@ import { usePlayStore } from "@/stores/play-store";
 
 function ConnectionBanner() {
   const connected = usePlayStore((state) => state.connected);
+  const terminal = usePlayStore((state) => state.terminal);
+  const status = usePlayStore((state) => state.status);
   const sessionId = usePlayStore((state) => state.sessionId);
-  if (connected) {
+  if (connected || terminal || status === "ended") {
     return null;
   }
   return (

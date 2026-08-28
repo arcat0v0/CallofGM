@@ -16,9 +16,9 @@ export function isApiError(error: unknown): error is ApiError {
   return error instanceof ApiError;
 }
 
-export function mediaUrl(assetId: string | null | undefined): string {
+export function mediaUrl(assetId: string | null | undefined): string | null {
   if (!assetId) {
-    return "";
+    return null;
   }
   return `/api/v1/media/${encodeURIComponent(assetId)}`;
 }
@@ -32,21 +32,6 @@ export function unwrapItems<T>(value: unknown): T[] {
   }
   return [];
 }
-
-export type CharacterRow = {
-  id: string;
-  name: string;
-  kind: string;
-  ruleId: string;
-  sheetJson: string;
-  createdAt?: number;
-  portraits?: Array<{
-    id: string;
-    expressionKey: string;
-    portraitAssetId: string;
-    isDefault: number;
-  }>;
-};
 
 export type CursorPage<T> = {
   items: T[];

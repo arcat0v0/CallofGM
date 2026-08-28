@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import type { CharacterImportPreviewResponse, coc7e } from "@cogm/shared";
 import { Alert, AlertDescription, AlertIcon } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,17 +23,7 @@ import { Input } from "@/components/ui/input";
 import { api, isApiError } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
-type Preview = {
-  importToken: string;
-  preview: {
-    characterName: string;
-    sheetData: {
-      attributes?: Record<string, number>;
-      skills?: Record<string, number>;
-    };
-    errors: Array<{ cell?: string; message: string }>;
-  };
-};
+import { parseCocSheet } from "@/lib/coc-live";
 
 function ImportCharacterSheetDialog({
   open,
@@ -44,7 +35,7 @@ function ImportCharacterSheetDialog({
   onImported?: () => void;
 }) {
   const [file, setFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState<Preview | null>(null);
+  const [preview, setPreview] = useState<CharacterImportPreviewResponse | null>(null);
   const [kind, setKind] = useState<"pc" | "npc">("pc");
   const [pending, setPending] = useState(false);
 
@@ -54,7 +45,7 @@ function ImportCharacterSheetDialog({
       const body = new FormData();
       body.append("file", next);
       body.append("ruleId", "coc7e");
-      const result = await api<Preview>("/gm/characters/import/preview", { method: "POST", body });
+      const result = await api<CharacterImportPreviewResponse>("/gm/characters/import/preview", { method: "POST", body });
       setFile(next);
       setPreview(result);
     } catch (error) {
@@ -90,8 +81,9 @@ function ImportCharacterSheetDialog({
     }
   }
 
-  const attributes = preview?.preview.sheetData.attributes ?? {};
-  const skills = Object.entries(preview?.preview.sheetData.skills ?? {}).slice(0, 6);
+  const sheet = preview ? parseCocSheet(preview.preview.sheetData) : null;
+  const attributes: Partial<coc7e.Coc7eAttributes> = sheet?.attributes ?? {};
+  const skills = Object.entries(sheet?.skills ?? {}).slice(0, 6);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

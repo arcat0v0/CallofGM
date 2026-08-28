@@ -16,7 +16,7 @@ function DesktopScene() {
   const setMuted = usePlayStore((state) => state.setMuted);
   const messages = usePlayStore((state) => state.messages);
   const latest = [...messages].reverse().find((message) => message.tone !== "ooc");
-  const sceneSrc = scene?.bgAssetId ? mediaUrl(scene.bgAssetId) : undefined;
+  const sceneSrc = mediaUrl(scene?.bgAssetId) ?? undefined;
 
   return (
     <div className="relative h-full w-full overflow-hidden bg-background">

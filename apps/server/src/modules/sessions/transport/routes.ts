@@ -13,6 +13,12 @@ import {
   UpdateSessionStatusRequest,
   UpdateSessionPhaseRequest,
   CursorPageQuery,
+  CursorPageResponse,
+  CreateSessionResponse,
+  SessionDetailResponse,
+  SessionDto,
+  JoinInfoResponse,
+  ClaimDto,
 } from "@cogm/shared";
 import { sessionClaims } from "@/platform/db/schema";
 import {
@@ -66,7 +72,7 @@ export function createSessionsRoutes(container: Container) {
       if (!result.success) {
         throw validationFailed(result.error);
       }
-      return await createSession.execute(result.data);
+      return CreateSessionResponse.parse(await createSession.execute(result.data));
     })
     .get("/api/v1/gm/sessions", async ({ actor, query }) => {
       if (!actor || actor.type !== "gm") {
@@ -76,13 +82,13 @@ export function createSessionsRoutes(container: Container) {
       if (!parsed.success) {
         throw validationFailed(parsed.error);
       }
-      return await listSessions.execute(parsed.data);
+      return CursorPageResponse(SessionDto).parse(await listSessions.execute(parsed.data));
     })
     .get("/api/v1/gm/sessions/:id", async ({ actor, params: { id } }) => {
       if (!actor || actor.type !== "gm") {
         throw new AuthRequiredError();
       }
-      return await getSessionSnapshot.execute(id);
+      return SessionDetailResponse.parse(await getSessionSnapshot.execute(id));
     })
     .post("/api/v1/gm/sessions/:id/status", async ({ actor, params: { id }, body }) => {
       if (!actor || actor.type !== "gm") {
@@ -92,10 +98,10 @@ export function createSessionsRoutes(container: Container) {
       if (!result.success) {
         throw validationFailed(result.error);
       }
-      return await updateSessionStatus.execute({
+      return SessionDto.parse(await updateSessionStatus.execute({
         sessionId: id,
         status: result.data.status,
-      });
+      }));
     })
     .post("/api/v1/gm/sessions/:id/phase", async ({ actor, params: { id }, body }) => {
       if (!actor || actor.type !== "gm") {
@@ -105,10 +111,10 @@ export function createSessionsRoutes(container: Container) {
       if (!result.success) {
         throw validationFailed(result.error);
       }
-      return await updateSessionPhase.execute({
+      return SessionDto.parse(await updateSessionPhase.execute({
         sessionId: id,
         phase: result.data.phase,
-      });
+      }));
     })
     .get("/api/v1/public/sessions/:id/join-info", async ({ params: { id } }) => {
       const snapshot = await getSessionSnapshot.execute(id);
@@ -121,7 +127,7 @@ export function createSessionsRoutes(container: Container) {
           kind: character.kind,
           claimed: character.claim !== null,
         }));
-      return {
+      return JoinInfoResponse.parse({
         session: {
           id: snapshot.session.id,
           status: snapshot.session.status,
@@ -130,7 +136,7 @@ export function createSessionsRoutes(container: Container) {
           moduleName: moduleRecord?.name ?? "",
         },
         characters,
-      };
+      });
     })
     .get("/api/v1/sessions/:id/handouts", async ({ actor, params: { id } }) => {
       if (!actor) {
@@ -171,7 +177,7 @@ export function createSessionsRoutes(container: Container) {
         characterId: result.data.characterId,
       });
       await container.presenceService.broadcast(id);
-      return claim;
+      return ClaimDto.parse(claim);
     })
     .post("/api/v1/sessions/:id/release", async ({ actor, params: { id } }) => {
       if (!actor) {

@@ -1,4 +1,5 @@
 import { Elysia, t } from "elysia";
+import { MediaAssetDto } from "@cogm/shared";
 import { eq, and, isNull } from "drizzle-orm";
 import { type Container } from "@/bootstrap/container";
 import { type DbClient } from "@/platform/db/client";
@@ -177,7 +178,7 @@ export function createMediaRoutes(container: Container) {
           purpose
         });
 
-        return asset;
+        return MediaAssetDto.parse(asset);
       },
       {
         body: t.Object({

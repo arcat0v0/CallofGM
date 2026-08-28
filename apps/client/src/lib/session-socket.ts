@@ -10,16 +10,12 @@ type ConnectSessionOptions = {
   sessionId: string;
   lastEventId?: number;
   onMessage: (message: ServerMessage) => void;
-  onClose?: () => void;
+  onClose?: (info: { code: number; reason: string }) => void;
 };
 
 const HEARTBEAT_MS = 20_000;
 
 let active: SessionSocket | null = null;
-
-export function getSessionSocket(): SessionSocket | null {
-  return active;
-}
 
 export async function connectSession(options: ConnectSessionOptions): Promise<SessionSocket> {
   const fingerprint = await getFingerprint();
@@ -86,7 +82,7 @@ export async function connectSession(options: ConnectSessionOptions): Promise<Se
     }
   });
 
-  ws.addEventListener("close", () => {
+  ws.addEventListener("close", (event) => {
     if (heartbeat) {
       clearInterval(heartbeat);
       heartbeat = null;
@@ -95,7 +91,7 @@ export async function connectSession(options: ConnectSessionOptions): Promise<Se
       active = null;
     }
     if (!closedByClient) {
-      options.onClose?.();
+      options.onClose?.({ code: event.code, reason: event.reason });
     }
   });
 
@@ -116,8 +112,6 @@ export async function connectSession(options: ConnectSessionOptions): Promise<Se
   active = socket;
   return socket;
 }
-
-export const connectSessionSocket = connectSession;
 
 export function sendSessionCommand(type: ClientCommandType, payload: unknown): string | null {
   return active?.sendCommand(type, payload) ?? null;

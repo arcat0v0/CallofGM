@@ -12,7 +12,12 @@ import {
   UpdateTrackRequest,
   CreateHandoutRequest,
   UpdateHandoutRequest,
-  CursorPageQuery
+  CursorPageQuery,
+  CursorPageResponse,
+  ModuleDto,
+  SceneDto,
+  TrackDto,
+  CatalogHandoutDto
 } from "@cogm/shared";
 import {
   CreateModuleUseCase,
@@ -84,16 +89,16 @@ export function createCatalogRoutes(container: Container) {
       }
     })
     .post("/", async ({ body }) => {
-      return createModule.execute(parseBody(CreateModuleRequest, body));
+      return ModuleDto.parse(await createModule.execute(parseBody(CreateModuleRequest, body)));
     })
     .get("/", async ({ query }) => {
-      return listModules.execute(parsePageQuery(query));
+      return CursorPageResponse(ModuleDto).parse(await listModules.execute(parsePageQuery(query)));
     })
     .get("/:id", async ({ params }) => {
-      return getModule.execute(params.id);
+      return ModuleDto.parse(await getModule.execute(params.id));
     })
     .patch("/:id", async ({ params, body }) => {
-      return updateModule.execute(params.id, parseBody(UpdateModuleRequest, body));
+      return ModuleDto.parse(await updateModule.execute(params.id, parseBody(UpdateModuleRequest, body)));
     })
     .delete("/:id", async ({ params }) => {
       await deleteModule.execute(params.id);
@@ -101,16 +106,16 @@ export function createCatalogRoutes(container: Container) {
     })
     .post("/:id/scenes", async ({ params, body }) => {
       const parsed = parseBody(CreateSceneRequest, body);
-      return createScene.execute({
+      return SceneDto.parse(await createScene.execute({
         moduleId: params.id,
         ...parsed
-      });
+      }));
     })
     .get("/:id/scenes", async ({ params, query }) => {
-      return listScenes.execute(params.id, parsePageQuery(query));
+      return CursorPageResponse(SceneDto).parse(await listScenes.execute(params.id, parsePageQuery(query)));
     })
     .patch("/scenes/:id", async ({ params, body }) => {
-      return updateScene.execute(params.id, parseBody(UpdateSceneRequest, body));
+      return SceneDto.parse(await updateScene.execute(params.id, parseBody(UpdateSceneRequest, body)));
     })
     .delete("/scenes/:id", async ({ params }) => {
       await deleteScene.execute(params.id);
@@ -118,16 +123,16 @@ export function createCatalogRoutes(container: Container) {
     })
     .post("/:id/tracks", async ({ params, body }) => {
       const parsed = parseBody(CreateTrackRequest, body);
-      return createTrack.execute({
+      return TrackDto.parse(await createTrack.execute({
         moduleId: params.id,
         ...parsed
-      });
+      }));
     })
     .get("/:id/tracks", async ({ params, query }) => {
-      return listTracks.execute(params.id, parsePageQuery(query));
+      return CursorPageResponse(TrackDto).parse(await listTracks.execute(params.id, parsePageQuery(query)));
     })
     .patch("/tracks/:id", async ({ params, body }) => {
-      return updateTrack.execute(params.id, parseBody(UpdateTrackRequest, body));
+      return TrackDto.parse(await updateTrack.execute(params.id, parseBody(UpdateTrackRequest, body)));
     })
     .delete("/tracks/:id", async ({ params }) => {
       await deleteTrack.execute(params.id);
@@ -135,16 +140,16 @@ export function createCatalogRoutes(container: Container) {
     })
     .post("/:id/handouts", async ({ params, body }) => {
       const parsed = parseBody(CreateHandoutRequest, body);
-      return createHandout.execute({
+      return CatalogHandoutDto.parse(await createHandout.execute({
         moduleId: params.id,
         ...parsed
-      });
+      }));
     })
     .get("/:id/handouts", async ({ params, query }) => {
-      return listHandouts.execute(params.id, parsePageQuery(query));
+      return CursorPageResponse(CatalogHandoutDto).parse(await listHandouts.execute(params.id, parsePageQuery(query)));
     })
     .patch("/handouts/:id", async ({ params, body }) => {
-      return updateHandout.execute(params.id, parseBody(UpdateHandoutRequest, body));
+      return CatalogHandoutDto.parse(await updateHandout.execute(params.id, parseBody(UpdateHandoutRequest, body)));
     })
     .delete("/handouts/:id", async ({ params }) => {
       await deleteHandout.execute(params.id);

@@ -1,4 +1,5 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
+import type { ModuleDto } from "@cogm/shared";
 import { Package, Plus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -17,17 +18,15 @@ export const Route = createFileRoute("/gm/modules")({
   component: GmModulesPage,
 });
 
-type ModuleRow = { id: string; name: string; description: string; ruleId: string };
-
 function GmModulesPage() {
-  const [modules, setModules] = useState<ModuleRow[]>([]);
+  const [modules, setModules] = useState<ModuleDto[]>([]);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
   async function reload() {
     try {
-      setModules(await fetchAllPages<ModuleRow>("/gm/modules"));
+      setModules(await fetchAllPages<ModuleDto>("/gm/modules"));
     } catch (error) {
       toast.error(isApiError(error) ? error.message : "无法加载模组");
     }

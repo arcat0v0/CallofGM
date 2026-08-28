@@ -1,21 +1,5 @@
 import { create } from "zustand";
-
-export const TOKEN_KEY = "cogm.playerToken";
-export const PLAYER_ID_KEY = "cogm.playerId";
-
-function readStoredToken(): string | null {
-  if (typeof localStorage === "undefined") {
-    return null;
-  }
-  return localStorage.getItem(TOKEN_KEY);
-}
-
-function readStoredPlayerId(): string | null {
-  if (typeof localStorage === "undefined") {
-    return null;
-  }
-  return localStorage.getItem(PLAYER_ID_KEY);
-}
+import { readPlayerId, readPlayerToken, writePlayerIdentity } from "@/lib/storage";
 
 type IdentityState = {
   playerId: string | null;
@@ -26,12 +10,11 @@ type IdentityState = {
 };
 
 export const useIdentityStore = create<IdentityState>((set) => ({
-  playerId: readStoredPlayerId(),
-  token: readStoredToken(),
+  playerId: readPlayerId(),
+  token: readPlayerToken(),
   gmAuthenticated: null,
   setPlayer(playerId, token) {
-    localStorage.setItem(PLAYER_ID_KEY, playerId);
-    localStorage.setItem(TOKEN_KEY, token);
+    writePlayerIdentity(playerId, token);
     set({ playerId, token });
   },
   setGmAuthenticated(value) {

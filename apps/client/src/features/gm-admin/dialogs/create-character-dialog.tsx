@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { toast } from "sonner";
+import { coc7e } from "@cogm/shared";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -14,10 +15,10 @@ import { Label } from "@/components/ui/label";
 import { SegmentedControl } from "@/components/shared/segmented-control";
 import { api, isApiError } from "@/lib/api";
 
-const DEFAULT_SHEET = {
-  schemaVersion: 1 as const,
+const DEFAULT_SHEET: coc7e.Coc7eCharacterSheet = {
+  schemaVersion: 1,
   attributes: { str: 50, con: 50, siz: 50, dex: 50, app: 50, int: 50, pow: 50, edu: 50, luck: 50 },
-  skills: {} as Record<string, number>,
+  skills: {},
 };
 
 export function CreateCharacterDialog({

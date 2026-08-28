@@ -1,6 +1,6 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
-import { SessionPhaseLabel, SessionStatusLabel, type SessionPhase, type SessionStatus } from "@cogm/shared";
-import { ArrowRight, Ellipsis, FileSpreadsheet, Package, Play, Plus, Users, VenetianMask } from "lucide-react";
+import { SessionPhaseLabel, SessionStatusLabel, type CharacterDto, type ModuleDto, type SessionDto, type SessionStatus } from "@cogm/shared";
+import { ArrowRight, Ellipsis, FileSpreadsheet, Link as LinkIcon, Package, Play, Plus, SquarePower, Users, VenetianMask } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { MetricCard } from "@/components/shared/metric-card";
@@ -9,6 +9,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Table,
   TableBody,
   TableCell,
@@ -16,11 +22,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { AdminLayout } from "@/features/gm-admin/admin-layout";
 import { CreateSessionDialog } from "@/features/gm-admin/dialogs/create-session-dialog";
 import { ImportCharacterSheetDialog } from "@/features/gm-admin/dialogs/import-character-sheet-dialog";
 import { api, fetchAllPages, isApiError } from "@/lib/api";
-import { formatClock } from "@/lib/chat-map";
+import { formatClock, statusTone } from "@/lib/format";
 import { requireGmAuth } from "@/lib/identity";
 
 export const Route = createFileRoute("/gm/")({
@@ -28,49 +35,20 @@ export const Route = createFileRoute("/gm/")({
   component: GmDashboardPage,
 });
 
-type Tone = "success" | "accent" | "warning" | "default";
-
-type SessionRow = {
-  id: string;
-  moduleId: string;
-  status: SessionStatus;
-  phase: SessionPhase;
-  createdAt: number;
-};
-
-type ModuleRow = {
-  id: string;
-  name: string;
-  description: string;
-  ruleId: string;
-  createdAt: number;
-};
-
-type CharacterRow = {
-  id: string;
-  kind: string;
-};
-
-function statusTone(status: SessionStatus): Tone {
-  if (status === "active") return "success";
-  if (status === "preparing") return "warning";
-  if (status === "waiting") return "default";
-  return "default";
-}
-
 function GmDashboardPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
-  const [sessions, setSessions] = useState<SessionRow[]>([]);
-  const [modules, setModules] = useState<ModuleRow[]>([]);
+  const [sessions, setSessions] = useState<SessionDto[]>([]);
+  const [modules, setModules] = useState<ModuleDto[]>([]);
   const [characterCount, setCharacterCount] = useState(0);
+  const [endTarget, setEndTarget] = useState<SessionDto | null>(null);
 
   async function reload() {
     try {
       const [nextSessions, nextModules, nextCharacters] = await Promise.all([
-        fetchAllPages<SessionRow>("/gm/sessions"),
-        fetchAllPages<ModuleRow>("/gm/modules"),
-        fetchAllPages<CharacterRow>("/gm/characters"),
+        fetchAllPages<SessionDto>("/gm/sessions"),
+        fetchAllPages<ModuleDto>("/gm/modules"),
+        fetchAllPages<CharacterDto>("/gm/characters"),
       ]);
       setSessions(nextSessions);
       setModules(nextModules);
@@ -86,6 +64,18 @@ function GmDashboardPage() {
 
   const moduleName = (id: string) => modules.find((module) => module.id === id)?.name ?? id;
   const liveCount = sessions.filter((session) => session.status === "active").length;
+
+  async function patchStatus(sessionId: string, status: SessionStatus) {
+    try {
+      await api(`/gm/sessions/${encodeURIComponent(sessionId)}/status`, {
+        method: "POST",
+        body: JSON.stringify({ status }),
+      });
+      await reload();
+    } catch (error) {
+      toast.error(isApiError(error) ? error.message : "无法更新状态");
+    }
+  }
 
   return (
     <AdminLayout active="sessions">
@@ -157,12 +147,7 @@ function GmDashboardPage() {
                         className="h-7 px-3 text-xs font-semibold"
                         onClick={() => {
                           const next = session.status === "waiting" ? "preparing" : "active";
-                          void api(`/gm/sessions/${encodeURIComponent(session.id)}/status`, {
-                            method: "POST",
-                            body: JSON.stringify({ status: next }),
-                          })
-                            .then(() => reload())
-                            .catch((error) => toast.error(isApiError(error) ? error.message : "无法更新状态"));
+                          void patchStatus(session.id, next);
                         }}
                       >
                         {session.status === "waiting" ? "进入准备" : "开始进行"}
@@ -179,9 +164,32 @@ function GmDashboardPage() {
                         {session.status === "ended" ? "查看" : "进入控制台"}
                       </Link>
                     </Button>
-                    <Button type="button" variant="ghost" size="icon-sm" aria-label={`${session.id} 更多操作`} className="size-7 text-foreground-tertiary">
-                      <Ellipsis />
-                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button type="button" variant="ghost" size="icon-sm" aria-label={`${session.id} 更多操作`} className="size-7 text-foreground-tertiary">
+                          <Ellipsis />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          onClick={() => {
+                            void navigator.clipboard.writeText(`${location.origin}/join/${encodeURIComponent(session.id)}`).then(
+                              () => toast.success("已复制团链接"),
+                              () => toast.error("复制失败"),
+                            );
+                          }}
+                        >
+                          <LinkIcon />
+                          复制入团链接
+                        </DropdownMenuItem>
+                        {session.status === "active" ? (
+                          <DropdownMenuItem variant="destructive" onClick={() => setEndTarget(session)}>
+                            <SquarePower />
+                            结束此团
+                          </DropdownMenuItem>
+                        ) : null}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </TableCell>
               </TableRow>
@@ -238,6 +246,24 @@ function GmDashboardPage() {
         }}
       />
       <ImportCharacterSheetDialog open={importOpen} onOpenChange={setImportOpen} />
+      <ConfirmDialog
+        open={endTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setEndTarget(null);
+        }}
+        icon={SquarePower}
+        confirmIcon={SquarePower}
+        title="结束此团"
+        description={`结团后玩家将无法发言与掷骰，仅可回看记录。团 ${endTarget?.id.slice(0, 8) ?? ""} 确认结团？`}
+        confirmLabel="结团"
+        onConfirm={() => {
+          const id = endTarget?.id;
+          setEndTarget(null);
+          if (id) {
+            void patchStatus(id, "ended");
+          }
+        }}
+      />
     </AdminLayout>
   );
 }

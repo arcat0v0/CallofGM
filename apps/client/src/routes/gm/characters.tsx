@@ -186,7 +186,7 @@ function GmCharactersPage() {
                     {selected.portraits.map((portrait) => (
                       <div key={portrait.id ?? portrait.expressionKey} className="flex flex-col items-center gap-1">
                         <div className="bg-surface-tertiary size-16 overflow-hidden rounded-lg">
-                          <img src={mediaUrl(portrait.portraitAssetId)} alt={expressionLabel(portrait.expressionKey)} className="size-full object-cover" />
+                          <img src={mediaUrl(portrait.portraitAssetId) ?? undefined} alt={expressionLabel(portrait.expressionKey)} className="size-full object-cover" />
                         </div>
                         <span className="text-foreground-tertiary text-[10px]">{expressionLabel(portrait.expressionKey)}</span>
                         {portrait.id ? (

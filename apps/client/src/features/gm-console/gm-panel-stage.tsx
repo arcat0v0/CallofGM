@@ -6,8 +6,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { api, isApiError, mediaUrl } from "@/lib/api";
-import { initialsOf } from "@/lib/chat-map";
-import { nextSessionStatus, nextStatusActionLabel } from "@/lib/format";
+import { initialsOf, nextSessionStatus, nextStatusActionLabel, statusTone } from "@/lib/format";
 import { sendSessionCommand } from "@/lib/session-socket";
 import { cn } from "@/lib/utils";
 import { usePlayStore } from "@/stores/play-store";
@@ -34,12 +33,6 @@ export function SectionTitle({
       <ChevronRight className="text-foreground-tertiary size-3.5" />
     </div>
   );
-}
-
-function statusTone(status: string | null): "success" | "warning" | "default" {
-  if (status === "active") return "success";
-  if (status === "preparing") return "warning";
-  return "default";
 }
 
 export function GmHead() {
@@ -201,7 +194,7 @@ export function SceneSection() {
           return (
             <Button key={scene.id} type="button" variant="ghost" className="h-auto flex-col gap-1 p-0 hover:bg-transparent" onClick={() => sendSessionCommand("scene:switch", { sceneId: scene.id })}>
               <span className={cn("h-[58px] w-full overflow-hidden rounded-lg border-2", active ? "border-accent-hover" : "border-separator-secondary")}>
-                {scene.bgAssetId ? <img src={mediaUrl(scene.bgAssetId)} alt={scene.name} className="size-full object-cover" /> : <span className="bg-default block size-full" />}
+                {scene.bgAssetId ? <img src={mediaUrl(scene.bgAssetId) ?? undefined} alt={scene.name} className="size-full object-cover" /> : <span className="bg-default block size-full" />}
               </span>
               <span className={cn("text-[11px]", active ? "text-foreground" : "text-foreground-tertiary")}>{scene.name}</span>
             </Button>

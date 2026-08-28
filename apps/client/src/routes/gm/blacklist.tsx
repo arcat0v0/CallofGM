@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import type { BlacklistEntryDto } from "@cogm/shared";
 import { ScanLine, Search, ShieldBan, ShieldOff, ShieldX, Timer, UserX } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -29,14 +30,6 @@ export const Route = createFileRoute("/gm/blacklist")({
 
 type DurationTone = "warning" | "danger" | "default";
 
-type BlacklistRow = {
-  id: string;
-  fingerprintHash: string;
-  reason: string;
-  expiresAt: number | null;
-  createdAt: number;
-};
-
 type BlacklistEntry = {
   fingerprintHash: string;
   fingerprint: string;
@@ -58,7 +51,7 @@ function shortHash(hash: string): string {
   return hash.length <= 16 ? hash : `${hash.slice(0, 8)}…${hash.slice(-4)}`;
 }
 
-function mapEntry(row: BlacklistRow, now: number): BlacklistEntry {
+function mapEntry(row: BlacklistEntryDto, now: number): BlacklistEntry {
   const active = row.expiresAt === null || row.expiresAt > now;
   let duration = "永久";
   let durationTone: DurationTone = "danger";
@@ -92,13 +85,13 @@ function mapEntry(row: BlacklistRow, now: number): BlacklistEntry {
 function BlacklistPage() {
   const [banOpen, setBanOpen] = useState(false);
   const [unbanTarget, setUnbanTarget] = useState<BlacklistEntry | null>(null);
-  const [rows, setRows] = useState<BlacklistRow[]>([]);
+  const [rows, setRows] = useState<BlacklistEntryDto[]>([]);
   const [query, setQuery] = useState("");
 
   async function reload() {
     try {
       const data = await api<unknown>("/gm/blacklist");
-      setRows(unwrapItems<BlacklistRow>(data).length ? unwrapItems<BlacklistRow>(data) : Array.isArray(data) ? (data as BlacklistRow[]) : []);
+      setRows(unwrapItems<BlacklistEntryDto>(data));
     } catch (error) {
       toast.error(isApiError(error) ? error.message : "无法加载黑名单");
     }

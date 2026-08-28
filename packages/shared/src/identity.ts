@@ -28,3 +28,12 @@ export const UnbanFingerprintRequest = z.object({
   fingerprintHash: z.string().min(1),
 });
 export type UnbanFingerprintRequest = z.infer<typeof UnbanFingerprintRequest>;
+
+export const BlacklistEntryDto = z.object({
+  id: z.string(),
+  fingerprintHash: z.string(),
+  reason: z.string(),
+  expiresAt: z.number().int().nullable(),
+  createdAt: z.number().int(),
+});
+export type BlacklistEntryDto = z.infer<typeof BlacklistEntryDto>;

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { RuleId } from "./rules/rule-id";
+import { HandoutDto } from "./handouts";
 
 export const CreateModuleRequest = z.object({
   name: z.string().min(1),
@@ -62,3 +63,47 @@ export const LinkModuleCharacterRequest = z.object({
   characterId: z.string().min(1),
 });
 export type LinkModuleCharacterRequest = z.infer<typeof LinkModuleCharacterRequest>;
+
+export const ModuleDto = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: z.string(),
+  ruleId: RuleId,
+  createdAt: z.number().int(),
+});
+export type ModuleDto = z.infer<typeof ModuleDto>;
+
+export const SceneDto = z.object({
+  id: z.string(),
+  moduleId: z.string(),
+  name: z.string(),
+  sortOrder: z.number().int(),
+  bgAssetId: z.string().nullable(),
+  createdAt: z.number().int(),
+});
+export type SceneDto = z.infer<typeof SceneDto>;
+
+export const TrackDto = z.object({
+  id: z.string(),
+  moduleId: z.string(),
+  name: z.string(),
+  audioAssetId: z.string(),
+  type: z.enum(["bgm", "se"]),
+  duration: z.number().int(),
+  createdAt: z.number().int(),
+});
+export type TrackDto = z.infer<typeof TrackDto>;
+
+export const CatalogHandoutDto = HandoutDto.extend({
+  moduleId: z.string(),
+  createdAt: z.number().int(),
+});
+export type CatalogHandoutDto = z.infer<typeof CatalogHandoutDto>;
+
+export const ModuleCharacterLinkDto = z.object({
+  id: z.string(),
+  moduleId: z.string(),
+  characterId: z.string(),
+  createdAt: z.number().int(),
+});
+export type ModuleCharacterLinkDto = z.infer<typeof ModuleCharacterLinkDto>;

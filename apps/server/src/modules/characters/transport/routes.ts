@@ -6,12 +6,18 @@ import { AppError } from "@/platform/errors/app-error";
 import { validationFailed } from "@/platform/errors/validation";
 import {
   CursorPageQuery,
+  CursorPageResponse,
   LinkModuleCharacterRequest,
   CreateCharacterRequest,
   UpdateCharacterRequest,
   ImportConfirmRequest,
   AddPortraitRequest,
   RuleId,
+  CharacterDto,
+  CharacterDetailDto,
+  CharacterPortraitDto,
+  CharacterImportPreviewResponse,
+  ModuleCharacterLinkDto,
 } from "@cogm/shared";
 import {
   CreateCharacterUseCase,
@@ -81,26 +87,26 @@ export function createCharactersRoutes(container: Container) {
     })
     .post("/", async ({ body }) => {
       const data = parseBody(CreateCharacterRequest, body);
-      return await createCharacter.execute({
+      return CharacterDto.parse(await createCharacter.execute({
         name: data.name,
         kind: data.kind,
         ruleId: data.ruleId,
         sheetData: data.sheetData,
-      });
+      }));
     })
     .get("/", async ({ query }) => {
-      return await listCharacters.execute(parsePageQuery(query));
+      return CursorPageResponse(CharacterDto).parse(await listCharacters.execute(parsePageQuery(query)));
     })
     .get("/:id", async ({ params: { id } }) => {
-      return await getCharacter.execute(id);
+      return CharacterDetailDto.parse(await getCharacter.execute(id));
     })
     .patch("/:id", async ({ params: { id }, body }) => {
       const data = parseBody(UpdateCharacterRequest, body);
-      return await updateCharacter.execute(id, {
+      return CharacterDto.parse(await updateCharacter.execute(id, {
         name: data.name,
         kind: data.kind,
         sheetData: data.sheetData,
-      });
+      }));
     })
     .delete("/:id", async ({ params: { id } }) => {
       await deleteCharacter.execute(id);
@@ -115,11 +121,11 @@ export function createCharactersRoutes(container: Container) {
           throw validationFailed(parsedRuleId.error);
         }
         const arrayBuffer = await file.arrayBuffer();
-        return await importPreview.execute({
+        return CharacterImportPreviewResponse.parse(await importPreview.execute({
           fileBuffer: arrayBuffer,
           ruleId: parsedRuleId.data,
           gmSessionId: gmSessionIdOf(actor),
-        });
+        }));
       },
       {
         body: t.Object({
@@ -132,25 +138,25 @@ export function createCharactersRoutes(container: Container) {
       "/import/confirm",
       async ({ body, actor }) => {
         const data = parseBody(ImportConfirmRequest, body);
-        return await importConfirm.execute({
+        return CharacterDto.parse(await importConfirm.execute({
           importToken: data.importToken,
           kind: data.kind,
           ruleId: data.ruleId,
           moduleId: data.moduleId,
           gmSessionId: gmSessionIdOf(actor),
-        });
+        }));
       }
     )
     .post(
       "/:id/portraits",
       async ({ params: { id: characterId }, body }) => {
         const data = parseBody(AddPortraitRequest, body);
-        return await addPortrait.execute({
+        return CharacterPortraitDto.parse(await addPortrait.execute({
           characterId,
           expressionKey: data.expressionKey,
           portraitAssetId: data.portraitAssetId,
           isDefault: data.isDefault,
-        });
+        }));
       }
     )
     .delete(
@@ -167,17 +173,17 @@ export function createCharactersRoutes(container: Container) {
       requireGm(actor);
     })
     .get("/:id/characters", async ({ params, query }) => {
-      return await listModuleCharacters.execute(params.id, parsePageQuery(query));
+      return CursorPageResponse(CharacterDto).parse(await listModuleCharacters.execute(params.id, parsePageQuery(query)));
     })
     .post("/:id/characters", async ({ params, body }) => {
       const parsed = LinkModuleCharacterRequest.safeParse(body);
       if (!parsed.success) {
         throw validationFailed(parsed.error);
       }
-      return await linkModuleCharacter.execute({
+      return ModuleCharacterLinkDto.parse(await linkModuleCharacter.execute({
         moduleId: params.id,
         characterId: parsed.data.characterId,
-      });
+      }));
     })
     .delete("/:id/characters/:characterId", async ({ params }) => {
       await unlinkModuleCharacter.execute(params.id, params.characterId);

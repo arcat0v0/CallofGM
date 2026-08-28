@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { PanelRightClose, ScrollText, Users, VenetianMask } from "lucide-react";
+import { LogOut, PanelRightClose, ScrollText, Users, VenetianMask } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CharacterSheetPanel } from "@/features/session-live/character-sheet-panel";
 import { HandoutLibrary } from "@/features/session-live/handout-library";
@@ -10,10 +10,12 @@ function ChatPanelHeader({
   compact = false,
   onCollapse,
   browseAllSheets = false,
+  onLeaveSeat,
 }: {
   compact?: boolean;
   onCollapse?: () => void;
   browseAllSheets?: boolean;
+  onLeaveSeat?: () => void;
 }) {
   const [handoutsOpen, setHandoutsOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -40,6 +42,11 @@ function ChatPanelHeader({
         <Button variant="ghost" size="icon-sm" aria-label="情报" onClick={() => setHandoutsOpen(true)}>
           <ScrollText />
         </Button>
+        {onLeaveSeat ? (
+          <Button variant="ghost" size="icon-sm" aria-label="离开座位" className="text-foreground-secondary" onClick={onLeaveSeat}>
+            <LogOut />
+          </Button>
+        ) : null}
         {compact && onCollapse ? (
           <Button
             type="button"

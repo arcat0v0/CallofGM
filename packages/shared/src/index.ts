@@ -13,3 +13,4 @@ export * from "./handouts";
 export * from "./moderation";
 export * from "./snapshot";
 export * from "./characters";
+export * from "./media";

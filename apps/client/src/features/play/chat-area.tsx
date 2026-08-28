@@ -1,8 +1,13 @@
 import { useMemo, useState } from "react";
+import { useNavigate, useParams } from "@tanstack/react-router";
+import { LogOut } from "lucide-react";
+import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { ChatPanelHeader } from "@/features/chat/chat-panel-header";
 import { MessageList } from "@/features/chat/message-list";
+import { api, isApiError } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { usePlayStore } from "@/stores/play-store";
 import { Composer } from "./composer";
@@ -14,9 +19,21 @@ type ChatAreaProps = {
 };
 
 function ChatArea({ variant, onCollapse, className }: ChatAreaProps) {
+  const { sessionId } = useParams({ from: "/play/$sessionId" });
+  const navigate = useNavigate();
   const [channel, setChannel] = useState("all");
+  const [leaveOpen, setLeaveOpen] = useState(false);
   const compact = variant !== "desktop";
   const messages = usePlayStore((state) => state.messages);
+
+  async function leaveSeat() {
+    try {
+      await api(`/sessions/${encodeURIComponent(sessionId)}/release`, { method: "POST" });
+      await navigate({ to: "/join/$sessionId", params: { sessionId } });
+    } catch (error) {
+      toast.error(isApiError(error) ? error.message : "离开座位失败");
+    }
+  }
   const visible = useMemo(() => {
     if (channel === "ic") {
       return messages.filter((message) => message.tone !== "ooc");
@@ -29,7 +46,11 @@ function ChatArea({ variant, onCollapse, className }: ChatAreaProps) {
 
   return (
     <div className={cn("bg-background-secondary border-separator flex h-full flex-col border-l", className)}>
-      <ChatPanelHeader compact={compact} onCollapse={variant === "landscape" ? onCollapse : undefined} />
+      <ChatPanelHeader
+        compact={compact}
+        onCollapse={variant === "landscape" ? onCollapse : undefined}
+        onLeaveSeat={() => setLeaveOpen(true)}
+      />
 
       <div className={cn("flex items-center justify-between", variant === "desktop" ? "px-4 pb-2.5" : "px-3 py-2")}>
         <Tabs value={channel} onValueChange={setChannel}>
@@ -52,6 +73,20 @@ function ChatArea({ variant, onCollapse, className }: ChatAreaProps) {
       />
 
       <Composer compact={compact} />
+      <ConfirmDialog
+        open={leaveOpen}
+        onOpenChange={setLeaveOpen}
+        icon={LogOut}
+        confirmIcon={LogOut}
+        title="离开座位"
+        description="离开后将释放当前座位，可稍后重新认领。聊天与情报进度不受影响。"
+        confirmLabel="离开"
+        variant="warning"
+        onConfirm={() => {
+          setLeaveOpen(false);
+          void leaveSeat();
+        }}
+      />
     </div>
   );
 }

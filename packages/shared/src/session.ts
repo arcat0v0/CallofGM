@@ -55,3 +55,84 @@ export const UpdateSessionPhaseRequest = z.object({
   phase: SessionPhase,
 });
 export type UpdateSessionPhaseRequest = z.infer<typeof UpdateSessionPhaseRequest>;
+
+export const SessionDto = z.object({
+  id: z.string(),
+  moduleId: z.string(),
+  status: SessionStatus,
+  phase: SessionPhase,
+  currentSceneId: z.string().nullable(),
+  lastEventId: z.number().int(),
+  createdAt: z.number().int(),
+});
+export type SessionDto = z.infer<typeof SessionDto>;
+
+export const SessionCharacterClaimDto = z.object({
+  playerId: z.string(),
+  role: SeatRole,
+});
+export type SessionCharacterClaimDto = z.infer<typeof SessionCharacterClaimDto>;
+
+export const SessionCharacterDto = z.object({
+  id: z.string(),
+  characterId: z.string(),
+  name: z.string(),
+  kind: CharacterRole,
+  currentExpressionKey: z.string().nullable(),
+  state: z.unknown(),
+  claim: SessionCharacterClaimDto.nullable(),
+});
+export type SessionCharacterDto = z.infer<typeof SessionCharacterDto>;
+
+export const SessionDetailResponse = z.object({
+  session: SessionDto,
+  characters: z.array(SessionCharacterDto),
+});
+export type SessionDetailResponse = z.infer<typeof SessionDetailResponse>;
+
+export const SessionCharacterRowDto = z.object({
+  id: z.string(),
+  sessionId: z.string(),
+  characterId: z.string(),
+  kind: CharacterRole,
+  currentExpressionKey: z.string().nullable(),
+  stateJson: z.string(),
+  createdAt: z.number().int(),
+});
+export type SessionCharacterRowDto = z.infer<typeof SessionCharacterRowDto>;
+
+export const CreateSessionResponse = z.object({
+  session: SessionDto,
+  characters: z.array(SessionCharacterRowDto),
+});
+export type CreateSessionResponse = z.infer<typeof CreateSessionResponse>;
+
+export const ClaimDto = z.object({
+  id: z.string(),
+  sessionId: z.string(),
+  playerId: z.string(),
+  role: SeatRole,
+  characterId: z.string().nullable(),
+  releasedAt: z.number().int().nullable(),
+  createdAt: z.number().int(),
+});
+export type ClaimDto = z.infer<typeof ClaimDto>;
+
+export const JoinInfoResponse = z.object({
+  session: z.object({
+    id: z.string(),
+    status: SessionStatus,
+    phase: SessionPhase,
+    moduleId: z.string(),
+    moduleName: z.string(),
+  }),
+  characters: z.array(
+    z.object({
+      id: z.string(),
+      name: z.string(),
+      kind: CharacterRole,
+      claimed: z.boolean(),
+    }),
+  ),
+});
+export type JoinInfoResponse = z.infer<typeof JoinInfoResponse>;

@@ -130,6 +130,10 @@ export function createRealtimeRoutes(container: Container) {
                 ws.send(JSON.stringify(event));
               }
             }
+            if (actor.type === "gm") {
+              const queueMessages = await snapshotBuilder.listPendingQueue(sessionId);
+              ws.send(JSON.stringify({ protocolVersion: 1, type: "chat:queue", payload: { messages: queueMessages } }));
+            }
           } else {
             const snapshot = await sessionCommandExecutor.runExclusive(sessionId, () =>
               snapshotBuilder.execute({

@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import type { ModuleDto, TrackDto } from "@cogm/shared";
 import { Disc3, Play, Upload, Zap } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -15,18 +16,15 @@ export const Route = createFileRoute("/gm/music")({
   component: MusicResourcesPage,
 });
 
-type ModuleRow = { id: string; name: string };
-type TrackRow = { id: string; name: string; type: "bgm" | "se"; duration: number };
-
 function MusicResourcesPage() {
-  const [modules, setModules] = useState<ModuleRow[]>([]);
+  const [modules, setModules] = useState<ModuleDto[]>([]);
   const [moduleId, setModuleId] = useState("");
-  const [tracks, setTracks] = useState<TrackRow[]>([]);
+  const [tracks, setTracks] = useState<TrackDto[]>([]);
 
   useEffect(() => {
     void (async () => {
       try {
-        const next = await fetchAllPages<ModuleRow>("/gm/modules");
+        const next = await fetchAllPages<ModuleDto>("/gm/modules");
         setModules(next);
         setModuleId((current) => current || next[0]?.id || "");
       } catch (error) {
@@ -39,7 +37,7 @@ function MusicResourcesPage() {
     if (!moduleId) {
       return;
     }
-    void fetchAllPages<TrackRow>(`/gm/modules/${encodeURIComponent(moduleId)}/tracks`)
+    void fetchAllPages<TrackDto>(`/gm/modules/${encodeURIComponent(moduleId)}/tracks`)
       .then(setTracks)
       .catch((error) => toast.error(isApiError(error) ? error.message : "无法加载曲目"));
   }, [moduleId]);

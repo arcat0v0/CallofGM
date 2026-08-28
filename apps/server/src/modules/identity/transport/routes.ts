@@ -5,7 +5,8 @@ import { GmLoginUseCase } from "../application/gm-login";
 import { GmLogoutUseCase } from "../application/gm-logout";
 import { PlayerIdentityUseCase } from "../application/player-identity";
 import { createAuthPlugin } from "./auth-middleware";
-import { BanPlayerRequest, GmLoginRequest, UnbanFingerprintRequest } from "@cogm/shared";
+import { BanPlayerRequest, GmLoginRequest, UnbanFingerprintRequest, BlacklistEntryDto } from "@cogm/shared";
+import { z } from "zod";
 import { AppError } from "@/platform/errors/app-error";
 import { validationFailed } from "@/platform/errors/validation";
 import { AuthRequiredError } from "../domain/errors";
@@ -123,7 +124,7 @@ export function createIdentityRoutes(container: Container) {
       if (!actor || actor.type !== "gm") {
         throw new AuthRequiredError();
       }
-      return await repo.listBlacklistEntries();
+      return z.array(BlacklistEntryDto).parse(await repo.listBlacklistEntries());
     })
     .post("/api/v1/gm/blacklist", async ({ actor, body }) => {
       if (!actor || actor.type !== "gm") {

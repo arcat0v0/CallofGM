@@ -1,7 +1,14 @@
 import { PanelLeftOpen } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { CheckPrompt } from "@/features/session-live/check-prompt";
 import { HandoutPrompt } from "@/features/session-live/handout-prompt";
 import { usePlayAudio } from "@/lib/bgm";
@@ -14,16 +21,25 @@ import { DesktopScene } from "./desktop-scene";
 import { MobileLandscapeScene } from "./mobile-landscape-scene";
 import { MobilePortraitScene } from "./mobile-portrait-scene";
 import { RotateSuggestionOverlay } from "./rotate-suggestion-overlay";
+import { SessionTerminalOverlay } from "./session-terminal-overlay";
 
 function PlayView() {
   const { sessionId } = useParams({ from: "/play/$sessionId" });
-  useSessionConnection(sessionId);
+  const { retry } = useSessionConnection(sessionId);
   usePlayAudio();
   const pendingChecks = usePlayStore((state) => state.pendingChecks);
   const handouts = usePlayStore((state) => state.handouts);
+  const status = usePlayStore((state) => state.status);
   const check = pendingChecks[0] ?? null;
   const [showRotateSuggestion, setShowRotateSuggestion] = useState(true);
   const [landscapeChatOpen, setLandscapeChatOpen] = useState(true);
+  const [endDialogOpen, setEndDialogOpen] = useState(false);
+
+  useEffect(() => {
+    if (status === "ended") {
+      setEndDialogOpen(true);
+    }
+  }, [status]);
 
   return (
     <div className="bg-background relative h-dvh w-full overflow-hidden">
@@ -72,6 +88,18 @@ function PlayView() {
         />
       ) : null}
       <HandoutPrompt handouts={handouts} />
+      <Dialog open={endDialogOpen} onOpenChange={setEndDialogOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>本团已结束</DialogTitle>
+            <DialogDescription>主持人已结团。聊天记录与情报仍可回看。</DialogDescription>
+          </DialogHeader>
+          <Button type="button" variant="primaryGradient" onClick={() => setEndDialogOpen(false)}>
+            查看记录
+          </Button>
+        </DialogContent>
+      </Dialog>
+      <SessionTerminalOverlay sessionId={sessionId} onRetry={retry} />
     </div>
   );
 }

@@ -2,41 +2,25 @@ import { create } from "zustand";
 import { toast } from "sonner";
 import type {
   BgmState,
+  CatalogHandoutDto,
   ChatMessageDto,
   CheckRequestDto,
   GrantedHandoutDto,
   OnlinePlayerDto,
+  SceneDto,
   SePlayedEvent,
   ServerMessage,
   SessionPhase,
   SessionSnapshotPayload,
   SessionStatus,
   SnapshotCharacter,
+  TrackDto,
 } from "@cogm/shared";
 import type { ChatMessage } from "@/features/chat/types";
-import { formatClock, initialsOf, mapActivityEvent, mapChatMessage } from "@/lib/chat-map";
+import { mapActivityEvent, mapChatMessage } from "@/lib/chat-map";
+import { formatClock, initialsOf } from "@/lib/format";
 
-export type CatalogScene = {
-  id: string;
-  name: string;
-  sortOrder?: number;
-  bgAssetId: string | null;
-};
-
-export type CatalogTrack = {
-  id: string;
-  name: string;
-  audioAssetId: string;
-  type: "bgm" | "se";
-  duration: number;
-};
-
-export type CatalogHandout = {
-  id: string;
-  title: string;
-  content: string;
-  imageAssetId: string | null;
-};
+export type ConnectionTerminal = "kicked" | "unavailable";
 
 type PlayState = {
   sessionId: string | null;
@@ -53,17 +37,20 @@ type PlayState = {
   handouts: GrantedHandoutDto[];
   presence: OnlinePlayerDto[];
   pendingChecks: CheckRequestDto[];
-  catalogScenes: CatalogScene[];
-  catalogTracks: CatalogTrack[];
-  catalogHandouts: CatalogHandout[];
+  catalogScenes: SceneDto[];
+  catalogTracks: TrackDto[];
+  catalogHandouts: CatalogHandoutDto[];
   seCue: SePlayedEvent | null;
   bgmTransitionMs: number;
   muted: boolean;
   connected: boolean;
+  terminal: ConnectionTerminal | null;
   applySnapshot: (payload: SessionSnapshotPayload, watermark: number) => void;
   applyMessage: (message: ServerMessage) => void;
-  setCatalog: (input: { scenes?: CatalogScene[]; tracks?: CatalogTrack[]; handouts?: CatalogHandout[] }) => void;
+  setCatalog: (input: { scenes?: SceneDto[]; tracks?: TrackDto[]; handouts?: CatalogHandoutDto[] }) => void;
   setConnected: (connected: boolean) => void;
+  setTerminal: (terminal: ConnectionTerminal | null) => void;
+  markEnded: () => void;
   setMuted: (muted: boolean) => void;
   clearSeCue: () => void;
   reset: () => void;
@@ -84,13 +71,14 @@ const empty = {
   handouts: [] as GrantedHandoutDto[],
   presence: [] as OnlinePlayerDto[],
   pendingChecks: [] as CheckRequestDto[],
-  catalogScenes: [] as CatalogScene[],
-  catalogTracks: [] as CatalogTrack[],
-  catalogHandouts: [] as CatalogHandout[],
+  catalogScenes: [] as SceneDto[],
+  catalogTracks: [] as TrackDto[],
+  catalogHandouts: [] as CatalogHandoutDto[],
   seCue: null as SePlayedEvent | null,
   bgmTransitionMs: 400,
   muted: false,
   connected: false,
+  terminal: null as ConnectionTerminal | null,
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -127,7 +115,14 @@ function applyEvent(state: PlayState, type: string, payload: unknown, eventId?: 
     }
     case "dice:rolled":
     case "check:resolved": {
-      const next = mapActivityEvent(type, payload, eventId ?? Date.now(), occurredAt);
+      let activityPayload: Record<string, unknown> = payload;
+      if (type === "dice:rolled" && payload.rollerType === "player" && typeof payload.rollerId === "string" && !payload.characterName) {
+        const roller = state.characters.find((character) => character.claim?.playerId === payload.rollerId);
+        if (roller) {
+          activityPayload = { ...payload, characterName: roller.name };
+        }
+      }
+      const next = mapActivityEvent(type, activityPayload, eventId ?? Date.now(), occurredAt);
       const patch: Partial<PlayState> = { messages: appendMessage(state.messages, next) };
       if (type === "check:resolved") {
         const requestId = typeof payload.requestId === "string" ? payload.requestId : null;
@@ -266,6 +261,7 @@ export const usePlayStore = create<PlayState>((set, get) => ({
       presence: payload.online ?? [],
       pendingChecks: payload.pendingCheckRequests,
       connected: true,
+      terminal: null,
     });
   },
   applyMessage: (message) => {
@@ -281,10 +277,7 @@ export const usePlayStore = create<PlayState>((set, get) => ({
       }
       const requestId = typeof payload.requestId === "string" ? payload.requestId : null;
       const pending = requestId ? get().pendingChecks.find((item) => item.id === requestId) : undefined;
-      const skillKey =
-        typeof payload.skillKey === "string" && payload.skillKey
-          ? payload.skillKey
-          : (pending?.skillKey ?? "鉴定");
+      const skillKey = pending?.skillKey ?? "鉴定";
       const hiddenRolled = payload.rolled === true && payload.hidden === true;
       if (requestId && hiddenRolled) {
         toast.success("已掷出");
@@ -341,6 +334,8 @@ export const usePlayStore = create<PlayState>((set, get) => ({
     }));
   },
   setConnected: (connected) => set({ connected }),
+  setTerminal: (terminal) => set({ terminal }),
+  markEnded: () => set({ status: "ended" }),
   setMuted: (muted) => set({ muted }),
   clearSeCue: () => set({ seCue: null }),
   reset: () => set({ ...empty }),

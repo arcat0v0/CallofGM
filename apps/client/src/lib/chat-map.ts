@@ -1,24 +1,6 @@
 import { coc7e, type ChatMessageDto } from "@cogm/shared";
 import type { ChatMessage } from "@/features/chat/types";
-
-function pad(value: number): string {
-  return String(value).padStart(2, "0");
-}
-
-export function formatClock(epochMs: number): string {
-  const date = new Date(epochMs);
-  return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
-}
-
-export function initialsOf(name: string): string {
-  const trimmed = name.trim();
-  if (!trimmed) {
-    return "?";
-  }
-  const parts = trimmed.split(/\s+/);
-  const last = parts[parts.length - 1] ?? trimmed;
-  return last.slice(0, 1);
-}
+import { formatClock, initialsOf } from "@/lib/format";
 
 export function mapChatMessage(dto: ChatMessageDto): ChatMessage {
   const isGm = dto.senderType === "gm";

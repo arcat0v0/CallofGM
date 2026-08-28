@@ -31,3 +31,44 @@ export const AddPortraitRequest = z.object({
   isDefault: z.boolean().default(false),
 });
 export type AddPortraitRequest = z.infer<typeof AddPortraitRequest>;
+
+export const CharacterDto = z.object({
+  id: z.string(),
+  name: z.string(),
+  kind: CharacterRole,
+  ruleId: RuleId,
+  sheetJson: z.string(),
+  createdAt: z.number().int(),
+});
+export type CharacterDto = z.infer<typeof CharacterDto>;
+
+export const CharacterPortraitDto = z.object({
+  id: z.string(),
+  characterId: z.string(),
+  expressionKey: z.string(),
+  portraitAssetId: z.string(),
+  isDefault: z.number().int().min(0).max(1),
+  createdAt: z.number().int(),
+});
+export type CharacterPortraitDto = z.infer<typeof CharacterPortraitDto>;
+
+export const CharacterDetailDto = CharacterDto.extend({
+  portraits: z.array(CharacterPortraitDto),
+});
+export type CharacterDetailDto = z.infer<typeof CharacterDetailDto>;
+
+export const CharacterImportErrorDto = z.object({
+  cell: z.string(),
+  message: z.string(),
+});
+export type CharacterImportErrorDto = z.infer<typeof CharacterImportErrorDto>;
+
+export const CharacterImportPreviewResponse = z.object({
+  importToken: z.string(),
+  preview: z.object({
+    characterName: z.string(),
+    sheetData: z.unknown(),
+    errors: z.array(CharacterImportErrorDto),
+  }),
+});
+export type CharacterImportPreviewResponse = z.infer<typeof CharacterImportPreviewResponse>;

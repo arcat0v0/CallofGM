@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import type { CatalogHandoutDto, CharacterDto, ModuleDto, SceneDto, TrackDto } from "@cogm/shared";
 import { ChevronRight, ImagePlus, Plus, Trash2, Upload } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -19,12 +20,6 @@ export const Route = createFileRoute("/gm/module/$moduleId")({
   component: ModuleDetailPage,
 });
 
-type ModuleRow = { id: string; name: string; description: string; ruleId: string };
-type SceneRow = { id: string; name: string; sortOrder: number; bgAssetId: string | null };
-type TrackRow = { id: string; name: string; audioAssetId: string; type: "bgm" | "se"; duration: number };
-type HandoutRow = { id: string; title: string; content: string; imageAssetId: string | null };
-type CharacterRow = { id: string; name: string; kind: string };
-
 async function uploadAsset(file: File, purpose: string): Promise<string> {
   const body = new FormData();
   body.append("file", file);
@@ -34,7 +29,7 @@ async function uploadAsset(file: File, purpose: string): Promise<string> {
   return asset.id;
 }
 
-function SceneCard({ scene, onReload }: { scene: SceneRow; onReload: () => Promise<void> }) {
+function SceneCard({ scene, onReload }: { scene: SceneDto; onReload: () => Promise<void> }) {
   const [name, setName] = useState(scene.name);
 
   useEffect(() => {
@@ -45,7 +40,7 @@ function SceneCard({ scene, onReload }: { scene: SceneRow; onReload: () => Promi
     <Card className="border-separator gap-0 overflow-hidden rounded-[14px] border p-0">
       <div className="relative h-[150px]">
         {scene.bgAssetId ? (
-          <img src={mediaUrl(scene.bgAssetId)} alt={scene.name} className="absolute inset-0 size-full object-cover" />
+          <img src={mediaUrl(scene.bgAssetId) ?? undefined} alt={scene.name} className="absolute inset-0 size-full object-cover" />
         ) : (
           <div className="bg-default absolute inset-0" />
         )}
@@ -91,7 +86,7 @@ function SceneCard({ scene, onReload }: { scene: SceneRow; onReload: () => Promi
   );
 }
 
-function TrackRowItem({ track, onReload }: { track: TrackRow; onReload: () => Promise<void> }) {
+function TrackRowItem({ track, onReload }: { track: TrackDto; onReload: () => Promise<void> }) {
   const [name, setName] = useState(track.name);
 
   useEffect(() => {
@@ -142,7 +137,7 @@ function TrackRowItem({ track, onReload }: { track: TrackRow; onReload: () => Pr
   );
 }
 
-function HandoutCard({ handout, onReload }: { handout: HandoutRow; onReload: () => Promise<void> }) {
+function HandoutCard({ handout, onReload }: { handout: CatalogHandoutDto; onReload: () => Promise<void> }) {
   const [title, setTitle] = useState(handout.title);
   const [content, setContent] = useState(handout.content);
 
@@ -203,14 +198,14 @@ function HandoutCard({ handout, onReload }: { handout: HandoutRow; onReload: () 
 
 function ModuleDetailPage() {
   const { moduleId } = Route.useParams();
-  const [module, setModule] = useState<ModuleRow | null>(null);
+  const [module, setModule] = useState<ModuleDto | null>(null);
   const [moduleName, setModuleName] = useState("");
   const [moduleDescription, setModuleDescription] = useState("");
-  const [scenes, setScenes] = useState<SceneRow[]>([]);
-  const [tracks, setTracks] = useState<TrackRow[]>([]);
-  const [handouts, setHandouts] = useState<HandoutRow[]>([]);
-  const [linked, setLinked] = useState<CharacterRow[]>([]);
-  const [allCharacters, setAllCharacters] = useState<CharacterRow[]>([]);
+  const [scenes, setScenes] = useState<SceneDto[]>([]);
+  const [tracks, setTracks] = useState<TrackDto[]>([]);
+  const [handouts, setHandouts] = useState<CatalogHandoutDto[]>([]);
+  const [linked, setLinked] = useState<CharacterDto[]>([]);
+  const [allCharacters, setAllCharacters] = useState<CharacterDto[]>([]);
   const [sceneName, setSceneName] = useState("");
   const [trackName, setTrackName] = useState("");
   const [trackType, setTrackType] = useState<"bgm" | "se">("bgm");
@@ -220,12 +215,12 @@ function ModuleDetailPage() {
   async function reload() {
     try {
       const [mod, nextScenes, nextTracks, nextHandouts, nextLinked, nextCharacters] = await Promise.all([
-        api<ModuleRow>(`/gm/modules/${encodeURIComponent(moduleId)}`),
-        fetchAllPages<SceneRow>(`/gm/modules/${encodeURIComponent(moduleId)}/scenes`),
-        fetchAllPages<TrackRow>(`/gm/modules/${encodeURIComponent(moduleId)}/tracks`),
-        fetchAllPages<HandoutRow>(`/gm/modules/${encodeURIComponent(moduleId)}/handouts`),
-        fetchAllPages<CharacterRow>(`/gm/modules/${encodeURIComponent(moduleId)}/characters`),
-        fetchAllPages<CharacterRow>("/gm/characters"),
+        api<ModuleDto>(`/gm/modules/${encodeURIComponent(moduleId)}`),
+        fetchAllPages<SceneDto>(`/gm/modules/${encodeURIComponent(moduleId)}/scenes`),
+        fetchAllPages<TrackDto>(`/gm/modules/${encodeURIComponent(moduleId)}/tracks`),
+        fetchAllPages<CatalogHandoutDto>(`/gm/modules/${encodeURIComponent(moduleId)}/handouts`),
+        fetchAllPages<CharacterDto>(`/gm/modules/${encodeURIComponent(moduleId)}/characters`),
+        fetchAllPages<CharacterDto>("/gm/characters"),
       ]);
       setModule(mod);
       setModuleName(mod.name);
@@ -277,7 +272,7 @@ function ModuleDetailPage() {
           }
           eyebrow={
             <div className="flex items-center gap-1.5">
-              <Link to="/gm" className="text-foreground-tertiary text-xs">
+              <Link to="/gm/modules" className="text-foreground-tertiary text-xs">
                 模组管理
               </Link>
               <ChevronRight className="text-foreground-tertiary size-[13px]" />

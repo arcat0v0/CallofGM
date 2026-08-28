@@ -40,7 +40,7 @@ function PortraitLayer({ className, compact = false }: { className?: string; com
           <div key={character.characterId} className="flex flex-col items-center gap-2">
             {current ? (
               <img
-                src={mediaUrl(current.portraitAssetId)}
+                src={mediaUrl(current.portraitAssetId) ?? undefined}
                 alt={character.name}
                 className={cn("w-auto object-contain drop-shadow-lg", compact ? "h-[18vh] max-h-[140px]" : "h-[48vh] max-h-[520px]")}
               />

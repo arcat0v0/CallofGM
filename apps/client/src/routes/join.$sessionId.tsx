@@ -1,12 +1,12 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { SessionStatusLabel, type SessionStatus } from "@cogm/shared";
+import { SessionStatusLabel, type JoinInfoResponse, type SessionStatus } from "@cogm/shared";
 import { Eye, LogIn } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { api, isApiError } from "@/lib/api";
-import { initialsOf } from "@/lib/chat-map";
+import { initialsOf } from "@/lib/format";
 import { ensurePlayer } from "@/lib/identity";
 import { cn } from "@/lib/utils";
 
@@ -21,21 +21,6 @@ type Seat = {
   initial?: string;
   kind: "character" | "spectator";
   claimed: boolean;
-};
-
-type JoinInfo = {
-  session: {
-    id: string;
-    status: SessionStatus;
-    phase: string;
-    moduleId: string;
-  };
-  characters: Array<{
-    id: string;
-    name: string;
-    kind: string;
-    claimed: boolean;
-  }>;
 };
 
 const OB_SEAT: Seat = {
@@ -155,7 +140,7 @@ function JoinPage() {
     void (async () => {
       try {
         await ensurePlayer();
-        const info = await api<JoinInfo>(`/public/sessions/${encodeURIComponent(sessionId)}/join-info`);
+        const info = await api<JoinInfoResponse>(`/public/sessions/${encodeURIComponent(sessionId)}/join-info`);
         if (cancelled) {
           return;
         }

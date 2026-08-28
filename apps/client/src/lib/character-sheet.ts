@@ -1,5 +1,5 @@
-import { coc7e } from "@cogm/shared";
-import { mediaUrl } from "@/lib/media";
+import { coc7e, type CharacterDetailDto } from "@cogm/shared";
+import { mediaUrl } from "@/lib/api";
 import { ATTR_LABELS, expressionLabel, initialsOf } from "@/lib/format";
 
 export type CharacterKind = "PC" | "NPC";
@@ -39,18 +39,8 @@ export type GameCharacter = {
   skills: Skill[];
 };
 
-export type CharacterRow = {
-  id: string;
-  name: string;
-  kind: string;
-  ruleId: string;
-  sheetJson: string;
-  portraits?: Array<{
-    id?: string;
-    expressionKey: string;
-    portraitAssetId: string;
-    isDefault: number | boolean;
-  }>;
+export type CharacterRow = Pick<CharacterDetailDto, "id" | "name" | "kind" | "ruleId" | "sheetJson"> & {
+  portraits?: CharacterDetailDto["portraits"];
 };
 
 const ATTR_ORDER = ["str", "con", "siz", "dex", "app", "int", "pow", "edu"] as const;
@@ -71,7 +61,7 @@ export function mapCharacterRow(row: CharacterRow): GameCharacter {
     id: item.id,
     expressionKey: item.expressionKey,
     portraitAssetId: item.portraitAssetId,
-    isDefault: item.isDefault === 1 || item.isDefault === true,
+    isDefault: item.isDefault === 1,
   }));
   const defaultPortrait = portraits.find((item) => item.isDefault) ?? portraits[0];
   const skills = Object.entries(sheet?.skills ?? {})
