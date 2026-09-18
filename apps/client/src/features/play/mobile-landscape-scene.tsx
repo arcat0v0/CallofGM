@@ -20,7 +20,7 @@ function MobileLandscapeScene() {
       <div className="absolute inset-x-0 top-0 h-20 bg-linear-to-b from-stage-scrim to-transparent" />
 
       <div className="absolute inset-x-0 top-0 flex h-12 items-center justify-between px-3.5">
-        <span className="text-foreground truncate font-serif text-title-small-emph">{scene?.name ?? "团"}</span>
+        <span className="text-foreground truncate font-serif text-title-medium-emph">{scene?.name ?? "团"}</span>
         <SceneAudioStatus
           trackName={bgm?.playing ? (bgm.name ?? "BGM") : "未播放"}
           compact
@@ -33,6 +33,7 @@ function MobileLandscapeScene() {
 
       {latest ? (
         <DialogueBox
+          key={latest.id}
           speaker={latest.speakerName}
           roleLabel={latest.speakerRoleLabel}
           text={latest.body}

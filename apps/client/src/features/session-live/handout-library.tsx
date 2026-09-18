@@ -50,8 +50,8 @@ export function HandoutLibrary({
             {active ? (
               <div className="flex min-h-0 flex-col gap-2 overflow-y-auto">
                 <div className="text-foreground-tertiary text-label-small">{active.isPublic ? "公开情报" : "秘密情报"}</div>
-                {image ? <img src={image} alt="" className="max-h-56 w-full rounded-sm object-contain" /> : null}
-                <p className="text-foreground-secondary text-body-medium whitespace-pre-wrap">{active.handout.content}</p>
+                {image ? <img src={image} alt="" className="max-h-56 w-full rounded-lg object-contain" /> : null}
+                <p className="text-md-on-surface text-body-large whitespace-pre-wrap">{active.handout.content}</p>
               </div>
             ) : null}
           </div>

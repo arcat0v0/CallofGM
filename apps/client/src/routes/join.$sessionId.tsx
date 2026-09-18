@@ -31,8 +31,7 @@ const OB_SEAT: Seat = {
   claimed: false,
 };
 
-const gradientBorder =
-  "border-[1.5px] border-transparent [background:linear-gradient(var(--color-surface),var(--color-surface))_padding-box,linear-gradient(135deg,var(--color-brand-moegi),var(--color-brand-nae))_border-box]";
+const STAGGER_DELAYS = ["delay-75", "delay-150", "delay-225"] as const;
 
 function SeatStatus({ seat, selected }: { seat: Seat; selected: boolean }) {
   if (seat.claimed) {
@@ -44,7 +43,7 @@ function SeatStatus({ seat, selected }: { seat: Seat; selected: boolean }) {
   }
   if (selected) {
     return (
-      <Badge variant="soft" tone="accent" size="sm">
+      <Badge variant="solid" tone="accent" size="sm">
         已选择
       </Badge>
     );
@@ -67,61 +66,101 @@ function SeatCard({
   seat,
   selected,
   onSelect,
+  className,
 }: {
   seat: Seat;
   selected: boolean;
   onSelect: () => void;
+  className?: string;
 }) {
   const claimed = seat.claimed;
+  const active = selected && !claimed;
   return (
-    <Button
+    <button
       type="button"
       disabled={claimed}
       onClick={onSelect}
-      variant="outline"
       role="radio"
-      aria-checked={selected}
+      aria-checked={active}
       className={cn(
-        "bg-surface h-auto w-54 flex-col gap-2.5 rounded-lg px-4 py-6 text-center whitespace-normal",
+        "flex w-52 flex-col items-center gap-3 rounded-2xl px-5 pt-5 pb-6 text-center transition-all duration-350 ease-expressive-fast-spatial focus-visible:outline-none",
         claimed
-          ? "cursor-not-allowed border border-separator-secondary opacity-60"
-          : "cursor-pointer hover:bg-surface",
-        !claimed && selected && gradientBorder,
-        !claimed &&
-          !selected &&
-          "border border-separator-secondary hover:border-separator-tertiary",
+          ? "cursor-not-allowed bg-md-surface-container-lowest opacity-50"
+          : active
+            ? "bg-md-primary-container text-md-on-primary-container shadow-card ring-md-primary cursor-pointer ring-2"
+            : "bg-md-surface-container-low hover:bg-md-surface-container focus-visible:ring-md-primary cursor-pointer focus-visible:ring-2",
+        className,
       )}
     >
       <span
         className={cn(
-          "flex size-14 items-center justify-center rounded-full",
-          selected && !claimed
-            ? "bg-linear-to-br from-brand-moegi to-brand-nae"
-            : "bg-default",
+          "flex size-16 items-center justify-center rounded-t-full rounded-b-xl transition-colors duration-350 ease-expressive-fast-effects",
+          active
+            ? "bg-md-primary text-md-on-primary"
+            : "bg-md-surface-container-high text-md-on-surface-variant",
         )}
       >
         {seat.initial ? (
-          <span
-            className={cn(
-              "font-serif text-title-large-emph",
-              selected && !claimed ? "text-accent-foreground" : "text-foreground",
-            )}
-          >
-            {seat.initial}
-          </span>
+          <span className="font-serif text-title-large-emph">{seat.initial}</span>
         ) : (
-          <Eye
-            className={cn(
-              "size-[22px]",
-              selected && !claimed ? "text-accent-foreground" : "text-foreground-secondary",
-            )}
-          />
+          <Eye className="size-5" />
         )}
       </span>
-      <span className="text-body-large-emph text-foreground">{seat.name}</span>
-      <span className="text-body-small text-foreground-tertiary">{seat.detail}</span>
-      <SeatStatus seat={seat} selected={selected && !claimed} />
-    </Button>
+      <span
+        className={cn(
+          "text-title-medium-emph",
+          active ? "text-md-on-primary-container" : "text-md-on-surface",
+        )}
+      >
+        {seat.name}
+      </span>
+      <span
+        className={cn(
+          "text-body-small",
+          active ? "text-md-on-primary-container" : "text-md-on-surface-variant",
+        )}
+      >
+        {seat.detail}
+      </span>
+      <SeatStatus seat={seat} selected={active} />
+    </button>
+  );
+}
+
+function SpectatorRow({
+  seat,
+  selected,
+  onSelect,
+  className,
+}: {
+  seat: Seat;
+  selected: boolean;
+  onSelect: () => void;
+  className?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      role="radio"
+      aria-checked={selected}
+      className={cn(
+        "flex w-full max-w-xl items-center gap-3 rounded-2xl px-5 py-3.5 text-left transition-all duration-350 ease-expressive-fast-spatial focus-visible:outline-none",
+        selected
+          ? "bg-md-surface-container-high ring-md-primary ring-2"
+          : "bg-md-surface-container-low hover:bg-md-surface-container focus-visible:ring-md-primary focus-visible:ring-2",
+        className,
+      )}
+    >
+      <span className="bg-md-surface-container-highest text-md-on-surface-variant flex size-9 shrink-0 items-center justify-center rounded-full">
+        <Eye className="size-4" />
+      </span>
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="text-title-small-emph text-md-on-surface">{seat.name}</span>
+        <span className="text-body-small text-md-on-surface-variant">{seat.detail}</span>
+      </span>
+      <SeatStatus seat={seat} selected={selected} />
+    </button>
   );
 }
 
@@ -130,6 +169,7 @@ function JoinPage() {
   const navigate = useNavigate();
   const [seats, setSeats] = useState<Seat[]>([]);
   const [status, setStatus] = useState<SessionStatus | null>(null);
+  const [moduleName, setModuleName] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [joining, setJoining] = useState(false);
@@ -157,6 +197,7 @@ function JoinPage() {
         const nextSeats = [...pcSeats, OB_SEAT];
         setSeats(nextSeats);
         setStatus(info.session.status);
+        setModuleName(info.session.moduleName);
         const firstOpen = nextSeats.find((seat) => !seat.claimed);
         setSelectedId(firstOpen?.id ?? null);
       } catch (error) {
@@ -199,14 +240,19 @@ function JoinPage() {
     }
   };
 
+  const pcSeats = seats.filter((seat) => seat.kind === "character");
+  const obSeat = seats.find((seat) => seat.kind === "spectator");
+
   return (
     <main className="flex min-h-dvh w-full flex-col items-center justify-center gap-10 overflow-hidden bg-background px-4">
-      <div className="flex flex-col items-center gap-2.5">
+      <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 ease-expressive-default-spatial flex flex-col items-center gap-2.5">
         <Badge variant="soft" tone="default" size="sm">
           {status ? SessionStatusLabel[status] : "加载中"}
         </Badge>
-        <h1 className="font-serif text-headline-medium-emph text-foreground">选择你的位置</h1>
-        <p className="text-body-medium text-foreground-secondary">
+        <h1 className="font-serif text-headline-medium-emph text-foreground">
+          {moduleName ?? "选择你的位置"}
+        </h1>
+        <p className="text-body-large text-md-on-surface-variant">
           选择你的位置 · 已认领的角色不可重复选择
         </p>
       </div>
@@ -215,18 +261,32 @@ function JoinPage() {
         {loading ? (
           <p className="text-foreground-tertiary text-body-medium">正在加载座位…</p>
         ) : (
-          seats.map((seat) => (
+          pcSeats.map((seat, index) => (
             <SeatCard
               key={seat.id}
               seat={seat}
               selected={selectedId === seat.id}
               onSelect={() => setSelectedId(seat.id)}
+              className={cn(
+                "animate-in fade-in slide-in-from-bottom-4 duration-500 ease-expressive-default-spatial fill-mode-backwards",
+                STAGGER_DELAYS[index % STAGGER_DELAYS.length],
+              )}
             />
           ))
         )}
       </div>
 
-      <div className="flex flex-col items-center gap-3">
+      {!loading && obSeat ? (
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 ease-expressive-default-spatial fill-mode-backwards delay-225 flex w-full justify-center">
+          <SpectatorRow
+            seat={obSeat}
+            selected={selectedId === obSeat.id}
+            onSelect={() => setSelectedId(obSeat.id)}
+          />
+        </div>
+      ) : null}
+
+      <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 ease-expressive-default-spatial fill-mode-backwards delay-225 flex flex-col items-center gap-3">
         <Button
           type="button"
           disabled={!selectedSeat || joining}

@@ -8,11 +8,11 @@ function Bar({ label, current, max, className }: { label: string; current: numbe
   const ratio = max > 0 ? Math.max(0, Math.min(100, (current / max) * 100)) : 0;
   return (
     <div className="flex flex-col gap-0.5">
-      <div className="flex justify-between text-label-small text-white/80">
+      <div className="text-md-on-surface/80 flex justify-between text-label-small">
         <span>{label}</span>
         <span>{current}/{max}</span>
       </div>
-      <div className="h-1.5 overflow-hidden rounded-full bg-black/40">
+      <div className="bg-md-scrim/40 h-1.5 overflow-hidden rounded-full">
         <div className={cn("h-full rounded-full", className)} style={{ width: `${ratio}%` }} />
       </div>
     </div>
@@ -45,12 +45,12 @@ function PortraitLayer({ className, compact = false }: { className?: string; com
                 className={cn("w-auto object-contain drop-shadow-lg", compact ? "h-[18vh] max-h-[140px]" : "h-[48vh] max-h-[520px]")}
               />
             ) : (
-              <div className={cn("bg-stage-panel text-foreground flex items-center justify-center rounded-md", compact ? "h-20 w-14 text-body-medium" : "h-40 w-28 text-title-medium")}>
+              <div className={cn("bg-stage-panel text-foreground flex items-center justify-center rounded-t-full rounded-b-xl", compact ? "h-20 w-14 text-body-medium" : "h-40 w-28 text-title-medium")}>
                 {character.name.slice(-1)}
               </div>
             )}
-            <div className={cn("bg-stage-panel/90 rounded-md px-2.5 py-2 backdrop-blur", compact ? "w-28" : "w-40")}>
-              <div className="text-center text-label-medium text-white">{character.name}</div>
+            <div className={cn("bg-stage-panel/90 rounded-xl px-2.5 py-2 backdrop-blur", compact ? "w-28" : "w-40")}>
+              <div className="text-md-on-surface text-center text-label-medium-emph">{character.name}</div>
               {state ? (
                 <div className="mt-1.5 flex flex-col gap-1">
                   <Bar label="HP" current={state.hp} max={state.maxHp} className="bg-danger" />

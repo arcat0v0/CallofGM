@@ -4,7 +4,7 @@ import { GmHead, PhaseSection, SceneSection, SpeakQueueSection } from "./gm-pane
 
 function GmPanel({ className }: { className?: string }) {
   return (
-    <div className={cn("bg-background-secondary border-separator flex h-full flex-col overflow-y-auto border-r", className)}>
+    <div className={cn("bg-md-surface-container-low flex h-full flex-col overflow-y-auto", className)}>
       <GmHead />
       <PhaseSection />
       <SpeakQueueSection />

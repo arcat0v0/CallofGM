@@ -28,40 +28,40 @@ function ChatPanelHeader({
     <header
       className={cn(
         "relative flex items-center justify-between",
-        compact ? "border-separator h-10 border-b px-3" : "h-[52px] px-4",
+        compact ? "h-10 px-3" : "h-[52px] px-4",
       )}
     >
-      <h2 className={cn("text-foreground font-sans", compact ? "text-title-small" : "text-title-medium")}>文字频道</h2>
+      <h2 className={cn("text-foreground font-serif", compact ? "text-title-small-emph" : "text-title-medium-emph")}>文字频道</h2>
       <div className="flex items-center gap-1">
-        <Button variant="ghost" size="icon-sm" aria-label="人物卡" onClick={() => setSheetOpen(true)}>
+        <Button variant="tertiary" size="icon-sm" aria-label="人物卡" onClick={() => setSheetOpen(true)}>
           <VenetianMask />
         </Button>
-        <Button variant="ghost" size="icon-sm" aria-label="在线玩家" onClick={() => setPresenceOpen((value) => !value)}>
+        <Button variant="tertiary" size="icon-sm" aria-label="在线玩家" onClick={() => setPresenceOpen((value) => !value)}>
           <Users />
         </Button>
-        <Button variant="ghost" size="icon-sm" aria-label="情报" onClick={() => setHandoutsOpen(true)}>
+        <Button variant="tertiary" size="icon-sm" aria-label="情报" onClick={() => setHandoutsOpen(true)}>
           <ScrollText />
         </Button>
         {onLeaveSeat ? (
-          <Button variant="ghost" size="icon-sm" aria-label="离开座位" className="text-foreground-secondary" onClick={onLeaveSeat}>
+          <Button variant="tertiary" size="icon-sm" aria-label="离开座位" onClick={onLeaveSeat}>
             <LogOut />
           </Button>
         ) : null}
         {compact && onCollapse ? (
           <Button
             type="button"
-            variant="ghost"
+            variant="tertiary"
             size="icon-sm"
             onClick={onCollapse}
             aria-label="收起文字频道"
-            className="size-7 text-foreground-secondary"
+            className="size-7"
           >
             <PanelRightClose />
           </Button>
         ) : null}
       </div>
       {presenceOpen ? (
-        <div className="border-separator bg-surface absolute top-full right-3 z-20 mt-1 w-56 rounded-md border p-3 text-body-small">
+        <div className="bg-md-surface-container-high shadow-dropdown absolute top-full right-3 z-20 mt-1 w-56 rounded-xl p-3 text-body-small">
           {presence.length === 0 ? "暂无在线列表" : presence.map((player) => {
             const claimed = characters.find((character) => character.characterId === player.characterId);
             return (

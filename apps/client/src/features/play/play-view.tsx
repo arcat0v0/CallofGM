@@ -66,7 +66,7 @@ function PlayView() {
             size="icon-sm"
             onClick={() => setLandscapeChatOpen(true)}
             aria-label="展开文字频道"
-            className="text-foreground-secondary bg-background-secondary absolute top-1/2 right-0 h-16 w-6 -translate-y-1/2 rounded-l-sm rounded-r-none"
+            className="bg-md-surface-container-high text-md-on-surface-variant absolute top-1/2 right-0 h-16 w-6 -translate-y-1/2 rounded-l-full rounded-r-none"
           >
             <PanelLeftOpen className="size-4" />
           </Button>

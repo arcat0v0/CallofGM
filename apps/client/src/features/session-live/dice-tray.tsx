@@ -85,20 +85,27 @@ function DiceTray({
           </SelectContent>
         </Select>
       ) : null}
-      <div className="flex flex-wrap gap-1">
-        {DICE_PRESETS.map((preset) => (
-          <Button
-            key={preset}
-            type="button"
-            size="sm"
-            disabled={disabled}
-            variant={expression === preset ? "primary" : "tertiary"}
-            className="h-6 px-2 text-label-small"
-            onClick={() => setExpression(preset)}
-          >
-            {preset}
-          </Button>
-        ))}
+      <div className="bg-md-surface-container-high flex rounded-full p-0.5">
+        {DICE_PRESETS.map((preset) => {
+          const active = expression === preset;
+          return (
+            <button
+              key={preset}
+              type="button"
+              disabled={disabled}
+              aria-pressed={active}
+              onClick={() => setExpression(preset)}
+              className={cn(
+                "h-6 flex-1 rounded-full px-2 transition-all duration-350 ease-expressive-fast-spatial disabled:opacity-50",
+                active
+                  ? "bg-md-secondary-container text-md-on-secondary-container text-label-small-emph"
+                  : "text-label-small text-md-on-surface-variant hover:bg-md-surface-container-highest",
+              )}
+            >
+              {preset}
+            </button>
+          );
+        })}
       </div>
       <div className="flex items-center gap-1.5">
         <Input value={expression} onChange={(event) => setExpression(event.target.value)} aria-label="骰点表达式" disabled={disabled} className="h-8 flex-1 text-label-medium" />

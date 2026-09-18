@@ -41,21 +41,27 @@ function GmLoginPage() {
   }
 
   return (
-    <main className="bg-background relative flex min-h-dvh flex-col items-center justify-center gap-8">
-      <Button asChild variant="ghost" size="sm" className="text-foreground-secondary absolute top-6 left-6">
-        <Link to="/">
-          <ArrowLeft className="text-foreground-tertiary" />
-          返回入口
-        </Link>
-      </Button>
+    <main className="bg-background relative flex min-h-dvh flex-col items-center justify-center gap-12 overflow-hidden px-6">
+      <div
+        aria-hidden
+        className="bg-md-primary/12 pointer-events-none absolute -top-32 -left-32 size-105 rounded-full blur-3xl"
+      />
+      <div
+        aria-hidden
+        className="bg-md-tertiary/12 pointer-events-none absolute -right-40 -bottom-40 size-120 rounded-full blur-3xl"
+      />
 
-      <div className="flex flex-col items-center gap-3.5">
-        <Logo className="size-13" />
-        <h1 className="text-foreground font-serif text-headline-small-emph">主持人登录</h1>
+      <div className="animate-in fade-in slide-in-from-bottom-4 ease-expressive-default-spatial flex flex-col items-center gap-4 duration-500">
+        <Logo className="size-16" />
+        <h1 className="text-foreground font-serif text-display-small-emph">主持人登录</h1>
+        <p className="text-md-on-surface-variant text-title-medium">回到你的舞台</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="flex w-90 flex-col gap-3">
-        <InputGroup className="h-11 border-separator-secondary px-4">
+      <form
+        onSubmit={handleSubmit}
+        className="animate-in fade-in slide-in-from-bottom-4 ease-expressive-default-spatial flex w-full max-w-105 flex-col gap-2.5 delay-150 duration-500"
+      >
+        <InputGroup className="h-14 px-4">
           <InputGroupAddon>
             <Lock />
           </InputGroupAddon>
@@ -80,15 +86,23 @@ function GmLoginPage() {
           type="submit"
           variant="primary"
           disabled={pending || !password}
-          className="h-11 w-full"
+          className="h-14 w-full"
         >
           {pending ? "登录中…" : "登录"}
         </Button>
       </form>
 
-      <p className="text-foreground-tertiary font-sans text-label-small">
-        仅主持人需要登录 · 玩家通过团链接直接进入
-      </p>
+      <div className="animate-in fade-in ease-standard-default-effects absolute bottom-6 flex flex-col items-center gap-2 delay-300 duration-300">
+        <Button asChild variant="ghost" size="sm" className="text-foreground-secondary">
+          <Link to="/">
+            <ArrowLeft className="text-foreground-tertiary" />
+            返回入口
+          </Link>
+        </Button>
+        <p className="text-foreground-tertiary font-sans text-label-small">
+          仅主持人需要登录 · 玩家通过团链接直接进入
+        </p>
+      </div>
     </main>
   );
 }

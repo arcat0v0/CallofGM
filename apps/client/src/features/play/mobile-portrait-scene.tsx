@@ -25,7 +25,7 @@ function MobilePortraitScene() {
 
       <div className="absolute inset-x-0 top-0 flex h-[52px] items-center justify-between px-3.5">
         <div className="flex min-w-0 items-center gap-1.5">
-          <span className="text-foreground truncate font-serif text-title-small-emph">{scene?.name ?? "团"}</span>
+          <span className="text-foreground truncate font-serif text-title-large-emph">{scene?.name ?? "团"}</span>
           {status ? (
             <Badge variant="soft" tone="success" size="sm">
               {SessionStatusLabel[status]}
@@ -39,13 +39,13 @@ function MobilePortraitScene() {
         </div>
         <Button
           type="button"
-          variant="ghost"
+          variant="tertiary"
           size="icon-sm"
           aria-label={muted ? "取消静音" : "本地静音"}
-          className="bg-backdrop/25 rounded-full"
+          className="bg-md-surface-container-high/80 backdrop-blur"
           onClick={() => setMuted(!muted)}
         >
-          {muted ? <VolumeX className="text-accent-hover size-4" /> : <Volume2 className="text-accent-hover size-4" />}
+          {muted ? <VolumeX className="size-4" /> : <Volume2 className="size-4" />}
         </Button>
       </div>
 
@@ -53,6 +53,7 @@ function MobilePortraitScene() {
 
       {latest ? (
         <DialogueBox
+          key={latest.id}
           speaker={latest.speakerName}
           roleLabel={latest.speakerRoleLabel}
           text={latest.body}

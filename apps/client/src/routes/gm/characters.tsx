@@ -84,11 +84,11 @@ function GmCharactersPage() {
 
   return (
     <AdminLayout active="characters">
-      <div className="-mx-8 -my-7 flex h-screen overflow-hidden">
-        <aside className="bg-background-secondary border-separator flex w-80 flex-col border-r">
+      <div className="-mx-10 -my-9 flex h-screen overflow-hidden">
+        <aside className="bg-background flex w-80 flex-col">
           <div className="flex flex-col gap-3 px-4 pt-5 pb-3">
             <div className="flex items-center justify-between">
-              <h1 className="font-serif text-title-medium-emph">人物</h1>
+              <h1 className="font-serif text-headline-small-emph">人物</h1>
               <div className="flex gap-1.5">
                 <Button type="button" onClick={() => setCreateOpen(true)} variant="primary" size="sm" className="h-[30px] px-3">
                   <Plus /> 新建
@@ -113,8 +113,18 @@ function GmCharactersPage() {
             />
           </div>
           <div className="flex-1 overflow-y-auto px-2.5">
-            {visible.map((character) => (
-              <Button key={character.id} type="button" variant="ghost" className={cn("mb-1 h-auto w-full justify-start gap-2.5 px-2.5 py-2", selected?.id === character.id && "bg-default")} onClick={() => setSelectedId(character.id)}>
+            {visible.map((character, index) => (
+              <Button
+                key={character.id}
+                type="button"
+                variant="ghost"
+                className={cn(
+                  "animate-in fade-in slide-in-from-bottom-4 mb-1 h-auto w-full justify-start gap-2.5 px-2.5 py-2 duration-500 ease-standard-default-spatial",
+                  index % 3 === 1 ? "delay-75" : index % 3 === 2 ? "delay-150" : "",
+                  selected?.id === character.id && "bg-md-secondary-container text-md-on-secondary-container",
+                )}
+                onClick={() => setSelectedId(character.id)}
+              >
                 <Avatar size="sm"><AvatarFallback>{character.initial}</AvatarFallback></Avatar>
                 <span className="min-w-0 flex-1 truncate text-left text-label-large-emph">{character.name}</span>
                 <Badge variant="soft" size="sm">{character.kind}</Badge>
@@ -123,9 +133,9 @@ function GmCharactersPage() {
           </div>
         </aside>
         {selected ? (
-          <div className="flex flex-1 flex-col gap-4 overflow-auto px-7 py-6">
+          <div className="animate-in fade-in slide-in-from-bottom-4 flex flex-1 flex-col gap-4 overflow-auto px-7 py-6 duration-500 ease-standard-default-spatial">
             <div className="flex gap-4">
-              <div className="bg-surface-tertiary size-[132px] overflow-hidden rounded-lg">
+              <div className="bg-surface-tertiary size-[132px] overflow-hidden rounded-t-full rounded-b-xl">
                 {selected.portrait ? <img src={selected.portrait} alt={selected.name} className="size-full object-cover" /> : <div className="flex size-full items-center justify-center"><UserRound /></div>}
               </div>
               <div className="flex-1">
@@ -185,7 +195,7 @@ function GmCharactersPage() {
                   <div className="mt-3 flex flex-wrap gap-2">
                     {selected.portraits.map((portrait) => (
                       <div key={portrait.id ?? portrait.expressionKey} className="flex flex-col items-center gap-1">
-                        <div className="bg-surface-tertiary size-16 overflow-hidden rounded-sm">
+                        <div className="bg-surface-tertiary size-16 overflow-hidden rounded-xl">
                           <img src={mediaUrl(portrait.portraitAssetId) ?? undefined} alt={expressionLabel(portrait.expressionKey)} className="size-full object-cover" />
                         </div>
                         <span className="text-foreground-tertiary text-label-small">{expressionLabel(portrait.expressionKey)}</span>
@@ -214,21 +224,21 @@ function GmCharactersPage() {
             </div>
             <div className="grid grid-cols-5 gap-2">
               {(["hp", "mp", "san"] as const).map((key) => (
-                <Card key={key} className="p-3 text-center">
+                <Card key={key} className="rounded-2xl p-3 text-center">
                   <div className="text-foreground-tertiary text-label-small uppercase">{key}</div>
                   <div className="text-body-large-emph">{selected.derived[key].current}/{selected.derived[key].max}</div>
                 </Card>
               ))}
-              <Card className="p-3 text-center"><div className="text-label-small">LUCK</div><div className="text-body-large-emph">{selected.derived.luck}</div></Card>
-              <Card className="p-3 text-center"><div className="text-label-small">MOV</div><div className="text-body-large-emph">{selected.derived.mov}</div></Card>
+              <Card className="rounded-2xl p-3 text-center"><div className="text-label-small">LUCK</div><div className="text-body-large-emph">{selected.derived.luck}</div></Card>
+              <Card className="rounded-2xl p-3 text-center"><div className="text-label-small">MOV</div><div className="text-body-large-emph">{selected.derived.mov}</div></Card>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <Card className="p-4">
+              <Card className="rounded-2xl p-4">
                 {selected.attributes.map((attr) => (
                   <div key={attr.abbr} className="flex justify-between text-body-medium"><span>{attr.label}</span><span>{attr.value}</span></div>
                 ))}
               </Card>
-              <Card className="p-4">
+              <Card className="rounded-2xl p-4">
                 {selected.skills.map((skill) => (
                   <div key={skill.label} className="flex justify-between text-body-medium"><span>{skill.label}</span><span>{skill.value}</span></div>
                 ))}

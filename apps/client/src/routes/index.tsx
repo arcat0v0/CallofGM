@@ -25,15 +25,27 @@ function HomePage() {
   }
 
   return (
-    <main className="bg-background relative flex min-h-dvh w-full flex-col items-center justify-center gap-9 overflow-hidden px-6">
-      <div className="flex flex-col items-center gap-3.5">
-        <Logo className="size-13" />
-        <h1 className="text-foreground font-serif text-display-small-emph">CoGM</h1>
-        <p className="text-foreground-secondary text-body-medium tracking-[2px]">主持人的呼唤</p>
+    <main className="bg-background relative flex min-h-dvh w-full flex-col items-center justify-center gap-12 overflow-hidden px-6">
+      <div
+        aria-hidden
+        className="bg-md-primary/12 pointer-events-none absolute -top-32 -left-32 size-105 rounded-full blur-3xl"
+      />
+      <div
+        aria-hidden
+        className="bg-md-tertiary/12 pointer-events-none absolute -right-40 -bottom-40 size-120 rounded-full blur-3xl"
+      />
+
+      <div className="animate-in fade-in slide-in-from-bottom-4 ease-expressive-default-spatial flex flex-col items-center gap-4 duration-500">
+        <Logo className="size-16" />
+        <h1 className="text-foreground font-serif text-display-large-emph">CoGM</h1>
+        <p className="text-md-on-surface-variant text-title-medium tracking-[2px]">主持人的呼唤</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="flex w-full max-w-105 items-center gap-2.5">
-        <InputGroup className="h-11 flex-1 px-4">
+      <form
+        onSubmit={handleSubmit}
+        className="animate-in fade-in slide-in-from-bottom-4 ease-expressive-default-spatial flex w-full max-w-105 items-center gap-2.5 delay-150 duration-500"
+      >
+        <InputGroup className="h-14 flex-1 px-4">
           <InputGroupAddon>
             <LinkIcon />
           </InputGroupAddon>
@@ -44,16 +56,17 @@ function HomePage() {
             placeholder="输入团链接或编号…"
           />
         </InputGroup>
-        <Button
-          type="submit"
-          variant="primary"
-          className="h-11 shrink-0 px-[22px]"
-        >
+        <Button type="submit" variant="primary" className="h-14 shrink-0 px-8">
           进入
         </Button>
       </form>
 
-      <Button asChild variant="ghost" size="sm" className="text-foreground-secondary absolute bottom-6">
+      <Button
+        asChild
+        variant="ghost"
+        size="sm"
+        className="text-foreground-secondary animate-in fade-in ease-standard-default-effects absolute bottom-6 delay-300 duration-300"
+      >
         <Link to="/gm/login">
           <KeyRound className="text-foreground-tertiary" />
           主持人入口

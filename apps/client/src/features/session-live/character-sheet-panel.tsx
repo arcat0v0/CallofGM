@@ -84,9 +84,9 @@ export function CharacterSheetPanel({
           <div className="flex flex-col gap-3">
             {state ? (
               <div className="grid grid-cols-3 gap-2 text-center text-label-medium">
-                <div>HP {state.hp}/{state.maxHp}</div>
-                <div>MP {state.mp}/{state.maxMp}</div>
-                <div>SAN {state.san}/{state.maxSan}</div>
+                <div className="bg-md-error-container text-md-on-error-container rounded-lg py-1.5">HP {state.hp}/{state.maxHp}</div>
+                <div className="bg-md-secondary-container text-md-on-secondary-container rounded-lg py-1.5">MP {state.mp}/{state.maxMp}</div>
+                <div className="bg-md-tertiary-container text-md-on-tertiary-container rounded-lg py-1.5">SAN {state.san}/{state.maxSan}</div>
               </div>
             ) : null}
             <div className="grid grid-cols-2 gap-x-2 gap-y-1">

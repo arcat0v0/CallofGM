@@ -88,7 +88,7 @@ function ImportCharacterSheetDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-160 gap-0 p-0" showCloseButton={false}>
-        <DialogHeader className="border-separator flex-row items-center justify-between border-b px-5 py-[18px]">
+        <DialogHeader className="flex-row items-center justify-between px-5 py-[18px]">
           <div className="flex flex-col gap-0.5">
             <DialogTitle>导入人物卡 Excel</DialogTitle>
             <DialogDescription>按 CoC 7e 模板解析 · 确认无误后入库</DialogDescription>
@@ -152,7 +152,7 @@ function ImportCharacterSheetDialog({
             </>
           ) : null}
         </div>
-        <div className="border-separator flex items-center justify-between border-t px-5 py-4">
+        <div className="bg-md-surface-container-low flex items-center justify-between rounded-b-xl px-5 py-4">
           <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>
             <ArrowLeft />
             取消

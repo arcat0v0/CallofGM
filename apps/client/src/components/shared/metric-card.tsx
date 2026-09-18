@@ -1,43 +1,39 @@
 import type { LucideIcon } from "lucide-react";
 import type * as React from "react";
-import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
-type MetricCardProps = React.ComponentProps<typeof Card> & {
+type MetricTone = "primary" | "secondary" | "tertiary" | "error";
+
+const TONE_CLASSES: Record<MetricTone, string> = {
+  primary: "bg-md-primary-container text-md-on-primary-container",
+  secondary: "bg-md-secondary-container text-md-on-secondary-container",
+  tertiary: "bg-md-tertiary-container text-md-on-tertiary-container",
+  error: "bg-md-error-container text-md-on-error-container",
+};
+
+type MetricCardProps = React.ComponentProps<"div"> & {
   icon: LucideIcon;
   value: React.ReactNode;
   label: React.ReactNode;
-  iconClassName?: string;
-  iconContainerClassName?: string;
+  tone?: MetricTone;
 };
 
-function MetricCard({
-  icon: Icon,
-  value,
-  label,
-  iconClassName,
-  iconContainerClassName,
-  className,
-  ...props
-}: MetricCardProps) {
+function MetricCard({ icon: Icon, value, label, tone = "primary", className, ...props }: MetricCardProps) {
   return (
-    <Card
-      className={cn("flex-1 flex-row items-center gap-3 rounded-lg border border-separator", className)}
+    <div
+      className={cn(
+        "flex h-28 min-w-0 flex-1 flex-col justify-between rounded-2xl p-4",
+        TONE_CLASSES[tone],
+        className,
+      )}
       {...props}
     >
-      <span
-        className={cn(
-          "flex size-10 shrink-0 items-center justify-center rounded-md bg-default",
-          iconContainerClassName,
-        )}
-      >
-        <Icon className={cn("size-5", iconClassName)} />
+      <Icon className="size-6" />
+      <span className="flex min-w-0 flex-col gap-1">
+        <span className="truncate font-sans text-display-small-emph tabular-nums">{value}</span>
+        <span className="text-title-small opacity-80">{label}</span>
       </span>
-      <span className="flex min-w-0 flex-col gap-0.5">
-        <span className="font-sans text-headline-small-emph tabular-nums text-foreground">{value}</span>
-        <span className="text-label-small text-foreground-secondary">{label}</span>
-      </span>
-    </Card>
+    </div>
   );
 }
 

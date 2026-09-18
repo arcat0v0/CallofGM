@@ -126,7 +126,7 @@ function CreateSessionDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-140 gap-0 p-0" showCloseButton={false}>
-        <DialogHeader className="border-separator flex-row items-center justify-between border-b px-5 py-[18px]">
+        <DialogHeader className="flex-row items-center justify-between px-5 py-[18px]">
           <div className="flex flex-col gap-0.5">
             <DialogTitle>新建团</DialogTitle>
             <DialogDescription>从当前模组已关联的人物中选择 PC / NPC。</DialogDescription>
@@ -175,8 +175,8 @@ function CreateSessionDialog({
                     <Label
                       key={character.id}
                       className={cn(
-                        "cursor-pointer items-center gap-2.5 rounded-md border px-3 py-2.5 text-left",
-                        selected ? "bg-accent-soft border-accent-hover" : "bg-surface-tertiary border-transparent",
+                        "cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2.5 text-left",
+                        selected ? "bg-accent-soft" : "bg-surface-tertiary",
                       )}
                     >
                       <Checkbox checked={selected} onCheckedChange={() => toggleCharacter(character.id)} />
@@ -206,7 +206,7 @@ function CreateSessionDialog({
           </FormField>
         </div>
 
-        <DialogFooter className="bg-background-secondary border-separator flex-row items-center justify-between border-t px-5 py-4 sm:justify-between">
+        <DialogFooter className="bg-md-surface-container-low flex-row items-center justify-between rounded-b-xl px-5 py-4 sm:justify-between">
           <span className="text-foreground-tertiary font-sans text-label-small">创建后可在团管理中继续调整</span>
           <div className="flex items-center gap-2.5">
             <Button variant="tertiary" size="sm" onClick={() => onOpenChange(false)}>

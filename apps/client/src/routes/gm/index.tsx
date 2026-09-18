@@ -85,11 +85,11 @@ function GmDashboardPage() {
           description="创建团、指定参与 PC，并控制团状态的流转"
           actions={
             <>
-            <Button variant="outline" size="md" onClick={() => setImportOpen(true)}>
+            <Button variant="outline" size="md" className="h-12" onClick={() => setImportOpen(true)}>
               <FileSpreadsheet />
               导入人物卡 Excel
             </Button>
-            <Button variant="primary" size="md" onClick={() => setCreateOpen(true)}>
+            <Button variant="primary" size="md" className="h-12" onClick={() => setCreateOpen(true)}>
               <Plus />
               新建团
             </Button>
@@ -97,13 +97,14 @@ function GmDashboardPage() {
           }
         />
 
-        <div className="flex gap-3.5">
-          <MetricCard icon={Play} value={String(liveCount)} label="进行中的团" iconContainerClassName="bg-brand-moegi/15" iconClassName="text-brand-moegi" />
-          <MetricCard icon={Package} value={String(modules.length)} label="模组" iconContainerClassName="bg-brand-sora/15" iconClassName="text-brand-sora" />
-          <MetricCard icon={VenetianMask} value={String(characterCount)} label="人物卡" iconContainerClassName="bg-brand-fuji/15" iconClassName="text-brand-fuji" />
-          <MetricCard icon={Users} value={String(sessions.length)} label="全部团" iconContainerClassName="bg-brand-yamabuki/15" iconClassName="text-brand-yamabuki" />
+        <div className="animate-in fade-in slide-in-from-bottom-4 flex gap-3.5 duration-500 ease-standard-default-spatial">
+          <MetricCard icon={Play} value={String(liveCount)} label="进行中的团" tone="primary" />
+          <MetricCard icon={Package} value={String(modules.length)} label="模组" tone="secondary" />
+          <MetricCard icon={VenetianMask} value={String(characterCount)} label="人物卡" tone="tertiary" />
+          <MetricCard icon={Users} value={String(sessions.length)} label="全部团" tone="error" />
         </div>
 
+        <div className="animate-in fade-in slide-in-from-bottom-4 overflow-hidden rounded-2xl bg-md-surface-container delay-75 duration-500 ease-standard-default-spatial">
         <Table className="table-fixed">
           <TableHeader>
             <TableRow>
@@ -196,9 +197,10 @@ function GmDashboardPage() {
             ))}
           </TableBody>
         </Table>
+        </div>
 
-        <div className="flex items-center justify-between pt-1.5">
-          <h2 className="text-foreground font-serif text-title-medium-emph">模组资源</h2>
+        <div className="animate-in fade-in slide-in-from-bottom-4 flex items-center justify-between pt-1.5 delay-150 duration-500 ease-standard-default-spatial">
+          <h2 className="text-foreground font-serif text-headline-small-emph">模组资源</h2>
           <Button asChild variant="ghost" size="sm" className="text-foreground-secondary">
             <Link to="/gm/modules">
               全部模组
@@ -207,16 +209,16 @@ function GmDashboardPage() {
           </Button>
         </div>
 
-        <div className="flex gap-4">
+        <div className="animate-in fade-in slide-in-from-bottom-4 flex gap-4 delay-150 duration-500 ease-standard-default-spatial">
           {modules.map((module) => (
             <Card
               key={module.id}
-              className="border-separator flex-1 gap-0 overflow-hidden border p-0"
+              className="flex-1 gap-0 overflow-hidden rounded-2xl p-0"
             >
-              <div className="bg-default h-[118px] w-full" />
+              <div className="bg-md-surface-container-highest h-[118px] w-full rounded-t-2xl" />
               <div className="flex flex-col gap-2 p-3.5">
                 <div className="flex items-center justify-between">
-                  <span className="text-foreground text-body-medium-emph">{module.name}</span>
+                  <span className="text-foreground font-serif text-title-medium-emph">{module.name}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-foreground-tertiary truncate text-label-small">{module.description || module.ruleId}</span>

@@ -40,12 +40,12 @@ function RotateSuggestionOverlay({ onDismiss, className }: { onDismiss: () => vo
         className,
       )}
     >
-      <Card className="border-separator-secondary shadow-overlay bg-overlay w-[300px] items-center gap-5 rounded-lg border px-6 py-8">
-        <div className="border-accent flex size-16 items-center justify-center rounded-md border-2 bg-surface-tertiary">
-          <Smartphone className="text-accent-hover size-8 rotate-90" />
+      <Card className="bg-md-surface-container-high shadow-overlay w-[300px] items-center gap-5 rounded-2xl border-none px-6 py-8">
+        <div className="bg-md-primary-container text-md-on-primary-container flex size-16 items-center justify-center rounded-full">
+          <Smartphone className="size-8 rotate-90" />
         </div>
         <div className="flex flex-col items-center gap-2 text-center">
-          <span className="text-foreground font-serif text-title-large-emph">旋转到横屏</span>
+          <span className="text-foreground font-serif text-headline-small-emph">旋转到横屏</span>
           <p className="text-foreground-secondary font-sans text-body-medium">
             横屏模式下场景立绘更大、对话与掷骰并排显示，跑团体验更沉浸。
           </p>

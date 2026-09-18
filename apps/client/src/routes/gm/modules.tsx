@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { AdminLayout } from "@/features/gm-admin/admin-layout";
 import { api, fetchAllPages, isApiError } from "@/lib/api";
 import { requireGmAuth } from "@/lib/identity";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/gm/modules")({
   beforeLoad: requireGmAuth,
@@ -62,20 +63,28 @@ function GmModulesPage() {
           title="模组管理"
           description="模组是场景、音乐、情报与人物的资源容器"
         />
-        <Card className="flex flex-col gap-3 p-4">
-          <div className="text-title-medium-emph">新建模组</div>
+        <Card className="animate-in fade-in slide-in-from-bottom-4 flex flex-col gap-3 rounded-2xl p-4 duration-500 ease-standard-default-spatial">
+          <div className="font-serif text-title-medium-emph">新建模组</div>
           <Input value={name} onChange={(event) => setName(event.target.value)} placeholder="模组名称" aria-label="模组名称" />
           <Textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder="简介" aria-label="模组简介" />
-          <Button type="button" variant="primary" className="self-start" onClick={() => void createModule()}>
+          <Button type="button" variant="primary" className="h-12 self-start px-6" onClick={() => void createModule()}>
             <Plus /> 创建
           </Button>
         </Card>
         <div className="grid grid-cols-2 gap-4">
-          {modules.map((module) => (
-            <Card key={module.id} className="flex items-center gap-3 p-4">
-              <Package className="text-brand-sora size-5" />
+          {modules.map((module, index) => (
+            <Card
+              key={module.id}
+              className={cn(
+                "animate-in fade-in slide-in-from-bottom-4 flex-row items-center gap-3 rounded-2xl p-4 duration-500 ease-standard-default-spatial",
+                index % 3 === 1 ? "delay-75" : index % 3 === 2 ? "delay-150" : "",
+              )}
+            >
+              <span className="bg-md-secondary-container text-md-on-secondary-container flex size-10 shrink-0 items-center justify-center rounded-full">
+                <Package className="size-5" />
+              </span>
               <div className="min-w-0 flex-1">
-                <div className="truncate text-body-large-emph">{module.name}</div>
+                <div className="truncate font-serif text-title-medium-emph">{module.name}</div>
                 <div className="text-foreground-tertiary truncate text-body-small">{module.description || module.ruleId}</div>
               </div>
               <Button asChild size="sm" variant="accentSoft">

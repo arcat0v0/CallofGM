@@ -25,15 +25,17 @@ function SessionTerminalOverlay({ sessionId, onRetry }: { sessionId: string; onR
 
   return (
     <div className="bg-background/90 absolute inset-0 z-[10000] flex flex-col items-center justify-center gap-5 backdrop-blur-sm">
-      <div className="bg-surface flex size-14 items-center justify-center rounded-full">
-        {terminal === "kicked" ? (
-          <ShieldX className="text-danger size-6" />
-        ) : (
-          <WifiOff className="text-warning size-6" />
-        )}
+      <div
+        className={
+          terminal === "kicked"
+            ? "bg-md-error-container text-md-on-error-container flex size-14 items-center justify-center rounded-full"
+            : "bg-md-warning-container text-md-on-warning-container flex size-14 items-center justify-center rounded-full"
+        }
+      >
+        {terminal === "kicked" ? <ShieldX className="size-6" /> : <WifiOff className="size-6" />}
       </div>
       <div className="flex flex-col items-center gap-1.5">
-        <h1 className="text-foreground font-serif text-title-large-emph">{copy.title}</h1>
+        <h1 className="text-foreground font-serif text-headline-small-emph">{copy.title}</h1>
         <p className="text-foreground-secondary max-w-72 text-center text-body-medium">{copy.description}</p>
       </div>
       <div className="flex items-center gap-2.5">

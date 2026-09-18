@@ -71,7 +71,7 @@ function BanPlayerDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-130 gap-0 p-0" showCloseButton={false}>
-        <DialogHeader className="border-separator flex-row items-start justify-between gap-3 border-b px-5 py-[18px]">
+        <DialogHeader className="flex-row items-start justify-between gap-3 px-5 py-[18px]">
           <div className="flex items-start gap-3">
             <span className="bg-danger-soft flex size-9 shrink-0 items-center justify-center rounded-md">
               <ShieldBan className="text-danger-soft-foreground size-[18px]" />
@@ -87,7 +87,7 @@ function BanPlayerDialog({
         </DialogHeader>
 
         <div className="flex flex-col gap-4 px-5 py-5">
-          <div className="bg-surface-tertiary flex items-center gap-3 rounded-md px-3 py-3">
+          <div className="bg-surface-tertiary flex items-center gap-3 rounded-xl px-3 py-3">
             <Avatar size="md" className="bg-default">
               <AvatarFallback className="text-foreground-secondary">?</AvatarFallback>
             </Avatar>
@@ -152,7 +152,7 @@ function BanPlayerDialog({
           </Alert>
         </div>
 
-        <div className="bg-background-secondary border-separator flex items-center justify-end gap-2.5 border-t px-5 py-4">
+        <div className="bg-md-surface-container-low flex items-center justify-end gap-2.5 rounded-b-xl px-5 py-4">
           <Button variant="tertiary" size="sm" onClick={() => onOpenChange(false)}>
             取消
           </Button>

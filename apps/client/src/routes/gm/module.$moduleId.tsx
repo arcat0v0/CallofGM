@@ -37,7 +37,7 @@ function SceneCard({ scene, onReload }: { scene: SceneDto; onReload: () => Promi
   }, [scene.name]);
 
   return (
-    <Card className="border-separator gap-0 overflow-hidden border p-0">
+    <Card className="gap-0 overflow-hidden rounded-2xl p-0">
       <div className="relative h-[150px]">
         {scene.bgAssetId ? (
           <img src={mediaUrl(scene.bgAssetId) ?? undefined} alt={scene.name} className="absolute inset-0 size-full object-cover" />
@@ -94,7 +94,7 @@ function TrackRowItem({ track, onReload }: { track: TrackDto; onReload: () => Pr
   }, [track.name]);
 
   return (
-    <div className="flex items-center gap-2 rounded-sm border px-3 py-2">
+    <div className="bg-md-surface-container flex items-center gap-2 rounded-xl px-3 py-2">
       <Input
         value={name}
         onChange={(event) => setName(event.target.value)}
@@ -149,7 +149,7 @@ function HandoutCard({ handout, onReload }: { handout: CatalogHandoutDto; onRelo
   const unchanged = title.trim() === handout.title && content === handout.content;
 
   return (
-    <Card className="flex flex-col gap-2 p-3">
+    <Card className="flex flex-col gap-2 rounded-2xl p-3">
       <div className="flex items-center gap-2">
         <Input
           value={title}
@@ -282,7 +282,7 @@ function ModuleDetailPage() {
           description={module?.description || " "}
         />
 
-        <Card className="flex flex-col gap-3 p-4">
+        <Card className="flex flex-col gap-3 rounded-2xl p-4">
           <Input
             value={moduleName}
             onChange={(event) => setModuleName(event.target.value)}
@@ -343,7 +343,7 @@ function ModuleDetailPage() {
                 新建场景
               </Button>
             </form>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="animate-in fade-in slide-in-from-bottom-4 grid grid-cols-3 gap-4 duration-500 ease-standard-default-spatial">
               {scenes.map((scene) => (
                 <SceneCard key={scene.id} scene={scene} onReload={reload} />
               ))}
@@ -351,11 +351,11 @@ function ModuleDetailPage() {
           </TabsContent>
 
           <TabsContent value="npc">
-            <div className="flex flex-col gap-2">
+            <div className="animate-in fade-in slide-in-from-bottom-4 flex flex-col gap-2 duration-500 ease-standard-default-spatial">
               {allCharacters.map((character) => {
                 const isLinked = linked.some((item) => item.id === character.id);
                 return (
-                  <div key={character.id} className="flex items-center gap-2 rounded-sm border px-3 py-2">
+                  <div key={character.id} className="bg-md-surface-container flex items-center gap-2 rounded-xl px-3 py-2">
                     <span className="flex-1 text-body-medium">{character.name}</span>
                     <Badge variant="soft" size="sm">
                       {character.kind.toUpperCase()}
@@ -430,7 +430,7 @@ function ModuleDetailPage() {
                 上传
               </Button>
             </form>
-            <div className="flex flex-col gap-2">
+            <div className="animate-in fade-in slide-in-from-bottom-4 flex flex-col gap-2 duration-500 ease-standard-default-spatial">
               {tracks.map((track) => (
                 <TrackRowItem key={track.id} track={track} onReload={reload} />
               ))}
@@ -467,7 +467,7 @@ function ModuleDetailPage() {
                 新建情报
               </Button>
             </form>
-            <div className="flex flex-col gap-2">
+            <div className="animate-in fade-in slide-in-from-bottom-4 flex flex-col gap-2 duration-500 ease-standard-default-spatial">
               {handouts.map((handout) => (
                 <HandoutCard key={handout.id} handout={handout} onReload={reload} />
               ))}

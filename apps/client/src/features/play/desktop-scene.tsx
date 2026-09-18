@@ -24,7 +24,7 @@ function DesktopScene() {
       <div className="absolute inset-x-0 top-0 h-40 bg-linear-to-b from-stage-scrim to-transparent" />
 
       <div className="absolute top-5 left-6 flex items-center gap-2.5">
-        <span className="text-foreground font-serif text-title-large-emph">{scene?.name ?? "团"}</span>
+        <span className="text-foreground font-serif text-headline-medium-emph">{scene?.name ?? "团"}</span>
         {status ? (
           <Badge variant="soft" tone="success" size="sm">
             {SessionStatusLabel[status]}
@@ -49,6 +49,7 @@ function DesktopScene() {
 
       {latest ? (
         <DialogueBox
+          key={latest.id}
           speaker={latest.speakerName}
           roleLabel={latest.speakerRoleLabel}
           text={latest.body}

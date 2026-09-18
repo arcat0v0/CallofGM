@@ -1,4 +1,4 @@
-import { ChevronRight, Drama, GripVertical, Image as ImageIcon, LayoutDashboard, Link as LinkIcon, ListVideo, SquarePower, Trash2 } from "lucide-react";
+import { Drama, GripVertical, Image as ImageIcon, LayoutDashboard, Link as LinkIcon, ListVideo, SquarePower, Trash2 } from "lucide-react";
 import { Link, useParams } from "@tanstack/react-router";
 import { SessionPhaseLabel, SessionStatusLabel, type SessionPhase, type SessionStatus } from "@cogm/shared";
 import { toast } from "sonner";
@@ -27,10 +27,8 @@ export function SectionTitle({
 }) {
   return (
     <div className="flex items-center gap-1.5">
-      <Icon className="text-accent-hover size-[13px]" />
-      <span className="text-foreground-secondary font-sans text-label-medium-emph tracking-[1px]">{children}</span>
-      <span className="flex-1" />
-      <ChevronRight className="text-foreground-tertiary size-3.5" />
+      <Icon className="text-md-on-surface-variant size-4" />
+      <span className="text-md-on-surface-variant font-sans text-label-large-emph">{children}</span>
     </div>
   );
 }
@@ -56,7 +54,7 @@ export function GmHead() {
   return (
     <div className="flex flex-col gap-2 px-4 pt-4 pb-3">
       <div className="flex items-center justify-between">
-        <span className="text-foreground-tertiary font-sans text-label-small-emph tracking-[1.5px]">GM 控制台</span>
+        <span className="text-md-on-surface-variant font-sans text-label-small-emph">GM 控制台</span>
         <div className="flex items-center gap-1">
           <Button asChild variant="ghost" size="icon-sm" aria-label="返回后台">
             <Link to="/gm">
@@ -78,7 +76,7 @@ export function GmHead() {
           </Button>
         </div>
       </div>
-      <span className="text-foreground font-serif text-title-medium-emph">{scene?.name ?? moduleName ?? sessionId}</span>
+      <span className="text-md-on-surface font-serif text-title-large-emph">{scene?.name ?? moduleName ?? sessionId}</span>
       <div className="flex items-center gap-1.5">
         {status ? (
           <Badge variant="soft" tone={statusTone(status)} size="sm">
@@ -108,13 +106,13 @@ export function PhaseSection() {
   const active = usePlayStore((state) => state.phase);
 
   return (
-    <div className="border-separator flex flex-col gap-2.5 border-t px-4 py-3">
+    <div className="animate-in fade-in slide-in-from-bottom-4 ease-standard-default-spatial flex flex-col gap-2.5 px-4 py-3 duration-500">
       <SectionTitle icon={Drama}>团内阶段</SectionTitle>
-      <div className="grid grid-cols-2 gap-1.5">
-        {SESSION_PHASES.map((phase) => {
+      <div className="flex flex-col gap-1">
+        {SESSION_PHASES.map((phase, index) => {
           const isActive = phase.key === active;
           return (
-            <Button
+            <button
               key={phase.key}
               type="button"
               onClick={() => {
@@ -123,12 +121,17 @@ export function PhaseSection() {
                   body: JSON.stringify({ phase: phase.key }),
                 }).catch((error) => toast.error(isApiError(error) ? error.message : "无法切换阶段"));
               }}
-              variant={isActive ? "primary" : "tertiary"}
-              className="h-auto flex-col items-start gap-0.5 rounded-lg px-2.5 py-2 text-left whitespace-normal"
+              className={cn(
+                "animate-in fade-in slide-in-from-bottom-4 ease-standard-default-spatial animation-duration-500 flex flex-col items-start gap-0.5 rounded-xl px-3 py-2.5 text-left transition-colors duration-200 ease-standard-default-effects",
+                index === 1 ? "delay-75" : index === 2 ? "delay-150" : index === 3 ? "delay-225" : "",
+                isActive
+                  ? "bg-md-secondary-container text-md-on-secondary-container"
+                  : "text-md-on-surface hover:bg-md-on-surface/8 active:bg-md-on-surface/12",
+              )}
             >
-              <span className={cn("font-sans text-label-large-emph", isActive ? "text-accent-foreground" : "text-foreground")}>{SessionPhaseLabel[phase.key]}</span>
-              <span className={cn("font-sans text-label-small", isActive ? "text-accent-foreground/70" : "text-foreground-tertiary")}>{phase.desc}</span>
-            </Button>
+              <span className="font-sans text-label-large-emph">{SessionPhaseLabel[phase.key]}</span>
+              <span className={cn("font-sans text-label-small", isActive ? "text-md-on-secondary-container/80" : "text-md-on-surface-variant")}>{phase.desc}</span>
+            </button>
           );
         })}
       </div>
@@ -139,11 +142,11 @@ export function PhaseSection() {
 export function SpeakQueueSection() {
   const pendingQueue = usePlayStore((state) => state.pendingQueue);
   return (
-    <div className="border-separator flex flex-col gap-2 border-t px-4 py-3">
-      <div className="bg-surface border-separator-secondary flex flex-col gap-2 rounded-md border px-2.5 py-2.5">
+    <div className="animate-in fade-in slide-in-from-bottom-4 ease-standard-default-spatial flex flex-col gap-2 px-4 py-3 duration-500 delay-75">
+      <div className="bg-md-surface-container flex flex-col gap-2 rounded-xl px-2.5 py-2.5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5">
-            <ListVideo className="text-accent-hover size-3.5" />
+            <ListVideo className="text-md-on-surface-variant size-3.5" />
             <span className="text-foreground font-sans text-label-large-emph">演绎待呈现队列</span>
           </div>
           <Badge variant="soft" tone="warning" size="sm">{pendingQueue.length} 待放行</Badge>
@@ -163,7 +166,7 @@ export function SpeakQueueSection() {
           }
           return (
             <div key={item.id} className="flex items-center gap-1.5">
-              <GripVertical className="text-foreground-tertiary size-3.5" />
+              <GripVertical className="text-md-on-surface-variant size-3.5" />
               <Avatar size="sm" className="bg-default size-[22px]">
                 <AvatarFallback className="text-label-small">{initialsOf(name)}</AvatarFallback>
               </Avatar>
@@ -186,17 +189,18 @@ export function SceneSection() {
   const scenes = usePlayStore((state) => state.catalogScenes);
   const current = usePlayStore((state) => state.scene);
   return (
-    <div className="border-separator flex flex-col gap-2.5 border-t px-4 py-3">
+    <div className="animate-in fade-in slide-in-from-bottom-4 ease-standard-default-spatial flex flex-col gap-2.5 px-4 py-3 duration-500 delay-75">
       <SectionTitle icon={ImageIcon}>场景切换</SectionTitle>
       <div className="grid grid-cols-3 gap-2">
         {scenes.map((scene) => {
           const active = scene.id === current?.id;
           return (
-            <Button key={scene.id} type="button" variant="ghost" className="h-auto flex-col gap-1 p-0 hover:bg-transparent" onClick={() => sendSessionCommand("scene:switch", { sceneId: scene.id })}>
-              <span className={cn("h-[58px] w-full overflow-hidden rounded-sm border-2", active ? "border-accent-hover" : "border-separator-secondary")}>
-                {scene.bgAssetId ? <img src={mediaUrl(scene.bgAssetId) ?? undefined} alt={scene.name} className="size-full object-cover" /> : <span className="bg-default block size-full" />}
+            <Button key={scene.id} type="button" variant="ghost" className="group h-auto flex-col gap-1 p-0 hover:bg-transparent" onClick={() => sendSessionCommand("scene:switch", { sceneId: scene.id })}>
+              <span className={cn("relative h-[58px] w-full overflow-hidden rounded-xl", active ? "ring-2 ring-md-primary" : "")}>
+                {scene.bgAssetId ? <img src={mediaUrl(scene.bgAssetId) ?? undefined} alt={scene.name} className="size-full object-cover" /> : <span className="bg-md-surface-container-high block size-full" />}
+                <span className="bg-md-on-surface/0 group-hover:bg-md-on-surface/8 absolute inset-0 transition-colors duration-200 ease-standard-default-effects" />
               </span>
-              <span className={cn("text-label-small", active ? "text-foreground" : "text-foreground-tertiary")}>{scene.name}</span>
+              <span className={cn("text-label-small", active ? "text-md-on-surface" : "text-md-on-surface-variant")}>{scene.name}</span>
             </Button>
           );
         })}

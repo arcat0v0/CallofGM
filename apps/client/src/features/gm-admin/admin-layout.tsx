@@ -10,10 +10,10 @@ import { cn } from "@/lib/utils";
 type AdminNavKey = "sessions" | "modules" | "characters" | "music" | "blacklist";
 
 const NAV_ITEMS: { key: AdminNavKey; label: string; icon: typeof Swords; to: string }[] = [
-  { key: "sessions", label: "团管理", icon: Swords, to: "/gm" },
-  { key: "modules", label: "模组管理", icon: Package, to: "/gm/modules" },
-  { key: "characters", label: "人物管理", icon: VenetianMask, to: "/gm/characters" },
-  { key: "music", label: "音乐资源", icon: AudioLines, to: "/gm/music" },
+  { key: "sessions", label: "团", icon: Swords, to: "/gm" },
+  { key: "modules", label: "模组", icon: Package, to: "/gm/modules" },
+  { key: "characters", label: "人物", icon: VenetianMask, to: "/gm/characters" },
+  { key: "music", label: "音乐", icon: AudioLines, to: "/gm/music" },
   { key: "blacklist", label: "黑名单", icon: ShieldBan, to: "/gm/blacklist" },
 ];
 
@@ -27,16 +27,12 @@ function AdminLayout({ active, children }: { active: AdminNavKey; children: Reac
 
   return (
     <div className="bg-background flex h-screen">
-      <aside className="border-separator bg-background-secondary flex w-[248px] shrink-0 flex-col gap-1.5 border-r p-5">
-        <div className="flex items-center gap-2.5 px-2 pb-4">
-          <Logo className="size-[34px]" />
-          <div className="flex flex-col gap-0.5">
-            <span className="text-foreground font-serif text-title-medium-emph">CoGM</span>
-            <span className="text-foreground-tertiary text-label-small">主持人的呼唤 · 后台</span>
-          </div>
-        </div>
+      <nav className="flex w-24 shrink-0 flex-col items-center py-5">
+        <Link to="/gm" aria-label="CoGM 后台" className="mb-5">
+          <Logo className="size-10" />
+        </Link>
 
-        <nav className="flex flex-col gap-1.5">
+        <div className="flex flex-col items-center gap-3">
           {NAV_ITEMS.map((item) => {
             const isActive = item.key === active;
             const Icon = item.icon;
@@ -44,42 +40,52 @@ function AdminLayout({ active, children }: { active: AdminNavKey; children: Reac
               <Link
                 key={item.key}
                 to={item.to}
-                className={cn(
-                  "relative flex h-[38px] items-center gap-2.5 rounded-md px-2.5 font-sans",
-                  isActive ? "bg-default text-foreground text-label-large-emph" : "text-foreground-secondary text-label-large",
-                )}
+                aria-current={isActive ? "page" : undefined}
+                className="group flex w-16 flex-col items-center gap-1 py-0.5"
               >
-                {isActive && <span className="bg-accent-hover absolute left-0 h-5 w-[3px] rounded-full" />}
-                <Icon className={cn("size-4", isActive && "text-accent-hover")} />
-                {item.label}
+                <span
+                  className={cn(
+                    "flex h-8 w-16 items-center justify-center rounded-full transition-colors duration-200 ease-standard-default-effects",
+                    isActive
+                      ? "bg-md-secondary-container text-md-on-secondary-container"
+                      : "text-md-on-surface-variant group-hover:bg-md-on-surface/8 group-active:bg-md-on-surface/12",
+                  )}
+                >
+                  <Icon className="size-5" />
+                </span>
+                <span
+                  className={cn(
+                    isActive ? "text-label-medium-emph text-md-on-surface" : "text-label-medium text-md-on-surface-variant",
+                  )}
+                >
+                  {item.label}
+                </span>
               </Link>
             );
           })}
-        </nav>
+        </div>
 
         <div className="flex-1" />
 
-        <div className="border-separator flex items-center gap-2.5 border-t px-2 pt-3 pb-1">
-          <Avatar size="md" className="bg-accent shrink-0">
-            <AvatarFallback className="text-accent-foreground">KP</AvatarFallback>
+        <div className="flex flex-col items-center gap-3">
+          <Avatar size="md" className="bg-md-primary-container">
+            <AvatarFallback className="text-md-on-primary-container text-label-large-emph">KP</AvatarFallback>
           </Avatar>
-          <div className="flex flex-1 flex-col gap-0.5 overflow-hidden">
-            <span className="text-foreground font-sans text-label-large-emph">主持人</span>
-            <span className="text-foreground-tertiary font-sans text-label-small">已登录</span>
-          </div>
           <Button
             variant="ghost"
             size="icon-sm"
             aria-label="退出登录"
-            className="text-foreground-secondary"
+            className="text-md-on-surface-variant"
             onClick={() => void handleLogout()}
           >
             <LogOut />
           </Button>
         </div>
-      </aside>
+      </nav>
 
-      <main className="flex-1 overflow-y-auto p-7 px-8">{children}</main>
+      <main className="bg-md-surface-container-low min-w-0 flex-1 overflow-y-auto rounded-tl-2xl px-10 py-9">
+        {children}
+      </main>
     </div>
   );
 }

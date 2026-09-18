@@ -70,6 +70,63 @@
 - GM 后台 / 控制台是工具型界面：组件密度高，**以 standard motion scheme 为主**；玩家沉浸视图用 expressive scheme。单界面内 scheme 可逐元素切换。
 - 全站深色主题（墨色底，见 `docs/product.md`）：MD3 内建深色方案，用 Theme Builder 以品牌种子色生成，不使用手动调色。
 
+## 页面设计方向（2026-09-19 重设计）
+
+> 上一版仅做了 token 级换皮，布局与视觉语言未动，被判不合格。本节是页面级设计的单一事实来源：每个表面给出**官方参考出处**与版式/层级/形状/动效决策，实现与验收均以本节为准。
+
+### 官方参考实例（版式模式的直接来源）
+
+| 参考 | 提取的模式 | 用在 |
+|---|---|---|
+| [m3.material.io](https://m3.material.io) 官网自身 | 左侧 **navigation rail**（图标+短标签垂直堆叠，选中态为 secondary-container 横向椭圆指示器）；页头巨型 display 字 + pill 分段页签 | GM 后台布局、GM 各页页头 |
+| [building-with-m3-expressive](https://m3.material.io/blog/building-with-m3-expressive) 的 Serafina 音乐播放器示例 | **display serif 大标题 + 大面积色块（color field）+ 巨型圆角主按钮**构成 Hero Moment | 入口页 `/`、GM 仪表盘统计卡 |
+| [styles/shape](https://m3.material.io/styles/shape/overview-principles) 35 形状库 | **arch 拱形**（顶部全圆角，肖像/人物框的天然形状，且呼应 TRPG 牌位感）；大圆 blob 作背景装饰色块 | 立绘/头像框、入口页背景 |
+| [components/button-groups](https://m3.material.io/components/button-groups/overview) | 连接按钮组：非对称内圆角、选中段弹簧变形 | GM 控制台阶段切换、骰盘预设 |
+| 官网组件页 pill 分段页签 | 圆角容器内 tonal pill 选中 | 聊天频道切换（Tabs）、各处 segmented |
+
+### 全局语言修正
+
+- **层级靠容器色不靠描边**：面板与背景之间用 surface-container 层级差（`bg-md-surface-container-low` 面板 on `bg-background` 页面），分隔线只在列表内部使用，去掉面板大边线。
+- **每页一个 Hero Moment**：入口页=品牌区；玩家视图=舞台对话；GM 仪表盘=统计色块卡；控制台=阶段切换。其余元素降噪。
+- **入场动效**：页面/区块 `animate-in fade-in slide-in-from-bottom-4 duration-500 ease-expressive-default-spatial`，列表子项依次 `delay-75/150/225`；GM 工具面用 standard 曲线。
+- **编辑排版时刻**：页面标题一律 `font-serif` + emphasized 大字阶（display/headline 级），描述 `text-body-large text-md-on-surface-variant`。
+
+### 入口页 `/`（参考 Serafina hero）
+
+- 全屏居中；背景放 2 个低透明度大圆形色块（`bg-md-primary/10`、`bg-md-tertiary/10`，`blur-3xl`，错位布局）作环境光，禁止图片素材。
+- 品牌区：Logo `size-16`；`CoGM` 用 `text-display-large-emph font-serif`；副题"主持人的呼唤" `text-title-medium text-md-on-surface-variant`。
+- 表单即主操作：输入框 `h-14`，主按钮 `h-14 px-8` primary 大按钮（Expressive large size），二者同高并排。
+- 主持人入口保持底部 ghost 小字，降噪。
+
+### 进团页 `/join/$sessionId`
+
+- 页头：团名 `text-headline-medium-emph font-serif`，导语 `text-body-large`。
+- PC 座位卡为大卡（`rounded-2xl`、surface-container-low），头像/立绘框用 **arch 形**（`rounded-t-full rounded-b-xl`）；选中态 `bg-md-primary-container` + `ring-2 ring-md-primary`，切换带 spring。
+- OB 位降级为次级列表区，不与 PC 卡抢层级。
+
+### 玩家沉浸视图 `/play/$sessionId`
+
+- 舞台保持全屏背景图 + 立绘，顶部/底部 scrim 渐变保留。
+- 场景信息（左上）：场景名升级为 `text-headline-medium-emph font-serif`，状态/阶段 chip 用 tonal badge。
+- **对话框重做**：悬浮大卡 `rounded-2xl`（surface-container-high/95），说话人名牌为半悬浮 pill（`-mt-5`，`bg-md-primary-container text-md-on-primary-container`，serif emphasized），正文 `text-body-large`；新消息 `animate-in fade-in slide-in-from-bottom-2 duration-350 ease-expressive-fast-spatial`。
+- 聊天面板：无边线，改为 `bg-md-surface-container-low` 容器；消息**气泡化**——本人/己方 `bg-md-primary-container text-md-on-primary-container`，他人 `bg-md-surface-container-high`，系统消息居中 `text-label-medium` 无气泡；气泡 `rounded-2xl`、连续同人消息收紧间距。
+- 骰盘/作曲器：预设与快捷骰用连接 button group 形态；工具按钮 icon button tonal。
+
+### GM 后台 `/gm/*`（参考 m3.material.io 官网版式）
+
+- **导航改为 navigation rail**：`w-24` 窄栏，每站 icon（上）+ label-medium（下）垂直堆叠；选中态为 `bg-md-secondary-container` 横向椭圆指示器包裹 icon + emphasized 标签，切换用 standard spring。顶 Logo、底主持人头像+登出。
+- 页头：标题 `text-display-small-emph font-serif`，描述 `text-body-large`；主操作按钮大号（`h-12 px-6`）。
+- **仪表盘统计卡（Hero）**：四卡分别 `bg-md-primary-container / secondary-container / tertiary-container / error-container`，数字 `text-display-small-emph`，图标+标签 on-container 色，`rounded-2xl`、`h-28`——色块战术的直接落地。
+- 列表页：表格外层套 `rounded-2xl bg-md-surface-container-low` 容器；模组/音乐等卡片封面区 `rounded-t-2xl bg-md-surface-container-highest`，标题 serif emphasized。
+- 表格、表单等高密度区保持信息密度，不为装饰牺牲可用性。
+
+### GM 控制台 `/gm/session/$sessionId`
+
+- 三栏结构不变；左控制栏 `bg-md-surface-container-low` 无边线，section 标题 `text-label-large-emph text-md-on-surface-variant`。
+- **阶段切换（本页 Hero）**：改单列 list，每行一项（名称 + 一句描述），选中行 `bg-md-secondary-container` 容器色 + emphasized 标签，切换 spring——替代原先的 2×2 按钮阵。
+- 场景/立绘/音乐条目：缩略图 `rounded-xl`，选中态 `ring-2 ring-md-primary`，hover state layer。
+- 右聊天栏与玩家视图同款气泡化。
+
 ## 风格系统规范（落地参数）
 
 ### 颜色

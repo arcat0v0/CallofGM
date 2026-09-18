@@ -21,7 +21,7 @@ function SceneAudioStatus({
   return (
     <div
       className={cn(
-        "border-border bg-stage-panel flex items-center rounded-full border backdrop-blur-lg",
+        "bg-stage-panel flex items-center rounded-full backdrop-blur-lg",
         compact ? "h-[30px] max-w-56 gap-2 px-2.5" : "h-10 w-[306px] gap-2.5 px-3.5",
         className,
       )}

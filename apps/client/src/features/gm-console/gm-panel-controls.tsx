@@ -18,7 +18,7 @@ import { SectionTitle } from "./gm-panel-stage";
 export function CharactersSection() {
   const characters = usePlayStore((state) => state.characters);
   return (
-    <div className="border-separator flex flex-col gap-2.5 border-t px-4 py-3">
+    <div className="animate-in fade-in slide-in-from-bottom-4 ease-standard-default-spatial flex flex-col gap-2.5 px-4 py-3 duration-500 delay-150">
       <SectionTitle icon={VenetianMask}>立绘控制</SectionTitle>
       {characters.map((char) => (
         <div key={char.characterId} className="flex items-center gap-2">
@@ -27,7 +27,7 @@ export function CharactersSection() {
           </Avatar>
           <div className="min-w-0 flex-1">
             <div className="truncate text-label-large">{char.name}</div>
-            <div className="text-foreground-tertiary text-label-small">{char.kind === "pc" ? "PC" : "NPC"}</div>
+            <div className="text-md-on-surface-variant text-label-small">{char.kind === "pc" ? "PC" : "NPC"}</div>
           </div>
           <Select
             value={char.currentExpressionKey ?? char.portraits.find((item) => item.isDefault)?.expressionKey ?? "default"}
@@ -91,20 +91,20 @@ export function AudioSection() {
   }
 
   return (
-    <div className="border-separator flex flex-col gap-2.5 border-t px-4 py-3">
+    <div className="animate-in fade-in slide-in-from-bottom-4 ease-standard-default-spatial flex flex-col gap-2.5 px-4 py-3 duration-500 delay-225">
       <SectionTitle icon={AudioLines}>音频 · GM 全局控制</SectionTitle>
       {bgmTracks.map((track) => (
         <Button key={track.id} type="button" variant={track.id === bgm?.trackId ? "accentSoft" : "ghost"} className="h-7 justify-start px-2" onClick={() => sendBgm("play", { trackId: track.id })}>
           {track.name}
         </Button>
       ))}
-      <div className="bg-surface flex items-center gap-2 rounded-md border px-2.5 py-2.5">
+      <div className="bg-md-surface-container flex items-center gap-2 rounded-xl px-2.5 py-2.5">
         <Button type="button" variant="primary" size="icon-sm" className="size-7" aria-label={bgm?.playing ? "暂停" : "播放"} onClick={() => (bgm?.playing ? sendBgm("pause") : sendBgm("play", { trackId: bgm?.trackId ?? bgmTracks[0]?.id }))}>
           {bgm?.playing ? <Pause className="size-[13px]" /> : <Play className="size-[13px]" />}
         </Button>
         <div className="min-w-0 flex-1">
           <div className="truncate text-label-medium-emph">{current?.name ?? bgm?.name ?? "未选择曲目"}</div>
-          <div className="text-foreground-tertiary text-label-small">{bgm?.loop ? "循环" : "单曲"} · v{bgm?.version ?? 0}</div>
+          <div className="text-md-on-surface-variant text-label-small">{bgm?.loop ? "循环" : "单曲"} · v{bgm?.version ?? 0}</div>
         </div>
         <Button variant="ghost" size="icon-sm" aria-label="循环" onClick={() => sendBgm("loop", { loop: !bgm?.loop })}><Repeat /></Button>
         <Button variant="ghost" size="icon-sm" aria-label="下一首" onClick={() => {
@@ -115,7 +115,7 @@ export function AudioSection() {
       </div>
       {durationMs > 0 ? (
         <div className="flex items-center gap-2.5">
-          <span className="text-foreground-tertiary w-10 text-label-small tabular-nums">{formatDurationMmSs(displayPosition)}</span>
+          <span className="text-md-on-surface-variant w-10 text-label-small tabular-nums">{formatDurationMmSs(displayPosition)}</span>
           <Slider
             value={[displayPosition]}
             min={0}
@@ -130,7 +130,7 @@ export function AudioSection() {
               sendSessionCommand("audio:bgm", { action: "seek", seekOffsetMs, expectedVersion: bgm?.version ?? 0 });
             }}
           />
-          <span className="text-foreground-tertiary w-10 text-label-small tabular-nums">{formatDurationMmSs(durationMs)}</span>
+          <span className="text-md-on-surface-variant w-10 text-label-small tabular-nums">{formatDurationMmSs(durationMs)}</span>
         </div>
       ) : null}
       <div className="flex items-center gap-2.5">
@@ -173,7 +173,7 @@ export function RulesSection() {
   }
 
   return (
-    <div className="border-separator flex flex-col gap-2.5 border-t px-4 py-3">
+    <div className="animate-in fade-in slide-in-from-bottom-4 ease-standard-default-spatial flex flex-col gap-2.5 px-4 py-3 duration-500 delay-225">
       <SectionTitle icon={Zap}>规则 · 状态 / 鉴定 / SAN</SectionTitle>
       <Select value={selected} onValueChange={setCharacterId}>
         <SelectTrigger className="h-8 text-label-medium"><SelectValue placeholder="选择角色" /></SelectTrigger>
@@ -184,7 +184,7 @@ export function RulesSection() {
         </SelectContent>
       </Select>
       {state ? (
-        <p className="text-foreground-tertiary text-label-small">
+        <p className="text-md-on-surface-variant text-label-small">
           HP {state.hp}/{state.maxHp} · MP {state.mp}/{state.maxMp} · SAN {state.san}/{state.maxSan}
         </p>
       ) : null}
@@ -245,7 +245,7 @@ export function RulesSection() {
         </div>
       ) : null}
       {state && state.growthMarks.length > 0 ? (
-        <p className="text-foreground-tertiary text-label-small">成长：{state.growthMarks.join("、")}</p>
+        <p className="text-md-on-surface-variant text-label-small">成长：{state.growthMarks.join("、")}</p>
       ) : null}
       <div className="flex gap-1.5">
         <Select value={skillKey} onValueChange={setSkillKey}>
@@ -299,7 +299,7 @@ export function HandoutSection() {
   }
 
   return (
-    <div className="border-separator flex flex-col gap-2.5 border-t px-4 py-3">
+    <div className="animate-in fade-in slide-in-from-bottom-4 ease-standard-default-spatial flex flex-col gap-2.5 px-4 py-3 duration-500 delay-225">
       <SectionTitle icon={FileText}>情报 · 公开 / 秘密发放</SectionTitle>
       <div className="flex flex-wrap gap-1.5">
         {characters.map((character) => (
@@ -346,7 +346,7 @@ export function HandoutSection() {
         </div>
       ))}
       {granted.map((item) => (
-        <div key={item.grantId} className="text-foreground-tertiary flex items-center gap-1.5 text-label-small">
+        <div key={item.grantId} className="text-md-on-surface-variant flex items-center gap-1.5 text-label-small">
           <span className="min-w-0 flex-1 truncate">{item.handout.title}</span>
           <Badge variant="soft" size="sm">{item.isPublic ? "公开" : "秘密"}</Badge>
           {!item.isPublic ? (
@@ -381,7 +381,7 @@ export function OnlineSection() {
   const banName = characters.find((character) => character.characterId === banTarget?.characterId)?.name ?? banTarget?.playerId.slice(0, 8);
 
   return (
-    <div className="border-separator flex flex-col gap-2.5 border-t px-4 py-3">
+    <div className="animate-in fade-in slide-in-from-bottom-4 ease-standard-default-spatial flex flex-col gap-2.5 px-4 py-3 duration-500 delay-225">
       <SectionTitle icon={Users}>在线玩家 · {presence.length}</SectionTitle>
       <div className="flex flex-col gap-2.5">
         {presence.map((player) => {
@@ -392,7 +392,7 @@ export function OnlineSection() {
               <span className="bg-success size-[7px] shrink-0 rounded-full" />
               <div className="flex min-w-0 flex-1 flex-col">
                 <span className="text-foreground truncate font-sans text-label-large">{name}</span>
-                <span className="text-foreground-tertiary font-mono text-label-small">{player.playerId.slice(0, 8)}</span>
+                <span className="text-md-on-surface-variant font-mono text-label-small">{player.playerId.slice(0, 8)}</span>
               </div>
               <Badge variant="soft" tone="accent" size="sm" className="shrink-0">
                 {player.role === "ob" ? "OB" : "PC"}
@@ -412,7 +412,7 @@ export function OnlineSection() {
                 variant="ghost"
                 size="icon-sm"
                 aria-label={`拉黑 ${name}`}
-                className="text-foreground-tertiary size-7 shrink-0"
+                className="text-md-on-surface-variant size-7 shrink-0"
                 onClick={() => setBanPlayerId(player.playerId)}
               >
                 <ShieldBan className="size-3.5" />

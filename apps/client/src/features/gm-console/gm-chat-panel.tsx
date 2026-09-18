@@ -46,7 +46,7 @@ function GmChatPanel({ className }: { className?: string }) {
   }
 
   return (
-    <div className={cn("bg-background-secondary border-separator flex h-full flex-col border-l", className)}>
+    <div className={cn("bg-md-surface-container-low animate-in fade-in slide-in-from-bottom-4 ease-standard-default-spatial flex h-full flex-col duration-500", className)}>
       <ChatPanelHeader browseAllSheets />
 
       <div className="px-4 pb-2.5">
@@ -61,13 +61,13 @@ function GmChatPanel({ className }: { className?: string }) {
 
       <MessageList messages={visible} showRoleBadge={false} className="min-h-0 flex-1 overflow-y-auto px-4 py-1.5" />
 
-      <div className="border-separator-secondary bg-background-tertiary flex flex-col gap-2.5 border-t px-4 pt-3 pb-3.5">
+      <div className="bg-md-surface-container mx-3 mb-3 flex flex-col gap-2.5 rounded-xl px-4 pt-3 pb-3.5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Avatar size="sm" className="bg-accent">
-              <AvatarFallback className="text-accent-foreground text-label-medium">KP</AvatarFallback>
+            <Avatar size="sm" className="bg-md-primary-container">
+              <AvatarFallback className="text-md-on-primary-container text-label-medium">KP</AvatarFallback>
             </Avatar>
-            <span className="text-foreground font-sans text-label-large-emph">KP（主持人）</span>
+            <span className="text-md-on-surface font-sans text-label-large-emph">KP（主持人）</span>
           </div>
           <MessageModeSwitch value={mode} onValueChange={setMode} />
         </div>
@@ -81,7 +81,7 @@ function GmChatPanel({ className }: { className?: string }) {
           onSubmit={handleSend}
         />
 
-        <p className="text-foreground-tertiary font-sans text-label-small">{phaseChatHint(phase, "gm")}</p>
+        <p className="text-md-on-surface-variant font-sans text-label-small">{phaseChatHint(phase, "gm")}</p>
       </div>
     </div>
   );

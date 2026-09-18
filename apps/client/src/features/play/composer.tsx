@@ -74,7 +74,7 @@ function Composer({ compact = false, className }: { compact?: boolean; className
   return (
     <div
       className={cn(
-        "border-separator-secondary flex flex-col border-t bg-background-tertiary",
+        "bg-md-surface-container flex flex-col",
         compact ? "gap-2 px-3 pt-2.5 pb-3" : "gap-2.5 px-4 pt-3 pb-3.5",
         className,
       )}
@@ -98,30 +98,28 @@ function Composer({ compact = false, className }: { compact?: boolean; className
               <VenetianMask className="text-accent-hover size-[13px]" />
               <span className="text-foreground-secondary font-sans text-label-small">立绘表情</span>
             </div>
-            <Button type="button" variant="tertiary" size="sm" className="h-5 gap-1 px-2 text-label-small" onClick={() => setPreviewOpen(true)}>
+            <Button type="button" variant="tertiary" size="icon-sm" aria-label="预览立绘" onClick={() => setPreviewOpen(true)}>
               <Eye />
-              预览立绘
             </Button>
           </div>
-          <div className="flex gap-1.5">
+          <div className="bg-md-surface-container-high flex rounded-full p-0.5">
             {(expressionOptions.length > 0 ? expressionOptions : [{ key: "default", label: "默认", src: null }]).map((tile) => {
               const isActive = tile.key === expression;
               return (
-                <Button
+                <button
                   key={tile.key}
                   type="button"
                   onClick={() => setExpression(tile.key)}
-                  variant="outline"
                   aria-pressed={isActive}
                   className={cn(
-                    "h-[34px] flex-1 rounded-sm border-[1.5px] px-2",
+                    "h-7 flex-1 rounded-full px-2 transition-all duration-350 ease-expressive-fast-spatial",
                     isActive
-                      ? "bg-accent-soft border-accent-hover text-accent-soft-foreground text-label-medium-emph"
-                      : "bg-surface-tertiary text-foreground-secondary border-transparent text-label-medium",
+                      ? "bg-md-secondary-container text-md-on-secondary-container text-label-medium-emph"
+                      : "text-label-medium text-md-on-surface-variant hover:bg-md-surface-container-highest",
                   )}
                 >
                   {tile.label}
-                </Button>
+                </button>
               );
             })}
           </div>

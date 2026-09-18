@@ -10,6 +10,7 @@ import { MessageList } from "@/features/chat/message-list";
 import { api, isApiError } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { usePlayStore } from "@/stores/play-store";
+import { useIdentityStore } from "@/stores/identity-store";
 import { Composer } from "./composer";
 
 type ChatAreaProps = {
@@ -25,6 +26,11 @@ function ChatArea({ variant, onCollapse, className }: ChatAreaProps) {
   const [leaveOpen, setLeaveOpen] = useState(false);
   const compact = variant !== "desktop";
   const messages = usePlayStore((state) => state.messages);
+  const characters = usePlayStore((state) => state.characters);
+  const playerId = useIdentityStore((state) => state.playerId);
+  const claimed = characters.find((character) => character.claim?.playerId === playerId && character.claim.role === "pc");
+  const isOb = !claimed && characters.some((character) => character.claim?.playerId === playerId && character.claim.role === "ob");
+  const selfName = claimed?.name ?? (isOb ? "观战" : "玩家");
 
   async function leaveSeat() {
     try {
@@ -45,7 +51,7 @@ function ChatArea({ variant, onCollapse, className }: ChatAreaProps) {
   }, [channel, messages]);
 
   return (
-    <div className={cn("bg-background-secondary border-separator flex h-full flex-col border-l", className)}>
+    <div className={cn("bg-md-surface-container-low flex h-full flex-col", className)}>
       <ChatPanelHeader
         compact={compact}
         onCollapse={variant === "landscape" ? onCollapse : undefined}
@@ -69,6 +75,7 @@ function ChatArea({ variant, onCollapse, className }: ChatAreaProps) {
 
       <MessageList
         messages={visible}
+        selfName={selfName}
         className={cn("min-h-0 flex-1 overflow-y-auto", variant === "desktop" ? "px-4 py-1.5" : "px-3 py-2")}
       />
 

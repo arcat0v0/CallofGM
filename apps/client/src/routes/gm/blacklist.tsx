@@ -134,7 +134,7 @@ function BlacklistPage() {
                   className="text-label-large"
                 />
               </InputGroup>
-              <Button variant="dangerSoft" onClick={() => setBanOpen(true)}>
+              <Button variant="dangerSoft" className="h-12 px-6" onClick={() => setBanOpen(true)}>
                 <UserX />
                 手动拉黑
               </Button>
@@ -142,12 +142,13 @@ function BlacklistPage() {
           }
         />
 
-        <div className="flex gap-3.5">
-          <MetricCard icon={ShieldBan} value={String(activeCount)} label="生效中封禁" iconContainerClassName="bg-danger-soft" iconClassName="text-danger-soft-foreground" />
-          <MetricCard icon={ShieldX} value={String(permanentCount)} label="永久封禁" iconContainerClassName="bg-danger-soft" iconClassName="text-danger-soft-foreground" />
-          <MetricCard icon={Timer} value={String(rows.length)} label="全部记录" iconContainerClassName="bg-danger-soft" iconClassName="text-warning" />
+        <div className="animate-in fade-in slide-in-from-bottom-4 flex gap-3.5 duration-500 ease-standard-default-spatial">
+          <MetricCard icon={ShieldBan} value={String(activeCount)} label="生效中封禁" tone="error" />
+          <MetricCard icon={ShieldX} value={String(permanentCount)} label="永久封禁" tone="tertiary" />
+          <MetricCard icon={Timer} value={String(rows.length)} label="全部记录" tone="secondary" />
         </div>
 
+        <div className="animate-in fade-in slide-in-from-bottom-4 overflow-hidden rounded-2xl bg-md-surface-container delay-75 duration-500 ease-standard-default-spatial">
         <Table className="table-fixed">
           <TableHeader>
             <TableRow>
@@ -205,6 +206,7 @@ function BlacklistPage() {
             ))}
           </TableBody>
         </Table>
+        </div>
       </div>
 
       <BanPlayerDialog
