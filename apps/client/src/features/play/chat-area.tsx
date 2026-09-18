@@ -61,7 +61,7 @@ function ChatArea({ variant, onCollapse, className }: ChatAreaProps) {
           </TabsList>
         </Tabs>
         {variant === "portrait" && (
-          <Badge variant="soft" tone="accent" size="md" className="h-6 px-2.5 text-[11px]">
+          <Badge variant="soft" tone="accent" size="md" className="h-6 px-2.5 text-label-small">
             旋转到横屏体验更佳
           </Badge>
         )}

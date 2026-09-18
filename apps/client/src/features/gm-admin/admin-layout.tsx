@@ -31,8 +31,8 @@ function AdminLayout({ active, children }: { active: AdminNavKey; children: Reac
         <div className="flex items-center gap-2.5 px-2 pb-4">
           <Logo className="size-[34px]" />
           <div className="flex flex-col gap-0.5">
-            <span className="text-foreground font-serif text-[17px] font-bold">CoGM</span>
-            <span className="text-foreground-tertiary text-[10px]">主持人的呼唤 · 后台</span>
+            <span className="text-foreground font-serif text-title-medium-emph">CoGM</span>
+            <span className="text-foreground-tertiary text-label-small">主持人的呼唤 · 后台</span>
           </div>
         </div>
 
@@ -45,8 +45,8 @@ function AdminLayout({ active, children }: { active: AdminNavKey; children: Reac
                 key={item.key}
                 to={item.to}
                 className={cn(
-                  "relative flex h-[38px] items-center gap-2.5 rounded-[10px] px-2.5 font-sans text-sm",
-                  isActive ? "bg-default text-foreground font-semibold" : "text-foreground-secondary font-normal",
+                  "relative flex h-[38px] items-center gap-2.5 rounded-md px-2.5 font-sans",
+                  isActive ? "bg-default text-foreground text-label-large-emph" : "text-foreground-secondary text-label-large",
                 )}
               >
                 {isActive && <span className="bg-accent-hover absolute left-0 h-5 w-[3px] rounded-full" />}
@@ -61,11 +61,11 @@ function AdminLayout({ active, children }: { active: AdminNavKey; children: Reac
 
         <div className="border-separator flex items-center gap-2.5 border-t px-2 pt-3 pb-1">
           <Avatar size="md" className="bg-accent shrink-0">
-            <AvatarFallback className="text-accent-foreground font-chip">KP</AvatarFallback>
+            <AvatarFallback className="text-accent-foreground">KP</AvatarFallback>
           </Avatar>
           <div className="flex flex-1 flex-col gap-0.5 overflow-hidden">
-            <span className="text-foreground font-sans text-[13px] font-semibold">主持人</span>
-            <span className="text-foreground-tertiary font-sans text-[10px]">已登录</span>
+            <span className="text-foreground font-sans text-label-large-emph">主持人</span>
+            <span className="text-foreground-tertiary font-sans text-label-small">已登录</span>
           </div>
           <Button
             variant="ghost"

@@ -26,7 +26,7 @@ function SegmentedControl<T extends string>({
   return (
     <div
       role="radiogroup"
-      className={cn("bg-default flex items-center gap-0.5 rounded-xl p-0.5", className)}
+      className={cn("flex items-center gap-0.5 rounded-full bg-surface-tertiary p-1", className)}
       {...props}
     >
       {options.map((option) => {
@@ -42,10 +42,10 @@ function SegmentedControl<T extends string>({
             size="sm"
             onClick={() => onValueChange(option.value)}
             className={cn(
-              "h-7 flex-1 rounded-lg px-3 text-xs",
+              "h-8 flex-1 rounded-full px-4",
               selected
-                ? "bg-segment text-foreground-segment shadow-tab hover:bg-segment font-semibold"
-                : "text-foreground-secondary hover:bg-surface-hover font-medium",
+                ? "bg-segment font-semibold text-segment-foreground shadow-tab hover:bg-segment"
+                : "font-medium text-foreground-secondary hover:bg-surface-hover",
               itemClassName,
             )}
           >

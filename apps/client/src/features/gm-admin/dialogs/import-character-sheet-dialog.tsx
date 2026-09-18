@@ -112,13 +112,13 @@ function ImportCharacterSheetDialog({
           {file ? (
             <div className="flex items-center gap-2">
               <FileSpreadsheet className="text-accent-hover size-4" />
-              <span className="text-foreground text-sm">{file.name}</span>
+              <span className="text-foreground text-body-medium">{file.name}</span>
             </div>
           ) : null}
           {preview ? (
             <>
               <div className="flex items-center gap-2">
-                <span className="text-foreground font-serif text-lg font-semibold">{preview.preview.characterName}</span>
+                <span className="text-foreground font-serif text-title-medium-emph">{preview.preview.characterName}</span>
                 <Badge variant="soft" tone={kind === "pc" ? "accent" : "default"} size="sm">
                   {kind.toUpperCase()}
                 </Badge>
@@ -126,10 +126,10 @@ function ImportCharacterSheetDialog({
                   切换为 {kind === "pc" ? "NPC" : "PC"}
                 </Button>
               </div>
-              <p className="text-foreground-secondary text-xs">
+              <p className="text-foreground-secondary text-body-small">
                 STR {attributes.str ?? "—"} / DEX {attributes.dex ?? "—"} / INT {attributes.int ?? "—"}
               </p>
-              <p className="text-foreground-secondary text-xs">
+              <p className="text-foreground-secondary text-body-small">
                 {skills.map(([name, value]) => `${name} ${value}`).join(" · ")}
               </p>
               {preview.preview.errors.length > 0 ? (

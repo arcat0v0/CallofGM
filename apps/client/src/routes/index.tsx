@@ -28,8 +28,8 @@ function HomePage() {
     <main className="bg-background relative flex min-h-dvh w-full flex-col items-center justify-center gap-9 overflow-hidden px-6">
       <div className="flex flex-col items-center gap-3.5">
         <Logo className="size-13" />
-        <h1 className="text-foreground font-serif text-[34px] font-bold">CoGM</h1>
-        <p className="text-foreground-secondary text-[13px] tracking-[2px]">主持人的呼唤</p>
+        <h1 className="text-foreground font-serif text-display-small-emph">CoGM</h1>
+        <p className="text-foreground-secondary text-body-medium tracking-[2px]">主持人的呼唤</p>
       </div>
 
       <form onSubmit={handleSubmit} className="flex w-full max-w-105 items-center gap-2.5">
@@ -46,8 +46,8 @@ function HomePage() {
         </InputGroup>
         <Button
           type="submit"
-          variant="primaryGradient"
-          className="h-11 shrink-0 rounded-xl px-[22px] font-semibold"
+          variant="primary"
+          className="h-11 shrink-0 px-[22px]"
         >
           进入
         </Button>

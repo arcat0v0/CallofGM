@@ -15,10 +15,10 @@ const Toaster = ({ ...props }: ToasterProps) => {
       }}
       style={
         {
-          "--normal-bg": "var(--color-overlay)",
-          "--normal-text": "var(--color-foreground)",
-          "--normal-border": "var(--color-separator-secondary)",
-          "--border-radius": "var(--radius-3xl)",
+          "--normal-bg": "var(--color-md-inverse-surface)",
+          "--normal-text": "var(--color-md-inverse-on-surface)",
+          "--normal-border": "var(--color-md-inverse-surface)",
+          "--border-radius": "var(--radius-xs)",
         } as React.CSSProperties
       }
       {...props}

@@ -28,7 +28,7 @@ export function SectionTitle({
   return (
     <div className="flex items-center gap-1.5">
       <Icon className="text-accent-hover size-[13px]" />
-      <span className="text-foreground-secondary font-sans text-xs font-semibold tracking-[1px]">{children}</span>
+      <span className="text-foreground-secondary font-sans text-label-medium-emph tracking-[1px]">{children}</span>
       <span className="flex-1" />
       <ChevronRight className="text-foreground-tertiary size-3.5" />
     </div>
@@ -56,7 +56,7 @@ export function GmHead() {
   return (
     <div className="flex flex-col gap-2 px-4 pt-4 pb-3">
       <div className="flex items-center justify-between">
-        <span className="text-foreground-tertiary font-sans text-[11px] font-semibold tracking-[1.5px]">GM 控制台</span>
+        <span className="text-foreground-tertiary font-sans text-label-small-emph tracking-[1.5px]">GM 控制台</span>
         <div className="flex items-center gap-1">
           <Button asChild variant="ghost" size="icon-sm" aria-label="返回后台">
             <Link to="/gm">
@@ -78,7 +78,7 @@ export function GmHead() {
           </Button>
         </div>
       </div>
-      <span className="text-foreground font-serif text-[17px] font-semibold">{scene?.name ?? moduleName ?? sessionId}</span>
+      <span className="text-foreground font-serif text-title-medium-emph">{scene?.name ?? moduleName ?? sessionId}</span>
       <div className="flex items-center gap-1.5">
         {status ? (
           <Badge variant="soft" tone={statusTone(status)} size="sm">
@@ -88,12 +88,12 @@ export function GmHead() {
         <Badge variant="soft" tone="default" size="sm">{moduleName ?? "模组"}</Badge>
         <span className="flex-1" />
         {nextStatus && nextStatus !== "ended" && status ? (
-          <Button variant="tertiary" size="sm" className="h-[26px] px-2.5 text-xs" onClick={() => void patchStatus(nextStatus)}>
+          <Button variant="tertiary" size="sm" className="h-[26px] px-2.5" onClick={() => void patchStatus(nextStatus)}>
             {nextStatusActionLabel(status) ?? "推进"}
           </Button>
         ) : null}
         {status === "active" ? (
-          <Button variant="dangerSoft" size="sm" className="h-[26px] px-2.5 text-xs" onClick={() => void patchStatus("ended")}>
+          <Button variant="dangerSoft" size="sm" className="h-[26px] px-2.5" onClick={() => void patchStatus("ended")}>
             <SquarePower className="size-3.5" />
             结团
           </Button>
@@ -123,11 +123,11 @@ export function PhaseSection() {
                   body: JSON.stringify({ phase: phase.key }),
                 }).catch((error) => toast.error(isApiError(error) ? error.message : "无法切换阶段"));
               }}
-              variant={isActive ? "primaryGradient" : "tertiary"}
-              className="h-auto flex-col items-start gap-0.5 rounded-[10px] px-2.5 py-2 text-left whitespace-normal"
+              variant={isActive ? "primary" : "tertiary"}
+              className="h-auto flex-col items-start gap-0.5 rounded-lg px-2.5 py-2 text-left whitespace-normal"
             >
-              <span className={cn("font-sans text-[13px] font-semibold", isActive ? "text-accent-foreground" : "text-foreground")}>{SessionPhaseLabel[phase.key]}</span>
-              <span className={cn("font-sans text-[10px]", isActive ? "text-accent-foreground/70" : "text-foreground-tertiary")}>{phase.desc}</span>
+              <span className={cn("font-sans text-label-large-emph", isActive ? "text-accent-foreground" : "text-foreground")}>{SessionPhaseLabel[phase.key]}</span>
+              <span className={cn("font-sans text-label-small", isActive ? "text-accent-foreground/70" : "text-foreground-tertiary")}>{phase.desc}</span>
             </Button>
           );
         })}
@@ -140,11 +140,11 @@ export function SpeakQueueSection() {
   const pendingQueue = usePlayStore((state) => state.pendingQueue);
   return (
     <div className="border-separator flex flex-col gap-2 border-t px-4 py-3">
-      <div className="bg-surface border-separator-secondary flex flex-col gap-2 rounded-xl border px-2.5 py-2.5">
+      <div className="bg-surface border-separator-secondary flex flex-col gap-2 rounded-md border px-2.5 py-2.5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5">
             <ListVideo className="text-accent-hover size-3.5" />
-            <span className="text-foreground font-sans text-[13px] font-semibold">演绎待呈现队列</span>
+            <span className="text-foreground font-sans text-label-large-emph">演绎待呈现队列</span>
           </div>
           <Badge variant="soft" tone="warning" size="sm">{pendingQueue.length} 待放行</Badge>
         </div>
@@ -165,12 +165,12 @@ export function SpeakQueueSection() {
             <div key={item.id} className="flex items-center gap-1.5">
               <GripVertical className="text-foreground-tertiary size-3.5" />
               <Avatar size="sm" className="bg-default size-[22px]">
-                <AvatarFallback className="text-[10px]">{initialsOf(name)}</AvatarFallback>
+                <AvatarFallback className="text-label-small">{initialsOf(name)}</AvatarFallback>
               </Avatar>
-              <span className="min-w-0 flex-1 truncate text-xs">{name} · {item.content}</span>
+              <span className="min-w-0 flex-1 truncate text-label-medium">{name} · {item.content}</span>
               <Button type="button" variant="ghost" size="icon-sm" aria-label="上移" onClick={() => reorder(-1)}>↑</Button>
               <Button type="button" variant="ghost" size="icon-sm" aria-label="下移" onClick={() => reorder(1)}>↓</Button>
-              <Button type="button" variant="primaryGradient" size="sm" className="h-6 px-3 text-xs" onClick={() => sendSessionCommand("chat:release", { messageId: item.id })}>放行</Button>
+              <Button type="button" variant="primary" size="sm" className="h-6 px-3" onClick={() => sendSessionCommand("chat:release", { messageId: item.id })}>放行</Button>
               <Button variant="ghost" size="icon-sm" aria-label={`丢弃 ${name}`} onClick={() => sendSessionCommand("chat:discard", { messageId: item.id })}>
                 <Trash2 className="size-[15px]" />
               </Button>
@@ -193,10 +193,10 @@ export function SceneSection() {
           const active = scene.id === current?.id;
           return (
             <Button key={scene.id} type="button" variant="ghost" className="h-auto flex-col gap-1 p-0 hover:bg-transparent" onClick={() => sendSessionCommand("scene:switch", { sceneId: scene.id })}>
-              <span className={cn("h-[58px] w-full overflow-hidden rounded-lg border-2", active ? "border-accent-hover" : "border-separator-secondary")}>
+              <span className={cn("h-[58px] w-full overflow-hidden rounded-sm border-2", active ? "border-accent-hover" : "border-separator-secondary")}>
                 {scene.bgAssetId ? <img src={mediaUrl(scene.bgAssetId) ?? undefined} alt={scene.name} className="size-full object-cover" /> : <span className="bg-default block size-full" />}
               </span>
-              <span className={cn("text-[11px]", active ? "text-foreground" : "text-foreground-tertiary")}>{scene.name}</span>
+              <span className={cn("text-label-small", active ? "text-foreground" : "text-foreground-tertiary")}>{scene.name}</span>
             </Button>
           );
         })}

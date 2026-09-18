@@ -41,30 +41,28 @@ function ConfirmDialog({
           <div
             className={cn(
               "flex size-13 items-center justify-center rounded-full",
-              variant === "danger" ? "bg-danger" : "bg-warning",
+              variant === "danger" ? "bg-danger-soft" : "bg-warning-soft",
             )}
           >
-            <Icon className={cn("size-6", variant === "danger" ? "text-danger-foreground" : "text-warning-foreground")} />
+            <Icon className={cn("size-6", variant === "danger" ? "text-danger" : "text-warning")} />
           </div>
-          <AlertDialogTitle className="font-serif text-[19px] font-bold">{title}</AlertDialogTitle>
-          <AlertDialogDescription className="text-[13px] leading-[1.7]">{description}</AlertDialogDescription>
+          <AlertDialogTitle className="font-serif text-headline-small-emph">{title}</AlertDialogTitle>
+          <AlertDialogDescription className="text-body-medium">{description}</AlertDialogDescription>
         </div>
         <div className="flex gap-2.5 px-6 pt-4 pb-6">
           <Button
             type="button"
             variant="outline"
             onClick={() => onOpenChange(false)}
-            className="h-[42px] flex-1 border-separator-secondary font-semibold"
+            className="h-11 flex-1"
           >
             {cancelLabel}
           </Button>
           <AlertDialogAction
-            onClick={onConfirm}
+            variant={variant === "danger" ? "danger" : "primary"}
             className={cn(
-              "flex h-[42px] flex-1 items-center justify-center gap-2 rounded-full font-sans text-sm font-semibold",
-              variant === "danger"
-                ? "bg-danger text-danger-foreground hover:bg-danger-hover"
-                : "bg-warning text-warning-foreground hover:bg-warning-hover",
+              "flex h-11 flex-1 items-center justify-center gap-2",
+              variant === "warning" && "bg-warning text-warning-foreground hover:bg-warning-hover",
             )}
           >
             {ConfirmIcon && <ConfirmIcon className="size-4" />}

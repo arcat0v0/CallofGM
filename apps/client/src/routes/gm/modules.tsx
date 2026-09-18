@@ -63,10 +63,10 @@ function GmModulesPage() {
           description="模组是场景、音乐、情报与人物的资源容器"
         />
         <Card className="flex flex-col gap-3 p-4">
-          <div className="font-semibold">新建模组</div>
+          <div className="text-title-medium-emph">新建模组</div>
           <Input value={name} onChange={(event) => setName(event.target.value)} placeholder="模组名称" aria-label="模组名称" />
           <Textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder="简介" aria-label="模组简介" />
-          <Button type="button" variant="primaryGradient" className="self-start" onClick={() => void createModule()}>
+          <Button type="button" variant="primary" className="self-start" onClick={() => void createModule()}>
             <Plus /> 创建
           </Button>
         </Card>
@@ -75,8 +75,8 @@ function GmModulesPage() {
             <Card key={module.id} className="flex items-center gap-3 p-4">
               <Package className="text-brand-sora size-5" />
               <div className="min-w-0 flex-1">
-                <div className="truncate font-semibold">{module.name}</div>
-                <div className="text-foreground-tertiary truncate text-xs">{module.description || module.ruleId}</div>
+                <div className="truncate text-body-large-emph">{module.name}</div>
+                <div className="text-foreground-tertiary truncate text-body-small">{module.description || module.ruleId}</div>
               </div>
               <Button asChild size="sm" variant="accentSoft">
                 <Link to="/gm/module/$moduleId" params={{ moduleId: module.id }}>管理</Link>

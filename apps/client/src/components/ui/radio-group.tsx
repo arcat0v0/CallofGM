@@ -18,13 +18,13 @@ function RadioGroupItem({ className, ...props }: React.ComponentProps<typeof Rad
     <RadioGroupPrimitive.Item
       data-slot="radio-group-item"
       className={cn(
-        "border-border bg-field data-checked:border-accent data-checked:bg-accent focus-visible:ring-focus-ring/50 flex aspect-square size-4 shrink-0 items-center justify-center rounded-full border outline-none transition-colors focus-visible:ring-4 disabled:cursor-not-allowed disabled:opacity-50",
+        "flex aspect-square size-5 shrink-0 items-center justify-center rounded-full border-2 border-md-on-surface-variant bg-transparent outline-none transition-all duration-350 ease-expressive-fast-spatial focus-visible:ring-4 focus-visible:ring-focus-ring/50 data-checked:border-accent disabled:cursor-not-allowed disabled:opacity-50",
         className,
       )}
       {...props}
     >
       <RadioGroupPrimitive.Indicator data-slot="radio-group-indicator" className="flex items-center justify-center">
-        <span className="bg-accent-foreground size-1.5 rounded-full" />
+        <span className="size-2.5 rounded-full bg-accent" />
       </RadioGroupPrimitive.Indicator>
     </RadioGroupPrimitive.Item>
   );

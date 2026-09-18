@@ -23,17 +23,17 @@ export function CharactersSection() {
       {characters.map((char) => (
         <div key={char.characterId} className="flex items-center gap-2">
           <Avatar size="sm" className="bg-default">
-            <AvatarFallback className="text-xs">{initialsOf(char.name)}</AvatarFallback>
+            <AvatarFallback className="text-label-medium">{initialsOf(char.name)}</AvatarFallback>
           </Avatar>
           <div className="min-w-0 flex-1">
-            <div className="truncate text-[13px] font-medium">{char.name}</div>
-            <div className="text-foreground-tertiary text-[10px]">{char.kind === "pc" ? "PC" : "NPC"}</div>
+            <div className="truncate text-label-large">{char.name}</div>
+            <div className="text-foreground-tertiary text-label-small">{char.kind === "pc" ? "PC" : "NPC"}</div>
           </div>
           <Select
             value={char.currentExpressionKey ?? char.portraits.find((item) => item.isDefault)?.expressionKey ?? "default"}
             onValueChange={(value) => sendSessionCommand("expression:set", { characterId: char.characterId, expressionKey: value })}
           >
-            <SelectTrigger className="h-[26px] w-[88px] px-2 text-[11px]">
+            <SelectTrigger className="h-[26px] w-[88px] px-2 text-label-small">
               <SelectValue />
               <ChevronDown className="size-3" />
             </SelectTrigger>
@@ -94,17 +94,17 @@ export function AudioSection() {
     <div className="border-separator flex flex-col gap-2.5 border-t px-4 py-3">
       <SectionTitle icon={AudioLines}>音频 · GM 全局控制</SectionTitle>
       {bgmTracks.map((track) => (
-        <Button key={track.id} type="button" variant={track.id === bgm?.trackId ? "accentSoft" : "ghost"} className="h-7 justify-start px-2 text-xs" onClick={() => sendBgm("play", { trackId: track.id })}>
+        <Button key={track.id} type="button" variant={track.id === bgm?.trackId ? "accentSoft" : "ghost"} className="h-7 justify-start px-2" onClick={() => sendBgm("play", { trackId: track.id })}>
           {track.name}
         </Button>
       ))}
-      <div className="bg-surface flex items-center gap-2 rounded-xl border px-2.5 py-2.5">
-        <Button type="button" variant="primaryGradient" size="icon-sm" className="size-7" aria-label={bgm?.playing ? "暂停" : "播放"} onClick={() => (bgm?.playing ? sendBgm("pause") : sendBgm("play", { trackId: bgm?.trackId ?? bgmTracks[0]?.id }))}>
+      <div className="bg-surface flex items-center gap-2 rounded-md border px-2.5 py-2.5">
+        <Button type="button" variant="primary" size="icon-sm" className="size-7" aria-label={bgm?.playing ? "暂停" : "播放"} onClick={() => (bgm?.playing ? sendBgm("pause") : sendBgm("play", { trackId: bgm?.trackId ?? bgmTracks[0]?.id }))}>
           {bgm?.playing ? <Pause className="size-[13px]" /> : <Play className="size-[13px]" />}
         </Button>
         <div className="min-w-0 flex-1">
-          <div className="truncate text-xs font-semibold">{current?.name ?? bgm?.name ?? "未选择曲目"}</div>
-          <div className="text-foreground-tertiary text-[10px]">{bgm?.loop ? "循环" : "单曲"} · v{bgm?.version ?? 0}</div>
+          <div className="truncate text-label-medium-emph">{current?.name ?? bgm?.name ?? "未选择曲目"}</div>
+          <div className="text-foreground-tertiary text-label-small">{bgm?.loop ? "循环" : "单曲"} · v{bgm?.version ?? 0}</div>
         </div>
         <Button variant="ghost" size="icon-sm" aria-label="循环" onClick={() => sendBgm("loop", { loop: !bgm?.loop })}><Repeat /></Button>
         <Button variant="ghost" size="icon-sm" aria-label="下一首" onClick={() => {
@@ -115,7 +115,7 @@ export function AudioSection() {
       </div>
       {durationMs > 0 ? (
         <div className="flex items-center gap-2.5">
-          <span className="text-foreground-tertiary font-chip w-10 text-[10px] tabular-nums">{formatDurationMmSs(displayPosition)}</span>
+          <span className="text-foreground-tertiary w-10 text-label-small tabular-nums">{formatDurationMmSs(displayPosition)}</span>
           <Slider
             value={[displayPosition]}
             min={0}
@@ -130,18 +130,18 @@ export function AudioSection() {
               sendSessionCommand("audio:bgm", { action: "seek", seekOffsetMs, expectedVersion: bgm?.version ?? 0 });
             }}
           />
-          <span className="text-foreground-tertiary font-chip w-10 text-[10px] tabular-nums">{formatDurationMmSs(durationMs)}</span>
+          <span className="text-foreground-tertiary w-10 text-label-small tabular-nums">{formatDurationMmSs(durationMs)}</span>
         </div>
       ) : null}
       <div className="flex items-center gap-2.5">
         <Volume2 className="size-[13px]" />
         <Slider value={[bgm?.volume ?? 0]} size="sm" aria-label="音量" className="flex-1" onValueChange={(value) => sendBgm("volume", { volume: value[0] ?? 0 })} />
-        <Button type="button" variant="tertiary" size="sm" className="h-6 px-2 text-[11px]" onClick={() => sendBgm("volume", { volume: 80, transitionMs: 2500 })}>淡入</Button>
-        <Button type="button" variant="tertiary" size="sm" className="h-6 px-2 text-[11px]" onClick={() => sendBgm("volume", { volume: 0, transitionMs: 2500 })}>淡出</Button>
+        <Button type="button" variant="tertiary" size="sm" className="h-6 px-2" onClick={() => sendBgm("volume", { volume: 80, transitionMs: 2500 })}>淡入</Button>
+        <Button type="button" variant="tertiary" size="sm" className="h-6 px-2" onClick={() => sendBgm("volume", { volume: 0, transitionMs: 2500 })}>淡出</Button>
       </div>
       <div className="flex flex-wrap gap-1.5">
         {soundEffects.map((se) => (
-          <Button key={se.id} type="button" variant="outline" size="sm" className="h-[26px] px-2.5 text-[11px]" onClick={() => sendSessionCommand("audio:se", { trackId: se.id })}>
+          <Button key={se.id} type="button" variant="outline" size="sm" className="h-[26px] px-2.5" onClick={() => sendSessionCommand("audio:se", { trackId: se.id })}>
             <Zap className="text-warning size-[11px]" />
             {se.name}
           </Button>
@@ -176,7 +176,7 @@ export function RulesSection() {
     <div className="border-separator flex flex-col gap-2.5 border-t px-4 py-3">
       <SectionTitle icon={Zap}>规则 · 状态 / 鉴定 / SAN</SectionTitle>
       <Select value={selected} onValueChange={setCharacterId}>
-        <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="选择角色" /></SelectTrigger>
+        <SelectTrigger className="h-8 text-label-medium"><SelectValue placeholder="选择角色" /></SelectTrigger>
         <SelectContent>
           {characters.map((character) => (
             <SelectItem key={character.characterId} value={character.characterId}>{character.name}</SelectItem>
@@ -184,18 +184,18 @@ export function RulesSection() {
         </SelectContent>
       </Select>
       {state ? (
-        <p className="text-foreground-tertiary text-[11px]">
+        <p className="text-foreground-tertiary text-label-small">
           HP {state.hp}/{state.maxHp} · MP {state.mp}/{state.maxMp} · SAN {state.san}/{state.maxSan}
         </p>
       ) : null}
       <div className="flex gap-1.5">
-        <Input value={delta} onChange={(event) => setDelta(event.target.value)} aria-label="数值增减" className="h-8 text-xs" />
+        <Input value={delta} onChange={(event) => setDelta(event.target.value)} aria-label="数值增减" className="h-8 text-label-medium" />
         <Button type="button" size="sm" variant="tertiary" className="h-8" onClick={() => sendSessionCommand("state:edit", { characterId: selected, hpDelta: Number(delta) || 0 })}>HP</Button>
         <Button type="button" size="sm" variant="tertiary" className="h-8" onClick={() => sendSessionCommand("state:edit", { characterId: selected, mpDelta: Number(delta) || 0 })}>MP</Button>
         <Button type="button" size="sm" variant="tertiary" className="h-8" onClick={() => sendSessionCommand("state:edit", { characterId: selected, sanDelta: Number(delta) || 0 })}>SAN</Button>
       </div>
       <div className="flex flex-wrap gap-1.5">
-        <Input value={maxValue} onChange={(event) => setMaxValue(event.target.value)} aria-label="写入数值" className="h-8 w-16 text-xs" />
+        <Input value={maxValue} onChange={(event) => setMaxValue(event.target.value)} aria-label="写入数值" className="h-8 w-16 text-label-medium" />
         <Button type="button" size="sm" variant="tertiary" className="h-8" onClick={() => sendSessionCommand("state:edit", { characterId: selected, hp: Math.max(0, Number(maxValue) || 0) })}>写HP</Button>
         <Button type="button" size="sm" variant="tertiary" className="h-8" onClick={() => sendSessionCommand("state:edit", { characterId: selected, mp: Math.max(0, Number(maxValue) || 0) })}>写MP</Button>
         <Button type="button" size="sm" variant="tertiary" className="h-8" onClick={() => sendSessionCommand("state:edit", { characterId: selected, san: Math.max(0, Number(maxValue) || 0) })}>写SAN</Button>
@@ -212,7 +212,7 @@ export function RulesSection() {
               type="button"
               size="sm"
               variant={on ? "dangerSoft" : "tertiary"}
-              className="h-6 px-2 text-[11px]"
+              className="h-6 px-2"
               onClick={() => sendSessionCommand("state:edit", on ? { characterId: selected, removeStatuses: [flag] } : { characterId: selected, addStatuses: [flag] })}
             >
               {label}
@@ -221,7 +221,7 @@ export function RulesSection() {
         })}
       </div>
       <div className="flex gap-1.5">
-        <Input value={tag} onChange={(event) => setTag(event.target.value)} placeholder="自定义标签" className="h-8 text-xs" />
+        <Input value={tag} onChange={(event) => setTag(event.target.value)} placeholder="自定义标签" className="h-8 text-label-medium" />
         <Button type="button" size="sm" variant="tertiary" className="h-8" onClick={() => {
           if (!tag.trim()) return;
           sendSessionCommand("state:edit", { characterId: selected, addTags: [tag.trim()] });
@@ -236,7 +236,7 @@ export function RulesSection() {
               type="button"
               size="sm"
               variant="ghost"
-              className="h-6 px-2 text-[11px]"
+              className="h-6 px-2"
               onClick={() => sendSessionCommand("state:edit", { characterId: selected, removeTags: [item] })}
             >
               {item} ×
@@ -245,11 +245,11 @@ export function RulesSection() {
         </div>
       ) : null}
       {state && state.growthMarks.length > 0 ? (
-        <p className="text-foreground-tertiary text-[11px]">成长：{state.growthMarks.join("、")}</p>
+        <p className="text-foreground-tertiary text-label-small">成长：{state.growthMarks.join("、")}</p>
       ) : null}
       <div className="flex gap-1.5">
         <Select value={skillKey} onValueChange={setSkillKey}>
-          <SelectTrigger className="h-8 flex-1 text-xs"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="h-8 flex-1 text-label-medium"><SelectValue /></SelectTrigger>
           <SelectContent>
             {skills.map((skill) => (
               <SelectItem key={skill} value={skill}>{ATTR_LABELS[skill]?.label ?? skill}</SelectItem>
@@ -257,7 +257,7 @@ export function RulesSection() {
           </SelectContent>
         </Select>
         <Select value={difficulty} onValueChange={(value) => setDifficulty(value as typeof difficulty)}>
-          <SelectTrigger className="h-8 w-[84px] text-xs"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="h-8 w-[84px] text-label-medium"><SelectValue /></SelectTrigger>
           <SelectContent>
             {(["regular", "hard", "extreme"] as const).map((item) => (
               <SelectItem key={item} value={item}>{coc7e.CheckDifficultyLabel[item]}</SelectItem>
@@ -266,16 +266,16 @@ export function RulesSection() {
         </Select>
       </div>
       <div className="flex gap-1.5">
-        <Button type="button" size="sm" variant={bonusDice ? "accentSoft" : "tertiary"} className="h-7 text-[11px]" onClick={() => setBonusDice((n) => (n + 1) % 3)}>奖励 {bonusDice}</Button>
-        <Button type="button" size="sm" variant={penaltyDice ? "dangerSoft" : "tertiary"} className="h-7 text-[11px]" onClick={() => setPenaltyDice((n) => (n + 1) % 3)}>惩罚 {penaltyDice}</Button>
-        <Button type="button" size="sm" variant={hidden ? "dangerSoft" : "tertiary"} className="h-7 text-[11px]" onClick={() => setHidden((value) => !value)}>{hidden ? "暗骰" : "公开"}</Button>
+        <Button type="button" size="sm" variant={bonusDice ? "accentSoft" : "tertiary"} className="h-7" onClick={() => setBonusDice((n) => (n + 1) % 3)}>奖励 {bonusDice}</Button>
+        <Button type="button" size="sm" variant={penaltyDice ? "dangerSoft" : "tertiary"} className="h-7" onClick={() => setPenaltyDice((n) => (n + 1) % 3)}>惩罚 {penaltyDice}</Button>
+        <Button type="button" size="sm" variant={hidden ? "dangerSoft" : "tertiary"} className="h-7" onClick={() => setHidden((value) => !value)}>{hidden ? "暗骰" : "公开"}</Button>
       </div>
       <div className="flex gap-1.5">
         <Button type="button" size="sm" variant="tertiary" className="h-8" onClick={() => sendSessionCommand("check:perform", checkPayload())}>鉴定</Button>
         <Button type="button" size="sm" variant="tertiary" className="h-8" onClick={() => sendSessionCommand("check:request", checkPayload())}>请求</Button>
       </div>
       <div className="flex gap-1.5">
-        <Input value={sanLoss} onChange={(event) => setSanLoss(event.target.value)} aria-label="SAN 损失" className="h-8 text-xs" />
+        <Input value={sanLoss} onChange={(event) => setSanLoss(event.target.value)} aria-label="SAN 损失" className="h-8 text-label-medium" />
         <Button type="button" size="sm" variant="tertiary" className="h-8" onClick={() => sendSessionCommand("check:san", { characterId: selected, sanLossExpression: sanLoss, ...(hidden ? { hidden: true } : {}) })}>SAN 检定</Button>
       </div>
     </div>
@@ -308,7 +308,7 @@ export function HandoutSection() {
             type="button"
             size="sm"
             variant={secretIds.includes(character.characterId) ? "accentSoft" : "tertiary"}
-            className="h-6 px-2 text-[11px]"
+            className="h-6 px-2"
             onClick={() => toggleSecret(character.characterId)}
           >
             {character.name}
@@ -317,12 +317,12 @@ export function HandoutSection() {
       </div>
       {handouts.map((handout) => (
         <div key={handout.id} className="flex items-center gap-1.5">
-          <span className="min-w-0 flex-1 truncate text-xs font-medium">{handout.title}</span>
+          <span className="min-w-0 flex-1 truncate text-label-medium">{handout.title}</span>
           <Button
             type="button"
             size="sm"
             variant="tertiary"
-            className="h-7 text-[11px]"
+            className="h-7"
             onClick={() => sendSessionCommand("handout:grant", { handoutId: handout.id, recipientCharacterIds: [] })}
           >
             公开
@@ -331,7 +331,7 @@ export function HandoutSection() {
             type="button"
             size="sm"
             variant="tertiary"
-            className="h-7 text-[11px]"
+            className="h-7"
             onClick={() => {
               const recipientCharacterIds = secretTargets();
               if (recipientCharacterIds.length === 0) {
@@ -346,7 +346,7 @@ export function HandoutSection() {
         </div>
       ))}
       {granted.map((item) => (
-        <div key={item.grantId} className="text-foreground-tertiary flex items-center gap-1.5 text-[11px]">
+        <div key={item.grantId} className="text-foreground-tertiary flex items-center gap-1.5 text-label-small">
           <span className="min-w-0 flex-1 truncate">{item.handout.title}</span>
           <Badge variant="soft" size="sm">{item.isPublic ? "公开" : "秘密"}</Badge>
           {!item.isPublic ? (
@@ -354,7 +354,7 @@ export function HandoutSection() {
               type="button"
               size="sm"
               variant="ghost"
-              className="h-6 px-2 text-[11px]"
+              className="h-6 px-2"
               onClick={() => {
                 const recipientCharacterIds = secretTargets();
                 if (recipientCharacterIds.length === 0) {
@@ -391,8 +391,8 @@ export function OnlineSection() {
             <div key={player.playerId} className="flex items-center gap-2">
               <span className="bg-success size-[7px] shrink-0 rounded-full" />
               <div className="flex min-w-0 flex-1 flex-col">
-                <span className="text-foreground truncate font-sans text-[13px] font-medium">{name}</span>
-                <span className="text-foreground-tertiary font-mono text-[10px]">{player.playerId.slice(0, 8)}</span>
+                <span className="text-foreground truncate font-sans text-label-large">{name}</span>
+                <span className="text-foreground-tertiary font-mono text-label-small">{player.playerId.slice(0, 8)}</span>
               </div>
               <Badge variant="soft" tone="accent" size="sm" className="shrink-0">
                 {player.role === "ob" ? "OB" : "PC"}

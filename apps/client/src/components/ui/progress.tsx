@@ -7,12 +7,12 @@ function Progress({ className, value, ...props }: React.ComponentProps<typeof Pr
   return (
     <ProgressPrimitive.Root
       data-slot="progress"
-      className={cn("bg-default relative flex h-1.5 w-full items-center overflow-hidden rounded-full", className)}
+      className={cn("relative flex h-1.5 w-full items-center overflow-hidden rounded-full bg-surface-tertiary", className)}
       {...props}
     >
       <ProgressPrimitive.Indicator
         data-slot="progress-indicator"
-        className="bg-accent size-full flex-1 transition-transform"
+        className="size-full flex-1 rounded-full bg-accent transition-transform duration-500 ease-expressive-default-spatial"
         style={{ transform: `translateX(-${100 - (value || 0)}%)` }}
       />
     </ProgressPrimitive.Root>

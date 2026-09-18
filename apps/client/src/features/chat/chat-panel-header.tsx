@@ -31,7 +31,7 @@ function ChatPanelHeader({
         compact ? "border-separator h-10 border-b px-3" : "h-[52px] px-4",
       )}
     >
-      <h2 className={cn("text-foreground font-sans font-semibold", compact ? "text-[13px]" : "text-[15px]")}>文字频道</h2>
+      <h2 className={cn("text-foreground font-sans", compact ? "text-title-small" : "text-title-medium")}>文字频道</h2>
       <div className="flex items-center gap-1">
         <Button variant="ghost" size="icon-sm" aria-label="人物卡" onClick={() => setSheetOpen(true)}>
           <VenetianMask />
@@ -61,7 +61,7 @@ function ChatPanelHeader({
         ) : null}
       </div>
       {presenceOpen ? (
-        <div className="border-separator bg-surface absolute top-full right-3 z-20 mt-1 w-56 rounded-xl border p-3 text-xs">
+        <div className="border-separator bg-surface absolute top-full right-3 z-20 mt-1 w-56 rounded-md border p-3 text-body-small">
           {presence.length === 0 ? "暂无在线列表" : presence.map((player) => {
             const claimed = characters.find((character) => character.characterId === player.characterId);
             return (

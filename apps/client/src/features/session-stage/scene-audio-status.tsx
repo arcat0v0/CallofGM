@@ -27,7 +27,7 @@ function SceneAudioStatus({
       )}
     >
       <Music2 className={cn("shrink-0 text-accent-hover", compact ? "size-3.5" : "size-[15px]")} />
-      <span className={cn("text-foreground min-w-0 flex-1 truncate font-sans", compact ? "text-[11px]" : "text-xs")}>
+      <span className={cn("text-foreground min-w-0 flex-1 truncate font-sans", compact ? "text-label-small" : "text-label-medium")}>
         {trackName}
       </span>
       {!compact ? (

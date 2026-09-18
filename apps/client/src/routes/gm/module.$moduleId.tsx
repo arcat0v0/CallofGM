@@ -37,7 +37,7 @@ function SceneCard({ scene, onReload }: { scene: SceneDto; onReload: () => Promi
   }, [scene.name]);
 
   return (
-    <Card className="border-separator gap-0 overflow-hidden rounded-[14px] border p-0">
+    <Card className="border-separator gap-0 overflow-hidden border p-0">
       <div className="relative h-[150px]">
         {scene.bgAssetId ? (
           <img src={mediaUrl(scene.bgAssetId) ?? undefined} alt={scene.name} className="absolute inset-0 size-full object-cover" />
@@ -94,7 +94,7 @@ function TrackRowItem({ track, onReload }: { track: TrackDto; onReload: () => Pr
   }, [track.name]);
 
   return (
-    <div className="flex items-center gap-2 rounded-lg border px-3 py-2">
+    <div className="flex items-center gap-2 rounded-sm border px-3 py-2">
       <Input
         value={name}
         onChange={(event) => setName(event.target.value)}
@@ -272,11 +272,11 @@ function ModuleDetailPage() {
           }
           eyebrow={
             <div className="flex items-center gap-1.5">
-              <Link to="/gm/modules" className="text-foreground-tertiary text-xs">
+              <Link to="/gm/modules" className="text-foreground-tertiary text-body-small">
                 模组管理
               </Link>
               <ChevronRight className="text-foreground-tertiary size-[13px]" />
-              <span className="text-foreground-secondary text-xs font-semibold">{module?.name ?? ""}</span>
+              <span className="text-foreground-secondary text-body-small-emph">{module?.name ?? ""}</span>
             </div>
           }
           description={module?.description || " "}
@@ -297,7 +297,7 @@ function ModuleDetailPage() {
           />
           <Button
             type="button"
-            variant="primaryGradient"
+            variant="primary"
             className="self-start"
             disabled={!moduleName.trim() || moduleUnchanged}
             onClick={() => void saveModule()}
@@ -338,7 +338,7 @@ function ModuleDetailPage() {
             >
               <Input value={sceneName} onChange={(event) => setSceneName(event.target.value)} placeholder="场景名" className="max-w-60" />
               <Input name="bg" type="file" accept="image/*" aria-label="场景背景图" className="max-w-60" />
-              <Button type="submit" variant="primaryGradient">
+              <Button type="submit" variant="primary">
                 <ImagePlus />
                 新建场景
               </Button>
@@ -355,14 +355,14 @@ function ModuleDetailPage() {
               {allCharacters.map((character) => {
                 const isLinked = linked.some((item) => item.id === character.id);
                 return (
-                  <div key={character.id} className="flex items-center gap-2 rounded-lg border px-3 py-2">
-                    <span className="flex-1 text-sm">{character.name}</span>
+                  <div key={character.id} className="flex items-center gap-2 rounded-sm border px-3 py-2">
+                    <span className="flex-1 text-body-medium">{character.name}</span>
                     <Badge variant="soft" size="sm">
                       {character.kind.toUpperCase()}
                     </Badge>
                     <Button
                       size="sm"
-                      variant={isLinked ? "tertiary" : "primaryGradient"}
+                      variant={isLinked ? "tertiary" : "primary"}
                       className="h-7"
                       onClick={() => {
                         void (isLinked
@@ -418,14 +418,14 @@ function ModuleDetailPage() {
               <select
                 value={trackType}
                 onChange={(event) => setTrackType(event.target.value as "bgm" | "se")}
-                className="border-separator bg-background h-9 rounded-xl border px-3 text-sm"
+                className="border-separator bg-background h-9 rounded-md border px-3 text-label-large"
                 aria-label="音频类型"
               >
                 <option value="bgm">BGM</option>
                 <option value="se">SE</option>
               </select>
               <Input name="audio" type="file" accept="audio/*" aria-label="音频文件" className="max-w-60" />
-              <Button type="submit" variant="primaryGradient">
+              <Button type="submit" variant="primary">
                 <Upload />
                 上传
               </Button>
@@ -462,7 +462,7 @@ function ModuleDetailPage() {
               <Input value={handoutTitle} onChange={(event) => setHandoutTitle(event.target.value)} placeholder="情报标题" required />
               <Textarea value={handoutContent} onChange={(event) => setHandoutContent(event.target.value)} placeholder="情报内容" />
               <Input name="image" type="file" accept="image/*" aria-label="情报图片" className="max-w-60" />
-              <Button type="submit" variant="primaryGradient" className="w-fit">
+              <Button type="submit" variant="primary" className="w-fit">
                 <Plus />
                 新建情报
               </Button>

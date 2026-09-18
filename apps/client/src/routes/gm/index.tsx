@@ -89,7 +89,7 @@ function GmDashboardPage() {
               <FileSpreadsheet />
               导入人物卡 Excel
             </Button>
-            <Button variant="primaryGradient" size="md" onClick={() => setCreateOpen(true)}>
+            <Button variant="primary" size="md" onClick={() => setCreateOpen(true)}>
               <Plus />
               新建团
             </Button>
@@ -119,8 +119,8 @@ function GmDashboardPage() {
           <TableBody>
             {sessions.map((session) => (
               <TableRow key={session.id}>
-                <TableCell className="truncate text-[13px] font-semibold">{session.id}</TableCell>
-                <TableCell className="text-foreground-secondary text-[13px]">{moduleName(session.moduleId)}</TableCell>
+                <TableCell className="truncate text-label-large-emph">{session.id}</TableCell>
+                <TableCell className="text-foreground-secondary text-body-medium">{moduleName(session.moduleId)}</TableCell>
                 <TableCell>
                   <Badge variant="soft" tone={statusTone(session.status)} size="sm">
                     {SessionStatusLabel[session.status]}
@@ -132,11 +132,11 @@ function GmDashboardPage() {
                     {SessionPhaseLabel[session.phase]}
                   </Badge>
                 ) : (
-                  <span className="text-foreground-tertiary font-chip text-[13px]">—</span>
+                  <span className="text-foreground-tertiary text-label-large">—</span>
                 )}
                 </TableCell>
-                <TableCell className="text-foreground-secondary text-xs">{session.id.slice(0, 8)}</TableCell>
-                <TableCell className="text-foreground-tertiary font-chip text-xs">{formatClock(session.createdAt)}</TableCell>
+                <TableCell className="text-foreground-secondary text-body-small">{session.id.slice(0, 8)}</TableCell>
+                <TableCell className="text-foreground-tertiary text-body-small">{formatClock(session.createdAt)}</TableCell>
                 <TableCell>
                   <div className="flex items-center gap-1.5">
                     {session.status !== "ended" && session.status !== "active" ? (
@@ -144,7 +144,7 @@ function GmDashboardPage() {
                         type="button"
                         variant="tertiary"
                         size="sm"
-                        className="h-7 px-3 text-xs font-semibold"
+                        className="h-7 px-3"
                         onClick={() => {
                           const next = session.status === "waiting" ? "preparing" : "active";
                           void patchStatus(session.id, next);
@@ -156,9 +156,9 @@ function GmDashboardPage() {
                     <Button
                       asChild
                       type="button"
-                      variant={session.status === "active" ? "primaryGradient" : "tertiary"}
+                      variant={session.status === "active" ? "primary" : "tertiary"}
                       size="sm"
-                      className="h-7 px-3 text-xs font-semibold"
+                      className="h-7 px-3"
                     >
                       <Link to="/gm/session/$sessionId" params={{ sessionId: session.id }}>
                         {session.status === "ended" ? "查看" : "进入控制台"}
@@ -198,7 +198,7 @@ function GmDashboardPage() {
         </Table>
 
         <div className="flex items-center justify-between pt-1.5">
-          <h2 className="text-foreground font-serif text-[17px] font-bold">模组资源</h2>
+          <h2 className="text-foreground font-serif text-title-medium-emph">模组资源</h2>
           <Button asChild variant="ghost" size="sm" className="text-foreground-secondary">
             <Link to="/gm/modules">
               全部模组
@@ -211,21 +211,21 @@ function GmDashboardPage() {
           {modules.map((module) => (
             <Card
               key={module.id}
-              className="border-separator flex-1 gap-0 overflow-hidden rounded-[14px] border p-0"
+              className="border-separator flex-1 gap-0 overflow-hidden border p-0"
             >
               <div className="bg-default h-[118px] w-full" />
               <div className="flex flex-col gap-2 p-3.5">
                 <div className="flex items-center justify-between">
-                  <span className="text-foreground text-sm font-semibold">{module.name}</span>
+                  <span className="text-foreground text-body-medium-emph">{module.name}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-foreground-tertiary truncate text-[11px]">{module.description || module.ruleId}</span>
+                  <span className="text-foreground-tertiary truncate text-label-small">{module.description || module.ruleId}</span>
                   <Button
                     asChild
                     type="button"
                     variant="accentSoft"
                     size="sm"
-                    className="h-[26px] px-3 text-[11px] font-semibold"
+                    className="h-[26px] px-3"
                   >
                     <Link to="/gm/module/$moduleId" params={{ moduleId: module.id }}>
                       管理

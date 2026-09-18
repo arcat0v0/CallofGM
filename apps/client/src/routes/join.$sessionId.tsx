@@ -82,7 +82,7 @@ function SeatCard({
       role="radio"
       aria-checked={selected}
       className={cn(
-        "bg-surface h-auto w-54 flex-col gap-2.5 rounded-2xl px-4 py-6 text-center whitespace-normal",
+        "bg-surface h-auto w-54 flex-col gap-2.5 rounded-lg px-4 py-6 text-center whitespace-normal",
         claimed
           ? "cursor-not-allowed border border-separator-secondary opacity-60"
           : "cursor-pointer hover:bg-surface",
@@ -103,7 +103,7 @@ function SeatCard({
         {seat.initial ? (
           <span
             className={cn(
-              "font-serif text-xl font-bold",
+              "font-serif text-title-large-emph",
               selected && !claimed ? "text-accent-foreground" : "text-foreground",
             )}
           >
@@ -118,8 +118,8 @@ function SeatCard({
           />
         )}
       </span>
-      <span className="text-[15px] font-semibold text-foreground">{seat.name}</span>
-      <span className="text-xs text-foreground-tertiary">{seat.detail}</span>
+      <span className="text-body-large-emph text-foreground">{seat.name}</span>
+      <span className="text-body-small text-foreground-tertiary">{seat.detail}</span>
       <SeatStatus seat={seat} selected={selected && !claimed} />
     </Button>
   );
@@ -205,15 +205,15 @@ function JoinPage() {
         <Badge variant="soft" tone="default" size="sm">
           {status ? SessionStatusLabel[status] : "加载中"}
         </Badge>
-        <h1 className="font-serif text-[26px] font-bold text-foreground">选择你的位置</h1>
-        <p className="text-[13px] text-foreground-secondary">
+        <h1 className="font-serif text-headline-medium-emph text-foreground">选择你的位置</h1>
+        <p className="text-body-medium text-foreground-secondary">
           选择你的位置 · 已认领的角色不可重复选择
         </p>
       </div>
 
       <div className="flex flex-wrap justify-center gap-4" role="radiogroup" aria-label="选择玩家位置">
         {loading ? (
-          <p className="text-foreground-tertiary text-sm">正在加载座位…</p>
+          <p className="text-foreground-tertiary text-body-medium">正在加载座位…</p>
         ) : (
           seats.map((seat) => (
             <SeatCard
@@ -231,14 +231,13 @@ function JoinPage() {
           type="button"
           disabled={!selectedSeat || joining}
           onClick={() => void handleJoin()}
-          variant="primaryGradient"
+          variant="primary"
           size="lg"
-          className="h-[46px] rounded-xl px-8 text-sm font-semibold"
         >
           <LogIn className="size-4" />
           {selectedSeat ? `以「${selectedSeat.name}」进入` : "请选择一个位置"}
         </Button>
-        <p className="text-[11px] text-foreground-tertiary">进入后将自动同步 GM 控制的 BGM 播放</p>
+        <p className="text-label-small text-foreground-tertiary">进入后将自动同步 GM 控制的 BGM 播放</p>
       </div>
     </main>
   );

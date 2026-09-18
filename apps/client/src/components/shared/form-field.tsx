@@ -11,13 +11,9 @@ type FormFieldProps = React.ComponentProps<"div"> & {
 function FormField({ label, htmlFor, description, className, children, ...props }: FormFieldProps) {
   return (
     <div className={cn("flex flex-col gap-1.5", className)} {...props}>
-      <Label htmlFor={htmlFor} className="text-[13px] font-semibold">
-        {label}
-      </Label>
+      <Label htmlFor={htmlFor}>{label}</Label>
       {children}
-      {description ? (
-        <p className="text-foreground-tertiary text-[11px] leading-relaxed">{description}</p>
-      ) : null}
+      {description ? <p className="text-body-small text-foreground-tertiary">{description}</p> : null}
     </div>
   );
 }

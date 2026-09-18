@@ -34,7 +34,7 @@ function InputOTPSlot({ index, className, ...props }: React.ComponentProps<"div"
       data-slot="input-otp-slot"
       data-active={isActive}
       className={cn(
-        "border-field-border bg-field text-field-foreground data-[active=true]:border-field-border-focus relative flex size-10 items-center justify-center rounded-xl border font-sans text-sm outline-none",
+        "relative flex size-10 items-center justify-center rounded-sm border-2 border-separator bg-field font-sans text-body-large text-field-foreground outline-none transition-all duration-150 ease-expressive-fast-effects data-[active=true]:border-field-border-focus",
         className,
       )}
       {...props}
@@ -42,7 +42,7 @@ function InputOTPSlot({ index, className, ...props }: React.ComponentProps<"div"
       {char}
       {hasFakeCaret && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <div className="bg-foreground h-4 w-px animate-caret-blink duration-1000" />
+          <div className="h-4 w-px animate-caret-blink bg-foreground duration-1000" />
         </div>
       )}
     </div>
@@ -52,7 +52,7 @@ function InputOTPSlot({ index, className, ...props }: React.ComponentProps<"div"
 function InputOTPSeparator({ ...props }: React.ComponentProps<"div">) {
   return (
     <div data-slot="input-otp-separator" role="separator" {...props}>
-      <div className="bg-separator h-0.5 w-1.5 rounded-full" />
+      <div className="h-0.5 w-1.5 rounded-full bg-separator" />
     </div>
   );
 }

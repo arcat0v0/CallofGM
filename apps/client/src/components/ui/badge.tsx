@@ -35,13 +35,13 @@ const toneClasses = {
 } as const;
 
 const badgeVariants = cva(
-  "inline-flex w-fit shrink-0 items-center justify-center gap-0.5 rounded-2xl font-chip font-medium whitespace-nowrap",
+  "inline-flex w-fit shrink-0 items-center justify-center gap-1 rounded-full font-sans whitespace-nowrap",
   {
     variants: {
       size: {
-        sm: "px-1 py-0.5 text-[11px]",
-        md: "px-2 py-0.5 text-xs",
-        lg: "px-3 py-1 text-sm",
+        sm: "px-1.5 py-0.5 text-label-small",
+        md: "px-2.5 py-0.5 text-label-medium",
+        lg: "px-3 py-1 text-label-large",
       },
     },
     defaultVariants: {

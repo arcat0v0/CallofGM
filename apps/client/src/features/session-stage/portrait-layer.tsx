@@ -8,7 +8,7 @@ function Bar({ label, current, max, className }: { label: string; current: numbe
   const ratio = max > 0 ? Math.max(0, Math.min(100, (current / max) * 100)) : 0;
   return (
     <div className="flex flex-col gap-0.5">
-      <div className="flex justify-between text-[10px] text-white/80">
+      <div className="flex justify-between text-label-small text-white/80">
         <span>{label}</span>
         <span>{current}/{max}</span>
       </div>
@@ -45,25 +45,25 @@ function PortraitLayer({ className, compact = false }: { className?: string; com
                 className={cn("w-auto object-contain drop-shadow-lg", compact ? "h-[18vh] max-h-[140px]" : "h-[48vh] max-h-[520px]")}
               />
             ) : (
-              <div className={cn("bg-stage-panel text-foreground flex items-center justify-center rounded-xl", compact ? "h-20 w-14 text-sm" : "h-40 w-28 text-lg")}>
+              <div className={cn("bg-stage-panel text-foreground flex items-center justify-center rounded-md", compact ? "h-20 w-14 text-body-medium" : "h-40 w-28 text-title-medium")}>
                 {character.name.slice(-1)}
               </div>
             )}
-            <div className={cn("bg-stage-panel/90 rounded-xl px-2.5 py-2 backdrop-blur", compact ? "w-28" : "w-40")}>
-              <div className="text-center text-xs font-semibold text-white">{character.name}</div>
+            <div className={cn("bg-stage-panel/90 rounded-md px-2.5 py-2 backdrop-blur", compact ? "w-28" : "w-40")}>
+              <div className="text-center text-label-medium text-white">{character.name}</div>
               {state ? (
                 <div className="mt-1.5 flex flex-col gap-1">
                   <Bar label="HP" current={state.hp} max={state.maxHp} className="bg-danger" />
                   <Bar label="MP" current={state.mp} max={state.maxMp} className="bg-brand-sora" />
                   <Bar label="SAN" current={state.san} max={state.maxSan} className="bg-brand-fuji" />
                   {state.statuses.length > 0 ? (
-                    <div className="text-warning text-[10px]">
+                    <div className="text-warning text-label-small">
                       {state.statuses.map((flag) => coc7e.CharacterStatusFlagLabel[flag]).join(" ")}
                     </div>
                   ) : null}
                 </div>
               ) : character.kind === "npc" ? (
-                <div className="text-foreground-tertiary text-center text-[10px]">NPC</div>
+                <div className="text-foreground-tertiary text-center text-label-small">NPC</div>
               ) : null}
             </div>
           </div>

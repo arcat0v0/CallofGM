@@ -68,7 +68,7 @@ export function CharacterSheetPanel({
         </DialogHeader>
         {browseAll && options.length > 1 ? (
           <Select value={target?.characterId ?? ""} onValueChange={setSelectedId}>
-            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="选择人物" /></SelectTrigger>
+            <SelectTrigger className="h-8 text-label-medium"><SelectValue placeholder="选择人物" /></SelectTrigger>
             <SelectContent>
               {options.map((character) => (
                 <SelectItem key={character.characterId} value={character.characterId}>
@@ -79,11 +79,11 @@ export function CharacterSheetPanel({
           </Select>
         ) : null}
         {!target || !sheet ? (
-          <p className="text-foreground-tertiary text-sm">未认领 PC，或人物卡尚未同步。</p>
+          <p className="text-foreground-tertiary text-body-medium">未认领 PC，或人物卡尚未同步。</p>
         ) : (
           <div className="flex flex-col gap-3">
             {state ? (
-              <div className="grid grid-cols-3 gap-2 text-center text-xs">
+              <div className="grid grid-cols-3 gap-2 text-center text-label-medium">
                 <div>HP {state.hp}/{state.maxHp}</div>
                 <div>MP {state.mp}/{state.maxMp}</div>
                 <div>SAN {state.san}/{state.maxSan}</div>
@@ -91,7 +91,7 @@ export function CharacterSheetPanel({
             ) : null}
             <div className="grid grid-cols-2 gap-x-2 gap-y-1">
               {Object.entries(sheet.attributes).map(([key, value]) => (
-                <Button key={key} type="button" variant="ghost" className="h-7 justify-between px-2 text-sm" onClick={() => perform(key)}>
+                <Button key={key} type="button" variant="ghost" className="h-7 justify-between px-2 text-body-medium" onClick={() => perform(key)}>
                   <span>{ATTR_LABELS[key]?.label ?? key}</span>
                   <span>{value}</span>
                 </Button>
@@ -99,17 +99,17 @@ export function CharacterSheetPanel({
             </div>
             <div className="flex max-h-48 flex-col gap-1 overflow-y-auto">
               {skills.map(([key, value]) => (
-                <Button key={key} type="button" variant="ghost" className="h-7 justify-between px-2 text-sm" onClick={() => perform(key)}>
+                <Button key={key} type="button" variant="ghost" className="h-7 justify-between px-2 text-body-medium" onClick={() => perform(key)}>
                   <span>{key}</span>
                   <span>{value}</span>
                 </Button>
               ))}
             </div>
             {state && state.growthMarks.length > 0 ? (
-              <p className="text-foreground-tertiary text-[11px]">成长标记：{state.growthMarks.join("、")}</p>
+              <p className="text-foreground-tertiary text-label-small">成长标记：{state.growthMarks.join("、")}</p>
             ) : null}
             {state && state.statuses.length > 0 ? (
-              <p className="text-warning text-[11px]">
+              <p className="text-warning text-label-small">
                 {state.statuses.map((flag) => coc7e.CharacterStatusFlagLabel[flag]).join("、")}
               </p>
             ) : null}

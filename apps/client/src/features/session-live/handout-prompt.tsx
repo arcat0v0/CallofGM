@@ -41,8 +41,8 @@ export function HandoutPrompt({ handouts }: { handouts: GrantedHandoutDto[] }) {
           <DialogTitle>{newest.handout.title}</DialogTitle>
           <DialogDescription>{newest.isPublic ? "公开情报" : "秘密情报"}</DialogDescription>
         </DialogHeader>
-        {image ? <img src={image} alt="" className="max-h-64 w-full rounded-lg object-contain" /> : null}
-        <p className="text-foreground-secondary text-sm whitespace-pre-wrap">{newest.handout.content}</p>
+        {image ? <img src={image} alt="" className="max-h-64 w-full rounded-sm object-contain" /> : null}
+        <p className="text-foreground-secondary text-body-medium whitespace-pre-wrap">{newest.handout.content}</p>
         <Button type="button" variant="primary" onClick={dismiss}>
           收下
         </Button>

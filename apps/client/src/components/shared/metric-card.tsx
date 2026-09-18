@@ -22,20 +22,20 @@ function MetricCard({
 }: MetricCardProps) {
   return (
     <Card
-      className={cn("border-separator flex-1 flex-row items-center gap-3 rounded-[14px] border", className)}
+      className={cn("flex-1 flex-row items-center gap-3 rounded-lg border border-separator", className)}
       {...props}
     >
       <span
         className={cn(
-          "bg-default flex size-9 shrink-0 items-center justify-center rounded-[10px]",
+          "flex size-10 shrink-0 items-center justify-center rounded-md bg-default",
           iconContainerClassName,
         )}
       >
-        <Icon className={cn("size-[17px]", iconClassName)} />
+        <Icon className={cn("size-5", iconClassName)} />
       </span>
       <span className="flex min-w-0 flex-col gap-0.5">
-        <span className="text-foreground font-chip text-xl font-bold tabular-nums">{value}</span>
-        <span className="text-foreground-secondary text-[11px]">{label}</span>
+        <span className="font-sans text-headline-small-emph tabular-nums text-foreground">{value}</span>
+        <span className="text-label-small text-foreground-secondary">{label}</span>
       </span>
     </Card>
   );

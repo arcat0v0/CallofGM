@@ -122,7 +122,7 @@ function BlacklistPage() {
           description="基于浏览器指纹的尽力封禁 · HTTP 与 WS 握手时校验 · 指纹不保证绝对可靠"
           actions={
             <>
-              <InputGroup className="h-9 w-[220px] rounded-[10px] border-separator-secondary">
+              <InputGroup className="h-9 w-[220px] rounded-md border-separator-secondary">
                 <InputGroupAddon>
                   <Search />
                 </InputGroupAddon>
@@ -131,10 +131,10 @@ function BlacklistPage() {
                   onChange={(event) => setQuery(event.target.value)}
                   placeholder="搜索指纹 / 备注…"
                   aria-label="搜索黑名单"
-                  className="text-[13px]"
+                  className="text-label-large"
                 />
               </InputGroup>
-              <Button variant="dangerSoft" className="font-semibold" onClick={() => setBanOpen(true)}>
+              <Button variant="dangerSoft" onClick={() => setBanOpen(true)}>
                 <UserX />
                 手动拉黑
               </Button>
@@ -164,28 +164,28 @@ function BlacklistPage() {
               <TableRow key={entry.fingerprintHash}>
                 <TableCell>
                   <div className="flex items-center gap-2">
-                <span className="bg-default flex size-[26px] items-center justify-center rounded-[7px]">
+                <span className="bg-default flex size-[26px] items-center justify-center rounded-sm">
                   <ScanLine className="text-foreground-secondary size-3.5" />
                 </span>
-                <span className="text-foreground font-mono text-xs">{entry.fingerprint}</span>
+                <span className="text-foreground font-mono text-body-small">{entry.fingerprint}</span>
                   </div>
                 </TableCell>
-                <TableCell className="text-foreground-secondary truncate text-[13px]">{entry.note}</TableCell>
+                <TableCell className="text-foreground-secondary truncate text-body-medium">{entry.note}</TableCell>
                 <TableCell>
                   <Badge variant="soft" tone={entry.durationTone} size="sm" className="font-sans">
                     {entry.duration}
                   </Badge>
                 </TableCell>
-                <TableCell className={cn("text-xs", entry.remainingMuted ? "text-foreground-tertiary" : "text-foreground")}>
+                <TableCell className={cn("text-body-small", entry.remainingMuted ? "text-foreground-tertiary" : "text-foreground")}>
                   {entry.remaining}
                 </TableCell>
-                <TableCell className="text-foreground-tertiary font-mono text-xs">{entry.bannedAt}</TableCell>
+                <TableCell className="text-foreground-tertiary font-mono text-body-small">{entry.bannedAt}</TableCell>
                 <TableCell>
                   {entry.active ? (
                   <Button
                     variant="tertiary"
                     size="sm"
-                    className="h-7 rounded-full px-3 text-xs font-semibold"
+                    className="h-7 px-3"
                     onClick={() => setUnbanTarget(entry)}
                   >
                     解封
@@ -194,7 +194,7 @@ function BlacklistPage() {
                   <Button
                     variant="tertiary"
                     size="sm"
-                    className="h-7 rounded-full px-3 text-xs font-semibold"
+                    className="h-7 px-3"
                     onClick={() => setBanOpen(true)}
                   >
                     再次封禁

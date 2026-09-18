@@ -27,7 +27,7 @@ function MessageInput({
         <InputGroupInput
           placeholder={placeholder}
           aria-label={placeholder}
-          className="text-[13px]"
+          className="text-body-medium"
           value={value}
           onChange={(event) => onChange?.(event.target.value)}
           disabled={disabled}
@@ -35,11 +35,10 @@ function MessageInput({
       </InputGroup>
       <Button
         type="submit"
-        variant="primaryGradient"
-        size="icon-lg"
+        variant="primary"
+        size="icon-md"
         aria-label="发送消息"
         disabled={disabled}
-        className="rounded-full bg-linear-to-br"
       >
         <Send />
       </Button>

@@ -12,7 +12,7 @@ function AccordionItem({ className, ...props }: React.ComponentProps<typeof Acco
   return (
     <AccordionPrimitive.Item
       data-slot="accordion-item"
-      className={cn("border-separator border-b", className)}
+      className={cn("border-b border-separator", className)}
       {...props}
     />
   );
@@ -28,13 +28,13 @@ function AccordionTrigger({
       <AccordionPrimitive.Trigger
         data-slot="accordion-trigger"
         className={cn(
-          "group/accordion-trigger text-foreground flex flex-1 items-center justify-between gap-3 py-4 text-left font-sans text-sm font-medium outline-none",
+          "group/accordion-trigger flex flex-1 items-center justify-between gap-3 py-4 text-left font-sans text-title-small text-foreground outline-none",
           className,
         )}
         {...props}
       >
         {children}
-        <ChevronDownIcon className="text-muted pointer-events-none size-4 shrink-0 transition-transform group-data-open/accordion-trigger:rotate-180" />
+        <ChevronDownIcon className="pointer-events-none size-4 shrink-0 text-muted transition-transform duration-350 ease-expressive-fast-spatial group-data-open/accordion-trigger:rotate-180" />
       </AccordionPrimitive.Trigger>
     </AccordionPrimitive.Header>
   );
@@ -48,10 +48,10 @@ function AccordionContent({
   return (
     <AccordionPrimitive.Content
       data-slot="accordion-content"
-      className="overflow-hidden text-sm data-closed:animate-accordion-up data-open:animate-accordion-down"
+      className="overflow-hidden text-body-medium data-closed:animate-accordion-up data-open:animate-accordion-down"
       {...props}
     >
-      <div className={cn("text-muted h-(--radix-accordion-content-height) pb-4 font-sans", className)}>
+      <div className={cn("h-(--radix-accordion-content-height) pb-4 font-sans text-muted", className)}>
         {children}
       </div>
     </AccordionPrimitive.Content>

@@ -36,8 +36,8 @@ function PaginationLink({ className, isActive, ...props }: PaginationLinkProps) 
       data-slot="pagination-link"
       data-active={isActive}
       className={cn(
-        "inline-flex size-9 items-center justify-center rounded-3xl font-sans text-sm font-medium",
-        isActive ? "bg-default text-default-foreground" : "text-foreground hover:bg-surface-hover",
+        "inline-flex size-10 items-center justify-center rounded-full font-sans text-label-large transition-all duration-350 ease-expressive-fast-spatial active:rounded-lg",
+        isActive ? "bg-segment text-segment-foreground" : "text-foreground hover:bg-surface-hover",
         className,
       )}
       {...props}
@@ -49,10 +49,7 @@ function PaginationPrevious({ className, ...props }: React.ComponentProps<typeof
   return (
     <PaginationLink
       aria-label="Go to previous page"
-      className={cn(
-        "text-foreground hover:bg-surface-hover h-9 w-fit gap-1.5 rounded-3xl px-2.5",
-        className,
-      )}
+      className={cn("h-10 w-fit gap-1.5 rounded-full px-3 text-foreground hover:bg-surface-hover", className)}
       {...props}
     >
       <ChevronLeftIcon className="size-4" />
@@ -65,10 +62,7 @@ function PaginationNext({ className, ...props }: React.ComponentProps<typeof Pag
   return (
     <PaginationLink
       aria-label="Go to next page"
-      className={cn(
-        "text-foreground hover:bg-surface-hover h-9 w-fit gap-1.5 rounded-3xl px-2.5",
-        className,
-      )}
+      className={cn("h-10 w-fit gap-1.5 rounded-full px-3 text-foreground hover:bg-surface-hover", className)}
       {...props}
     >
       <span>下一页</span>
@@ -82,7 +76,7 @@ function PaginationEllipsis({ className, ...props }: React.ComponentProps<"span"
     <span
       aria-hidden
       data-slot="pagination-ellipsis"
-      className={cn("text-muted flex size-9 items-center justify-center", className)}
+      className={cn("flex size-10 items-center justify-center text-muted", className)}
       {...props}
     >
       <MoreHorizontalIcon className="size-4" />

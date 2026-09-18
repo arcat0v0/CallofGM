@@ -73,7 +73,7 @@ function DiceTray({
     <div className={cn("flex flex-col gap-2", className)}>
       {gm ? (
         <Select value={resolvedId ?? ""} onValueChange={setSelectedId}>
-          <SelectTrigger className="h-8 text-xs">
+          <SelectTrigger className="h-8 text-label-medium">
             <SelectValue placeholder="鉴定对象" />
           </SelectTrigger>
           <SelectContent>
@@ -92,8 +92,8 @@ function DiceTray({
             type="button"
             size="sm"
             disabled={disabled}
-            variant={expression === preset ? "primaryGradient" : "tertiary"}
-            className="h-6 px-2 text-[11px]"
+            variant={expression === preset ? "primary" : "tertiary"}
+            className="h-6 px-2 text-label-small"
             onClick={() => setExpression(preset)}
           >
             {preset}
@@ -101,8 +101,8 @@ function DiceTray({
         ))}
       </div>
       <div className="flex items-center gap-1.5">
-        <Input value={expression} onChange={(event) => setExpression(event.target.value)} aria-label="骰点表达式" disabled={disabled} className="h-8 flex-1 text-xs" />
-        <Input value={comment} onChange={(event) => setComment(event.target.value)} placeholder="说明" aria-label="骰点说明" disabled={disabled} className="h-8 flex-1 text-xs" />
+        <Input value={expression} onChange={(event) => setExpression(event.target.value)} aria-label="骰点表达式" disabled={disabled} className="h-8 flex-1 text-label-medium" />
+        <Input value={comment} onChange={(event) => setComment(event.target.value)} placeholder="说明" aria-label="骰点说明" disabled={disabled} className="h-8 flex-1 text-label-medium" />
         <Button type="button" size="sm" variant="tertiary" className="h-8 px-2.5" disabled={disabled} onClick={roll}>
           <Dices className="size-3.5" />
           掷骰
@@ -110,7 +110,7 @@ function DiceTray({
       </div>
       <div className="flex items-center gap-1.5">
         <Select value={skillKey} onValueChange={setSkillKey} disabled={disabled}>
-          <SelectTrigger className="h-8 flex-1 text-xs">
+          <SelectTrigger className="h-8 flex-1 text-label-medium">
             <SelectValue placeholder="技能 / 属性" />
           </SelectTrigger>
           <SelectContent>
@@ -123,7 +123,7 @@ function DiceTray({
           </SelectContent>
         </Select>
         <Select value={difficulty} onValueChange={(next) => setDifficulty(next as typeof difficulty)} disabled={disabled}>
-          <SelectTrigger className="h-8 w-[88px] text-xs"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="h-8 w-[88px] text-label-medium"><SelectValue /></SelectTrigger>
           <SelectContent>
             {(["regular", "hard", "extreme"] as const).map((item) => (
               <SelectItem key={item} value={item}>{coc7e.CheckDifficultyLabel[item]}</SelectItem>
@@ -135,14 +135,14 @@ function DiceTray({
         </Button>
       </div>
       <div className="flex items-center gap-1.5">
-        <Button type="button" size="sm" variant={bonusDice ? "accentSoft" : "tertiary"} className="h-6 px-2 text-[11px]" disabled={disabled} onClick={() => setBonusDice((n) => (n + 1) % 3)}>
+        <Button type="button" size="sm" variant={bonusDice ? "accentSoft" : "tertiary"} className="h-6 px-2 text-label-small" disabled={disabled} onClick={() => setBonusDice((n) => (n + 1) % 3)}>
           奖励 {bonusDice}
         </Button>
-        <Button type="button" size="sm" variant={penaltyDice ? "dangerSoft" : "tertiary"} className="h-6 px-2 text-[11px]" disabled={disabled} onClick={() => setPenaltyDice((n) => (n + 1) % 3)}>
+        <Button type="button" size="sm" variant={penaltyDice ? "dangerSoft" : "tertiary"} className="h-6 px-2 text-label-small" disabled={disabled} onClick={() => setPenaltyDice((n) => (n + 1) % 3)}>
           惩罚 {penaltyDice}
         </Button>
         {gm ? (
-          <Button type="button" size="sm" variant={hidden ? "dangerSoft" : "tertiary"} className="h-6 px-2.5 text-[11px]" disabled={disabled} onClick={() => setHidden((value) => !value)}>
+          <Button type="button" size="sm" variant={hidden ? "dangerSoft" : "tertiary"} className="h-6 px-2.5 text-label-small" disabled={disabled} onClick={() => setHidden((value) => !value)}>
             {hidden ? "暗骰" : "公开"}
           </Button>
         ) : null}

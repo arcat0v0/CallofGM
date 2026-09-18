@@ -40,21 +40,21 @@ function RotateSuggestionOverlay({ onDismiss, className }: { onDismiss: () => vo
         className,
       )}
     >
-      <Card className="border-separator-secondary shadow-overlay bg-overlay w-[300px] items-center gap-5 rounded-2xl border px-6 py-8">
-        <div className="border-accent flex size-16 items-center justify-center rounded-xl border-2 bg-surface-tertiary">
+      <Card className="border-separator-secondary shadow-overlay bg-overlay w-[300px] items-center gap-5 rounded-lg border px-6 py-8">
+        <div className="border-accent flex size-16 items-center justify-center rounded-md border-2 bg-surface-tertiary">
           <Smartphone className="text-accent-hover size-8 rotate-90" />
         </div>
         <div className="flex flex-col items-center gap-2 text-center">
-          <span className="text-foreground font-serif text-[19px] font-bold">旋转到横屏</span>
-          <p className="text-foreground-secondary font-sans text-[13px] leading-[1.7]">
+          <span className="text-foreground font-serif text-title-large-emph">旋转到横屏</span>
+          <p className="text-foreground-secondary font-sans text-body-medium">
             横屏模式下场景立绘更大、对话与掷骰并排显示，跑团体验更沉浸。
           </p>
         </div>
         <div className="flex w-full flex-col gap-2">
           <Button
             type="button"
-            variant="primaryGradient"
-            className="h-11 w-full bg-linear-to-r"
+            variant="primary"
+            className="h-11 w-full"
             onClick={() => void handleRotate()}
           >
             <RotateCw className="size-4" />

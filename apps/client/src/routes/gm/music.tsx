@@ -53,7 +53,7 @@ function MusicResourcesPage() {
           description="音频归属模组 · 在模组页上传，团内由 GM 控制播放"
           actions={
             moduleId ? (
-              <Button asChild variant="primaryGradient" className="font-semibold">
+              <Button asChild variant="primary">
                 <Link to="/gm/module/$moduleId" params={{ moduleId }}>
                   <Upload />
                   去模组上传
@@ -64,7 +64,7 @@ function MusicResourcesPage() {
         />
         <div className="flex gap-2">
           {modules.map((module) => (
-            <Button key={module.id} type="button" variant={module.id === moduleId ? "primaryGradient" : "tertiary"} onClick={() => setModuleId(module.id)}>
+            <Button key={module.id} type="button" variant={module.id === moduleId ? "primary" : "tertiary"} onClick={() => setModuleId(module.id)}>
               {module.name}
             </Button>
           ))}
@@ -73,14 +73,14 @@ function MusicResourcesPage() {
           <section className="flex min-h-0 flex-1 flex-col gap-3">
             <div className="flex items-center gap-2">
               <Disc3 className="text-accent-hover size-4" />
-              <span className="text-foreground text-sm font-semibold">BGM</span>
+              <span className="text-foreground text-body-medium-emph">BGM</span>
               <Badge variant="soft" size="sm">{bgmTracks.length} 首</Badge>
             </div>
             <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
               {bgmTracks.map((track) => (
-                <Card key={track.id} className="flex-row items-center gap-3 rounded-xl px-3 py-2.5">
+                <Card key={track.id} className="flex-row items-center gap-3 rounded-md px-3 py-2.5">
                   <Play className="text-foreground-tertiary size-4" />
-                  <span className="flex-1 text-sm font-semibold">{track.name}</span>
+                  <span className="flex-1 text-body-medium-emph">{track.name}</span>
                 </Card>
               ))}
             </div>
@@ -88,11 +88,11 @@ function MusicResourcesPage() {
           <section className="flex w-[400px] shrink-0 flex-col gap-3">
             <div className="flex items-center gap-2">
               <Zap className="text-warning size-4" />
-              <span className="text-foreground text-sm font-semibold">SE</span>
+              <span className="text-foreground text-body-medium-emph">SE</span>
               <Badge variant="soft" size="sm">{soundEffects.length} 个</Badge>
             </div>
             {soundEffects.map((track) => (
-              <Card key={track.id} className="px-3 py-2.5 text-sm">{track.name}</Card>
+              <Card key={track.id} className="px-3 py-2.5 text-body-medium">{track.name}</Card>
             ))}
           </section>
         </div>

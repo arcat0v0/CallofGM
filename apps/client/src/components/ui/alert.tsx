@@ -3,7 +3,7 @@ import type * as React from "react";
 
 import { cn } from "@/lib/utils";
 
-const alertVariants = cva("shadow-card bg-surface flex w-full gap-4 rounded-3xl px-4 py-3", {
+const alertVariants = cva("shadow-card bg-surface flex w-full gap-4 rounded-lg px-4 py-3", {
   variants: {
     variant: {
       default: "[&_[data-slot=alert-icon]]:text-foreground [&_[data-slot=alert-title]]:text-foreground",
@@ -36,7 +36,7 @@ function AlertTitle({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="alert-title"
-      className={cn("font-sans text-sm leading-[1.7] font-medium", className)}
+      className={cn("font-sans text-title-small-emph", className)}
       {...props}
     />
   );
@@ -44,7 +44,7 @@ function AlertTitle({ className, ...props }: React.ComponentProps<"div">) {
 
 function AlertDescription({ className, ...props }: React.ComponentProps<"div">) {
   return (
-    <div data-slot="alert-description" className={cn("text-muted font-sans text-sm leading-[1.43]", className)} {...props} />
+    <div data-slot="alert-description" className={cn("text-muted font-sans text-body-medium", className)} {...props} />
   );
 }
 

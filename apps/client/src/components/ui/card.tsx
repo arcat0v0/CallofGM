@@ -3,7 +3,7 @@ import type * as React from "react";
 
 import { cn } from "@/lib/utils";
 
-const cardVariants = cva("shadow-card flex flex-col gap-3 rounded-3xl p-4", {
+const cardVariants = cva("shadow-card flex flex-col gap-3 rounded-lg p-4", {
   variants: {
     variant: {
       default: "bg-surface text-surface-foreground",
@@ -40,7 +40,7 @@ function CardTitle({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="card-title"
-      className={cn("font-sans text-sm leading-[1.7] font-medium text-foreground", className)}
+      className={cn("font-sans text-title-medium text-foreground", className)}
       {...props}
     />
   );
@@ -50,7 +50,7 @@ function CardDescription({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="card-description"
-      className={cn("font-sans text-sm leading-[1.43] text-muted", className)}
+      className={cn("font-sans text-body-medium text-muted", className)}
       {...props}
     />
   );
@@ -60,7 +60,7 @@ function CardContent({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="card-content"
-      className={cn("font-sans text-sm leading-[1.43] text-muted", className)}
+      className={cn("font-sans text-body-medium text-muted", className)}
       {...props}
     />
   );

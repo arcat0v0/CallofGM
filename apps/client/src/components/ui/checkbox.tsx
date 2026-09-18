@@ -9,16 +9,16 @@ function Checkbox({ className, ...props }: React.ComponentProps<typeof CheckboxP
     <CheckboxPrimitive.Root
       data-slot="checkbox"
       className={cn(
-        "border-border bg-field data-checked:border-accent data-checked:bg-accent focus-visible:ring-focus-ring/50 flex size-4 shrink-0 items-center justify-center rounded-md border outline-none transition-colors focus-visible:ring-4 disabled:cursor-not-allowed disabled:opacity-50",
+        "flex size-4.5 shrink-0 items-center justify-center rounded-xs border-2 border-md-on-surface-variant bg-transparent outline-none transition-all duration-350 ease-expressive-fast-spatial focus-visible:ring-4 focus-visible:ring-focus-ring/50 data-checked:border-accent data-checked:bg-accent disabled:cursor-not-allowed disabled:opacity-50",
         className,
       )}
       {...props}
     >
       <CheckboxPrimitive.Indicator
         data-slot="checkbox-indicator"
-        className="text-accent-foreground grid place-content-center"
+        className="grid place-content-center text-accent-foreground"
       >
-        <CheckIcon className="size-2.5" />
+        <CheckIcon className="size-3" strokeWidth={3} />
       </CheckboxPrimitive.Indicator>
     </CheckboxPrimitive.Root>
   );

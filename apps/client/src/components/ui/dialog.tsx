@@ -25,7 +25,7 @@ function DialogOverlay({ className, ...props }: React.ComponentProps<typeof Dial
     <DialogPrimitive.Overlay
       data-slot="dialog-overlay"
       className={cn(
-        "bg-modal-backdrop fixed inset-0 z-50 data-closed:animate-out data-closed:fade-out-0 data-open:animate-in data-open:fade-in-0",
+        "bg-modal-backdrop fixed inset-0 z-50 data-closed:animate-out data-closed:fade-out-0 data-closed:duration-200 data-closed:ease-expressive-default-effects data-open:animate-in data-open:fade-in-0 data-open:duration-200 data-open:ease-expressive-default-effects",
         className,
       )}
       {...props}
@@ -47,7 +47,7 @@ function DialogContent({
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          "border-separator-secondary bg-overlay shadow-modal rounded-modal fixed top-1/2 left-1/2 z-50 grid w-full max-w-md -translate-x-1/2 -translate-y-1/2 gap-4 border p-6 text-foreground outline-none data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95",
+          "border-separator-secondary bg-overlay shadow-modal rounded-modal fixed top-1/2 left-1/2 z-50 grid w-full max-w-md -translate-x-1/2 -translate-y-1/2 gap-4 border p-6 text-foreground outline-none data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 data-closed:duration-200 data-closed:ease-expressive-default-effects data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-open:duration-500 data-open:ease-expressive-default-spatial",
           className,
         )}
         {...props}
@@ -56,7 +56,7 @@ function DialogContent({
         {showCloseButton && (
           <DialogPrimitive.Close
             data-slot="dialog-close"
-            className="bg-default text-muted hover:text-foreground absolute top-4 right-4 flex size-6 items-center justify-center rounded-xl outline-none"
+            className="bg-default text-muted hover:bg-default-hover hover:text-foreground absolute top-4 right-4 flex size-8 items-center justify-center rounded-full outline-none transition-all duration-150 ease-expressive-fast-effects"
           >
             <XIcon className="size-4" />
             <span className="sr-only">Close</span>
@@ -85,7 +85,7 @@ function DialogTitle({ className, ...props }: React.ComponentProps<typeof Dialog
   return (
     <DialogPrimitive.Title
       data-slot="dialog-title"
-      className={cn("font-sans text-base font-medium text-foreground", className)}
+      className={cn("font-sans text-headline-small text-foreground", className)}
       {...props}
     />
   );
@@ -95,7 +95,7 @@ function DialogDescription({ className, ...props }: React.ComponentProps<typeof 
   return (
     <DialogPrimitive.Description
       data-slot="dialog-description"
-      className={cn("text-muted font-sans text-sm leading-[1.43]", className)}
+      className={cn("text-muted font-sans text-body-medium", className)}
       {...props}
     />
   );

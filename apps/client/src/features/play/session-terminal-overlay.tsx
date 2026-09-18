@@ -33,14 +33,14 @@ function SessionTerminalOverlay({ sessionId, onRetry }: { sessionId: string; onR
         )}
       </div>
       <div className="flex flex-col items-center gap-1.5">
-        <h1 className="text-foreground font-serif text-xl font-bold">{copy.title}</h1>
-        <p className="text-foreground-secondary max-w-72 text-center text-[13px]">{copy.description}</p>
+        <h1 className="text-foreground font-serif text-title-large-emph">{copy.title}</h1>
+        <p className="text-foreground-secondary max-w-72 text-center text-body-medium">{copy.description}</p>
       </div>
       <div className="flex items-center gap-2.5">
         <Button type="button" variant="outline" onClick={() => void navigate({ to: "/join/$sessionId", params: { sessionId } })}>
           返回入口
         </Button>
-        <Button type="button" variant="primaryGradient" onClick={onRetry}>
+        <Button type="button" variant="primary" onClick={onRetry}>
           {terminal === "kicked" ? "重新进入" : "重试连接"}
         </Button>
       </div>

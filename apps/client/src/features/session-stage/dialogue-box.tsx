@@ -22,8 +22,8 @@ function DialogueBox({ speaker, roleLabel, text, className, size = "md" }: Dialo
       >
         <span
           className={cn(
-            "shadow-dialogue-name rounded-lg bg-linear-to-br from-accent-hover to-accent font-serif font-bold tracking-wide text-accent-foreground",
-            compact ? "px-2.5 py-1 text-[13px]" : "px-3.5 py-1.5 text-[15px]",
+            "shadow-dialogue-name rounded-sm bg-linear-to-br from-accent-hover to-accent font-serif tracking-wide text-accent-foreground",
+            compact ? "px-2.5 py-1 text-label-large-emph" : "px-3.5 py-1.5 text-title-medium-emph",
           )}
         >
           {speaker}
@@ -37,12 +37,12 @@ function DialogueBox({ speaker, roleLabel, text, className, size = "md" }: Dialo
 
       <div
         className={cn(
-          "shadow-dialogue relative overflow-hidden rounded-2xl border border-foreground/10 bg-linear-to-b from-dialogue-start to-dialogue-end backdrop-blur-xl",
+          "shadow-dialogue relative overflow-hidden rounded-lg border border-foreground/10 bg-linear-to-b from-dialogue-start to-dialogue-end backdrop-blur-xl",
           compact ? "px-4 pt-4 pb-3" : "px-7 pt-6 pb-5",
         )}
       >
         <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-linear-to-r from-transparent via-accent-hover/70 to-transparent" />
-        <p className={cn("font-sans text-foreground", compact ? "text-[13px] leading-[1.75]" : "text-[15px] leading-[1.95]")}>
+        <p className={cn("font-sans text-foreground", compact ? "text-body-medium" : "text-body-large")}>
           {text}
         </p>
         <span

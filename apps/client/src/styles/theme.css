@@ -4,138 +4,347 @@
  * 全站唯一的视觉值来源：颜色、阴影、圆角、字体一律在此定义为语义 token，
  * 组件中只使用生成的 utility class（如 bg-stage-scrim、shadow-dialogue），
  * 禁止硬编码字面量。新增 token 时按下方分区就近归类。
+ *
+ * 设计体系：Material Design 3 Expressive（见 docs/DESIGN.md）。
+ * MD3 颜色角色值由 Theme Builder 同引擎（@material/material-color-utilities，
+ * TONAL_SPOT）生成：种子色 萌黄 #7BA23F，secondary 空 #58B2DC、tertiary 藤 #8B81C3、
+ * error 红 #CB1B45、warning 山吹 #FFB11B、success 若竹 #5DAC81 经 harmonize 调和。
+ * 规范角色名以 md- 前缀落 token；accent/danger/field 等语义别名重定向到角色值。
  */
 
 @theme {
-  /* ── 字体 ─────────────────────────────────────────────── */
+  /* ── 字体（MD3 双字族：brand 表达 / plain 可读）────────────────── */
   --font-sans: "Noto Sans SC", ui-sans-serif, system-ui, sans-serif;
   --font-serif: "Noto Serif SC", ui-serif, serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
-  --font-chip: "Inter", ui-sans-serif, system-ui, sans-serif;
 
-  /* ── 语义色：强调 / 状态 ──────────────────────────────── */
-  --color-accent: #7BA23F;
-  --color-accent-foreground: #1C1C1C;
-  --color-accent-hover: #86C166;
-  --color-accent-soft: #7BA23F2E;
-  --color-accent-soft-foreground: #9DC163;
-  --color-accent-soft-hover: #7BA23F40;
+  /* ── MD3 字阶（baseline 15 级 + emphasized 15 级；中文行高按 Medium 语言高度 +7%）─ */
+  --text-display-large: 3.5625rem;
+  --text-display-large--line-height: 4.3125rem;
+  --text-display-large--letter-spacing: -0.0156rem;
+  --text-display-large--font-weight: 400;
+  --text-display-medium: 2.8125rem;
+  --text-display-medium--line-height: 3.5rem;
+  --text-display-medium--font-weight: 400;
+  --text-display-small: 2.25rem;
+  --text-display-small--line-height: 2.9375rem;
+  --text-display-small--font-weight: 400;
 
-  --color-danger: #CB1B45;
-  --color-danger-foreground: #FCFAF2;
-  --color-danger-hover: #D93F63;
-  --color-danger-soft: #CB1B4529;
-  --color-danger-soft-foreground: #E96E8B;
-  --color-danger-soft-hover: #CB1B4536;
+  --text-headline-large: 2rem;
+  --text-headline-large--line-height: 2.6875rem;
+  --text-headline-large--font-weight: 400;
+  --text-headline-medium: 1.75rem;
+  --text-headline-medium--line-height: 2.4375rem;
+  --text-headline-medium--font-weight: 400;
+  --text-headline-small: 1.5rem;
+  --text-headline-small--line-height: 2.125rem;
+  --text-headline-small--font-weight: 400;
 
-  --color-warning: #FFB11B;
-  --color-warning-foreground: #1C1C1C;
-  --color-warning-hover: #FFC24C;
-  --color-warning-soft: #FFB11B29;
-  --color-warning-soft-foreground: #FFB11B;
-  --color-warning-soft-hover: #FFB11B38;
+  --text-title-large: 1.375rem;
+  --text-title-large--line-height: 1.875rem;
+  --text-title-large--font-weight: 400;
+  --text-title-medium: 1rem;
+  --text-title-medium--line-height: 1.625rem;
+  --text-title-medium--letter-spacing: 0.0094rem;
+  --text-title-medium--font-weight: 500;
+  --text-title-small: 0.875rem;
+  --text-title-small--line-height: 1.3125rem;
+  --text-title-small--letter-spacing: 0.0063rem;
+  --text-title-small--font-weight: 500;
 
-  --color-success: #5DAC81;
-  --color-success-foreground: #1C1C1C;
-  --color-success-hover: #6FBE93;
-  --color-success-soft: #5DAC8129;
-  --color-success-soft-foreground: #7CC49B;
-  --color-success-soft-hover: #5DAC8138;
+  --text-body-large: 1rem;
+  --text-body-large--line-height: 1.625rem;
+  --text-body-large--letter-spacing: 0.0313rem;
+  --text-body-large--font-weight: 400;
+  --text-body-medium: 0.875rem;
+  --text-body-medium--line-height: 1.3125rem;
+  --text-body-medium--letter-spacing: 0.0156rem;
+  --text-body-medium--font-weight: 400;
+  --text-body-small: 0.75rem;
+  --text-body-small--line-height: 1.0625rem;
+  --text-body-small--letter-spacing: 0.025rem;
+  --text-body-small--font-weight: 400;
 
-  --color-default: #333331;
-  --color-default-foreground: #FCFAF2;
-  --color-default-hover: #3C3C3A;
+  --text-label-large: 0.875rem;
+  --text-label-large--line-height: 1.3125rem;
+  --text-label-large--letter-spacing: 0.0063rem;
+  --text-label-large--font-weight: 500;
+  --text-label-medium: 0.75rem;
+  --text-label-medium--line-height: 1.0625rem;
+  --text-label-medium--letter-spacing: 0.0313rem;
+  --text-label-medium--font-weight: 500;
+  --text-label-small: 0.6875rem;
+  --text-label-small--line-height: 1.0625rem;
+  --text-label-small--letter-spacing: 0.0313rem;
+  --text-label-small--font-weight: 500;
 
-  /* ── 语义色：背景 / 前景 / 表面 ──────────────────────── */
-  --color-background: #1C1C1C;
-  --color-background-secondary: #232322;
-  --color-background-tertiary: #2A2A29;
-  --color-background-inverse: #FCFAF2;
+  --text-display-large-emph: 3.5625rem;
+  --text-display-large-emph--line-height: 4.3125rem;
+  --text-display-large-emph--letter-spacing: -0.0156rem;
+  --text-display-large-emph--font-weight: 700;
+  --text-display-medium-emph: 2.8125rem;
+  --text-display-medium-emph--line-height: 3.5rem;
+  --text-display-medium-emph--font-weight: 700;
+  --text-display-small-emph: 2.25rem;
+  --text-display-small-emph--line-height: 2.9375rem;
+  --text-display-small-emph--font-weight: 700;
 
-  --color-foreground: #FCFAF2;
-  --color-foreground-inverse: #1C1C1C;
-  --color-foreground-link: #FCFAF2;
-  --color-foreground-muted: #99A0A5;
-  --color-foreground-overlay: #FCFAF2;
-  --color-foreground-secondary: #A5ABB0;
-  --color-foreground-segment: #FCFAF2;
-  --color-foreground-tertiary: #7A8087;
+  --text-headline-large-emph: 2rem;
+  --text-headline-large-emph--line-height: 2.6875rem;
+  --text-headline-large-emph--font-weight: 700;
+  --text-headline-medium-emph: 1.75rem;
+  --text-headline-medium-emph--line-height: 2.4375rem;
+  --text-headline-medium-emph--font-weight: 700;
+  --text-headline-small-emph: 1.5rem;
+  --text-headline-small-emph--line-height: 2.125rem;
+  --text-headline-small-emph--font-weight: 700;
 
-  --color-surface: #262625;
-  --color-surface-foreground: #FCFAF2;
-  --color-surface-hover: #393937;
-  --color-surface-secondary: #2E2E2C;
-  --color-surface-secondary-foreground: #FCFAF2;
-  --color-surface-tertiary: #343433;
-  --color-surface-tertiary-foreground: #FCFAF2;
+  --text-title-large-emph: 1.375rem;
+  --text-title-large-emph--line-height: 1.875rem;
+  --text-title-large-emph--font-weight: 700;
+  --text-title-medium-emph: 1rem;
+  --text-title-medium-emph--line-height: 1.625rem;
+  --text-title-medium-emph--letter-spacing: 0.0094rem;
+  --text-title-medium-emph--font-weight: 700;
+  --text-title-small-emph: 0.875rem;
+  --text-title-small-emph--line-height: 1.3125rem;
+  --text-title-small-emph--letter-spacing: 0.0063rem;
+  --text-title-small-emph--font-weight: 700;
+
+  --text-body-large-emph: 1rem;
+  --text-body-large-emph--line-height: 1.625rem;
+  --text-body-large-emph--letter-spacing: 0.0313rem;
+  --text-body-large-emph--font-weight: 500;
+  --text-body-medium-emph: 0.875rem;
+  --text-body-medium-emph--line-height: 1.3125rem;
+  --text-body-medium-emph--letter-spacing: 0.0156rem;
+  --text-body-medium-emph--font-weight: 500;
+  --text-body-small-emph: 0.75rem;
+  --text-body-small-emph--line-height: 1.0625rem;
+  --text-body-small-emph--letter-spacing: 0.025rem;
+  --text-body-small-emph--font-weight: 500;
+
+  --text-label-large-emph: 0.875rem;
+  --text-label-large-emph--line-height: 1.3125rem;
+  --text-label-large-emph--letter-spacing: 0.0063rem;
+  --text-label-large-emph--font-weight: 700;
+  --text-label-medium-emph: 0.75rem;
+  --text-label-medium-emph--line-height: 1.0625rem;
+  --text-label-medium-emph--letter-spacing: 0.0313rem;
+  --text-label-medium-emph--font-weight: 700;
+  --text-label-small-emph: 0.6875rem;
+  --text-label-small-emph--line-height: 1.0625rem;
+  --text-label-small-emph--letter-spacing: 0.0313rem;
+  --text-label-small-emph--font-weight: 700;
+
+  /* ── MD3 颜色角色（深色主题，生成值勿手调）──────────────────────── */
+  --color-md-primary: #b4d087;
+  --color-md-on-primary: #223600;
+  --color-md-primary-container: #374d13;
+  --color-md-on-primary-container: #d0eda1;
+  --color-md-primary-fixed: #d0eda1;
+  --color-md-primary-fixed-dim: #b4d087;
+  --color-md-on-primary-fixed: #121f00;
+  --color-md-on-primary-fixed-variant: #374d13;
+
+  --color-md-secondary: #56d6f5;
+  --color-md-on-secondary: #003640;
+  --color-md-secondary-container: #004e5d;
+  --color-md-on-secondary-container: #adecff;
+  --color-md-secondary-fixed: #adecff;
+  --color-md-secondary-fixed-dim: #56d6f5;
+  --color-md-on-secondary-fixed: #001f26;
+  --color-md-on-secondary-fixed-variant: #004e5d;
+
+  --color-md-tertiary: #bac3ff;
+  --color-md-on-tertiary: #152778;
+  --color-md-tertiary-container: #2f4090;
+  --color-md-on-tertiary-container: #dee1ff;
+  --color-md-tertiary-fixed: #dee1ff;
+  --color-md-tertiary-fixed-dim: #bac3ff;
+  --color-md-on-tertiary-fixed: #001159;
+  --color-md-on-tertiary-fixed-variant: #2f4090;
+
+  --color-md-error: #ffb4a6;
+  --color-md-on-error: #660700;
+  --color-md-error-container: #900d00;
+  --color-md-on-error-container: #ffdad4;
+
+  --color-md-warning: #f0c11c;
+  --color-md-on-warning: #3d2f00;
+  --color-md-warning-container: #584400;
+  --color-md-on-warning-container: #ffe08b;
+
+  --color-md-success: #8ed88b;
+  --color-md-on-success: #00390c;
+  --color-md-success-container: #035316;
+  --color-md-on-success-container: #a9f5a4;
+
+  --color-md-surface: #12140e;
+  --color-md-surface-dim: #12140e;
+  --color-md-surface-bright: #383a32;
+  --color-md-surface-container-lowest: #0d0f09;
+  --color-md-surface-container-low: #1a1c16;
+  --color-md-surface-container: #1e2019;
+  --color-md-surface-container-high: #292b23;
+  --color-md-surface-container-highest: #33362e;
+  --color-md-on-surface: #e2e3d8;
+  --color-md-on-surface-variant: #c5c8b9;
+  --color-md-outline: #8f9285;
+  --color-md-outline-variant: #45483d;
+  --color-md-inverse-surface: #e2e3d8;
+  --color-md-inverse-on-surface: #2f312a;
+  --color-md-inverse-primary: #4e6629;
+  --color-md-scrim: #000000;
+  --color-md-shadow: #000000;
+  --color-md-surface-tint: #b4d087;
+
+  /* ── 语义别名：强调 / 状态（→ MD3 角色；hover 为 8% state layer 推导）─ */
+  --color-accent: var(--color-md-primary);
+  --color-accent-foreground: var(--color-md-on-primary);
+  --color-accent-hover: color-mix(in srgb, var(--color-md-on-primary) 8%, var(--color-md-primary));
+  --color-accent-soft: var(--color-md-primary-container);
+  --color-accent-soft-foreground: var(--color-md-on-primary-container);
+  --color-accent-soft-hover: color-mix(in srgb, var(--color-md-on-primary-container) 8%, var(--color-md-primary-container));
+
+  --color-danger: var(--color-md-error);
+  --color-danger-foreground: var(--color-md-on-error);
+  --color-danger-hover: color-mix(in srgb, var(--color-md-on-error) 8%, var(--color-md-error));
+  --color-danger-soft: var(--color-md-error-container);
+  --color-danger-soft-foreground: var(--color-md-on-error-container);
+  --color-danger-soft-hover: color-mix(in srgb, var(--color-md-on-error-container) 8%, var(--color-md-error-container));
+
+  --color-warning: var(--color-md-warning);
+  --color-warning-foreground: var(--color-md-on-warning);
+  --color-warning-hover: color-mix(in srgb, var(--color-md-on-warning) 8%, var(--color-md-warning));
+  --color-warning-soft: var(--color-md-warning-container);
+  --color-warning-soft-foreground: var(--color-md-on-warning-container);
+  --color-warning-soft-hover: color-mix(in srgb, var(--color-md-on-warning-container) 8%, var(--color-md-warning-container));
+
+  --color-success: var(--color-md-success);
+  --color-success-foreground: var(--color-md-on-success);
+  --color-success-hover: color-mix(in srgb, var(--color-md-on-success) 8%, var(--color-md-success));
+  --color-success-soft: var(--color-md-success-container);
+  --color-success-soft-foreground: var(--color-md-on-success-container);
+  --color-success-soft-hover: color-mix(in srgb, var(--color-md-on-success-container) 8%, var(--color-md-success-container));
+
+  --color-default: var(--color-md-surface-container-highest);
+  --color-default-foreground: var(--color-md-on-surface);
+  --color-default-hover: color-mix(in srgb, var(--color-md-on-surface) 8%, var(--color-md-surface-container-highest));
+
+  /* ── 语义别名：背景 / 前景 / 表面 ─────────────────────────────── */
+  --color-background: var(--color-md-surface);
+  --color-background-secondary: var(--color-md-surface-container-low);
+  --color-background-tertiary: var(--color-md-surface-container);
+  --color-background-inverse: var(--color-md-inverse-surface);
+
+  --color-foreground: var(--color-md-on-surface);
+  --color-foreground-inverse: var(--color-md-inverse-on-surface);
+  --color-foreground-link: var(--color-md-primary);
+  --color-foreground-muted: var(--color-md-on-surface-variant);
+  --color-foreground-overlay: var(--color-md-on-surface);
+  --color-foreground-secondary: var(--color-md-on-surface-variant);
+  --color-foreground-segment: var(--color-md-on-surface);
+  --color-foreground-tertiary: var(--color-md-outline);
+
+  --color-surface: var(--color-md-surface-container);
+  --color-surface-foreground: var(--color-md-on-surface);
+  --color-surface-hover: color-mix(in srgb, var(--color-md-on-surface) 8%, var(--color-md-surface-container));
+  --color-surface-secondary: var(--color-md-surface-container-high);
+  --color-surface-secondary-foreground: var(--color-md-on-surface);
+  --color-surface-tertiary: var(--color-md-surface-container-highest);
+  --color-surface-tertiary-foreground: var(--color-md-on-surface);
   --color-surface-transparent: #00000000;
 
-  /* ── 语义色：控件（field / segment / focus）────────────── */
-  --color-field: #232321;
-  --color-field-focus: #232321;
-  --color-field-hover: #292927EB;
-  --color-field-border: #28282C00;
-  --color-field-border-focus: #7BA23F;
-  --color-field-border-hover: #46464600;
-  --color-field-foreground: #FCFAF2;
-  --color-field-placeholder: #8A9095;
+  /* ── 语义别名：控件（field / segment / focus）────────────────────── */
+  --color-field: var(--color-md-surface-container-highest);
+  --color-field-focus: var(--color-md-surface-container-highest);
+  --color-field-hover: color-mix(in srgb, var(--color-md-on-surface) 8%, var(--color-md-surface-container-highest));
+  --color-field-border: #00000000;
+  --color-field-border-focus: var(--color-md-primary);
+  --color-field-border-hover: #00000000;
+  --color-field-foreground: var(--color-md-on-surface);
+  --color-field-placeholder: var(--color-md-on-surface-variant);
 
-  --color-segment: #4A4A48;
-  --color-segment-foreground: #FCFCFC;
-  --color-focus-ring: #7BA23F;
+  --color-segment: var(--color-md-secondary-container);
+  --color-segment-foreground: var(--color-md-on-secondary-container);
+  --color-focus-ring: var(--color-md-primary);
 
-  /* ── 语义色：边界 / 分隔 ──────────────────────────────── */
-  --color-border: #3B3B39;
-  --color-separator: #2B2B2A;
-  --color-separator-secondary: #383836;
-  --color-separator-tertiary: #434341;
+  /* ── 语义别名：边界 / 分隔 ────────────────────────────────────── */
+  --color-border: var(--color-md-outline-variant);
+  --color-separator: var(--color-md-outline-variant);
+  --color-separator-secondary: color-mix(in srgb, var(--color-md-outline-variant) 60%, var(--color-md-surface));
+  --color-separator-tertiary: var(--color-md-outline);
 
-  /* ── 语义色：遮罩 / 滚动条 ────────────────────────────── */
-  --color-muted: #99A0A5;
-  --color-overlay: #292927;
-  --color-overlay-shadow: #FFFFFF4D;
-  --color-backdrop: #00000080;
-  --color-modal-backdrop: #060607F2;
-  --color-scrollbar: #8A9095;
+  /* ── 语义别名：遮罩 / 滚动条 ──────────────────────────────────── */
+  --color-muted: var(--color-md-on-surface-variant);
+  --color-overlay: var(--color-md-surface-container-high);
+  --color-overlay-shadow: color-mix(in srgb, var(--color-md-on-surface) 30%, transparent);
+  --color-backdrop: color-mix(in srgb, var(--color-md-scrim) 50%, transparent);
+  --color-modal-backdrop: color-mix(in srgb, var(--color-md-scrim) 95%, transparent);
+  --color-scrollbar: var(--color-md-outline);
 
-  /* ── 舞台 / 对话（沉浸式场景、立绘、演绎发言）───────────── */
-  --color-stage-scrim: #1C1C1CD9;
-  --color-stage-scrim-strong: #1C1C1CE6;
-  --color-stage-panel: #1C1C1CCC;
-  --color-dialogue-start: #232321E6;
-  --color-dialogue-end: #131312F5;
-  --color-dialogue-text: #E8E6DF;
+  /* ── 舞台 / 对话（沉浸式场景、立绘、演绎发言；值自 MD3 角色推导）────── */
+  --color-stage-scrim: color-mix(in srgb, var(--color-md-surface) 85%, transparent);
+  --color-stage-scrim-strong: color-mix(in srgb, var(--color-md-surface) 90%, transparent);
+  --color-stage-panel: color-mix(in srgb, var(--color-md-surface) 80%, transparent);
+  --color-dialogue-start: color-mix(in srgb, var(--color-md-surface-container-high) 90%, transparent);
+  --color-dialogue-end: color-mix(in srgb, var(--color-md-surface-container-lowest) 96%, transparent);
+  --color-dialogue-text: var(--color-md-on-surface);
 
-  /* ── 阴影色料 ─────────────────────────────────────────── */
-  --color-shadow-inner: #FFFFFF4D;
-  --color-shadow-scroll: #1C1C1C;
-  --color-shadow-scroll-blur: #1C1C1CB2;
-  --color-shadow-scroll-blur-on-surface: #262625B2;
-  --color-shadow-scroll-on-surface: #262625;
+  /* ── 阴影色料 ───────────────────────────────────────────────── */
+  --color-shadow-inner: color-mix(in srgb, var(--color-md-on-surface) 30%, transparent);
+  --color-shadow-scroll: var(--color-md-surface);
+  --color-shadow-scroll-blur: color-mix(in srgb, var(--color-md-surface) 70%, transparent);
+  --color-shadow-scroll-blur-on-surface: color-mix(in srgb, var(--color-md-surface-container) 70%, transparent);
+  --color-shadow-scroll-on-surface: var(--color-md-surface-container);
 
-  /* ── 品牌色（和风传统色）──────────────────────────────── */
-  --color-brand-fuji: #8B81C3;
-  --color-brand-ginnezumi: #91989F;
-  --color-brand-kurenai: #CB1B45;
-  --color-brand-moegi: #7BA23F;
-  --color-brand-nae: #86C166;
-  --color-brand-shironeri: #FCFAF2;
-  --color-brand-sora: #58B2DC;
-  --color-brand-sumi: #1C1C1C;
-  --color-brand-wakatake: #5DAC81;
-  --color-brand-yamabuki: #FFB11B;
+  /* ── 品牌色（和风传统色，Theme Builder 种子与装饰用色）────────────── */
+  --color-brand-fuji: #8b81c3;
+  --color-brand-ginnezumi: #91989f;
+  --color-brand-kurenai: #cb1b45;
+  --color-brand-moegi: #7ba23f;
+  --color-brand-nae: #86c166;
+  --color-brand-shironeri: #fcfaf2;
+  --color-brand-sora: #58b2dc;
+  --color-brand-sumi: #1c1c1c;
+  --color-brand-wakatake: #5dac81;
+  --color-brand-yamabuki: #ffb11b;
 
-  /* ── 圆角 ─────────────────────────────────────────────── */
-  --radius-modal: 18px;
+  /* ── 圆角（MD3 形状阶梯：0/4/8/12/16/20/28/32/48/full）────────────── */
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-lg-inc: 20px;
+  --radius-xl: 28px;
+  --radius-xl-inc: 32px;
+  --radius-2xl: 48px;
+  --radius-modal: var(--radius-xl);
 
-  /* ── 阴影 ─────────────────────────────────────────────── */
-  --shadow-card: 0 2px 4px 0 #0000000A;
-  --shadow-modal: 0 24px 60px 0 #00000080;
-  --shadow-tab: 0 1px 3px 0 #0000000A;
-  --shadow-switch-thumb: 0 1px 3px 0 #0000001A;
-  --shadow-dropdown: 0 4px 12px 0 #00000014;
-  --shadow-tooltip: 0 2px 8px 0 #0000000F;
-  --shadow-dialogue-name: 0 4px 16px 0 #7BA23F59;
-  --shadow-dialogue: 0 24px 56px -16px #000000BF, inset 0 1px 0 0 #FCFAF212;
-  --shadow-overlay: 0 20px 50px 0 #00000099;
+  /* ── 动效（MD3 弹簧物理的 Web 曲线换算，见 docs/DESIGN.md）──────────── */
+  --ease-expressive-fast-spatial: cubic-bezier(0.42, 1.67, 0.21, 0.9);
+  --ease-expressive-default-spatial: cubic-bezier(0.38, 1.21, 0.22, 1);
+  --ease-expressive-slow-spatial: cubic-bezier(0.39, 1.29, 0.35, 0.98);
+  --ease-expressive-fast-effects: cubic-bezier(0.31, 0.94, 0.34, 1);
+  --ease-expressive-default-effects: cubic-bezier(0.34, 0.8, 0.34, 1);
+  --ease-expressive-slow-effects: cubic-bezier(0.34, 0.88, 0.34, 1);
+  --ease-standard-fast-spatial: cubic-bezier(0.27, 1.06, 0.18, 1);
+  --ease-standard-default-spatial: cubic-bezier(0.27, 1.06, 0.18, 1);
+  --ease-standard-slow-spatial: cubic-bezier(0.27, 1.06, 0.18, 1);
+  --ease-standard-fast-effects: cubic-bezier(0.31, 0.94, 0.34, 1);
+  --ease-standard-default-effects: cubic-bezier(0.34, 0.8, 0.34, 1);
+  --ease-standard-slow-effects: cubic-bezier(0.34, 0.88, 0.34, 1);
+
+  /* ── 阴影（MD3 深色海拔 1–5 级）───────────────────────────────── */
+  --shadow-card: 0 1px 2px 0 #0000004d, 0 1px 3px 1px #00000026;
+  --shadow-tab: 0 1px 2px 0 #0000004d, 0 1px 3px 1px #00000026;
+  --shadow-switch-thumb: 0 1px 2px 0 #0000004d, 0 1px 3px 1px #00000026;
+  --shadow-dropdown: 0 1px 2px 0 #0000004d, 0 2px 6px 2px #00000026;
+  --shadow-tooltip: 0 1px 2px 0 #0000004d, 0 2px 6px 2px #00000026;
+  --shadow-dialogue-name: 0 1px 2px 0 #0000004d, 0 2px 6px 2px #00000026;
+  --shadow-dialogue:
+    0 4px 8px 3px #00000026, 0 1px 3px 0 #0000004d, inset 0 1px 0 0 #ffffff0f;
+  --shadow-modal: 0 6px 10px 4px #00000026, 0 2px 3px 0 #0000004d;
+  --shadow-overlay: 0 8px 12px 6px #00000026, 0 4px 4px 0 #0000004d;
 }

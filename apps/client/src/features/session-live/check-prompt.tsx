@@ -47,13 +47,13 @@ export function CheckPrompt({
             {request.hidden ? " · 暗骰（结果仅主持可见）" : ""}
           </DialogDescription>
         </DialogHeader>
-        <p className="text-foreground-secondary text-sm">
+        <p className="text-foreground-secondary text-body-medium">
           目标值由服务端从人物卡读取。点击后立即掷骰，不受当前阶段限制。
           {request.hidden ? "暗骰仅确认已掷出。" : ""}
         </p>
         <Button
           type="button"
-          variant="primaryGradient"
+          variant="primary"
           disabled={rolling}
           onClick={() => {
             if (rolling) {

@@ -51,7 +51,7 @@ function GmLoginPage() {
 
       <div className="flex flex-col items-center gap-3.5">
         <Logo className="size-13" />
-        <h1 className="text-foreground font-serif text-2xl font-bold">主持人登录</h1>
+        <h1 className="text-foreground font-serif text-headline-small-emph">主持人登录</h1>
       </div>
 
       <form onSubmit={handleSubmit} className="flex w-90 flex-col gap-3">
@@ -78,15 +78,15 @@ function GmLoginPage() {
 
         <Button
           type="submit"
-          variant="primaryGradient"
+          variant="primary"
           disabled={pending || !password}
-          className="h-11 w-full rounded-xl text-sm font-semibold"
+          className="h-11 w-full"
         >
           {pending ? "登录中…" : "登录"}
         </Button>
       </form>
 
-      <p className="text-foreground-tertiary font-sans text-[11px]">
+      <p className="text-foreground-tertiary font-sans text-label-small">
         仅主持人需要登录 · 玩家通过团链接直接进入
       </p>
     </main>

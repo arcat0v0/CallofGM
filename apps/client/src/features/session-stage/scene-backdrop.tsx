@@ -43,7 +43,7 @@ export function SceneBackdrop({
           src={front}
           alt={alt}
           className={cn(
-            "absolute inset-0 size-full object-cover transition-opacity duration-300",
+            "absolute inset-0 size-full object-cover transition-opacity duration-300 ease-expressive-default-effects",
             frontVisible ? "opacity-100" : "opacity-0",
             imageClassName,
           )}

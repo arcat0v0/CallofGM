@@ -156,7 +156,7 @@ function CreateSessionDialog({
           <FormField label="指定参与人物">
             <div className="flex flex-col gap-1.5">
               {characters.length === 0 ? (
-                <p className="text-foreground-tertiary text-xs leading-relaxed">
+                <p className="text-foreground-tertiary text-body-small">
                   当前模组尚未关联人物。可在模组页关联 PC / NPC 后再选，也可以先创建空团。
                   {moduleId ? (
                     <>
@@ -175,12 +175,12 @@ function CreateSessionDialog({
                     <Label
                       key={character.id}
                       className={cn(
-                        "cursor-pointer items-center gap-2.5 rounded-[10px] border px-3 py-2.5 text-left",
+                        "cursor-pointer items-center gap-2.5 rounded-md border px-3 py-2.5 text-left",
                         selected ? "bg-accent-soft border-accent-hover" : "bg-surface-tertiary border-transparent",
                       )}
                     >
                       <Checkbox checked={selected} onCheckedChange={() => toggleCharacter(character.id)} />
-                      <span className="text-foreground font-sans text-[13px] font-semibold">{character.name}</span>
+                      <span className="text-foreground font-sans text-label-large-emph">{character.name}</span>
                       <span className="flex-1" />
                       <Badge variant="soft" tone={kind === "NPC" ? "warning" : "accent"} size="sm">
                         {kind}
@@ -200,14 +200,14 @@ function CreateSessionDialog({
               value={status}
               options={statusSegments}
               onValueChange={setStatus}
-              className="h-[38px] rounded-[10px] p-[3px]"
-              itemClassName="h-full text-[13px]"
+              className="h-[38px] rounded-md p-[3px]"
+              itemClassName="h-full text-label-large"
             />
           </FormField>
         </div>
 
         <DialogFooter className="bg-background-secondary border-separator flex-row items-center justify-between border-t px-5 py-4 sm:justify-between">
-          <span className="text-foreground-tertiary font-sans text-[11px]">创建后可在团管理中继续调整</span>
+          <span className="text-foreground-tertiary font-sans text-label-small">创建后可在团管理中继续调整</span>
           <div className="flex items-center gap-2.5">
             <Button variant="tertiary" size="sm" onClick={() => onOpenChange(false)}>
               取消

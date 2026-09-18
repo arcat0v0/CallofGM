@@ -65,9 +65,9 @@ function GmChatPanel({ className }: { className?: string }) {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Avatar size="sm" className="bg-accent">
-              <AvatarFallback className="text-accent-foreground font-chip text-xs">KP</AvatarFallback>
+              <AvatarFallback className="text-accent-foreground text-label-medium">KP</AvatarFallback>
             </Avatar>
-            <span className="text-foreground font-sans text-[13px] font-semibold">KP（主持人）</span>
+            <span className="text-foreground font-sans text-label-large-emph">KP（主持人）</span>
           </div>
           <MessageModeSwitch value={mode} onValueChange={setMode} />
         </div>
@@ -81,7 +81,7 @@ function GmChatPanel({ className }: { className?: string }) {
           onSubmit={handleSend}
         />
 
-        <p className="text-foreground-tertiary font-sans text-[11px]">{phaseChatHint(phase, "gm")}</p>
+        <p className="text-foreground-tertiary font-sans text-label-small">{phaseChatHint(phase, "gm")}</p>
       </div>
     </div>
   );

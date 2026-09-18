@@ -52,7 +52,7 @@ function GmConsoleView() {
     <div className="bg-background relative flex h-dvh w-full overflow-hidden">
       <ConnectionBanner />
       {status === "ended" ? (
-        <div className="bg-warning/20 text-warning absolute inset-x-0 top-0 z-30 px-3 py-1.5 text-center text-[11px] font-medium">
+        <div className="bg-warning/20 text-warning absolute inset-x-0 top-0 z-30 px-3 py-1.5 text-center text-label-small">
           本团已结团 · 控制台仅用于回看
         </div>
       ) : null}

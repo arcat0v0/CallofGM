@@ -20,7 +20,7 @@ function MessageModeSwitch({
       options={MESSAGE_MODE_OPTIONS}
       onValueChange={onValueChange}
       className="rounded-full"
-      itemClassName="h-6 rounded-full"
+      itemClassName="h-6"
       aria-label="发言类型"
     />
   );

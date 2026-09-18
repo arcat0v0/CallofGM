@@ -30,7 +30,7 @@ function TooltipContent({
         data-slot="tooltip-content"
         sideOffset={sideOffset}
         className={cn(
-          "shadow-tooltip bg-overlay text-foreground z-50 w-fit origin-(--radix-tooltip-content-transform-origin) rounded-xl px-2 py-1 font-sans text-xs data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95",
+          "z-50 w-fit origin-(--radix-tooltip-content-transform-origin) rounded-xs bg-background-inverse px-2 py-1 font-sans text-body-small text-foreground-inverse data-closed:animate-out data-closed:fade-out-0 data-closed:duration-150 data-closed:ease-expressive-fast-effects data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-open:duration-150 data-open:ease-expressive-fast-effects",
           className,
         )}
         {...props}

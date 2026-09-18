@@ -66,7 +66,7 @@ function PlayView() {
             size="icon-sm"
             onClick={() => setLandscapeChatOpen(true)}
             aria-label="展开文字频道"
-            className="text-foreground-secondary bg-background-secondary absolute top-1/2 right-0 h-16 w-6 -translate-y-1/2 rounded-l-lg rounded-r-none"
+            className="text-foreground-secondary bg-background-secondary absolute top-1/2 right-0 h-16 w-6 -translate-y-1/2 rounded-l-sm rounded-r-none"
           >
             <PanelLeftOpen className="size-4" />
           </Button>
@@ -94,7 +94,7 @@ function PlayView() {
             <DialogTitle>本团已结束</DialogTitle>
             <DialogDescription>主持人已结团。聊天记录与情报仍可回看。</DialogDescription>
           </DialogHeader>
-          <Button type="button" variant="primaryGradient" onClick={() => setEndDialogOpen(false)}>
+          <Button type="button" variant="primary" onClick={() => setEndDialogOpen(false)}>
             查看记录
           </Button>
         </DialogContent>

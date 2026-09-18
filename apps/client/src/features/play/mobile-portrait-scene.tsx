@@ -25,7 +25,7 @@ function MobilePortraitScene() {
 
       <div className="absolute inset-x-0 top-0 flex h-[52px] items-center justify-between px-3.5">
         <div className="flex min-w-0 items-center gap-1.5">
-          <span className="text-foreground truncate font-serif text-sm font-semibold">{scene?.name ?? "团"}</span>
+          <span className="text-foreground truncate font-serif text-title-small-emph">{scene?.name ?? "团"}</span>
           {status ? (
             <Badge variant="soft" tone="success" size="sm">
               {SessionStatusLabel[status]}

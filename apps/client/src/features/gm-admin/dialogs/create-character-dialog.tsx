@@ -84,7 +84,7 @@ export function CreateCharacterDialog({
         </div>
         <DialogFooter>
           <Button type="button" variant="tertiary" onClick={() => onOpenChange(false)}>取消</Button>
-          <Button type="button" variant="primaryGradient" disabled={pending} onClick={() => void submit()}>
+          <Button type="button" variant="primary" disabled={pending} onClick={() => void submit()}>
             创建
           </Button>
         </DialogFooter>

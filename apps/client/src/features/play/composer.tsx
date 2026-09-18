@@ -82,9 +82,9 @@ function Composer({ compact = false, className }: { compact?: boolean; className
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 px-1">
           <Avatar size="sm" className="bg-default">
-            <AvatarFallback className="text-foreground font-sans text-xs">{initialsOf(speakerName)}</AvatarFallback>
+            <AvatarFallback className="text-foreground font-sans text-label-medium">{initialsOf(speakerName)}</AvatarFallback>
           </Avatar>
-          <span className="text-foreground font-sans text-[13px] font-semibold">{speakerName}</span>
+          <span className="text-foreground font-sans text-label-large">{speakerName}</span>
         </div>
         {discussion || performance ? null : (
           <MessageModeSwitch value={mode} onValueChange={setMode} />
@@ -96,9 +96,9 @@ function Composer({ compact = false, className }: { compact?: boolean; className
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5">
               <VenetianMask className="text-accent-hover size-[13px]" />
-              <span className="text-foreground-secondary font-sans text-[11px] font-semibold">立绘表情</span>
+              <span className="text-foreground-secondary font-sans text-label-small">立绘表情</span>
             </div>
-            <Button type="button" variant="tertiary" size="sm" className="h-5 gap-1 px-2 text-[10px]" onClick={() => setPreviewOpen(true)}>
+            <Button type="button" variant="tertiary" size="sm" className="h-5 gap-1 px-2 text-label-small" onClick={() => setPreviewOpen(true)}>
               <Eye />
               预览立绘
             </Button>
@@ -114,10 +114,10 @@ function Composer({ compact = false, className }: { compact?: boolean; className
                   variant="outline"
                   aria-pressed={isActive}
                   className={cn(
-                    "h-[34px] flex-1 rounded-[9px] border-[1.5px] px-2 text-xs",
+                    "h-[34px] flex-1 rounded-sm border-[1.5px] px-2",
                     isActive
-                      ? "bg-accent-soft border-accent-hover text-accent-soft-foreground font-semibold"
-                      : "bg-surface-tertiary text-foreground-secondary border-transparent font-normal",
+                      ? "bg-accent-soft border-accent-hover text-accent-soft-foreground text-label-medium-emph"
+                      : "bg-surface-tertiary text-foreground-secondary border-transparent text-label-medium",
                   )}
                 >
                   {tile.label}
@@ -138,7 +138,7 @@ function Composer({ compact = false, className }: { compact?: boolean; className
         disabled={chatDisabled}
       />
 
-      <p className="text-foreground-tertiary font-sans text-[11px]">{hint}</p>
+      <p className="text-foreground-tertiary font-sans text-label-small">{hint}</p>
 
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
         <DialogContent className="max-w-md">
@@ -149,7 +149,7 @@ function Composer({ compact = false, className }: { compact?: boolean; className
             {expressionOptions.map((tile) => (
               <button key={tile.key} type="button" className="flex flex-col gap-1" onClick={() => setExpression(tile.key)}>
                 {tile.src ? <img src={tile.src} alt={tile.label} className="h-40 w-full object-contain" /> : <div className="bg-default h-40" />}
-                <span className="text-center text-xs">{tile.label}</span>
+                <span className="text-center text-label-medium">{tile.label}</span>
               </button>
             ))}
           </div>

@@ -88,12 +88,12 @@ function GmCharactersPage() {
         <aside className="bg-background-secondary border-separator flex w-80 flex-col border-r">
           <div className="flex flex-col gap-3 px-4 pt-5 pb-3">
             <div className="flex items-center justify-between">
-              <h1 className="font-serif text-lg font-bold">人物</h1>
+              <h1 className="font-serif text-title-medium-emph">人物</h1>
               <div className="flex gap-1.5">
-                <Button type="button" onClick={() => setCreateOpen(true)} variant="primaryGradient" size="sm" className="h-[30px] px-3 text-xs">
+                <Button type="button" onClick={() => setCreateOpen(true)} variant="primary" size="sm" className="h-[30px] px-3">
                   <Plus /> 新建
                 </Button>
-                <Button type="button" onClick={() => setImportOpen(true)} variant="outline" size="sm" className="h-[30px] px-3 text-xs">
+                <Button type="button" onClick={() => setImportOpen(true)} variant="outline" size="sm" className="h-[30px] px-3">
                   导入
                 </Button>
               </div>
@@ -116,7 +116,7 @@ function GmCharactersPage() {
             {visible.map((character) => (
               <Button key={character.id} type="button" variant="ghost" className={cn("mb-1 h-auto w-full justify-start gap-2.5 px-2.5 py-2", selected?.id === character.id && "bg-default")} onClick={() => setSelectedId(character.id)}>
                 <Avatar size="sm"><AvatarFallback>{character.initial}</AvatarFallback></Avatar>
-                <span className="min-w-0 flex-1 truncate text-left text-[13px] font-semibold">{character.name}</span>
+                <span className="min-w-0 flex-1 truncate text-left text-label-large-emph">{character.name}</span>
                 <Badge variant="soft" size="sm">{character.kind}</Badge>
               </Button>
             ))}
@@ -125,16 +125,16 @@ function GmCharactersPage() {
         {selected ? (
           <div className="flex flex-1 flex-col gap-4 overflow-auto px-7 py-6">
             <div className="flex gap-4">
-              <div className="bg-surface-tertiary size-[132px] overflow-hidden rounded-[14px]">
+              <div className="bg-surface-tertiary size-[132px] overflow-hidden rounded-lg">
                 {selected.portrait ? <img src={selected.portrait} alt={selected.name} className="size-full object-cover" /> : <div className="flex size-full items-center justify-center"><UserRound /></div>}
               </div>
               <div className="flex-1">
-                <h2 className="font-serif text-[22px] font-bold">{selected.name}</h2>
-                <p className="text-foreground-secondary text-sm">{selected.meta}</p>
+                <h2 className="font-serif text-headline-small-emph">{selected.name}</h2>
+                <p className="text-foreground-secondary text-body-medium">{selected.meta}</p>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>导入 Excel</Button>
                   <Select value={portraitKey} onValueChange={setPortraitKey}>
-                    <SelectTrigger className="h-8 w-28 text-xs">
+                    <SelectTrigger className="h-8 w-28">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -185,16 +185,16 @@ function GmCharactersPage() {
                   <div className="mt-3 flex flex-wrap gap-2">
                     {selected.portraits.map((portrait) => (
                       <div key={portrait.id ?? portrait.expressionKey} className="flex flex-col items-center gap-1">
-                        <div className="bg-surface-tertiary size-16 overflow-hidden rounded-lg">
+                        <div className="bg-surface-tertiary size-16 overflow-hidden rounded-sm">
                           <img src={mediaUrl(portrait.portraitAssetId) ?? undefined} alt={expressionLabel(portrait.expressionKey)} className="size-full object-cover" />
                         </div>
-                        <span className="text-foreground-tertiary text-[10px]">{expressionLabel(portrait.expressionKey)}</span>
+                        <span className="text-foreground-tertiary text-label-small">{expressionLabel(portrait.expressionKey)}</span>
                         {portrait.id ? (
                           <Button
                             type="button"
                             variant="ghost"
                             size="sm"
-                            className="h-5 px-1.5 text-[10px]"
+                            className="h-5 px-1.5 text-label-small"
                             onClick={() => {
                               const portraitId = portrait.id;
                               if (!portraitId) return;
@@ -215,22 +215,22 @@ function GmCharactersPage() {
             <div className="grid grid-cols-5 gap-2">
               {(["hp", "mp", "san"] as const).map((key) => (
                 <Card key={key} className="p-3 text-center">
-                  <div className="text-foreground-tertiary text-[11px] uppercase">{key}</div>
-                  <div className="font-semibold">{selected.derived[key].current}/{selected.derived[key].max}</div>
+                  <div className="text-foreground-tertiary text-label-small uppercase">{key}</div>
+                  <div className="text-body-large-emph">{selected.derived[key].current}/{selected.derived[key].max}</div>
                 </Card>
               ))}
-              <Card className="p-3 text-center"><div className="text-[11px]">LUCK</div><div className="font-semibold">{selected.derived.luck}</div></Card>
-              <Card className="p-3 text-center"><div className="text-[11px]">MOV</div><div className="font-semibold">{selected.derived.mov}</div></Card>
+              <Card className="p-3 text-center"><div className="text-label-small">LUCK</div><div className="text-body-large-emph">{selected.derived.luck}</div></Card>
+              <Card className="p-3 text-center"><div className="text-label-small">MOV</div><div className="text-body-large-emph">{selected.derived.mov}</div></Card>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <Card className="p-4">
                 {selected.attributes.map((attr) => (
-                  <div key={attr.abbr} className="flex justify-between text-sm"><span>{attr.label}</span><span>{attr.value}</span></div>
+                  <div key={attr.abbr} className="flex justify-between text-body-medium"><span>{attr.label}</span><span>{attr.value}</span></div>
                 ))}
               </Card>
               <Card className="p-4">
                 {selected.skills.map((skill) => (
-                  <div key={skill.label} className="flex justify-between text-sm"><span>{skill.label}</span><span>{skill.value}</span></div>
+                  <div key={skill.label} className="flex justify-between text-body-medium"><span>{skill.label}</span><span>{skill.value}</span></div>
                 ))}
               </Card>
             </div>

@@ -24,7 +24,7 @@ function AlertDialogOverlay({
     <AlertDialogPrimitive.Overlay
       data-slot="alert-dialog-overlay"
       className={cn(
-        "bg-modal-backdrop fixed inset-0 z-50 data-closed:animate-out data-closed:fade-out-0 data-open:animate-in data-open:fade-in-0",
+        "bg-modal-backdrop fixed inset-0 z-50 data-closed:animate-out data-closed:fade-out-0 data-closed:duration-200 data-closed:ease-expressive-default-effects data-open:animate-in data-open:fade-in-0 data-open:duration-200 data-open:ease-expressive-default-effects",
         className,
       )}
       {...props}
@@ -39,7 +39,7 @@ function AlertDialogContent({ className, ...props }: React.ComponentProps<typeof
       <AlertDialogPrimitive.Content
         data-slot="alert-dialog-content"
         className={cn(
-          "border-separator-secondary bg-overlay shadow-modal rounded-modal fixed top-1/2 left-1/2 z-50 grid w-full max-w-sm -translate-x-1/2 -translate-y-1/2 gap-4 border p-6 text-foreground outline-none data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95",
+          "border-separator-secondary bg-overlay shadow-modal rounded-modal fixed top-1/2 left-1/2 z-50 grid w-full max-w-sm -translate-x-1/2 -translate-y-1/2 gap-4 border p-6 text-foreground outline-none data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 data-closed:duration-200 data-closed:ease-expressive-default-effects data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-open:duration-500 data-open:ease-expressive-default-spatial",
           className,
         )}
         {...props}
@@ -66,7 +66,7 @@ function AlertDialogTitle({ className, ...props }: React.ComponentProps<typeof A
   return (
     <AlertDialogPrimitive.Title
       data-slot="alert-dialog-title"
-      className={cn("font-sans text-base font-medium text-foreground", className)}
+      className={cn("font-sans text-headline-small text-foreground", className)}
       {...props}
     />
   );
@@ -79,7 +79,7 @@ function AlertDialogDescription({
   return (
     <AlertDialogPrimitive.Description
       data-slot="alert-dialog-description"
-      className={cn("text-muted font-sans text-sm leading-[1.43]", className)}
+      className={cn("text-muted font-sans text-body-medium", className)}
       {...props}
     />
   );

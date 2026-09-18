@@ -13,11 +13,9 @@ function PageHeader({ title, description, eyebrow, actions, className, ...props 
     <header className={cn("flex items-start justify-between gap-6", className)} {...props}>
       <div className="flex min-w-0 flex-col gap-1.5">
         {eyebrow}
-        <h1 className="text-foreground font-serif text-[22px] font-bold text-balance">{title}</h1>
+        <h1 className="font-serif text-headline-medium-emph text-balance text-foreground">{title}</h1>
         {description ? (
-          <p className="text-foreground-secondary max-w-3xl text-[13px] leading-relaxed text-pretty">
-            {description}
-          </p>
+          <p className="max-w-3xl text-pretty text-body-medium text-foreground-secondary">{description}</p>
         ) : null}
       </div>
       {actions ? <div className="flex shrink-0 items-center gap-2.5">{actions}</div> : null}
