@@ -9,6 +9,7 @@
 - `docs/product.md` — 产品需求：角色/模组/团模型、团状态与阶段规则、掷骰与鉴定、角色团内状态、音频 GM 控制、情报发放、黑名单
 - `docs/tech-stack.md` — 定稿技术栈（Bun + Elysia + React 19 + TanStack Router + shadcn/ui + Drizzle/bun:sqlite）
 - `docs/architecture.md` — 架构：monorepo 布局、规则系统抽象、WS 协议与断线补发、服务端权威原则、演绎发言队列、音频同步、情报可见性、路由表
+- `docs/DESIGN.md` — UI/UX 设计规范：M3 Expressive 设计方向、官方资源、token 体系与样式文件职责
 
 ## 硬性约束
 
@@ -17,4 +18,4 @@
 - 发言权限、团状态机、掷骰等规则判定必须服务端权威，见 `docs/architecture.md`。
 - WS 消息协议与数据 schema 一律定义在 `packages/shared`（zod），禁止两端各写一份。
 - 一律使用 Bun 工具链：`bun install` / `bun run` / `bunx` / `bun test`。
-- 样式文件职责分离（硬性）：`apps/client/src/styles/globals.css` 仅作为全局样式入口（聚合 `@import` 与 `@layer base`）；全部设计 token（颜色、阴影、圆角、字体）必须定义在 `apps/client/src/styles/theme.css` 的 `@theme` 块中并按文件内分区归类，禁止写回 `globals.css` 或在其他文件中新建 `@theme`。
+- UI/UX 设计规范统一维护在 `docs/DESIGN.md`（M3 Expressive 方向、设计 token 体系、样式文件职责分离等硬性约束），UI 相关工作前必读。
