@@ -1,0 +1,26 @@
+{
+  "retrieved": "2026-09-19",
+  "packages": [
+    {
+      "name": "material_ui",
+      "version": "1.3.0",
+      "repository": "https://github.com/flutter/packages/tree/main/packages/material_ui",
+      "archive": "https://pub.dev/api/archives/material_ui-1.3.0.tar.gz",
+      "sha256": "6d056d60ce745335fcf1c726a4fc46a481a62229f202b65dbc2db5edbbabc7e2"
+    },
+    {
+      "name": "material_3_expressive",
+      "version": "1.1.2",
+      "repository": "https://github.com/paadevelopments/material_3_expressive",
+      "archive": "https://pub.dev/api/archives/material_3_expressive-1.1.2.tar.gz",
+      "sha256": "6bbe64da7692cfbe6b922415c4fae40a15e210036df7ab26baf05d63f8b667d7"
+    },
+    {
+      "name": "material_new_shapes",
+      "version": "1.0.0",
+      "repository": "https://github.com/ulims/material_shapes",
+      "archive": "https://pub.dev/api/archives/material_new_shapes-1.0.0.tar.gz",
+      "sha256": "e4bc375205e187e8fb232573387112dd8c0dd45b03af8aa2b3c79eb4b9e3e0dc"
+    }
+  ]
+}

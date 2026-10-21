@@ -202,35 +202,71 @@
   /* ── 语义别名：强调 / 状态（→ MD3 角色；hover 为 8% state layer 推导）─ */
   --color-accent: var(--color-md-primary);
   --color-accent-foreground: var(--color-md-on-primary);
-  --color-accent-hover: color-mix(in srgb, var(--color-md-on-primary) 8%, var(--color-md-primary));
+  --color-accent-hover: color-mix(
+    in srgb,
+    var(--color-md-on-primary) 8%,
+    var(--color-md-primary)
+  );
   --color-accent-soft: var(--color-md-primary-container);
   --color-accent-soft-foreground: var(--color-md-on-primary-container);
-  --color-accent-soft-hover: color-mix(in srgb, var(--color-md-on-primary-container) 8%, var(--color-md-primary-container));
+  --color-accent-soft-hover: color-mix(
+    in srgb,
+    var(--color-md-on-primary-container) 8%,
+    var(--color-md-primary-container)
+  );
 
   --color-danger: var(--color-md-error);
   --color-danger-foreground: var(--color-md-on-error);
-  --color-danger-hover: color-mix(in srgb, var(--color-md-on-error) 8%, var(--color-md-error));
+  --color-danger-hover: color-mix(
+    in srgb,
+    var(--color-md-on-error) 8%,
+    var(--color-md-error)
+  );
   --color-danger-soft: var(--color-md-error-container);
   --color-danger-soft-foreground: var(--color-md-on-error-container);
-  --color-danger-soft-hover: color-mix(in srgb, var(--color-md-on-error-container) 8%, var(--color-md-error-container));
+  --color-danger-soft-hover: color-mix(
+    in srgb,
+    var(--color-md-on-error-container) 8%,
+    var(--color-md-error-container)
+  );
 
   --color-warning: var(--color-md-warning);
   --color-warning-foreground: var(--color-md-on-warning);
-  --color-warning-hover: color-mix(in srgb, var(--color-md-on-warning) 8%, var(--color-md-warning));
+  --color-warning-hover: color-mix(
+    in srgb,
+    var(--color-md-on-warning) 8%,
+    var(--color-md-warning)
+  );
   --color-warning-soft: var(--color-md-warning-container);
   --color-warning-soft-foreground: var(--color-md-on-warning-container);
-  --color-warning-soft-hover: color-mix(in srgb, var(--color-md-on-warning-container) 8%, var(--color-md-warning-container));
+  --color-warning-soft-hover: color-mix(
+    in srgb,
+    var(--color-md-on-warning-container) 8%,
+    var(--color-md-warning-container)
+  );
 
   --color-success: var(--color-md-success);
   --color-success-foreground: var(--color-md-on-success);
-  --color-success-hover: color-mix(in srgb, var(--color-md-on-success) 8%, var(--color-md-success));
+  --color-success-hover: color-mix(
+    in srgb,
+    var(--color-md-on-success) 8%,
+    var(--color-md-success)
+  );
   --color-success-soft: var(--color-md-success-container);
   --color-success-soft-foreground: var(--color-md-on-success-container);
-  --color-success-soft-hover: color-mix(in srgb, var(--color-md-on-success-container) 8%, var(--color-md-success-container));
+  --color-success-soft-hover: color-mix(
+    in srgb,
+    var(--color-md-on-success-container) 8%,
+    var(--color-md-success-container)
+  );
 
   --color-default: var(--color-md-surface-container-highest);
   --color-default-foreground: var(--color-md-on-surface);
-  --color-default-hover: color-mix(in srgb, var(--color-md-on-surface) 8%, var(--color-md-surface-container-highest));
+  --color-default-hover: color-mix(
+    in srgb,
+    var(--color-md-on-surface) 8%,
+    var(--color-md-surface-container-highest)
+  );
 
   /* ── 语义别名：背景 / 前景 / 表面 ─────────────────────────────── */
   --color-background: var(--color-md-surface);
@@ -249,7 +285,11 @@
 
   --color-surface: var(--color-md-surface-container);
   --color-surface-foreground: var(--color-md-on-surface);
-  --color-surface-hover: color-mix(in srgb, var(--color-md-on-surface) 8%, var(--color-md-surface-container));
+  --color-surface-hover: color-mix(
+    in srgb,
+    var(--color-md-on-surface) 8%,
+    var(--color-md-surface-container)
+  );
   --color-surface-secondary: var(--color-md-surface-container-high);
   --color-surface-secondary-foreground: var(--color-md-on-surface);
   --color-surface-tertiary: var(--color-md-surface-container-highest);
@@ -259,7 +299,11 @@
   /* ── 语义别名：控件（field / segment / focus）────────────────────── */
   --color-field: var(--color-md-surface-container-highest);
   --color-field-focus: var(--color-md-surface-container-highest);
-  --color-field-hover: color-mix(in srgb, var(--color-md-on-surface) 8%, var(--color-md-surface-container-highest));
+  --color-field-hover: color-mix(
+    in srgb,
+    var(--color-md-on-surface) 8%,
+    var(--color-md-surface-container-highest)
+  );
   --color-field-border: #00000000;
   --color-field-border-focus: var(--color-md-primary);
   --color-field-border-hover: #00000000;
@@ -273,30 +317,74 @@
   /* ── 语义别名：边界 / 分隔 ────────────────────────────────────── */
   --color-border: var(--color-md-outline-variant);
   --color-separator: var(--color-md-outline-variant);
-  --color-separator-secondary: color-mix(in srgb, var(--color-md-outline-variant) 60%, var(--color-md-surface));
+  --color-separator-secondary: color-mix(
+    in srgb,
+    var(--color-md-outline-variant) 60%,
+    var(--color-md-surface)
+  );
   --color-separator-tertiary: var(--color-md-outline);
 
   /* ── 语义别名：遮罩 / 滚动条 ──────────────────────────────────── */
   --color-muted: var(--color-md-on-surface-variant);
   --color-overlay: var(--color-md-surface-container-high);
-  --color-overlay-shadow: color-mix(in srgb, var(--color-md-on-surface) 30%, transparent);
+  --color-overlay-shadow: color-mix(
+    in srgb,
+    var(--color-md-on-surface) 30%,
+    transparent
+  );
   --color-backdrop: color-mix(in srgb, var(--color-md-scrim) 50%, transparent);
-  --color-modal-backdrop: color-mix(in srgb, var(--color-md-scrim) 95%, transparent);
+  --color-modal-backdrop: color-mix(
+    in srgb,
+    var(--color-md-scrim) 95%,
+    transparent
+  );
   --color-scrollbar: var(--color-md-outline);
 
   /* ── 舞台 / 对话（沉浸式场景、立绘、演绎发言；值自 MD3 角色推导）────── */
-  --color-stage-scrim: color-mix(in srgb, var(--color-md-surface) 85%, transparent);
-  --color-stage-scrim-strong: color-mix(in srgb, var(--color-md-surface) 90%, transparent);
-  --color-stage-panel: color-mix(in srgb, var(--color-md-surface) 80%, transparent);
-  --color-dialogue-start: color-mix(in srgb, var(--color-md-surface-container-high) 90%, transparent);
-  --color-dialogue-end: color-mix(in srgb, var(--color-md-surface-container-lowest) 96%, transparent);
+  --color-stage-scrim: color-mix(
+    in srgb,
+    var(--color-md-surface) 85%,
+    transparent
+  );
+  --color-stage-scrim-strong: color-mix(
+    in srgb,
+    var(--color-md-surface) 90%,
+    transparent
+  );
+  --color-stage-panel: color-mix(
+    in srgb,
+    var(--color-md-surface) 80%,
+    transparent
+  );
+  --color-dialogue-start: color-mix(
+    in srgb,
+    var(--color-md-surface-container-high) 90%,
+    transparent
+  );
+  --color-dialogue-end: color-mix(
+    in srgb,
+    var(--color-md-surface-container-lowest) 96%,
+    transparent
+  );
   --color-dialogue-text: var(--color-md-on-surface);
 
   /* ── 阴影色料 ───────────────────────────────────────────────── */
-  --color-shadow-inner: color-mix(in srgb, var(--color-md-on-surface) 30%, transparent);
+  --color-shadow-inner: color-mix(
+    in srgb,
+    var(--color-md-on-surface) 30%,
+    transparent
+  );
   --color-shadow-scroll: var(--color-md-surface);
-  --color-shadow-scroll-blur: color-mix(in srgb, var(--color-md-surface) 70%, transparent);
-  --color-shadow-scroll-blur-on-surface: color-mix(in srgb, var(--color-md-surface-container) 70%, transparent);
+  --color-shadow-scroll-blur: color-mix(
+    in srgb,
+    var(--color-md-surface) 70%,
+    transparent
+  );
+  --color-shadow-scroll-blur-on-surface: color-mix(
+    in srgb,
+    var(--color-md-surface-container) 70%,
+    transparent
+  );
   --color-shadow-scroll-on-surface: var(--color-md-surface-container);
 
   /* ── 品牌色（和风传统色，Theme Builder 种子与装饰用色）────────────── */
@@ -320,6 +408,7 @@
   --radius-xl: 28px;
   --radius-xl-inc: 32px;
   --radius-2xl: 48px;
+  --radius-full: 9999px;
   --radius-modal: var(--radius-xl);
 
   /* ── 动效（MD3 弹簧物理的 Web 曲线换算，见 docs/DESIGN.md）──────────── */
@@ -335,6 +424,20 @@
   --ease-standard-fast-effects: cubic-bezier(0.31, 0.94, 0.34, 1);
   --ease-standard-default-effects: cubic-bezier(0.34, 0.8, 0.34, 1);
   --ease-standard-slow-effects: cubic-bezier(0.34, 0.88, 0.34, 1);
+  --duration-expressive-fast-spatial: 350ms;
+  --duration-expressive-default-spatial: 500ms;
+  --duration-expressive-slow-spatial: 650ms;
+  --duration-expressive-fast-effects: 150ms;
+  --duration-expressive-default-effects: 200ms;
+  --duration-expressive-slow-effects: 300ms;
+  --duration-standard-fast-spatial: 350ms;
+  --duration-standard-default-spatial: 500ms;
+  --duration-standard-slow-spatial: 750ms;
+  --duration-standard-fast-effects: 150ms;
+  --duration-standard-default-effects: 200ms;
+  --duration-standard-slow-effects: 300ms;
+  --duration-media-wave-cycle: 1000ms;
+  --ease-media-wave: linear;
 
   /* ── 阴影（MD3 深色海拔 1–5 级）───────────────────────────────── */
   --shadow-card: 0 1px 2px 0 #0000004d, 0 1px 3px 1px #00000026;
@@ -347,4 +450,352 @@
     0 4px 8px 3px #00000026, 0 1px 3px 0 #0000004d, inset 0 1px 0 0 #ffffff0f;
   --shadow-modal: 0 6px 10px 4px #00000026, 0 2px 3px 0 #0000004d;
   --shadow-overlay: 0 8px 12px 6px #00000026, 0 4px 4px 0 #0000004d;
+  --radius-none: 0px;
+  --radius-connected: 8px;
+  --radius-connected-pressed: 4px;
+  --spacing-m3-button-xs: 32px;
+  --spacing-m3-button-sm: 40px;
+  --spacing-m3-button-md: 56px;
+  --spacing-m3-button-lg: 96px;
+  --spacing-m3-button-xl: 136px;
+  --spacing-m3-touch: 48px;
+  --spacing-m3-handle: 44px;
+  --spacing-m3-handle-width: 4px;
+  --spacing-m3-handle-pressed: 2px;
+  --spacing-m3-track: 16px;
+  --spacing-m3-track-gap: 6px;
+  --spacing-m3-progress-stroke: 4px;
+  --spacing-m3-progress-gap: 8px;
+  --spacing-m3-wave-amplitude: 3px;
+  --spacing-m3-wave-length: 40px;
+  --spacing-m3-wave-height: 10px;
+  --spacing-m3-switch-width: 52px;
+  --spacing-m3-loading: 38px;
+  --spacing-m3-rail: 96px;
+  --spacing-m3-drawer: 360px;
+  --opacity-m3-hover: 0.08;
+  --opacity-m3-focus: 0.1;
+  --opacity-m3-pressed: 0.1;
+  --opacity-m3-disabled: 0.38;
+  --opacity-m3-disabled-container: 0.12;
+  --duration-loading-rotation: 1600ms;
+  --duration-loading-morph: 7000ms;
+  --duration-progress-indeterminate: 1750ms;
+  --duration-reduced: 0.01ms;
+  --color-m3-disabled-container: color-mix(
+    in srgb,
+    var(--color-md-on-surface) 12%,
+    transparent
+  );
+  --color-m3-disabled-content: color-mix(
+    in srgb,
+    var(--color-md-on-surface) 38%,
+    transparent
+  );
+  --color-m3-state-hover: color-mix(in srgb, currentColor 8%, transparent);
+  --color-m3-state-pressed: color-mix(in srgb, currentColor 10%, transparent);
+
+  --ease-m3-switch-position: linear(
+    0,
+    0.01766,
+    0.0654,
+    0.13579,
+    0.22206,
+    0.3182,
+    0.41904,
+    0.52022,
+    0.61823,
+    0.71034,
+    0.79455,
+    0.86951,
+    0.93445,
+    0.98909,
+    1.03356,
+    1.06831,
+    1.09402,
+    1.11156,
+    1.12191,
+    1.12611,
+    1.1252,
+    1.12019,
+    1.11206,
+    1.10167,
+    1.08982,
+    1.0772,
+    1.06438,
+    1.05184,
+    1.03995,
+    1.029,
+    1.01917,
+    1.01058,
+    1.00329,
+    0.9973,
+    0.99255,
+    0.98897,
+    0.98646,
+    0.9849,
+    0.98415,
+    0.98409,
+    0.98458,
+    0.98551,
+    0.98674,
+    0.9882,
+    0.98977,
+    0.99139,
+    0.99299,
+    0.99452,
+    0.99594,
+    0.99723,
+    0.99836,
+    0.99933,
+    1.00013,
+    1.00078,
+    1.00127,
+    1.00163,
+    1.00186,
+    1.00198,
+    1.00202,
+    1.00197,
+    1.00187,
+    1.00172,
+    1.00155,
+    1.00135,
+    1.00115,
+    1.00095,
+    1.00075,
+    1.00056,
+    1.0004,
+    1.00025,
+    1.00012,
+    1.00001,
+    0.99992,
+    0.99986,
+    0.99981,
+    0.99977,
+    0.99975,
+    0.99975,
+    0.99975,
+    0.99976,
+    1
+  );
+  --ease-m3-switch-size: linear(
+    0,
+    0.01733,
+    0.0631,
+    0.12899,
+    0.20802,
+    0.29443,
+    0.3836,
+    0.4719,
+    0.55662,
+    0.6358,
+    0.70814,
+    0.77288,
+    0.82969,
+    0.87858,
+    0.91981,
+    0.95386,
+    0.9813,
+    1.00281,
+    1.01909,
+    1.03085,
+    1.03877,
+    1.04352,
+    1.04569,
+    1.04583,
+    1.04442,
+    1.04187,
+    1.03854,
+    1.03473,
+    1.03068,
+    1.02658,
+    1.02257,
+    1.01878,
+    1.01527,
+    1.01209,
+    1.00927,
+    1.00681,
+    1.00472,
+    1.00297,
+    1.00154,
+    1.0004,
+    0.99952,
+    0.99886,
+    0.9984,
+    0.99811,
+    0.99794,
+    0.99789,
+    0.99791,
+    0.998,
+    0.99814,
+    0.9983,
+    0.99848,
+    0.99867,
+    0.99886,
+    0.99904,
+    0.99921,
+    0.99936,
+    0.9995,
+    0.99962,
+    0.99973,
+    0.99982,
+    0.99989,
+    0.99995,
+    1,
+    1.00004,
+    1.00006,
+    1.00008,
+    1.00009,
+    1.0001,
+    1.0001,
+    1.00009,
+    1.00009,
+    1.00008,
+    1.00007,
+    1.00007,
+    1.00006,
+    1.00005,
+    1.00004,
+    1.00003,
+    1.00003,
+    1.00002,
+    1
+  );
+  --duration-m3-spring: 800ms;
+  --spacing-m3-switch-height: 32px;
+  --spacing-m3-switch-thumb-off: 16px;
+  --spacing-m3-switch-thumb-on: 24px;
+  --spacing-m3-switch-thumb-pressed: 32px;
+  --spacing-m3-side-sheet: 360px;
+  --spacing-m3-icon-xs-narrow: 28px;
+  --spacing-m3-icon-xs-wide: 40px;
+  --radius-m3-icon-xs-pressed: 6px;
+  --radius-m3-icon-xs-hover: 10px;
+  --spacing-m3-icon-sm-narrow: 32px;
+  --spacing-m3-icon-sm-wide: 52px;
+  --radius-m3-icon-sm-pressed: 8px;
+  --radius-m3-icon-sm-hover: 12px;
+  --spacing-m3-icon-md-narrow: 48px;
+  --spacing-m3-icon-md-wide: 72px;
+  --radius-m3-icon-md-pressed: 11px;
+  --radius-m3-icon-md-hover: 16px;
+  --spacing-m3-icon-lg-narrow: 64px;
+  --spacing-m3-icon-lg-wide: 128px;
+  --radius-m3-icon-lg-pressed: 19px;
+  --radius-m3-icon-lg-hover: 28px;
+  --spacing-m3-icon-xl-narrow: 104px;
+  --spacing-m3-icon-xl-wide: 184px;
+  --radius-m3-icon-xl-pressed: 27px;
+  --radius-m3-icon-xl-hover: 40px;
+
+  --ease-m3-selection: linear(
+    0,
+    0.01311,
+    0.0469,
+    0.09458,
+    0.15095,
+    0.21212,
+    0.2752,
+    0.33808,
+    0.39927,
+    0.45776,
+    0.51289,
+    0.56427,
+    0.61173,
+    0.65523,
+    0.69485,
+    0.73073,
+    0.76307,
+    0.7921,
+    0.81807,
+    0.84121,
+    0.86178,
+    0.88002,
+    0.89614,
+    0.91037,
+    0.92291,
+    0.93392,
+    0.94359,
+    0.95207,
+    0.95948,
+    0.96596,
+    0.97161,
+    0.97654,
+    0.98083,
+    0.98457,
+    0.98781,
+    0.99063,
+    0.99308,
+    0.9952,
+    0.99703,
+    0.99862,
+    1
+  );
+  --spacing-m3-nav-stretch: 4px;
+  --scale-m3-navigation-icon: 1.02;
+  --scale-m3-search-enter: 0.98;
+
+  --ease-m3-button-shape: linear(
+    0,
+    0.01712,
+    0.06163,
+    0.12476,
+    0.19945,
+    0.28018,
+    0.3627,
+    0.44385,
+    0.52136,
+    0.59367,
+    0.65983,
+    0.71933,
+    0.77203,
+    0.81802,
+    0.85761,
+    0.89123,
+    0.91938,
+    0.94261,
+    0.96148,
+    0.97655,
+    0.98835,
+    0.99736,
+    1.00404,
+    1.00881,
+    1.01201,
+    1.01396,
+    1.01493,
+    1.01516,
+    1.01483,
+    1.01411,
+    1.01312,
+    1.01197,
+    1.01074,
+    1.00949,
+    1.00827,
+    1.0071,
+    1.00602,
+    1.00503,
+    1.00414,
+    1.00335,
+    1.00267,
+    1.00208,
+    1.00158,
+    1.00117,
+    1.00083,
+    1.00055,
+    1.00033,
+    1.00016,
+    1.00002,
+    0.99993,
+    1
+  );
+  --radius-m3-button-xs-square: 12px;
+  --radius-m3-button-sm-square: 12px;
+  --radius-m3-button-md-square: 16px;
+  --radius-m3-button-lg-square: 28px;
+  --radius-m3-button-xl-square: 28px;
+  --radius-m3-button-xs-pressed: 8px;
+  --radius-m3-button-sm-pressed: 8px;
+  --radius-m3-button-md-pressed: 12px;
+  --radius-m3-button-lg-pressed: 16px;
+  --radius-m3-button-xl-pressed: 16px;
 }

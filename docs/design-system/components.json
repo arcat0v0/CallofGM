@@ -1,0 +1,468 @@
+{
+  "originalComponents": [
+    "accordion",
+    "alert-dialog",
+    "alert",
+    "avatar",
+    "badge",
+    "button",
+    "card",
+    "checkbox",
+    "dialog",
+    "dropdown-menu",
+    "input-group",
+    "input-otp",
+    "input",
+    "label",
+    "pagination",
+    "popover",
+    "progress",
+    "radio-group",
+    "select",
+    "separator",
+    "slider",
+    "sonner",
+    "switch",
+    "table",
+    "tabs",
+    "textarea",
+    "tooltip"
+  ],
+  "boards": [
+    {
+      "id": "fqvcM",
+      "name": "01 · Actions"
+    },
+    {
+      "id": "LKyqj",
+      "name": "02 · Selection & Input"
+    },
+    {
+      "id": "CRV22",
+      "name": "03 · Navigation"
+    },
+    {
+      "id": "p6R8dj",
+      "name": "04 · Containment"
+    },
+    {
+      "id": "z0FfP",
+      "name": "05 · Feedback & Extensions"
+    },
+    {
+      "id": "C3Iv4d",
+      "name": "06 · Foundations & Motion"
+    }
+  ],
+  "families": [
+    {
+      "dart": "app_bars",
+      "web": "AppBar",
+      "files": [
+        "apps/client/src/components/ui/app-bar.tsx"
+      ],
+      "penBoard": "03",
+      "penFamily": "M3/App bar",
+      "source": "material_3_expressive/lib/components/app_bars/"
+    },
+    {
+      "dart": "badges",
+      "web": "Badge",
+      "files": [
+        "apps/client/src/components/ui/badge.tsx"
+      ],
+      "penBoard": "05",
+      "penFamily": "M3/Badge",
+      "source": "material_3_expressive/lib/components/badges/"
+    },
+    {
+      "dart": "bottom_sheets",
+      "web": "Drawer",
+      "files": [
+        "apps/client/src/components/ui/drawer.tsx"
+      ],
+      "penBoard": "04",
+      "penFamily": "M3/Bottom sheet",
+      "source": "material_3_expressive/lib/components/bottom_sheets/"
+    },
+    {
+      "dart": "buttons",
+      "web": "Button / ButtonGroup",
+      "files": [
+        "apps/client/src/components/ui/button.tsx",
+        "apps/client/src/components/ui/button-group.tsx"
+      ],
+      "penBoard": "01",
+      "penFamily": "M3/Button",
+      "source": "material_3_expressive/lib/components/buttons/"
+    },
+    {
+      "dart": "cards",
+      "web": "Card",
+      "files": [
+        "apps/client/src/components/ui/card.tsx"
+      ],
+      "penBoard": "04",
+      "penFamily": "M3/Card",
+      "source": "material_3_expressive/lib/components/cards/"
+    },
+    {
+      "dart": "carousel",
+      "web": "Carousel",
+      "files": [
+        "apps/client/src/components/ui/carousel.tsx"
+      ],
+      "penBoard": "04",
+      "penFamily": "M3/Carousel",
+      "source": "material_3_expressive/lib/components/carousel/"
+    },
+    {
+      "dart": "checkbox",
+      "web": "Checkbox",
+      "files": [
+        "apps/client/src/components/ui/checkbox.tsx"
+      ],
+      "penBoard": "02",
+      "penFamily": "M3/Checkbox",
+      "source": "material_3_expressive/lib/components/checkbox/"
+    },
+    {
+      "dart": "chips",
+      "web": "Chip / FilterChip / InputChip",
+      "files": [
+        "apps/client/src/components/ui/chip.tsx"
+      ],
+      "penBoard": "02",
+      "penFamily": "M3/Chip",
+      "source": "material_3_expressive/lib/components/chips/"
+    },
+    {
+      "dart": "date_pickers",
+      "web": "Calendar / DatePicker",
+      "files": [
+        "apps/client/src/components/ui/calendar.tsx",
+        "apps/client/src/components/ui/pickers.tsx"
+      ],
+      "penBoard": "04",
+      "penFamily": "M3/Date picker",
+      "source": "material_3_expressive/lib/components/date_pickers/"
+    },
+    {
+      "dart": "dialogs",
+      "web": "Dialog / AlertDialog",
+      "files": [
+        "apps/client/src/components/ui/dialog.tsx",
+        "apps/client/src/components/ui/alert-dialog.tsx"
+      ],
+      "penBoard": "04",
+      "penFamily": "M3/Dialog",
+      "source": "material_3_expressive/lib/components/dialogs/"
+    },
+    {
+      "dart": "divider",
+      "web": "Separator",
+      "files": [
+        "apps/client/src/components/ui/separator.tsx"
+      ],
+      "penBoard": "05",
+      "penFamily": "M3/Divider",
+      "source": "material_3_expressive/lib/components/divider/"
+    },
+    {
+      "dart": "dropdown_menus",
+      "web": "Select / DropdownMenu",
+      "files": [
+        "apps/client/src/components/ui/select.tsx",
+        "apps/client/src/components/ui/dropdown-menu.tsx"
+      ],
+      "penBoard": "04",
+      "penFamily": "M3/Menu",
+      "source": "material_3_expressive/lib/components/dropdown_menus/"
+    },
+    {
+      "dart": "extended_fabs",
+      "web": "Fab extended",
+      "files": [
+        "apps/client/src/components/ui/fab.tsx"
+      ],
+      "penBoard": "01",
+      "penFamily": "M3/Extended FAB",
+      "source": "material_3_expressive/lib/components/extended_fabs/"
+    },
+    {
+      "dart": "fab_menu",
+      "web": "FabMenu",
+      "files": [
+        "apps/client/src/components/ui/fab.tsx"
+      ],
+      "penBoard": "01",
+      "penFamily": "M3/FAB menu",
+      "source": "material_3_expressive/lib/components/fab_menu/"
+    },
+    {
+      "dart": "floating_action_buttons",
+      "web": "Fab",
+      "files": [
+        "apps/client/src/components/ui/fab.tsx"
+      ],
+      "penBoard": "01",
+      "penFamily": "M3/FAB",
+      "source": "material_3_expressive/lib/components/floating_action_buttons/"
+    },
+    {
+      "dart": "icon_buttons",
+      "web": "IconButton",
+      "files": [
+        "apps/client/src/components/ui/icon-button.tsx"
+      ],
+      "penBoard": "01",
+      "penFamily": "M3/Icon button",
+      "source": "material_3_expressive/lib/components/icon_buttons/"
+    },
+    {
+      "dart": "lists",
+      "web": "List / ListItem",
+      "files": [
+        "apps/client/src/components/ui/list.tsx"
+      ],
+      "penBoard": "04",
+      "penFamily": "M3/List",
+      "source": "material_3_expressive/lib/components/lists/"
+    },
+    {
+      "dart": "loading_indicator",
+      "web": "LoadingIndicator / Spinner",
+      "files": [
+        "apps/client/src/components/ui/loading-indicator.tsx"
+      ],
+      "penBoard": "06",
+      "penFamily": "M3/Loading indicator",
+      "source": "material_3_expressive/lib/components/loading_indicator/"
+    },
+    {
+      "dart": "menus",
+      "web": "DropdownMenu",
+      "files": [
+        "apps/client/src/components/ui/dropdown-menu.tsx"
+      ],
+      "penBoard": "04",
+      "penFamily": "M3/Menu",
+      "source": "material_3_expressive/lib/components/menus/"
+    },
+    {
+      "dart": "navigation_bar",
+      "web": "Navigation variant=bar",
+      "files": [
+        "apps/client/src/components/ui/navigation.tsx"
+      ],
+      "penBoard": "03",
+      "penFamily": "M3/Navigation bar",
+      "source": "material_3_expressive/lib/components/navigation_bar/"
+    },
+    {
+      "dart": "navigation_drawer",
+      "web": "Navigation variant=drawer / Sheet",
+      "files": [
+        "apps/client/src/components/ui/navigation.tsx",
+        "apps/client/src/components/ui/sheet.tsx"
+      ],
+      "penBoard": "03",
+      "penFamily": "M3/Navigation drawer",
+      "source": "material_3_expressive/lib/components/navigation_drawer/"
+    },
+    {
+      "dart": "navigation_rail",
+      "web": "Navigation variant=rail",
+      "files": [
+        "apps/client/src/components/ui/navigation.tsx"
+      ],
+      "penBoard": "03",
+      "penFamily": "M3/Navigation rail",
+      "source": "material_3_expressive/lib/components/navigation_rail/"
+    },
+    {
+      "dart": "progress_indicators",
+      "web": "Progress / CircularProgress",
+      "files": [
+        "apps/client/src/components/ui/progress.tsx"
+      ],
+      "penBoard": "05",
+      "penFamily": "M3/Progress",
+      "source": "material_3_expressive/lib/components/progress_indicators/"
+    },
+    {
+      "dart": "radio_button",
+      "web": "RadioGroup / RadioGroupItem",
+      "files": [
+        "apps/client/src/components/ui/radio-group.tsx"
+      ],
+      "penBoard": "02",
+      "penFamily": "M3/Radio",
+      "source": "material_3_expressive/lib/components/radio_button/"
+    },
+    {
+      "dart": "refresh_indicator",
+      "web": "RefreshIndicator",
+      "files": [
+        "apps/client/src/components/ui/refresh-indicator.tsx"
+      ],
+      "penBoard": "05",
+      "penFamily": "M3/Refresh indicator",
+      "source": "material_3_expressive/lib/components/refresh_indicator/"
+    },
+    {
+      "dart": "search",
+      "web": "SearchBar / SearchView",
+      "files": [
+        "apps/client/src/components/ui/search.tsx"
+      ],
+      "penBoard": "03",
+      "penFamily": "M3/Search",
+      "source": "material_3_expressive/lib/components/search/"
+    },
+    {
+      "dart": "segmented_buttons",
+      "web": "ToggleGroup",
+      "files": [
+        "apps/client/src/components/ui/toggle-group.tsx"
+      ],
+      "penBoard": "01",
+      "penFamily": "M3/Button group",
+      "source": "material_3_expressive/lib/components/segmented_buttons/"
+    },
+    {
+      "dart": "selection",
+      "web": "Checkbox / RadioGroup / Switch",
+      "files": [
+        "apps/client/src/components/ui/checkbox.tsx",
+        "apps/client/src/components/ui/radio-group.tsx",
+        "apps/client/src/components/ui/switch.tsx"
+      ],
+      "penBoard": "02",
+      "penFamily": "M3/Selection",
+      "source": "material_3_expressive/lib/components/selection/"
+    },
+    {
+      "dart": "side_sheets",
+      "web": "Sheet",
+      "files": [
+        "apps/client/src/components/ui/sheet.tsx"
+      ],
+      "penBoard": "04",
+      "penFamily": "M3/Side sheet",
+      "source": "material_3_expressive/lib/components/side_sheets/"
+    },
+    {
+      "dart": "sliders",
+      "web": "Slider",
+      "files": [
+        "apps/client/src/components/ui/slider.tsx"
+      ],
+      "penBoard": "02",
+      "penFamily": "M3/Slider",
+      "source": "material_3_expressive/lib/components/sliders/"
+    },
+    {
+      "dart": "snackbar",
+      "web": "Toaster / sonner toast",
+      "files": [
+        "apps/client/src/components/ui/sonner.tsx"
+      ],
+      "penBoard": "05",
+      "penFamily": "M3/Snackbar",
+      "source": "material_3_expressive/lib/components/snackbar/"
+    },
+    {
+      "dart": "split_buttons",
+      "web": "SplitButton",
+      "files": [
+        "apps/client/src/components/ui/button-group.tsx"
+      ],
+      "penBoard": "01",
+      "penFamily": "M3/Split button",
+      "source": "material_3_expressive/lib/components/split_buttons/"
+    },
+    {
+      "dart": "switch_control",
+      "web": "Switch",
+      "files": [
+        "apps/client/src/components/ui/switch.tsx"
+      ],
+      "penBoard": "02",
+      "penFamily": "M3/Switch",
+      "source": "material_3_expressive/lib/components/switch_control/"
+    },
+    {
+      "dart": "tabs",
+      "web": "Tabs",
+      "files": [
+        "apps/client/src/components/ui/tabs.tsx"
+      ],
+      "penBoard": "03",
+      "penFamily": "M3/Tabs",
+      "source": "material_3_expressive/lib/components/tabs/"
+    },
+    {
+      "dart": "text_fields",
+      "web": "Input / Textarea / TextField",
+      "files": [
+        "apps/client/src/components/ui/input.tsx",
+        "apps/client/src/components/ui/textarea.tsx",
+        "apps/client/src/components/ui/text-field.tsx"
+      ],
+      "penBoard": "02",
+      "penFamily": "M3/Text field",
+      "source": "material_3_expressive/lib/components/text_fields/"
+    },
+    {
+      "dart": "time_pickers",
+      "web": "TimePicker",
+      "files": [
+        "apps/client/src/components/ui/pickers.tsx"
+      ],
+      "penBoard": "04",
+      "penFamily": "M3/Time picker",
+      "source": "material_3_expressive/lib/components/time_pickers/"
+    },
+    {
+      "dart": "toggle_button",
+      "web": "Toggle",
+      "files": [
+        "apps/client/src/components/ui/toggle.tsx"
+      ],
+      "penBoard": "01",
+      "penFamily": "M3/Toggle",
+      "source": "material_3_expressive/lib/components/toggle_button/"
+    },
+    {
+      "dart": "toggle_button_group",
+      "web": "ToggleGroup",
+      "files": [
+        "apps/client/src/components/ui/toggle-group.tsx"
+      ],
+      "penBoard": "01",
+      "penFamily": "M3/Button group",
+      "source": "material_3_expressive/lib/components/toggle_button_group/"
+    },
+    {
+      "dart": "toolbars",
+      "web": "Toolbar",
+      "files": [
+        "apps/client/src/components/ui/toolbar.tsx"
+      ],
+      "penBoard": "03",
+      "penFamily": "M3/Toolbar",
+      "source": "material_3_expressive/lib/components/toolbars/"
+    },
+    {
+      "dart": "tooltips",
+      "web": "Tooltip",
+      "files": [
+        "apps/client/src/components/ui/tooltip.tsx"
+      ],
+      "penBoard": "05",
+      "penFamily": "M3/Tooltip",
+      "source": "material_3_expressive/lib/components/tooltips/"
+    }
+  ]
+}

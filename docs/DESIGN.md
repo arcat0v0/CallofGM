@@ -14,7 +14,7 @@
 | ------------------------------ | --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | Android（Jetpack Compose）     | ✅ 唯一官方完整实现（组件 + 形状库 + MotionScheme）                         | [developer.android.com 参考](https://developer.android.com/reference/kotlin/androidx/compose/material3/package-summary) |
 | Web（Material Web Components） | ❌ 维护模式，官方明示 **"Material 3 Expressive is not implemented on Web"** | [m3.material.io/develop/web](https://m3.material.io/develop/web)                                                        |
-| Flutter                        | ❌ 官方明示 **"M3 Expressive is not available on Flutter"**                 | [m3.material.io/develop/flutter](https://m3.material.io/develop/flutter)                                                |
+| Flutter | ⚠️ 官方 material_ui 已独立发布；Expressive 开发中，尚非完整实现（2026-09-19 源码复核） | [Flutter 发布说明](https://flutter.dev/blog/decoupling-material-cupertino) |
 
 社区 React 实现（均非官方，仅供规格参考，**不作为依赖引入**）：
 
@@ -24,6 +24,8 @@
 ### 2. 决策：shadcn/ui 基底 + 全套 M3 Expressive 规范改造
 
 官方没有 Web 组件库 → 按既定方案：以仓库内的 **shadcn/ui 原子组件**（`apps/client/src/components/ui/`）为基底深度改造，把 M3 Expressive 的 token 体系、组件规格、动效曲线落到 Tailwind v4 / CSS 变量层。shadcn 组件源码在仓库内、天然可改，业务逻辑（Radix 行为、可访问性）全部复用，只重做视觉与动效。改造时以官方 Figma 套件与规范页面为准绳，逐组件对齐。
+
+自定义字阶必须在 `tailwind-merge` 的 `text` theme 分组注册，避免字号与前景色互相覆盖。组件专项动效可按已固定版本的 Dart 弹簧参数采样为 CSS `linear()` token：Switch 分离位移与尺寸；导航位移单调收敛，局部形变每侧不超过 4px，不随跨项距离放大；普通按钮和图标按钮使用真实半径形变，不插值 `9999px`、不靠整体缩放替代形变。按钮仅使用单一状态层，连接按钮固定外圆角、只过渡内圆角。参数仍统一放在 `theme.css`，来源与 Web 中断限制见 `docs/design-system/README.md`。
 
 ### 3. 官方资源（设计师/工程师入口）
 
@@ -209,3 +211,9 @@ Expressive 更新涉及 15 个组件（App bars、Button groups🆕、Common but
 - **字阶落 token**：`text-{display|headline|title|body|label}-{large|medium|small}[-emph]` 携带 size/line-height/weight，禁止再叠加 `leading-*`/`font-medium` 等重复定义；标题/演绎者名等表达性文本用 `font-serif`（brand 字族），正文用 `font-sans`（plain 字族）。
 - 全站统一深色主题；玩家沉浸视图与 GM 后台共用同一套语义 token。
 - 新增动效一律引用上表曲线 token，不自创缓动。
+
+## Dart 源码迁移组件库（2026-09-20）
+
+原有 27 个 shadcn 原子组件全部纳入重绘，补齐社区 Dart 的 40 个组件入口映射。固定源码、许可证、Pen 新画板、组件清单与平台差异见 [组件库说明](design-system/README.md)。官方 material_ui 作为基础参考，material_3_expressive 仅作明确标注的补充来源。
+
+组件样式统一维护在 expressive.css，形状关键帧由 expressive-shapes.css 承载，二者均不定义 @theme。theme.css 仍为唯一 token 来源。Button 五档尺寸为 32/40/56/96/136 px；旧变体名继续兼容。新增 /design-system 开发预览页，生产不开放。

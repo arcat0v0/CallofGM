@@ -6,14 +6,17 @@ import { cn } from "@/lib/utils";
 function Avatar({
   className,
   size = "md",
+  shape = "circle",
   ...props
 }: React.ComponentProps<typeof AvatarPrimitive.Root> & {
   size?: "sm" | "md" | "lg";
+  shape?: "circle" | "square" | "arch";
 }) {
   return (
     <AvatarPrimitive.Root
       data-slot="avatar"
       data-size={size}
+      data-shape={shape}
       className={cn(
         "bg-default relative flex shrink-0 items-center justify-center overflow-hidden rounded-full select-none",
         size === "sm" && "size-8",
@@ -26,7 +29,10 @@ function Avatar({
   );
 }
 
-function AvatarImage({ className, ...props }: React.ComponentProps<typeof AvatarPrimitive.Image>) {
+function AvatarImage({
+  className,
+  ...props
+}: React.ComponentProps<typeof AvatarPrimitive.Image>) {
   return (
     <AvatarPrimitive.Image
       data-slot="avatar-image"
@@ -36,7 +42,10 @@ function AvatarImage({ className, ...props }: React.ComponentProps<typeof Avatar
   );
 }
 
-function AvatarFallback({ className, ...props }: React.ComponentProps<typeof AvatarPrimitive.Fallback>) {
+function AvatarFallback({
+  className,
+  ...props
+}: React.ComponentProps<typeof AvatarPrimitive.Fallback>) {
   return (
     <AvatarPrimitive.Fallback
       data-slot="avatar-fallback"
@@ -49,4 +58,4 @@ function AvatarFallback({ className, ...props }: React.ComponentProps<typeof Ava
   );
 }
 
-export { Avatar, AvatarImage, AvatarFallback };
+export { Avatar, AvatarFallback, AvatarImage };

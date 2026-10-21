@@ -1,0 +1,30 @@
+name: UI components
+on:
+  pull_request:
+    paths:
+      - 'apps/client/**'
+      - 'packages/shared/**'
+      - 'bun.lock'
+      - 'package.json'
+      - '.github/workflows/ui-components.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'apps/client/**'
+      - 'packages/shared/**'
+      - 'bun.lock'
+      - 'package.json'
+      - '.github/workflows/ui-components.yml'
+jobs:
+  components:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.2'
+      - run: bun install --frozen-lockfile
+      - run: bun run test:ui
+      - run: bun run --cwd apps/client typecheck
+      - run: bun run build:client

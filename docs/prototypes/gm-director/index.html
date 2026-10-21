@@ -1,0 +1,1673 @@
+<!doctype html>
+<html lang="zh-CN">
+	<head>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<meta name="color-scheme" content="dark">
+		<title>沉没的记忆 · GM 导演工作台 | CoGM</title>
+		<link rel="stylesheet" href="tokens.css">
+		<link rel="stylesheet" href="prototype.css">
+		<script src="motion.js" defer></script>
+		<script src="audio-preview.js" defer></script>
+		<script src="prototype.js" defer></script>
+	</head>
+	<body>
+		<a class="skip-link" href="#workspace">跳至工作台</a>
+		<header class="app-header">
+			<a class="brand" href="#workspace" aria-label="CoGM 工作台"
+				><span class="brand-mark"
+					><svg
+						xmlns="http://www.w3.org/2000/svg"
+						width="24"
+						height="24"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						class="lucide lucide-dices"
+						aria-hidden="true"
+					>
+						<rect width="12" height="12" x="2" y="10" rx="2" ry="2"></rect>
+						<path
+							d="m17.92 14 3.5-3.5a2.24 2.24 0 0 0 0-3l-5-4.92a2.24 2.24 0 0 0-3 0L10 6"
+						></path>
+						<path d="M6 18h.01"></path>
+						<path d="M10 14h.01"></path>
+						<path d="M15 6h.01"></path>
+						<path d="M18 9h.01"></path>
+					</svg></span
+				><span>CoGM<small>主持人的呼唤</small></span></a
+			>
+			<div class="session-heading">
+				<span class="eyebrow"
+					>沉没的记忆 <span class="slash">/</span> 第三夜</span
+				>
+				<h1>让故事，继续发生。</h1>
+			</div>
+			<div class="session-actions">
+				<span class="live-status"><i></i>进行中</span
+				><button type="button" class="tonal" data-dialog="members">
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						width="24"
+						height="24"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						class="lucide lucide-users"
+						aria-hidden="true"
+					>
+						<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+						<path d="M16 3.128a4 4 0 0 1 0 7.744"></path>
+						<path d="M22 21v-2a4 4 0 0 0-3-3.87"></path>
+						<circle cx="9" cy="7" r="4"></circle>
+					</svg><span>4 人在线</span>
+				</button><button
+					type="button"
+					class="icon-button"
+					data-dialog="session"
+					aria-label="团设置"
+				>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						width="24"
+						height="24"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						class="lucide lucide-ellipsis"
+						aria-hidden="true"
+					>
+						<circle cx="12" cy="12" r="1"></circle>
+						<circle cx="19" cy="12" r="1"></circle>
+						<circle cx="5" cy="12" r="1"></circle>
+					</svg>
+				</button><span class="gm-avatar">KP</span>
+			</div>
+		</header>
+		<nav class="mobile-nav" aria-label="工作区域">
+			<a href="#control">控场</a><a href="#workspace">舞台</a
+			><a href="#conversation">聊天</a>
+		</nav>
+		<div class="workspace-grid">
+			<aside class="control-column" id="control" aria-label="主持人控场">
+				<section class="phase-section">
+					<div class="section-heading">
+						<h2>
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								width="24"
+								height="24"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								class="lucide lucide-clapperboard"
+								aria-hidden="true"
+							>
+								<path d="m12.296 3.464 3.02 3.956"></path>
+								<path
+									d="M20.2 6 3 11l-.9-2.4c-.3-1.1.3-2.2 1.3-2.5l13.5-4c1.1-.3 2.2.3 2.5 1.3z"
+								></path>
+								<path d="M3 11h18v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+								<path d="m6.18 5.276 3.1 3.899"></path>
+							</svg>
+							叙事节奏
+						</h2>
+						<span class="muted micro">团内阶段</span>
+					</div>
+					<div class="phase-hero">
+						<span class="phase-orbit" aria-hidden="true"
+							><svg
+								xmlns="http://www.w3.org/2000/svg"
+								width="24"
+								height="24"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								class="lucide lucide-drama"
+								aria-hidden="true"
+							>
+								<path d="M10 11h.01"></path>
+								<path d="M14 6h.01"></path>
+								<path d="M18 6h.01"></path>
+								<path d="M6.5 13.1h.01"></path>
+								<path
+									d="M22 5c0 9-4 12-6 12s-6-3-6-12c0-2 2-3 6-3s6 1 6 3"
+								></path>
+								<path d="M17.4 9.9c-.8.8-2 .8-2.8 0"></path>
+								<path
+									d="M10.1 7.1C9 7.2 7.7 7.7 6 8.6c-3.5 2-4.7 3.9-3.7 5.6 4.5 7.8 9.5 8.4 11.2 7.4.9-.5 1.9-2.1 1.9-4.7"
+								></path>
+								<path d="M9.1 16.5c.3-1.1 1.4-1.7 2.4-1.4"></path>
+							</svg></span
+						><span class="eyebrow">此刻，把聚光灯交给角色</span>
+						<h3 id="phase-title">演绎时间</h3>
+						<p id="phase-description">
+							角色发言由你逐条呈现，<br>让每一句话都有自己的时刻。
+						</p>
+						<span class="phase-tag"
+							><svg
+								xmlns="http://www.w3.org/2000/svg"
+								width="24"
+								height="24"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								class="lucide lucide-circle-dot"
+								aria-hidden="true"
+							>
+								<circle cx="12" cy="12" r="10"></circle>
+								<circle cx="12" cy="12" r="1"></circle>
+							</svg><span id="phase-permission">演绎入队 · 场外关闭</span></span
+						>
+					</div>
+					<fieldset class="phase-list" aria-label="选择团内阶段">
+						<button
+							type="button"
+							class="phase-option"
+							data-phase="discussion"
+							aria-pressed="false"
+						>
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								width="24"
+								height="24"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								class="lucide lucide-messages-square"
+								aria-hidden="true"
+							>
+								<path
+									d="M16 10a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 14.286V4a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"
+								></path>
+								<path
+									d="M20 9a2 2 0 0 1 2 2v10.286a.71.71 0 0 1-1.212.502l-2.202-2.202A2 2 0 0 0 17.172 19H10a2 2 0 0 1-2-2v-1"
+								></path>
+							</svg><span
+								><strong>自由讨论</strong><small>所有发言记为场外</small></span
+							><span class="phase-check"
+								><svg
+									xmlns="http://www.w3.org/2000/svg"
+									width="24"
+									height="24"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									class="lucide lucide-check"
+									aria-hidden="true"
+								>
+									<path d="M20 6 9 17l-5-5"></path>
+								</svg></span
+							>
+						</button>
+						<button
+							type="button"
+							class="phase-option selected"
+							data-phase="performance"
+							aria-pressed="true"
+						>
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								width="24"
+								height="24"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								class="lucide lucide-drama"
+								aria-hidden="true"
+							>
+								<path d="M10 11h.01"></path>
+								<path d="M14 6h.01"></path>
+								<path d="M18 6h.01"></path>
+								<path d="M6.5 13.1h.01"></path>
+								<path
+									d="M22 5c0 9-4 12-6 12s-6-3-6-12c0-2 2-3 6-3s6 1 6 3"
+								></path>
+								<path d="M17.4 9.9c-.8.8-2 .8-2.8 0"></path>
+								<path
+									d="M10.1 7.1C9 7.2 7.7 7.7 6 8.6c-3.5 2-4.7 3.9-3.7 5.6 4.5 7.8 9.5 8.4 11.2 7.4.9-.5 1.9-2.1 1.9-4.7"
+								></path>
+								<path d="M9.1 16.5c.3-1.1 1.4-1.7 2.4-1.4"></path>
+							</svg><span
+								><strong>演绎时间</strong
+								><small>专注角色，依次呈现</small></span
+							><span class="phase-check"
+								><svg
+									xmlns="http://www.w3.org/2000/svg"
+									width="24"
+									height="24"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									class="lucide lucide-check"
+									aria-hidden="true"
+								>
+									<path d="M20 6 9 17l-5-5"></path>
+								</svg></span
+							>
+						</button>
+						<button
+							type="button"
+							class="phase-option"
+							data-phase="cg"
+							aria-pressed="false"
+						>
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								width="24"
+								height="24"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								class="lucide lucide-clapperboard"
+								aria-hidden="true"
+							>
+								<path d="m12.296 3.464 3.02 3.956"></path>
+								<path
+									d="M20.2 6 3 11l-.9-2.4c-.3-1.1.3-2.2 1.3-2.5l13.5-4c1.1-.3 2.2.3 2.5 1.3z"
+								></path>
+								<path d="M3 11h18v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+								<path d="m6.18 5.276 3.1 3.899"></path>
+							</svg><span
+								><strong>强制 CG</strong
+								><small>玩家禁言，GM 推进演出</small></span
+							><span class="phase-check"
+								><svg
+									xmlns="http://www.w3.org/2000/svg"
+									width="24"
+									height="24"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									class="lucide lucide-check"
+									aria-hidden="true"
+								>
+									<path d="M20 6 9 17l-5-5"></path>
+								</svg></span
+							>
+						</button>
+						<button
+							type="button"
+							class="phase-option"
+							data-phase="free"
+							aria-pressed="false"
+						>
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								width="24"
+								height="24"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								class="lucide lucide-sparkles"
+								aria-hidden="true"
+							>
+								<path
+									d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"
+								></path>
+								<path d="M20 2v4"></path>
+								<path d="M22 4h-4"></path>
+								<circle cx="4" cy="20" r="2"></circle>
+							</svg><span
+								><strong>自由演绎</strong
+								><small>演绎入队，PC 场外即时发送</small></span
+							><span class="phase-check"
+								><svg
+									xmlns="http://www.w3.org/2000/svg"
+									width="24"
+									height="24"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									class="lucide lucide-check"
+									aria-hidden="true"
+								>
+									<path d="M20 6 9 17l-5-5"></path>
+								</svg></span
+							>
+						</button>
+					</fieldset>
+				</section>
+				<section class="audio-section">
+					<div class="section-heading">
+						<h2>
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								width="24"
+								height="24"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								class="lucide lucide-audio-lines"
+								aria-hidden="true"
+							>
+								<path d="M2 10v3"></path>
+								<path d="M6 6v11"></path>
+								<path d="M10 3v18"></path>
+								<path d="M14 8v7"></path>
+								<path d="M18 5v13"></path>
+								<path d="M22 10v3"></path>
+							</svg>
+							声音氛围
+						</h2>
+						<span class="micro muted">全局 BGM</span>
+					</div>
+					<div class="audio-track">
+						<span class="album"
+							><svg
+								xmlns="http://www.w3.org/2000/svg"
+								width="24"
+								height="24"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								class="lucide lucide-music2 lucide-music-2"
+								aria-hidden="true"
+							>
+								<circle cx="8" cy="18" r="4"></circle>
+								<path d="M12 18V2l7 4"></path>
+							</svg></span
+						><span
+							><strong>雨夜的图书馆</strong
+							><small id="audio-status">循环播放演示 · 无音频</small></span
+						>
+					</div>
+					<div class="seek-slider expressive-slider">
+						<div class="slider-track" aria-hidden="true">
+							<div class="slider-inactive"></div>
+							<div class="wave-clip">
+								<div class="wave-amplitude">
+									<svg
+										class="wave-strip"
+										xmlns="http://www.w3.org/2000/svg"
+										width="320"
+										height="24"
+										aria-hidden="true"
+									>
+										<defs>
+											<pattern
+												id="media-wave"
+												width="32"
+												height="24"
+												patternUnits="userSpaceOnUse"
+											>
+												<path
+													d="M-8 12 Q0 2 8 12 T24 12 T40 12"
+													fill="none"
+													stroke="currentColor"
+													stroke-width="3"
+													stroke-linecap="round"
+												></path>
+											</pattern>
+										</defs>
+										<rect
+											width="100%"
+											height="24"
+											fill="url(#media-wave)"
+										></rect>
+									</svg>
+								</div>
+								<span class="wave-rest"></span>
+							</div>
+							<span class="slider-handle"></span
+							><span class="slider-stop"></span>
+						</div>
+						<label class="sr-only" for="audio-seek">音乐播放位置演示</label>
+						<input
+							id="audio-seek"
+							type="range"
+							min="0"
+							max="258"
+							step="0.1"
+							value="102"
+							aria-describedby="audio-status"
+						>
+					</div>
+					<div class="audio-timeline">
+						<span id="audio-elapsed">1:42</span><span>4:18</span>
+					</div>
+					<div class="transport-controls">
+						<button
+							type="button"
+							class="transport-skip"
+							data-seek="-30"
+							aria-label="后退 30 秒"
+						>
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								width="24"
+								height="24"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								class="lucide lucide-rotate-ccw"
+								aria-hidden="true"
+							>
+								<path
+									d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"
+								></path>
+								<path d="M3 3v5h5"></path>
+							</svg><span>30</span>
+						</button><button
+							type="button"
+							class="audio-button"
+							id="audio-toggle"
+							aria-label="暂停进度演示"
+							aria-pressed="true"
+						>
+							<span class="audio-pause"
+								><svg
+									xmlns="http://www.w3.org/2000/svg"
+									width="24"
+									height="24"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									class="lucide lucide-pause"
+									aria-hidden="true"
+								>
+									<rect x="14" y="3" width="5" height="18" rx="1"></rect>
+									<rect x="5" y="3" width="5" height="18" rx="1"></rect>
+								</svg></span
+							><span class="audio-play"
+								><svg
+									xmlns="http://www.w3.org/2000/svg"
+									width="24"
+									height="24"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									class="lucide lucide-play"
+									aria-hidden="true"
+								>
+									<path
+										d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z"
+									></path>
+								</svg></span
+							>
+						</button><button
+							type="button"
+							class="transport-skip"
+							data-seek="30"
+							aria-label="前进 30 秒"
+						>
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								width="24"
+								height="24"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								class="lucide lucide-rotate-cw"
+								aria-hidden="true"
+							>
+								<path
+									d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"
+								></path>
+								<path d="M21 3v5h-5"></path>
+							</svg><span>30</span>
+						</button>
+					</div>
+					<div class="volume-row">
+						<button
+							type="button"
+							class="icon-button"
+							id="audio-mute"
+							aria-label="静音演示"
+							aria-pressed="false"
+						>
+							<span class="volume-audible"
+								><svg
+									xmlns="http://www.w3.org/2000/svg"
+									width="24"
+									height="24"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									class="lucide lucide-volume2 lucide-volume-2"
+									aria-hidden="true"
+								>
+									<path
+										d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"
+									></path>
+									<path d="M16 9a5 5 0 0 1 0 6"></path>
+									<path d="M19.364 18.364a9 9 0 0 0 0-12.728"></path>
+								</svg></span
+							><span class="volume-muted"
+								><svg
+									xmlns="http://www.w3.org/2000/svg"
+									width="24"
+									height="24"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									class="lucide lucide-volume-x"
+									aria-hidden="true"
+								>
+									<path
+										d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"
+									></path>
+									<line x1="22" x2="16" y1="9" y2="15"></line>
+									<line x1="16" x2="22" y1="9" y2="15"></line>
+								</svg></span
+							>
+						</button>
+						<div class="volume-slider expressive-slider">
+							<div class="slider-track" aria-hidden="true">
+								<span class="slider-active"></span
+								><span class="slider-inactive"></span
+								><span class="slider-handle"></span
+								><span class="slider-stop"></span>
+							</div>
+							<label class="sr-only" for="volume">全局音量演示</label>
+							<input type="range" id="volume" min="0" max="100" value="64">
+						</div>
+						<output for="volume" id="volume-value">64%</output>
+					</div>
+				</section>
+				<section class="cast-section">
+					<div class="section-heading">
+						<h2>
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								width="24"
+								height="24"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								class="lucide lucide-contact-round"
+								aria-hidden="true"
+							>
+								<path d="M16 2v2"></path>
+								<path d="M17.915 22a6 6 0 0 0-12 0"></path>
+								<path d="M8 2v2"></path>
+								<circle cx="12" cy="12" r="4"></circle>
+								<rect x="3" y="4" width="18" height="18" rx="2"></rect>
+							</svg>
+							登场人物
+						</h2>
+						<button type="button" class="text-button" data-dialog="characters">
+							管理
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								width="24"
+								height="24"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								class="lucide lucide-arrow-up-right"
+								aria-hidden="true"
+							>
+								<path d="M7 7h10v10"></path>
+								<path d="M7 17 17 7"></path>
+							</svg>
+						</button>
+					</div>
+					<article class="cast-row">
+						<div class="headshot mio"></div>
+						<div class="cast-info">
+							<div class="name-row">
+								<strong>远野 澪</strong><span class="micro muted">PC</span>
+							</div>
+							<div class="vitals">
+								<span>HP <b>9/11</b></span><span>MP <b>8/10</b></span
+								><span>SAN <b>52/58</b></span>
+							</div>
+							<div class="meter"><i></i></div>
+						</div>
+						<button
+							type="button"
+							class="icon-button portrait-toggle"
+							aria-label="隐藏远野澪立绘"
+							aria-pressed="true"
+							data-portrait="mio"
+						>
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								width="24"
+								height="24"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								class="lucide lucide-eye"
+								aria-hidden="true"
+							>
+								<path
+									d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"
+								></path>
+								<circle cx="12" cy="12" r="3"></circle>
+							</svg>
+						</button>
+					</article>
+					<article class="cast-row">
+						<div class="headshot takuma"></div>
+						<div class="cast-info">
+							<div class="name-row">
+								<strong>白石 拓真</strong><span class="injury">重伤</span>
+							</div>
+							<div class="vitals">
+								<span>HP <b class="danger-text">5/12</b></span
+								><span>MP <b>6/6</b></span><span>SAN <b>44/61</b></span>
+							</div>
+							<div class="meter hurt"><i></i></div>
+						</div>
+						<button
+							type="button"
+							class="icon-button portrait-toggle"
+							aria-label="隐藏白石拓真立绘"
+							aria-pressed="true"
+							data-portrait="takuma"
+						>
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								width="24"
+								height="24"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								class="lucide lucide-eye"
+								aria-hidden="true"
+							>
+								<path
+									d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"
+								></path>
+								<circle cx="12" cy="12" r="3"></circle>
+							</svg>
+						</button>
+					</article>
+					<button type="button" class="npc-row" data-dialog="characters">
+						<span class="initial-avatar">馆</span
+						><span>馆长 · 乌有<small>NPC · 状态仅你可见</small></span
+						><svg
+							xmlns="http://www.w3.org/2000/svg"
+							width="24"
+							height="24"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							class="lucide lucide-chevron-right"
+							aria-hidden="true"
+						>
+							<path d="m9 18 6-6-6-6"></path>
+						</svg>
+					</button>
+				</section>
+
+				<div class="prototype-note">
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						width="24"
+						height="24"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						class="lucide lucide-flask-conical"
+						aria-hidden="true"
+					>
+						<path
+							d="M14 2v6a2 2 0 0 0 .245.96l5.51 10.08A2 2 0 0 1 18 22H6a2 2 0 0 1-1.755-2.96l5.51-10.08A2 2 0 0 0 10 8V2"
+						></path>
+						<path d="M6.453 15h11.094"></path>
+						<path d="M8.5 2h7"></path>
+					</svg>
+					交互设计稿 · 本地演示
+				</div>
+			</aside>
+			<main class="director-column" id="workspace">
+				<section class="stage-section" aria-labelledby="stage-heading">
+					<div class="stage-topline">
+						<div>
+							<span class="live-dot"></span>
+							<h2 id="stage-heading">正在呈现</h2>
+							<span class="muted micro">玩家舞台</span>
+						</div>
+						<button
+							type="button"
+							class="text-button"
+							id="focus-toggle"
+							aria-pressed="false"
+						>
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								width="24"
+								height="24"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								class="lucide lucide-expand"
+								aria-hidden="true"
+							>
+								<path d="m15 15 6 6"></path>
+								<path d="m15 9 6-6"></path>
+								<path d="M21 16v5h-5"></path>
+								<path d="M21 8V3h-5"></path>
+								<path d="M3 16v5h5"></path>
+								<path d="m3 21 6-6"></path>
+								<path d="M3 8V3h5"></path>
+								<path d="M9 9 3 3"></path>
+							</svg>
+							专注预览
+						</button>
+					</div>
+					<div class="stage" id="stage">
+						<img
+							class="scene-image"
+							id="scene-image"
+							src="../../../apps/client/public/demo/scenes/library.png"
+							alt="雨夜中由煤油灯照亮的古老图书馆"
+						>
+						<div class="stage-shade"></div>
+						<div class="scene-heading">
+							<span class="scene-chapter">第三夜 · 未开启的门</span>
+							<h3 id="scene-title">雨夜图书馆</h3>
+							<p id="scene-subtitle">雨声渐密，书页里藏着未说完的秘密。</p>
+						</div>
+						<span class="scene-location"
+							><svg
+								xmlns="http://www.w3.org/2000/svg"
+								width="24"
+								height="24"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								class="lucide lucide-map-pin"
+								aria-hidden="true"
+							>
+								<path
+									d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"
+								></path>
+								<circle cx="12" cy="10" r="3"></circle>
+							</svg><span id="scene-location">图书馆 · 一层</span></span
+						>
+						<section class="stage-portraits" aria-label="在场立绘">
+							<div class="portrait portrait-mio" id="portrait-mio">
+								<img
+									src="../../../apps/client/public/demo/portraits/tono-mio.png"
+									alt="远野澪提着煤油灯"
+								><span>远野 澪</span>
+							</div>
+							<div class="portrait portrait-takuma" id="portrait-takuma">
+								<img
+									src="../../../apps/client/public/demo/portraits/shiraishi-takuma.png"
+									alt="白石拓真手持书本"
+								><span>白石 拓真</span>
+							</div>
+						</section>
+						<div class="stage-dialogue" aria-live="polite">
+							<span class="speaker" id="stage-speaker"
+								>KP <small>旁白</small></span
+							>
+							<p id="stage-text">
+								你翻遍了手边的藏书目录，却什么都没找到。<br>目录最后一页，被人用指甲反复刻下同一行小字：<strong
+									>不要开门。</strong
+								>
+							</p>
+							<span class="dialogue-end" aria-hidden="true"
+								><svg
+									xmlns="http://www.w3.org/2000/svg"
+									width="24"
+									height="24"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									class="lucide lucide-ellipsis"
+									aria-hidden="true"
+								>
+									<circle cx="12" cy="12" r="1"></circle>
+									<circle cx="19" cy="12" r="1"></circle>
+									<circle cx="5" cy="12" r="1"></circle>
+								</svg></span
+							>
+						</div>
+					</div>
+					<div class="scene-strip">
+						<span class="strip-label">转场</span
+						><button
+							type="button"
+							class="scene-choice selected"
+							data-scene="library"
+							aria-pressed="true"
+						>
+							<img
+								src="../../../apps/client/public/demo/scenes/library-night-thumb.png"
+								alt=""
+							><span>雨夜图书馆<small>当前场景</small></span
+							><svg
+								xmlns="http://www.w3.org/2000/svg"
+								width="24"
+								height="24"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								class="lucide lucide-check"
+								aria-hidden="true"
+							>
+								<path d="M20 6 9 17l-5-5"></path>
+							</svg>
+						</button><button
+							type="button"
+							class="scene-choice"
+							data-scene="boathouse"
+							aria-pressed="false"
+						>
+							<img
+								src="../../../apps/client/public/demo/scenes/boathouse-thumb.png"
+								alt=""
+							><span>湖畔船屋<small>候选场景</small></span>
+						</button><button
+							type="button"
+							class="scene-choice"
+							data-scene="altar"
+							aria-pressed="false"
+						>
+							<img
+								src="../../../apps/client/public/demo/scenes/lake-altar-thumb.png"
+								alt=""
+							><span>湖底祭坛<small>候选场景</small></span>
+						</button>
+					</div>
+				</section>
+				<section class="queue-section" aria-labelledby="queue-heading">
+					<div class="queue-header">
+						<div>
+							<h2 id="queue-heading">下一句，由你揭幕。</h2>
+							<p>依次呈现角色发言，让故事按你的节奏展开。</p>
+						</div>
+						<span class="queue-count"><b id="queue-count">3</b> 待呈现</span>
+					</div>
+					<div class="queue-list" id="queue-list">
+						<article
+							class="queue-item next"
+							data-kind="role"
+							data-speaker="远野 澪"
+							data-expression="惊讶"
+						>
+							<span class="queue-order">01</span>
+							<div class="queue-content">
+								<div class="queue-meta">
+									<strong>远野 澪</strong><span>PC</span
+									><span class="expression"
+										><svg
+											xmlns="http://www.w3.org/2000/svg"
+											width="24"
+											height="24"
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="2"
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											class="lucide lucide-drama"
+											aria-hidden="true"
+										>
+											<path d="M10 11h.01"></path>
+											<path d="M14 6h.01"></path>
+											<path d="M18 6h.01"></path>
+											<path d="M6.5 13.1h.01"></path>
+											<path
+												d="M22 5c0 9-4 12-6 12s-6-3-6-12c0-2 2-3 6-3s6 1 6 3"
+											></path>
+											<path d="M17.4 9.9c-.8.8-2 .8-2.8 0"></path>
+											<path
+												d="M10.1 7.1C9 7.2 7.7 7.7 6 8.6c-3.5 2-4.7 3.9-3.7 5.6 4.5 7.8 9.5 8.4 11.2 7.4.9-.5 1.9-2.1 1.9-4.7"
+											></path>
+											<path d="M9.1 16.5c.3-1.1 1.4-1.7 2.4-1.4"></path>
+										</svg>
+										惊讶</span
+									>
+								</div>
+								<p>
+									“如果日记里写的是真的，那么七年前沉入湖底的，恐怕不只是那辆车。”（把煤油灯举高，光在水面上摇晃。）
+								</p>
+							</div>
+							<div class="queue-actions">
+								<button
+									type="button"
+									class="present-button"
+									data-action="present"
+								>
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										width="24"
+										height="24"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="2"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										class="lucide lucide-play"
+										aria-hidden="true"
+									>
+										<path
+											d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z"
+										></path>
+									</svg>
+									呈现
+								</button>
+								<div>
+									<button
+										type="button"
+										class="icon-button"
+										data-action="up"
+										aria-label="远野澪发言上移"
+									>
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											width="24"
+											height="24"
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="2"
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											class="lucide lucide-arrow-up"
+											aria-hidden="true"
+										>
+											<path d="m5 12 7-7 7 7"></path>
+											<path d="M12 19V5"></path>
+										</svg>
+									</button><button
+										type="button"
+										class="icon-button"
+										data-action="down"
+										aria-label="远野澪发言下移"
+									>
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											width="24"
+											height="24"
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="2"
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											class="lucide lucide-arrow-down"
+											aria-hidden="true"
+										>
+											<path d="M12 5v14"></path>
+											<path d="m19 12-7 7-7-7"></path>
+										</svg>
+									</button><button
+										type="button"
+										class="icon-button"
+										data-action="discard"
+										aria-label="丢弃远野澪发言"
+									>
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											width="24"
+											height="24"
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="2"
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											class="lucide lucide-x"
+											aria-hidden="true"
+										>
+											<path d="M18 6 6 18"></path>
+											<path d="m6 6 12 12"></path>
+										</svg>
+									</button>
+								</div>
+							</div>
+						</article>
+						<article
+							class="queue-item"
+							data-kind="role"
+							data-speaker="白石 拓真"
+							data-expression="默认"
+						>
+							<span class="queue-order">02</span>
+							<div class="queue-content">
+								<div class="queue-meta">
+									<strong>白石 拓真</strong><span>PC</span
+									><span class="expression">默认</span>
+								</div>
+								<p>我放下书，走到门边，把耳朵贴近那条细小的缝隙。</p>
+							</div>
+							<div class="queue-actions">
+								<button
+									type="button"
+									class="present-button"
+									data-action="present"
+								>
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										width="24"
+										height="24"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="2"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										class="lucide lucide-play"
+										aria-hidden="true"
+									>
+										<path
+											d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z"
+										></path>
+									</svg>
+									呈现
+								</button>
+								<div>
+									<button
+										type="button"
+										class="icon-button"
+										data-action="up"
+										aria-label="白石拓真发言上移"
+									>
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											width="24"
+											height="24"
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="2"
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											class="lucide lucide-arrow-up"
+											aria-hidden="true"
+										>
+											<path d="m5 12 7-7 7 7"></path>
+											<path d="M12 19V5"></path>
+										</svg>
+									</button><button
+										type="button"
+										class="icon-button"
+										data-action="down"
+										aria-label="白石拓真发言下移"
+									>
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											width="24"
+											height="24"
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="2"
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											class="lucide lucide-arrow-down"
+											aria-hidden="true"
+										>
+											<path d="M12 5v14"></path>
+											<path d="m19 12-7 7-7-7"></path>
+										</svg>
+									</button><button
+										type="button"
+										class="icon-button"
+										data-action="discard"
+										aria-label="丢弃白石拓真发言"
+									>
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											width="24"
+											height="24"
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="2"
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											class="lucide lucide-x"
+											aria-hidden="true"
+										>
+											<path d="M18 6 6 18"></path>
+											<path d="m6 6 12 12"></path>
+										</svg>
+									</button>
+								</div>
+							</div>
+						</article>
+						<article
+							class="queue-item observer"
+							data-kind="ooc"
+							data-speaker="匿名访客 #f2a9"
+						>
+							<span class="queue-order">03</span>
+							<div class="queue-content">
+								<div class="queue-meta">
+									<strong>匿名访客 #f2a9</strong><span>OB · 场外</span>
+								</div>
+								<p>这里 SAN 检定怕是躲不过了……</p>
+							</div>
+							<div class="queue-actions">
+								<button
+									type="button"
+									class="present-button"
+									data-action="present"
+								>
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										width="24"
+										height="24"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="2"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										class="lucide lucide-check"
+										aria-hidden="true"
+									>
+										<path d="M20 6 9 17l-5-5"></path>
+									</svg>
+									放行
+								</button>
+								<div>
+									<button
+										type="button"
+										class="icon-button"
+										data-action="up"
+										aria-label="观战发言上移"
+									>
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											width="24"
+											height="24"
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="2"
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											class="lucide lucide-arrow-up"
+											aria-hidden="true"
+										>
+											<path d="m5 12 7-7 7 7"></path>
+											<path d="M12 19V5"></path>
+										</svg>
+									</button><button
+										type="button"
+										class="icon-button"
+										data-action="down"
+										aria-label="观战发言下移"
+									>
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											width="24"
+											height="24"
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="2"
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											class="lucide lucide-arrow-down"
+											aria-hidden="true"
+										>
+											<path d="M12 5v14"></path>
+											<path d="m19 12-7 7-7-7"></path>
+										</svg>
+									</button><button
+										type="button"
+										class="icon-button"
+										data-action="discard"
+										aria-label="丢弃观战发言"
+									>
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											width="24"
+											height="24"
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="2"
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											class="lucide lucide-x"
+											aria-hidden="true"
+										>
+											<path d="M18 6 6 18"></path>
+											<path d="m6 6 12 12"></path>
+										</svg>
+									</button>
+								</div>
+							</div>
+						</article>
+					</div>
+					<div class="queue-empty" id="queue-empty" hidden>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							width="24"
+							height="24"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							class="lucide lucide-check-check"
+							aria-hidden="true"
+						>
+							<path d="M18 6 7 17l-5-5"></path>
+							<path d="m22 10-7.5 7.5L13 16"></path>
+						</svg><strong>此刻的故事，已全部呈现。</strong
+						><span>新的角色发言会在这里等候。</span>
+					</div>
+					<div class="queue-footer">
+						<span
+							><svg
+								xmlns="http://www.w3.org/2000/svg"
+								width="24"
+								height="24"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								class="lucide lucide-lock-keyhole"
+								aria-hidden="true"
+							>
+								<circle cx="12" cy="16" r="1"></circle>
+								<rect x="3" y="10" width="18" height="12" rx="2"></rect>
+								<path d="M7 10V7a5 5 0 0 1 10 0v3"></path>
+							</svg>
+							队列仅 GM 可见 · OB 放行后仅进入聊天</span
+						><button type="button" class="text-button" id="reset-queue">
+							重置演示
+						</button>
+					</div>
+				</section>
+				<div class="director-tools">
+					<button type="button" data-dialog="handouts">
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							width="24"
+							height="24"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							class="lucide lucide-scroll-text"
+							aria-hidden="true"
+						>
+							<path d="M15 12h-5"></path>
+							<path d="M15 8h-5"></path>
+							<path d="M19 17V5a2 2 0 0 0-2-2H4"></path>
+							<path
+								d="M8 21h12a2 2 0 0 0 2-2v-1a1 1 0 0 0-1-1H11a1 1 0 0 0-1 1v1a2 2 0 1 1-4 0V5a2 2 0 1 0-4 0v2a1 1 0 0 0 1 1h3"
+							></path>
+						</svg><span>发放情报</span>
+					</button><button type="button" data-dialog="check">
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							width="24"
+							height="24"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							class="lucide lucide-dices"
+							aria-hidden="true"
+						>
+							<rect width="12" height="12" x="2" y="10" rx="2" ry="2"></rect>
+							<path
+								d="m17.92 14 3.5-3.5a2.24 2.24 0 0 0 0-3l-5-4.92a2.24 2.24 0 0 0-3 0L10 6"
+							></path>
+							<path d="M6 18h.01"></path>
+							<path d="M10 14h.01"></path>
+							<path d="M15 6h.01"></path>
+							<path d="M18 9h.01"></path>
+						</svg><span>发起鉴定</span>
+					</button><button type="button" data-dialog="notes">
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							width="24"
+							height="24"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							class="lucide lucide-notebook-pen"
+							aria-hidden="true"
+						>
+							<path
+								d="M13.4 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7.4"
+							></path>
+							<path d="M2 6h4"></path>
+							<path d="M2 10h4"></path>
+							<path d="M2 14h4"></path>
+							<path d="M2 18h4"></path>
+							<path
+								d="M21.378 5.626a1 1 0 1 0-3.004-3.004l-5.01 5.012a2 2 0 0 0-.506.854l-.837 2.87a.5.5 0 0 0 .62.62l2.87-.837a2 2 0 0 0 .854-.506z"
+							></path>
+						</svg><span>主持人笔记</span>
+					</button><span>故事之外的准备，也在手边。</span>
+				</div>
+			</main>
+			<aside
+				class="chat-column"
+				id="conversation"
+				aria-labelledby="chat-heading"
+			>
+				<div class="chat-heading">
+					<div>
+						<h2 id="chat-heading">桌边对话</h2>
+						<p>每一个声音，都留在这里。</p>
+					</div>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						width="24"
+						height="24"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						class="lucide lucide-messages-square"
+						aria-hidden="true"
+					>
+						<path
+							d="M16 10a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 14.286V4a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"
+						></path>
+						<path
+							d="M20 9a2 2 0 0 1 2 2v10.286a.71.71 0 0 1-1.212.502l-2.202-2.202A2 2 0 0 0 17.172 19H10a2 2 0 0 1-2-2v-1"
+						></path>
+					</svg>
+				</div>
+				<fieldset class="chat-filters" aria-label="聊天筛选">
+					<button
+						type="button"
+						class="active"
+						data-filter="all"
+						aria-pressed="true"
+					>
+						全部
+					</button><button
+						type="button"
+						data-filter="role"
+						aria-pressed="false"
+					>
+						角色
+					</button><button type="button" data-filter="ooc" aria-pressed="false">
+						场外
+					</button><button
+						type="button"
+						data-filter="secret"
+						aria-pressed="false"
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							width="24"
+							height="24"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							class="lucide lucide-lock-keyhole"
+							aria-hidden="true"
+						>
+							<circle cx="12" cy="16" r="1"></circle>
+							<rect x="3" y="10" width="18" height="12" rx="2"></rect>
+							<path d="M7 10V7a5 5 0 0 1 10 0v3"></path>
+						</svg
+						>秘密
+					</button>
+				</fieldset>
+				<div class="chat-feed" id="chat-feed" role="log" aria-label="聊天记录">
+					<div class="chat-date">第三夜 · 9 月 19 日</div>
+					<article class="message" data-channel="role">
+						<div class="message-meta">
+							<span class="avatar kp">KP</span><strong>主持人</strong
+							><time>21:02</time>
+						</div>
+						<div class="bubble gm-bubble">
+							雨声忽然变大了。你们脚下的木地板传来一阵低沉的、类似船体挤压的呻吟声。图书馆的西侧书架后，似乎有一扇从未见过的暗门。
+						</div>
+					</article>
+					<article class="message" data-channel="role">
+						<div class="message-meta">
+							<span class="avatar">澪</span><strong>远野 澪</strong
+							><time>21:05</time>
+						</div>
+						<div class="bubble">
+							（她举起煤油灯，靠近书架。）<br>“你们也听到了，对吧？”
+						</div>
+					</article>
+					<article class="message secret-message" data-channel="secret">
+						<div class="secret-label">
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								width="24"
+								height="24"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								class="lucide lucide-eye-off"
+								aria-hidden="true"
+							>
+								<path
+									d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49"
+								></path>
+								<path d="M14.084 14.158a3 3 0 0 1-4.242-4.242"></path>
+								<path
+									d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143"
+								></path>
+								<path d="m2 2 20 20"></path>
+							</svg>
+							暗骰 · 仅你可见 <time>21:05</time>
+						</div>
+						<strong>白石 拓真 · 心理学</strong>
+						<div class="dice-result">
+							<span>87 <small>/ 45</small></span
+							><span class="fail-badge">失败</span>
+						</div>
+						<p>1D100 · 常规难度</p>
+						<span class="secret-foot">玩家仅见「已掷出」</span>
+					</article>
+					<article class="message" data-channel="ooc">
+						<div class="message-meta">
+							<span class="avatar">拓</span><strong>白石 拓真</strong
+							><span class="micro muted">场外</span><time>21:06</time>
+						</div>
+						<div class="bubble ooc-bubble">
+							笑死，我 SAN 值已经开始预支了，KP 手下留情。
+						</div>
+					</article>
+					<div class="system-message">21:07 · 已切换至演绎时间</div>
+					<article class="message" data-channel="role">
+						<div class="message-meta">
+							<span class="avatar kp">KP</span><strong>主持人</strong
+							><time>21:08</time>
+						</div>
+						<div class="bubble gm-bubble">
+							你翻遍了手边的藏书目录，却什么都没找到。目录最后一页，被人用指甲反复刻下同一行小字：<strong
+								>不要开门。</strong
+							>
+						</div>
+					</article>
+				</div>
+				<form class="composer" id="composer">
+					<div class="composer-identity">
+						<span class="avatar kp">KP</span
+						><label for="identity" class="sr-only">发言身份</label
+						><select id="identity">
+							<option value="KP">主持人 · 旁白</option>
+							<option value="馆长 · 乌有">馆长 · 乌有</option>
+						</select><span>演绎</span>
+					</div>
+					<label class="sr-only" for="message-input">旁白或角色发言</label
+					><textarea
+						id="message-input"
+						rows="3"
+						placeholder="接下来，故事将走向哪里？"
+						required
+						maxlength="2000"
+					></textarea>
+					<div class="composer-footer">
+						<span>GM 发言直接呈现</span
+						><button
+							class="send-button"
+							type="submit"
+							aria-label="发送并呈现演示消息"
+						>
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								width="24"
+								height="24"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								class="lucide lucide-arrow-up"
+								aria-hidden="true"
+							>
+								<path d="m5 12 7-7 7 7"></path>
+								<path d="M12 19V5"></path>
+							</svg>
+						</button>
+					</div>
+				</form>
+			</aside>
+		</div>
+		<dialog id="detail-dialog">
+			<div class="dialog-heading">
+				<h2 id="dialog-title">详细信息</h2>
+				<button
+					type="button"
+					class="icon-button"
+					id="close-dialog"
+					aria-label="关闭"
+				>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						width="24"
+						height="24"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						class="lucide lucide-x"
+						aria-hidden="true"
+					>
+						<path d="M18 6 6 18"></path>
+						<path d="m6 6 12 12"></path>
+					</svg>
+				</button>
+			</div>
+			<div id="dialog-content"></div>
+		</dialog>
+		<div class="snackbar" id="snackbar" role="status" hidden></div>
+	</body>
+</html>
