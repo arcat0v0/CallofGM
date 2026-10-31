@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
 export function SceneBackdrop({
@@ -15,12 +15,16 @@ export function SceneBackdrop({
   const [front, setFront] = useState(src);
   const [back, setBack] = useState<string | undefined>(undefined);
   const [frontVisible, setFrontVisible] = useState(true);
+  const frontRef = useRef(src);
 
   useEffect(() => {
-    if (src === front) {
+    const previous = frontRef.current;
+    if (src === previous) {
+      setFrontVisible(true);
       return;
     }
-    setBack(front);
+    frontRef.current = src;
+    setBack(previous);
     setFront(src);
     setFrontVisible(false);
     const frame = window.requestAnimationFrame(() => {
@@ -31,7 +35,7 @@ export function SceneBackdrop({
       window.cancelAnimationFrame(frame);
       window.clearTimeout(timer);
     };
-  }, [src, front]);
+  }, [src]);
 
   return (
     <div className={cn("absolute inset-0 overflow-hidden bg-stage-scrim", className)}>
