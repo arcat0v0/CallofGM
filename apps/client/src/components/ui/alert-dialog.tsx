@@ -24,7 +24,7 @@ function AlertDialogOverlay({
     <AlertDialogPrimitive.Overlay
       data-slot="alert-dialog-overlay"
       className={cn(
-        "bg-modal-backdrop fixed inset-0 z-50 data-closed:animate-out data-closed:fade-out-0 data-closed:duration-200 data-closed:ease-expressive-default-effects data-open:animate-in data-open:fade-in-0 data-open:duration-200 data-open:ease-expressive-default-effects",
+        "bg-modal-backdrop fixed inset-0 z-50 data-closed:pointer-events-none data-closed:animate-out data-closed:fade-out-0 data-closed:duration-200 data-closed:ease-expressive-default-effects data-open:animate-in data-open:fade-in-0 data-open:duration-200 data-open:ease-expressive-default-effects",
         className,
       )}
       {...props}
