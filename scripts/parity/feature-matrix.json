@@ -1,0 +1,3713 @@
+{
+  "version": 2,
+  "description": "CoGM vs CCFOLIA/回声岛 竞品功能对齐度矩阵；cogm 条目来自 docs/product.md 与 docs/architecture.md 的 v1 规划，竞品条目来自 research/feature-checklist.yaml 全集（与 CoGM 功能 id 冲突时加 cmp- 前缀）；probe 全部通过才计 implemented",
+  "scan_roots": [
+    "apps",
+    "packages"
+  ],
+  "categories": [
+    {
+      "id": "rooms",
+      "name_zh": "房间与团"
+    },
+    {
+      "id": "room",
+      "name_zh": "竞品·房间"
+    },
+    {
+      "id": "scenes",
+      "name_zh": "场景与舞台"
+    },
+    {
+      "id": "characters",
+      "name_zh": "人物与立绘"
+    },
+    {
+      "id": "character",
+      "name_zh": "竞品·角色"
+    },
+    {
+      "id": "portrait",
+      "name_zh": "竞品·立绘"
+    },
+    {
+      "id": "map",
+      "name_zh": "竞品·地图"
+    },
+    {
+      "id": "dice",
+      "name_zh": "骰点与鉴定"
+    },
+    {
+      "id": "state",
+      "name_zh": "团内状态"
+    },
+    {
+      "id": "chat",
+      "name_zh": "聊天与发言"
+    },
+    {
+      "id": "audio",
+      "name_zh": "音频"
+    },
+    {
+      "id": "stage",
+      "name_zh": "竞品·演出"
+    },
+    {
+      "id": "handouts",
+      "name_zh": "情报"
+    },
+    {
+      "id": "info",
+      "name_zh": "竞品·线索"
+    },
+    {
+      "id": "data",
+      "name_zh": "竞品·数据"
+    },
+    {
+      "id": "combat",
+      "name_zh": "竞品·战斗"
+    },
+    {
+      "id": "cards",
+      "name_zh": "竞品·卡牌"
+    },
+    {
+      "id": "ops",
+      "name_zh": "运营与安全"
+    },
+    {
+      "id": "mobile",
+      "name_zh": "竞品·移动端"
+    },
+    {
+      "id": "replay",
+      "name_zh": "竞品·回放"
+    },
+    {
+      "id": "pricing",
+      "name_zh": "竞品·商业化"
+    },
+    {
+      "id": "community",
+      "name_zh": "竞品·社区"
+    },
+    {
+      "id": "ai",
+      "name_zh": "竞品·AI"
+    },
+    {
+      "id": "platform",
+      "name_zh": "平台与体验"
+    }
+  ],
+  "features": [
+    {
+      "id": "gm-auth",
+      "category": "rooms",
+      "name_zh": "GM 密码登录与会话",
+      "source": "cogm",
+      "planned": true,
+      "weight": 3,
+      "probes": [
+        {
+          "type": "path_exists",
+          "glob": "apps/server/src/modules/identity/application/gm-login.ts"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "Bun\\.password\\.verify",
+          "scope": "apps/server/src"
+        },
+        {
+          "type": "path_exists",
+          "glob": "apps/client/src/routes/gm/login.tsx"
+        }
+      ]
+    },
+    {
+      "id": "player-anonymous-identity",
+      "category": "rooms",
+      "name_zh": "玩家匿名身份与浏览器指纹",
+      "source": "cogm",
+      "planned": true,
+      "weight": 3,
+      "probes": [
+        {
+          "type": "path_exists",
+          "glob": "apps/server/src/modules/identity/application/player-identity.ts"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "X-Fingerprint",
+          "scope": "apps/client/src/lib"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "fingerprint",
+          "scope": "apps/server/src/modules/identity"
+        }
+      ]
+    },
+    {
+      "id": "session-crud",
+      "category": "rooms",
+      "name_zh": "GM 建团与团管理",
+      "source": "cogm",
+      "planned": true,
+      "weight": 3,
+      "probes": [
+        {
+          "type": "path_exists",
+          "glob": "apps/client/src/features/gm-admin/dialogs/create-session-dialog.tsx"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "CreateSessionUseCase",
+          "scope": "apps/server/src/modules/sessions"
+        },
+        {
+          "type": "path_exists",
+          "glob": "apps/server/src/modules/sessions/application/use-cases.ts"
+        }
+      ]
+    },
+    {
+      "id": "session-status-machine",
+      "category": "rooms",
+      "name_zh": "团状态机与团内阶段切换",
+      "source": "cogm",
+      "planned": true,
+      "weight": 3,
+      "probes": [
+        {
+          "type": "code_regex",
+          "pattern": "waiting|preparing|active|ended",
+          "scope": "packages/shared/src"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "UpdateSessionPhaseRequest",
+          "scope": "packages/shared/src"
+        },
+        {
+          "type": "path_exists",
+          "glob": "apps/client/src/features/gm-console/gm-panel-stage.tsx"
+        }
+      ]
+    },
+    {
+      "id": "join-seat-claim",
+      "category": "rooms",
+      "name_zh": "玩家入团选座与离座",
+      "source": "cogm",
+      "planned": true,
+      "weight": 3,
+      "probes": [
+        {
+          "type": "path_exists",
+          "glob": "apps/client/src/routes/join.$sessionId.tsx"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "ClaimSeatUseCase|ReleaseSeatUseCase",
+          "scope": "apps/server/src/modules/sessions"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "/release",
+          "scope": "apps/server/src/modules/sessions/transport"
+        }
+      ]
+    },
+    {
+      "id": "coc-sheet",
+      "category": "characters",
+      "name_zh": "CoC 7e 人物卡 schema 与技能目录",
+      "source": "cogm",
+      "planned": true,
+      "weight": 3,
+      "probes": [
+        {
+          "type": "path_exists",
+          "glob": "packages/shared/src/rules/coc7e/sheet.ts"
+        },
+        {
+          "type": "path_exists",
+          "glob": "packages/shared/src/rules/coc7e/skills.ts"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "z\\.object",
+          "scope": "packages/shared/src/rules/coc7e"
+        }
+      ]
+    },
+    {
+      "id": "excel-import",
+      "category": "characters",
+      "name_zh": "Excel 人物卡一键导入",
+      "source": "cogm",
+      "planned": true,
+      "weight": 2,
+      "probes": [
+        {
+          "type": "path_exists",
+          "glob": "apps/server/src/rules/coc7e/excel-parser.ts"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "import/preview",
+          "scope": "apps/server/src/modules/characters/transport"
+        },
+        {
+          "type": "path_exists",
+          "glob": "apps/client/src/features/gm-admin/dialogs/import-character-sheet-dialog.tsx"
+        }
+      ]
+    },
+    {
+      "id": "portraits-expressions",
+      "category": "characters",
+      "name_zh": "人物立绘与表情差分",
+      "source": "cogm",
+      "planned": true,
+      "weight": 3,
+      "probes": [
+        {
+          "type": "code_regex",
+          "pattern": "character_portraits",
+          "scope": "apps/server/src/platform/db/schema"
+        },
+        {
+          "type": "path_exists",
+          "glob": "apps/client/src/features/session-stage/portrait-layer.tsx"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "expressionKey",
+          "scope": "packages/shared/src"
+        }
+      ]
+    },
+    {
+      "id": "portrait-admin",
+      "category": "characters",
+      "name_zh": "GM 后台立绘上传管理",
+      "source": "cogm",
+      "planned": true,
+      "weight": 1,
+      "probes": [
+        {
+          "type": "path_exists",
+          "glob": "apps/client/src/routes/gm/characters.tsx"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "mediaUrl|uploadAsset",
+          "scope": "apps/client/src/routes/gm"
+        }
+      ]
+    },
+    {
+      "id": "expression-sync",
+      "category": "characters",
+      "name_zh": "表情实时切换全员同步",
+      "source": "cogm",
+      "planned": true,
+      "weight": 3,
+      "probes": [
+        {
+          "type": "code_regex",
+          "pattern": "expression:set",
+          "scope": "packages/shared/src"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "currentExpressionKey",
+          "scope": "apps/client/src"
+        }
+      ]
+    },
+    {
+      "id": "expression-preview",
+      "category": "characters",
+      "name_zh": "玩家表情本地预览",
+      "source": "cogm",
+      "planned": true,
+      "weight": 1,
+      "probes": [
+        {
+          "type": "code_regex",
+          "pattern": "预览",
+          "scope": "apps/client/src/features/play"
+        },
+        {
+          "type": "path_exists",
+          "glob": "apps/client/src/features/play/composer.tsx"
+        }
+      ]
+    },
+    {
+      "id": "pc-npc-split",
+      "category": "characters",
+      "name_zh": "PC 与 NPC 区分",
+      "source": "cogm",
+      "planned": true,
+      "weight": 2,
+      "probes": [
+        {
+          "type": "code_regex",
+          "pattern": "SeatRole|CharacterRole",
+          "scope": "packages/shared/src"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "\"npc\"|'npc'",
+          "scope": "apps/server/src/modules/gameplay/application"
+        }
+      ]
+    },
+    {
+      "id": "sheet-panel",
+      "category": "characters",
+      "name_zh": "团内人物卡面板与一键鉴定",
+      "source": "cogm",
+      "planned": true,
+      "weight": 3,
+      "probes": [
+        {
+          "type": "path_exists",
+          "glob": "apps/client/src/features/session-live/character-sheet-panel.tsx"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "check:perform",
+          "scope": "apps/client/src/features/session-live"
+        }
+      ]
+    },
+    {
+      "id": "session-state",
+      "category": "state",
+      "name_zh": "团内状态数值条（HP/MP/SAN）",
+      "source": "cogm",
+      "planned": true,
+      "weight": 3,
+      "probes": [
+        {
+          "type": "path_exists",
+          "glob": "packages/shared/src/rules/coc7e/state.ts"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "maxHp",
+          "scope": "packages/shared/src/rules/coc7e"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "state:edit",
+          "scope": "packages/shared/src"
+        }
+      ]
+    },
+    {
+      "id": "state-flags",
+      "category": "state",
+      "name_zh": "状态标记与自定义标签",
+      "source": "cogm",
+      "planned": true,
+      "weight": 2,
+      "probes": [
+        {
+          "type": "code_regex",
+          "pattern": "statuses",
+          "scope": "packages/shared/src/rules/coc7e"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "CharacterStatusFlag",
+          "scope": "packages/shared/src/rules/coc7e"
+        }
+      ]
+    },
+    {
+      "id": "state-hints",
+      "category": "state",
+      "name_zh": "越阈自动提示（重伤/濒死/疯狂）",
+      "source": "cogm",
+      "planned": true,
+      "weight": 2,
+      "probes": [
+        {
+          "type": "code_regex",
+          "pattern": "临时疯狂",
+          "scope": "apps/server/src"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "hints",
+          "scope": "apps/server/src/rules"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "重伤",
+          "scope": "apps/server/src/rules"
+        }
+      ]
+    },
+    {
+      "id": "state-visibility",
+      "category": "state",
+      "name_zh": "NPC 状态仅 GM 可见",
+      "source": "cogm",
+      "planned": true,
+      "weight": 2,
+      "probes": [
+        {
+          "type": "code_regex",
+          "pattern": "gmOnly",
+          "scope": "apps/server/src/modules/gameplay"
+        },
+        {
+          "type": "path_exists",
+          "glob": "apps/server/src/modules/realtime/domain/visibility.ts"
+        }
+      ]
+    },
+    {
+      "id": "scene-mgmt",
+      "category": "scenes",
+      "name_zh": "场景背景管理与切换",
+      "source": "cogm",
+      "planned": true,
+      "weight": 2,
+      "probes": [
+        {
+          "type": "path_exists",
+          "glob": "apps/client/src/features/gm-console/gm-panel-stage.tsx"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "scene:switch",
+          "scope": "packages/shared/src"
+        },
+        {
+          "type": "path_exists",
+          "glob": "apps/server/src/modules/catalog/application/use-cases.ts"
+        }
+      ]
+    },
+    {
+      "id": "scene-sync",
+      "category": "scenes",
+      "name_zh": "场景切换全员同步与转场",
+      "source": "cogm",
+      "planned": true,
+      "weight": 2,
+      "probes": [
+        {
+          "type": "path_exists",
+          "glob": "apps/client/src/features/session-stage/scene-backdrop.tsx"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "transition|fade|opacity",
+          "scope": "apps/client/src/features/session-stage"
+        }
+      ]
+    },
+    {
+      "id": "stage-dialogue",
+      "category": "scenes",
+      "name_zh": "沉浸舞台（立绘+对话框）",
+      "source": "cogm",
+      "planned": true,
+      "weight": 3,
+      "probes": [
+        {
+          "type": "path_exists",
+          "glob": "apps/client/src/features/session-stage/dialogue-box.tsx"
+        },
+        {
+          "type": "path_exists",
+          "glob": "apps/client/src/features/play/desktop-scene.tsx"
+        }
+      ]
+    },
+    {
+      "id": "dice-expression",
+      "category": "dice",
+      "name_zh": "普通掷骰表达式",
+      "source": "cogm",
+      "planned": true,
+      "weight": 3,
+      "probes": [
+        {
+          "type": "path_exists",
+          "glob": "apps/server/src/rules/dice-engine.ts"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "dice:roll",
+          "scope": "packages/shared/src"
+        },
+        {
+          "type": "path_exists",
+          "glob": "apps/client/src/features/session-live/dice-tray.tsx"
+        }
+      ]
+    },
+    {
+      "id": "skill-check",
+      "category": "dice",
+      "name_zh": "技能/属性鉴定（服务端目标值）",
+      "source": "cogm",
+      "planned": true,
+      "weight": 3,
+      "probes": [
+        {
+          "type": "code_regex",
+          "pattern": "getSkillTargetValue",
+          "scope": "apps/server/src"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "check:perform",
+          "scope": "packages/shared/src"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "difficulty",
+          "scope": "packages/shared/src/rules/coc7e"
+        }
+      ]
+    },
+    {
+      "id": "check-grades",
+      "category": "dice",
+      "name_zh": "判级六档与难度阈值",
+      "source": "cogm",
+      "planned": true,
+      "weight": 3,
+      "probes": [
+        {
+          "type": "code_regex",
+          "pattern": "extreme_success",
+          "scope": "apps/server/src/rules/coc7e"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "fumble",
+          "scope": "apps/server/src/rules/coc7e"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "extreme_success|大成功",
+          "scope": "packages/shared/src/rules/coc7e"
+        }
+      ]
+    },
+    {
+      "id": "bonus-penalty-dice",
+      "category": "dice",
+      "name_zh": "奖励/惩罚骰",
+      "source": "cogm",
+      "planned": true,
+      "weight": 3,
+      "probes": [
+        {
+          "type": "code_regex",
+          "pattern": "bonusDice",
+          "scope": "packages/shared/src"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "penaltyDice",
+          "scope": "apps/server/src"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "tensCandidates",
+          "scope": "packages/shared/src/rules/coc7e"
+        }
+      ]
+    },
+    {
+      "id": "hidden-dice",
+      "category": "dice",
+      "name_zh": "暗骰",
+      "source": "cogm",
+      "planned": true,
+      "weight": 3,
+      "probes": [
+        {
+          "type": "code_regex",
+          "pattern": "hidden",
+          "scope": "apps/server/src/modules/gameplay"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "gmOnly",
+          "scope": "apps/server/src/modules/realtime/domain"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "已掷出",
+          "scope": "apps/client/src"
+        }
+      ]
+    },
+    {
+      "id": "check-request",
+      "category": "dice",
+      "name_zh": "GM 鉴定请求与玩家响应",
+      "source": "cogm",
+      "planned": true,
+      "weight": 3,
+      "probes": [
+        {
+          "type": "code_regex",
+          "pattern": "check:request|check:respond",
+          "scope": "packages/shared/src"
+        },
+        {
+          "type": "path_exists",
+          "glob": "apps/client/src/features/session-live/check-prompt.tsx"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "CheckRequestedEvent|CheckRespondCommand",
+          "scope": "packages/shared/src"
+        }
+      ]
+    },
+    {
+      "id": "san-check",
+      "category": "dice",
+      "name_zh": "理智检定与自动扣减",
+      "source": "cogm",
+      "planned": true,
+      "weight": 3,
+      "probes": [
+        {
+          "type": "code_regex",
+          "pattern": "check:san",
+          "scope": "packages/shared/src"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "getSanCurrent",
+          "scope": "apps/server/src"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "sanLossExpression",
+          "scope": "apps/server/src/modules/gameplay"
+        }
+      ]
+    },
+    {
+      "id": "growth-marks",
+      "category": "dice",
+      "name_zh": "技能成长标记",
+      "source": "cogm",
+      "planned": true,
+      "weight": 2,
+      "probes": [
+        {
+          "type": "code_regex",
+          "pattern": "growthMarks",
+          "scope": "packages/shared/src/rules/coc7e"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "growthEligible",
+          "scope": "apps/server/src"
+        }
+      ]
+    },
+    {
+      "id": "rule-chat-commands",
+      "category": "dice",
+      "name_zh": "规则命令（.ra/.sc）",
+      "source": "cogm",
+      "planned": true,
+      "weight": 2,
+      "probes": [
+        {
+          "type": "code_regex",
+          "pattern": "\\.ra|\\.sc",
+          "scope": "apps/server/src/rules/coc7e"
+        }
+      ]
+    },
+    {
+      "id": "dice-instant-render",
+      "category": "dice",
+      "name_zh": "骰点结果即时呈现于聊天区",
+      "source": "cogm",
+      "planned": true,
+      "weight": 2,
+      "probes": [
+        {
+          "type": "code_regex",
+          "pattern": "dice:rolled",
+          "scope": "packages/shared/src"
+        },
+        {
+          "type": "path_exists",
+          "glob": "apps/client/src/lib/chat-map.ts"
+        }
+      ]
+    },
+    {
+      "id": "chat-send",
+      "category": "chat",
+      "name_zh": "聊天消息与角色扮演/场外",
+      "source": "cogm",
+      "planned": true,
+      "weight": 3,
+      "probes": [
+        {
+          "type": "code_regex",
+          "pattern": "chat:send",
+          "scope": "packages/shared/src"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "channel",
+          "scope": "apps/client/src/features/play"
+        },
+        {
+          "type": "path_exists",
+          "glob": "apps/client/src/features/chat/message-list.tsx"
+        }
+      ]
+    },
+    {
+      "id": "chat-policy",
+      "category": "chat",
+      "name_zh": "服务端发言权限矩阵",
+      "source": "cogm",
+      "planned": true,
+      "weight": 3,
+      "probes": [
+        {
+          "type": "path_exists",
+          "glob": "apps/server/src/modules/chat/domain/message-policy.ts"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "decideChatMessage",
+          "scope": "apps/server/src/modules/chat"
+        }
+      ]
+    },
+    {
+      "id": "performance-queue",
+      "category": "chat",
+      "name_zh": "演绎发言队列与 GM 放行",
+      "source": "cogm",
+      "planned": true,
+      "weight": 3,
+      "probes": [
+        {
+          "type": "code_regex",
+          "pattern": "chat:release",
+          "scope": "packages/shared/src"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "chat:queue|SpeakQueue|待呈现|放行",
+          "scope": "apps/client/src"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "pending",
+          "scope": "apps/server/src/modules/chat"
+        }
+      ]
+    },
+    {
+      "id": "queue-player-blind",
+      "category": "chat",
+      "name_zh": "玩家对演绎队列零感知",
+      "source": "cogm",
+      "planned": true,
+      "weight": 2,
+      "probes": [
+        {
+          "type": "code_regex",
+          "pattern": "queued|pending",
+          "scope": "apps/server/src/modules/chat"
+        },
+        {
+          "type": "path_exists",
+          "glob": "apps/client/src/features/chat/message-list.tsx"
+        }
+      ]
+    },
+    {
+      "id": "chat-tabs",
+      "category": "chat",
+      "name_zh": "聊天频道过滤标签",
+      "source": "cogm",
+      "planned": true,
+      "weight": 2,
+      "probes": [
+        {
+          "type": "code_regex",
+          "pattern": "TabsTrigger",
+          "scope": "apps/client/src/features/play"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "\"ic\"|\"ooc\"",
+          "scope": "apps/client/src"
+        }
+      ]
+    },
+    {
+      "id": "chat-presence",
+      "category": "chat",
+      "name_zh": "在线玩家列表",
+      "source": "cogm",
+      "planned": true,
+      "weight": 2,
+      "probes": [
+        {
+          "type": "code_regex",
+          "pattern": "presence:updated",
+          "scope": "packages/shared/src"
+        },
+        {
+          "type": "path_exists",
+          "glob": "apps/server/src/modules/realtime/presence-service.ts"
+        }
+      ]
+    },
+    {
+      "id": "bgm-sync",
+      "category": "audio",
+      "name_zh": "BGM 全员同步播放",
+      "source": "cogm",
+      "planned": true,
+      "weight": 3,
+      "probes": [
+        {
+          "type": "code_regex",
+          "pattern": "audio:bgm",
+          "scope": "packages/shared/src"
+        },
+        {
+          "type": "path_exists",
+          "glob": "apps/client/src/lib/bgm.ts"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "BgmState",
+          "scope": "packages/shared/src"
+        }
+      ]
+    },
+    {
+      "id": "bgm-progress",
+      "category": "audio",
+      "name_zh": "BGM 进度续播与循环对齐",
+      "source": "cogm",
+      "planned": true,
+      "weight": 2,
+      "probes": [
+        {
+          "type": "code_regex",
+          "pattern": "startedAtMs",
+          "scope": "packages/shared/src"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "seek|loop",
+          "scope": "apps/server/src/modules/realtime/application"
+        }
+      ]
+    },
+    {
+      "id": "se-fx",
+      "category": "audio",
+      "name_zh": "SE 音效一次性广播",
+      "source": "cogm",
+      "planned": true,
+      "weight": 2,
+      "probes": [
+        {
+          "type": "code_regex",
+          "pattern": "audio:se",
+          "scope": "packages/shared/src"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "SePlayedEvent",
+          "scope": "packages/shared/src"
+        }
+      ]
+    },
+    {
+      "id": "audio-admin",
+      "category": "audio",
+      "name_zh": "GM 音乐库与曲目管理",
+      "source": "cogm",
+      "planned": true,
+      "weight": 2,
+      "probes": [
+        {
+          "type": "path_exists",
+          "glob": "apps/client/src/routes/gm/music.tsx"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "CreateTrack",
+          "scope": "apps/server/src/modules/catalog"
+        }
+      ]
+    },
+    {
+      "id": "audio-unlock",
+      "category": "audio",
+      "name_zh": "浏览器自动播放解锁",
+      "source": "cogm",
+      "planned": true,
+      "weight": 1,
+      "probes": [
+        {
+          "type": "code_regex",
+          "pattern": "pointerdown",
+          "scope": "apps/client/src/lib"
+        }
+      ]
+    },
+    {
+      "id": "local-mute",
+      "category": "audio",
+      "name_zh": "玩家本地静音",
+      "source": "cogm",
+      "planned": true,
+      "weight": 1,
+      "probes": [
+        {
+          "type": "code_regex",
+          "pattern": "静音",
+          "scope": "apps/client/src"
+        }
+      ]
+    },
+    {
+      "id": "handout-mgmt",
+      "category": "handouts",
+      "name_zh": "情报库管理（图文条目）",
+      "source": "cogm",
+      "planned": true,
+      "weight": 2,
+      "probes": [
+        {
+          "type": "path_exists",
+          "glob": "apps/server/src/modules/handouts/application/commands.ts"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "CreateHandout",
+          "scope": "apps/server/src/modules/catalog"
+        },
+        {
+          "type": "path_exists",
+          "glob": "apps/client/src/routes/gm/module.$moduleId.tsx"
+        }
+      ]
+    },
+    {
+      "id": "handout-grant",
+      "category": "handouts",
+      "name_zh": "情报发放与追加对象",
+      "source": "cogm",
+      "planned": true,
+      "weight": 3,
+      "probes": [
+        {
+          "type": "code_regex",
+          "pattern": "handout:grant",
+          "scope": "packages/shared/src"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "handout:append",
+          "scope": "packages/shared/src"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "recipientCharacterIds",
+          "scope": "packages/shared/src"
+        }
+      ]
+    },
+    {
+      "id": "handout-viewer",
+      "category": "handouts",
+      "name_zh": "玩家情报面板与新情报弹出",
+      "source": "cogm",
+      "planned": true,
+      "weight": 2,
+      "probes": [
+        {
+          "type": "path_exists",
+          "glob": "apps/client/src/features/session-live/handout-library.tsx"
+        },
+        {
+          "type": "path_exists",
+          "glob": "apps/client/src/features/session-live/handout-prompt.tsx"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "visibleHandouts",
+          "scope": "packages/shared/src"
+        }
+      ]
+    },
+    {
+      "id": "blacklist",
+      "category": "ops",
+      "name_zh": "指纹黑名单管理",
+      "source": "cogm",
+      "planned": true,
+      "weight": 2,
+      "probes": [
+        {
+          "type": "path_exists",
+          "glob": "apps/server/src/platform/db/schema/identity.ts"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "player:ban",
+          "scope": "packages/shared/src"
+        },
+        {
+          "type": "path_exists",
+          "glob": "apps/client/src/features/gm-admin/dialogs/ban-player-dialog.tsx"
+        }
+      ]
+    },
+    {
+      "id": "blacklist-enforce",
+      "category": "ops",
+      "name_zh": "黑名单鉴权期拦截",
+      "source": "cogm",
+      "planned": true,
+      "weight": 1,
+      "probes": [
+        {
+          "type": "code_regex",
+          "pattern": "blacklist|Blacklist",
+          "scope": "apps/server/src/modules/identity"
+        }
+      ]
+    },
+    {
+      "id": "kick",
+      "category": "ops",
+      "name_zh": "踢出玩家",
+      "source": "cogm",
+      "planned": true,
+      "weight": 2,
+      "probes": [
+        {
+          "type": "code_regex",
+          "pattern": "player:kick",
+          "scope": "packages/shared/src"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "Kicked|kicked",
+          "scope": "apps/client/src"
+        }
+      ]
+    },
+    {
+      "id": "secret-distribution",
+      "category": "ops",
+      "name_zh": "秘密定向推送服务端权威",
+      "source": "cogm",
+      "planned": true,
+      "weight": 3,
+      "probes": [
+        {
+          "type": "code_regex",
+          "pattern": "selectedPcIds",
+          "scope": "apps/server/src"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "checkVisibility",
+          "scope": "apps/server/src/modules/realtime"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "gmOnly",
+          "scope": "apps/server/src/modules/realtime/domain"
+        }
+      ]
+    },
+    {
+      "id": "security-hardening",
+      "category": "ops",
+      "name_zh": "限速与来源校验",
+      "source": "cogm",
+      "planned": true,
+      "weight": 2,
+      "probes": [
+        {
+          "type": "path_exists",
+          "glob": "apps/server/src/platform/security/rate-limiter.ts"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "assertTrustedOrigin",
+          "scope": "apps/server/src"
+        }
+      ]
+    },
+    {
+      "id": "reconnect-resume",
+      "category": "platform",
+      "name_zh": "断线重连与事件补发",
+      "source": "cogm",
+      "planned": true,
+      "weight": 3,
+      "probes": [
+        {
+          "type": "code_regex",
+          "pattern": "lastEventId",
+          "scope": "apps/client/src/lib"
+        },
+        {
+          "type": "path_exists",
+          "glob": "apps/server/src/modules/realtime/event-ring-buffer.ts"
+        },
+        {
+          "type": "path_exists",
+          "glob": "apps/server/src/modules/realtime/transport/ws-handler.ts"
+        }
+      ]
+    },
+    {
+      "id": "snapshot-visibility",
+      "category": "platform",
+      "name_zh": "全量快照与可见性裁剪",
+      "source": "cogm",
+      "planned": true,
+      "weight": 3,
+      "probes": [
+        {
+          "type": "path_exists",
+          "glob": "apps/server/src/modules/realtime/application/build-snapshot.ts"
+        },
+        {
+          "type": "path_exists",
+          "glob": "packages/shared/src/snapshot.ts"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "selectedPcIds",
+          "scope": "apps/server/src/modules/realtime/domain"
+        }
+      ]
+    },
+    {
+      "id": "rule-abstraction",
+      "category": "platform",
+      "name_zh": "规则系统抽象（多规则扩展点）",
+      "source": "cogm",
+      "planned": true,
+      "weight": 2,
+      "probes": [
+        {
+          "type": "path_exists",
+          "glob": "apps/server/src/rules/rule-system.ts"
+        },
+        {
+          "type": "path_exists",
+          "glob": "apps/server/src/rules/registry.ts"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "RuleId",
+          "scope": "packages/shared/src/rules/rule-id.ts"
+        }
+      ]
+    },
+    {
+      "id": "mobile-adapt",
+      "category": "platform",
+      "name_zh": "移动端三布局适配",
+      "source": "cogm",
+      "planned": true,
+      "weight": 2,
+      "probes": [
+        {
+          "type": "path_exists",
+          "glob": "apps/client/src/features/play/mobile-portrait-scene.tsx"
+        },
+        {
+          "type": "path_exists",
+          "glob": "apps/client/src/features/play/mobile-landscape-scene.tsx"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "orientation",
+          "scope": "apps/client/src/features/play"
+        }
+      ]
+    },
+    {
+      "id": "media-upload",
+      "category": "platform",
+      "name_zh": "媒体上传与资产服务",
+      "source": "cogm",
+      "planned": true,
+      "weight": 2,
+      "probes": [
+        {
+          "type": "path_exists",
+          "glob": "apps/server/src/modules/media/application/upload-media.ts"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "purpose",
+          "scope": "apps/server/src/modules/media"
+        }
+      ]
+    },
+    {
+      "id": "media-validation",
+      "category": "platform",
+      "name_zh": "媒体魔数校验与限额",
+      "source": "cogm",
+      "planned": true,
+      "weight": 1,
+      "probes": [
+        {
+          "type": "code_regex",
+          "pattern": "mimeType|MIME|magic",
+          "scope": "apps/server/src/modules/media/application"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "MEDIA_INVALID|MediaAssetInvalid",
+          "scope": "apps/server/src"
+        }
+      ]
+    },
+    {
+      "id": "ws-protocol",
+      "category": "platform",
+      "name_zh": "共享 zod 协议单源",
+      "source": "cogm",
+      "planned": true,
+      "weight": 3,
+      "probes": [
+        {
+          "type": "path_exists",
+          "glob": "packages/shared/src/websocket.ts"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "ClientCommandType",
+          "scope": "packages/shared/src"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "protocolVersion",
+          "scope": "apps/server/src/modules/realtime/transport"
+        }
+      ]
+    },
+    {
+      "id": "outbox-recovery",
+      "category": "platform",
+      "name_zh": "事件外箱与崩溃恢复",
+      "source": "cogm",
+      "planned": true,
+      "weight": 2,
+      "probes": [
+        {
+          "type": "code_regex",
+          "pattern": "session_outbox",
+          "scope": "apps/server/src/platform/db/schema"
+        },
+        {
+          "type": "path_exists",
+          "glob": "apps/server/src/bootstrap/startup.ts"
+        }
+      ]
+    },
+    {
+      "id": "dark-theme",
+      "category": "platform",
+      "name_zh": "深色主题设计 token 体系",
+      "source": "cogm",
+      "planned": true,
+      "weight": 1,
+      "probes": [
+        {
+          "type": "path_exists",
+          "glob": "apps/client/src/styles/theme.css"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "@theme",
+          "scope": "apps/client/src/styles"
+        }
+      ]
+    },
+    {
+      "id": "prod-deploy",
+      "category": "platform",
+      "name_zh": "单进程生产部署与优雅退出",
+      "source": "cogm",
+      "planned": true,
+      "weight": 1,
+      "probes": [
+        {
+          "type": "path_exists",
+          "glob": "apps/server/src/index.ts"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "health",
+          "scope": "apps/server/src/app.ts"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "SIGTERM",
+          "scope": "apps/server/src"
+        }
+      ]
+    },
+    {
+      "id": "contract-e2e-tests",
+      "category": "platform",
+      "name_zh": "契约与端到端测试",
+      "source": "cogm",
+      "planned": true,
+      "weight": 1,
+      "probes": [
+        {
+          "type": "path_exists",
+          "glob": "apps/server/tests/contract/realtime.test.ts",
+          "excludes": [
+            "**/*.test.*!"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "room-create",
+      "category": "room",
+      "name_zh": "创建房间",
+      "source": "both",
+      "planned": true,
+      "weight": 2,
+      "probes": [
+        {
+          "type": "path_exists",
+          "glob": "apps/server/src/modules/sessions/application/use-cases.ts"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "CreateSessionRequest",
+          "scope": "packages/shared/src"
+        },
+        {
+          "type": "path_exists",
+          "glob": "apps/client/src/features/gm-admin/dialogs/create-session-dialog.tsx"
+        }
+      ]
+    },
+    {
+      "id": "room-invite-url",
+      "category": "room",
+      "name_zh": "邀请链接",
+      "source": "both",
+      "planned": true,
+      "weight": 2,
+      "probes": [
+        {
+          "type": "code_regex",
+          "pattern": "/join/",
+          "scope": "apps/client/src/routes"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "已复制团链接",
+          "scope": "apps/client/src/routes/gm"
+        }
+      ]
+    },
+    {
+      "id": "room-join-by-id",
+      "category": "room",
+      "name_zh": "房间号加入",
+      "source": "both",
+      "planned": true,
+      "weight": 2,
+      "probes": [
+        {
+          "type": "path_exists",
+          "glob": "apps/client/src/routes/index.tsx"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "join-info|JoinInfoResponse",
+          "scope": "apps/server/src/modules/sessions"
+        },
+        {
+          "type": "path_exists",
+          "glob": "apps/client/src/routes/join.$sessionId.tsx"
+        }
+      ]
+    },
+    {
+      "id": "room-password",
+      "category": "room",
+      "name_zh": "房间密码",
+      "source": "echo",
+      "planned": false,
+      "weight": 2,
+      "probes": []
+    },
+    {
+      "id": "room-host-approval",
+      "category": "room",
+      "name_zh": "房主在线审批入场",
+      "source": "echo",
+      "planned": false,
+      "weight": 2,
+      "probes": []
+    },
+    {
+      "id": "room-guest-join",
+      "category": "room",
+      "name_zh": "免注册游客进房",
+      "source": "ccfolia",
+      "planned": true,
+      "weight": 2,
+      "probes": [
+        {
+          "type": "path_exists",
+          "glob": "apps/server/src/modules/identity/application/player-identity.ts"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "anonymous_players",
+          "scope": "apps/server/src/platform/db/schema"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "fingerprint",
+          "scope": "apps/server/src/modules/identity"
+        }
+      ]
+    },
+    {
+      "id": "room-permissions",
+      "category": "room",
+      "name_zh": "成员权限分级",
+      "source": "both",
+      "planned": false,
+      "weight": 2,
+      "probes": [],
+      "note_zh": "CoGM 仅规划 GM/玩家二分与黑名单，未规划成员等级权限"
+    },
+    {
+      "id": "room-sub-gm",
+      "category": "room",
+      "name_zh": "副主持人",
+      "source": "both",
+      "planned": false,
+      "weight": 2,
+      "probes": []
+    },
+    {
+      "id": "room-helper-permission",
+      "category": "room",
+      "name_zh": "助手权限",
+      "source": "echo",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "room-kick",
+      "category": "room",
+      "name_zh": "踢出玩家",
+      "source": "both",
+      "planned": true,
+      "weight": 2,
+      "probes": [
+        {
+          "type": "code_regex",
+          "pattern": "player:kick",
+          "scope": "packages/shared/src"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "closePlayerConnections",
+          "scope": "apps/server/src"
+        }
+      ]
+    },
+    {
+      "id": "room-spectator",
+      "category": "room",
+      "name_zh": "观战席位",
+      "source": "both",
+      "planned": true,
+      "weight": 2,
+      "probes": [
+        {
+          "type": "code_regex",
+          "pattern": "SeatRole",
+          "scope": "packages/shared/src"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "\"ob\"",
+          "scope": "apps/server/src/modules/realtime"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "观战",
+          "scope": "apps/client/src/routes"
+        }
+      ]
+    },
+    {
+      "id": "room-multi-pc",
+      "category": "room",
+      "name_zh": "同一房间多角色",
+      "source": "echo",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "room-capacity",
+      "category": "room",
+      "name_zh": "房间容量与数量限制",
+      "source": "both",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "room-reuse-template",
+      "category": "room",
+      "name_zh": "房间模板复用",
+      "source": "both",
+      "planned": false,
+      "weight": 2,
+      "probes": [],
+      "note_zh": "模组作为资源容器可复用，但未规划房间模板机制"
+    },
+    {
+      "id": "room-recruit",
+      "category": "room",
+      "name_zh": "招募玩家",
+      "source": "echo",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "room-sleep",
+      "category": "room",
+      "name_zh": "房间休眠与唤醒",
+      "source": "echo",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "room-maintenance-mode",
+      "category": "room",
+      "name_zh": "布场模式",
+      "source": "ccfolia",
+      "planned": false,
+      "weight": 2,
+      "probes": []
+    },
+    {
+      "id": "room-public-distribution",
+      "category": "room",
+      "name_zh": "房间数据公开分发",
+      "source": "both",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "room-metadata",
+      "category": "room",
+      "name_zh": "房间公开信息",
+      "source": "both",
+      "planned": false,
+      "weight": 1,
+      "probes": [],
+      "note_zh": "团仅有状态与模组归属，未规划标题/简介/封面等公开信息编辑"
+    },
+    {
+      "id": "room-delete-archive",
+      "category": "room",
+      "name_zh": "删除与结团归档",
+      "source": "both",
+      "planned": true,
+      "weight": 2,
+      "probes": [
+        {
+          "type": "code_regex",
+          "pattern": "UpdateSessionStatusUseCase",
+          "scope": "apps/server/src/modules/sessions"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "allowWhenEnded",
+          "scope": "apps/server/src/modules/realtime"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "ended",
+          "scope": "packages/shared/src"
+        }
+      ]
+    },
+    {
+      "id": "map-foreground-background",
+      "category": "map",
+      "name_zh": "前景与背景图",
+      "source": "both",
+      "planned": false,
+      "weight": 2,
+      "probes": []
+    },
+    {
+      "id": "map-grid",
+      "category": "map",
+      "name_zh": "网格",
+      "source": "both",
+      "planned": false,
+      "weight": 2,
+      "probes": []
+    },
+    {
+      "id": "map-token-drag",
+      "category": "map",
+      "name_zh": "棋子拖动",
+      "source": "both",
+      "planned": false,
+      "weight": 2,
+      "probes": []
+    },
+    {
+      "id": "map-token-size",
+      "category": "map",
+      "name_zh": "棋子尺寸",
+      "source": "both",
+      "planned": false,
+      "weight": 2,
+      "probes": []
+    },
+    {
+      "id": "map-token-layer",
+      "category": "map",
+      "name_zh": "层级与置顶",
+      "source": "both",
+      "planned": false,
+      "weight": 2,
+      "probes": []
+    },
+    {
+      "id": "map-panel-free-layout",
+      "category": "map",
+      "name_zh": "自由摆放",
+      "source": "both",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "map-panel-fixed",
+      "category": "map",
+      "name_zh": "位置与尺寸固定",
+      "source": "both",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "map-marker-panel",
+      "category": "map",
+      "name_zh": "场景标记层",
+      "source": "ccfolia",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "map-panel-flip-private",
+      "category": "map",
+      "name_zh": "卡片翻面与私看",
+      "source": "ccfolia",
+      "planned": false,
+      "weight": 2,
+      "probes": []
+    },
+    {
+      "id": "map-click-action",
+      "category": "map",
+      "name_zh": "面板点击动作",
+      "source": "ccfolia",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "map-panel-hide",
+      "category": "map",
+      "name_zh": "面板显示与隐藏",
+      "source": "ccfolia",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "map-fog",
+      "category": "map",
+      "name_zh": "战争迷雾",
+      "source": "echo",
+      "planned": false,
+      "weight": 2,
+      "probes": []
+    },
+    {
+      "id": "map-lighting",
+      "category": "map",
+      "name_zh": "动态光照",
+      "source": "echo",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "map-ruler",
+      "category": "map",
+      "name_zh": "测距",
+      "source": "echo",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "map-aoe-template",
+      "category": "map",
+      "name_zh": "范围模板",
+      "source": "echo",
+      "planned": false,
+      "weight": 2,
+      "probes": []
+    },
+    {
+      "id": "map-token-ownership",
+      "category": "map",
+      "name_zh": "棋子所有权",
+      "source": "both",
+      "planned": false,
+      "weight": 2,
+      "probes": []
+    },
+    {
+      "id": "map-token-status",
+      "category": "map",
+      "name_zh": "棋子状态显示",
+      "source": "both",
+      "planned": false,
+      "weight": 3,
+      "probes": []
+    },
+    {
+      "id": "map-token-hide",
+      "category": "map",
+      "name_zh": "棋子收起与再放回",
+      "source": "both",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "map-undo-redo",
+      "category": "map",
+      "name_zh": "盘面撤销重做",
+      "source": "ccfolia",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "map-multi-select",
+      "category": "map",
+      "name_zh": "多选移动删除",
+      "source": "both",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "map-token-copy",
+      "category": "map",
+      "name_zh": "棋子跨房间复制",
+      "source": "ccfolia",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "map-3d-parallax",
+      "category": "map",
+      "name_zh": "3D 视差场景",
+      "source": "echo",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "map-custom-ui",
+      "category": "map",
+      "name_zh": "自定义 UI 沙盒",
+      "source": "echo",
+      "planned": false,
+      "weight": 2,
+      "probes": []
+    },
+    {
+      "id": "portrait-multi-diff",
+      "category": "portrait",
+      "name_zh": "多表情差分",
+      "source": "both",
+      "planned": true,
+      "weight": 3,
+      "probes": [
+        {
+          "type": "code_regex",
+          "pattern": "character_portraits",
+          "scope": "apps/server/src/platform/db/schema"
+        },
+        {
+          "type": "path_exists",
+          "glob": "apps/client/src/features/session-stage/portrait-layer.tsx"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "expressionKey",
+          "scope": "packages/shared/src"
+        }
+      ]
+    },
+    {
+      "id": "portrait-switch-via-chat",
+      "category": "portrait",
+      "name_zh": "发言时切换差分",
+      "source": "both",
+      "planned": true,
+      "weight": 3,
+      "probes": [
+        {
+          "type": "code_regex",
+          "pattern": "expressionKey",
+          "scope": "packages/shared/src/chat.ts"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "setSessionCharacterExpression",
+          "scope": "apps/server/src/modules/chat"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "expression:set",
+          "scope": "packages/shared/src"
+        }
+      ]
+    },
+    {
+      "id": "portrait-auto-diff-on-roll",
+      "category": "portrait",
+      "name_zh": "骰点结果自动切表情",
+      "source": "ccfolia",
+      "planned": false,
+      "weight": 3,
+      "probes": []
+    },
+    {
+      "id": "portrait-triple-mode",
+      "category": "portrait",
+      "name_zh": "头像/小立绘/大立绘三态",
+      "source": "echo",
+      "planned": false,
+      "weight": 3,
+      "probes": []
+    },
+    {
+      "id": "portrait-position-scale",
+      "category": "portrait",
+      "name_zh": "立绘位置与缩放微调",
+      "source": "echo",
+      "planned": false,
+      "weight": 3,
+      "probes": []
+    },
+    {
+      "id": "portrait-entrance-animation",
+      "category": "portrait",
+      "name_zh": "立绘动画",
+      "source": "echo",
+      "planned": false,
+      "weight": 2,
+      "probes": []
+    },
+    {
+      "id": "portrait-border-float",
+      "category": "portrait",
+      "name_zh": "悬浮立绘边框",
+      "source": "echo",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "portrait-alias",
+      "category": "portrait",
+      "name_zh": "角色假名",
+      "source": "echo",
+      "planned": false,
+      "weight": 2,
+      "probes": []
+    },
+    {
+      "id": "portrait-tts",
+      "category": "portrait",
+      "name_zh": "角色语音朗读",
+      "source": "echo",
+      "planned": false,
+      "weight": 2,
+      "probes": []
+    },
+    {
+      "id": "portrait-batch-face-crop",
+      "category": "portrait",
+      "name_zh": "差分批量裁切",
+      "source": "echo",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "portrait-art-command",
+      "category": "portrait",
+      "name_zh": "立绘开关指令",
+      "source": "echo",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "char-sheet",
+      "category": "character",
+      "name_zh": "角色卡",
+      "source": "both",
+      "planned": true,
+      "weight": 3,
+      "probes": [
+        {
+          "type": "path_exists",
+          "glob": "packages/shared/src/rules/coc7e/sheet.ts"
+        },
+        {
+          "type": "path_exists",
+          "glob": "packages/shared/src/rules/coc7e/skills.ts"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "z\\.object",
+          "scope": "packages/shared/src/rules/coc7e"
+        }
+      ]
+    },
+    {
+      "id": "char-derived-formula",
+      "category": "character",
+      "name_zh": "派生属性公式",
+      "source": "echo",
+      "planned": true,
+      "weight": 3,
+      "probes": [
+        {
+          "type": "code_regex",
+          "pattern": "maxHp",
+          "scope": "apps/server/src/rules/coc7e"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "con \\+ siz|attributes\\.con \\+ attributes\\.siz",
+          "scope": "apps packages"
+        }
+      ]
+    },
+    {
+      "id": "char-status-bar",
+      "category": "character",
+      "name_zh": "状态栏与数值条",
+      "source": "both",
+      "planned": true,
+      "weight": 3,
+      "probes": [
+        {
+          "type": "code_regex",
+          "pattern": "hp",
+          "scope": "packages/shared/src/rules/coc7e/state.ts"
+        },
+        {
+          "type": "path_exists",
+          "glob": "apps/client/src/features/session-stage/portrait-layer.tsx"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "state:edit",
+          "scope": "packages/shared/src"
+        }
+      ]
+    },
+    {
+      "id": "char-quick-dice",
+      "category": "character",
+      "name_zh": "角色快捷键掷骰",
+      "source": "both",
+      "planned": true,
+      "weight": 2,
+      "probes": [
+        {
+          "type": "path_exists",
+          "glob": "apps/client/src/features/session-live/dice-tray.tsx"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "dice:roll",
+          "scope": "packages/shared/src"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "skillKeysFor",
+          "scope": "apps/client/src/lib"
+        }
+      ]
+    },
+    {
+      "id": "char-palette",
+      "category": "character",
+      "name_zh": "聊天面板命令集",
+      "source": "ccfolia",
+      "planned": false,
+      "weight": 3,
+      "probes": []
+    },
+    {
+      "id": "char-command-import",
+      "category": "character",
+      "name_zh": "属性批量导入",
+      "source": "echo",
+      "planned": true,
+      "weight": 2,
+      "probes": [
+        {
+          "type": "path_exists",
+          "glob": "apps/server/src/rules/coc7e/excel-parser.ts"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "import/preview",
+          "scope": "apps/server/src/modules/characters/transport"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "import/confirm",
+          "scope": "apps/server/src/modules/characters/transport"
+        }
+      ]
+    },
+    {
+      "id": "char-template-creator",
+      "category": "character",
+      "name_zh": "车卡模板与创建器",
+      "source": "echo",
+      "planned": false,
+      "weight": 3,
+      "probes": []
+    },
+    {
+      "id": "char-review",
+      "category": "character",
+      "name_zh": "审卡流程",
+      "source": "echo",
+      "planned": false,
+      "weight": 2,
+      "probes": [],
+      "note_zh": "人物卡审核流程规划在站外进行，系统内未规划审卡状态机"
+    },
+    {
+      "id": "char-npc-library",
+      "category": "character",
+      "name_zh": "公开 NPC 库",
+      "source": "echo",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "char-visibility",
+      "category": "character",
+      "name_zh": "角色可见性",
+      "source": "both",
+      "planned": true,
+      "weight": 3,
+      "probes": [
+        {
+          "type": "code_regex",
+          "pattern": "gmOnly",
+          "scope": "apps/server/src/modules/gameplay"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "ownPc",
+          "scope": "apps/server/src/modules/realtime/application"
+        },
+        {
+          "type": "path_exists",
+          "glob": "apps/server/src/modules/realtime/application/build-snapshot.ts"
+        }
+      ]
+    },
+    {
+      "id": "char-owner-claim",
+      "category": "character",
+      "name_zh": "角色认领与所有权",
+      "source": "both",
+      "planned": true,
+      "weight": 3,
+      "probes": [
+        {
+          "type": "code_regex",
+          "pattern": "ClaimSeatUseCase",
+          "scope": "apps/server/src/modules/sessions"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "SEAT_ALREADY_CLAIMED",
+          "scope": "apps/server/src/modules/sessions"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "claim",
+          "scope": "packages/shared/src/session.ts"
+        }
+      ]
+    },
+    {
+      "id": "char-name-lock",
+      "category": "character",
+      "name_zh": "开团后改名限制",
+      "source": "echo",
+      "planned": false,
+      "weight": 2,
+      "probes": []
+    },
+    {
+      "id": "char-memo",
+      "category": "character",
+      "name_zh": "角色备注",
+      "source": "ccfolia",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "char-room-variables",
+      "category": "character",
+      "name_zh": "房间变量",
+      "source": "ccfolia",
+      "planned": false,
+      "weight": 2,
+      "probes": []
+    },
+    {
+      "id": "char-clipboard-api",
+      "category": "character",
+      "name_zh": "剪贴板粘贴角色",
+      "source": "ccfolia",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "cmp-dice-expression",
+      "category": "dice",
+      "name_zh": "骰点表达式",
+      "source": "both",
+      "planned": true,
+      "weight": 3,
+      "probes": [
+        {
+          "type": "path_exists",
+          "glob": "apps/server/src/rules/dice-engine.ts"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "dice:roll",
+          "scope": "packages/shared/src"
+        },
+        {
+          "type": "path_exists",
+          "glob": "apps/client/src/features/session-live/dice-tray.tsx"
+        }
+      ]
+    },
+    {
+      "id": "dice-multi-system-bot",
+      "category": "dice",
+      "name_zh": "多规则骰点引擎",
+      "source": "ccfolia",
+      "planned": false,
+      "weight": 3,
+      "probes": [],
+      "note_zh": "v1 仅 CoC 7e；规则系统抽象为扩展点，多规则骰点引擎未规划"
+    },
+    {
+      "id": "dice-coc7-skill-check",
+      "category": "dice",
+      "name_zh": "CoC 7e 技能检定",
+      "source": "both",
+      "planned": true,
+      "weight": 3,
+      "probes": [
+        {
+          "type": "path_exists",
+          "glob": "apps/server/src/rules/coc7e/index.ts"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "getSkillTargetValue",
+          "scope": "apps/server/src"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "check:perform",
+          "scope": "packages/shared/src"
+        }
+      ]
+    },
+    {
+      "id": "dice-bonus-penalty",
+      "category": "dice",
+      "name_zh": "奖励骰与惩罚骰",
+      "source": "both",
+      "planned": true,
+      "weight": 3,
+      "probes": [
+        {
+          "type": "code_regex",
+          "pattern": "bonusDice",
+          "scope": "packages/shared/src"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "penaltyDice",
+          "scope": "apps/server/src"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "tensCandidates",
+          "scope": "packages/shared/src/rules/coc7e"
+        }
+      ]
+    },
+    {
+      "id": "dice-difficulty-level",
+      "category": "dice",
+      "name_zh": "难度等级",
+      "source": "both",
+      "planned": true,
+      "weight": 3,
+      "probes": [
+        {
+          "type": "code_regex",
+          "pattern": "CheckDifficulty",
+          "scope": "packages/shared/src/rules/coc7e"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "difficulty",
+          "scope": "apps/server/src/modules/gameplay"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "hard_success",
+          "scope": "packages/shared/src/rules/coc7e"
+        }
+      ]
+    },
+    {
+      "id": "dice-coc6-ccb",
+      "category": "dice",
+      "name_zh": "CoC 6 版 CCB 骰",
+      "source": "ccfolia",
+      "planned": false,
+      "weight": 2,
+      "probes": []
+    },
+    {
+      "id": "dice-san-check",
+      "category": "dice",
+      "name_zh": "理智检定",
+      "source": "echo",
+      "planned": true,
+      "weight": 3,
+      "probes": [
+        {
+          "type": "code_regex",
+          "pattern": "check:san",
+          "scope": "packages/shared/src"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "getSanCurrent",
+          "scope": "apps/server/src"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "sanLossExpression",
+          "scope": "apps/server/src/modules/gameplay"
+        }
+      ]
+    },
+    {
+      "id": "dice-growth-check",
+      "category": "dice",
+      "name_zh": "成长检定",
+      "source": "echo",
+      "planned": false,
+      "weight": 3,
+      "probes": [],
+      "note_zh": "产品明确成长鉴定不自动化，仅记成长标记由 GM 结团处理"
+    },
+    {
+      "id": "dice-opposed-check",
+      "category": "dice",
+      "name_zh": "对抗检定",
+      "source": "echo",
+      "planned": false,
+      "weight": 3,
+      "probes": [],
+      "note_zh": "产品明确对抗鉴定不自动化，由 GM 线下裁决"
+    },
+    {
+      "id": "dice-autofire",
+      "category": "dice",
+      "name_zh": "自动武器连发",
+      "source": "both",
+      "planned": false,
+      "weight": 2,
+      "probes": []
+    },
+    {
+      "id": "dice-roll-table",
+      "category": "dice",
+      "name_zh": "原创随机表",
+      "source": "both",
+      "planned": false,
+      "weight": 2,
+      "probes": []
+    },
+    {
+      "id": "dice-secret-roll",
+      "category": "dice",
+      "name_zh": "暗骰",
+      "source": "both",
+      "planned": true,
+      "weight": 3,
+      "probes": [
+        {
+          "type": "code_regex",
+          "pattern": "hidden",
+          "scope": "apps/server/src/modules/gameplay"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "gmOnly",
+          "scope": "apps/server/src/modules/realtime/domain"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "已掷出",
+          "scope": "apps/client/src"
+        }
+      ]
+    },
+    {
+      "id": "dice-3d-animation",
+      "category": "dice",
+      "name_zh": "3D 骰子动画",
+      "source": "both",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "dice-skin",
+      "category": "dice",
+      "name_zh": "骰子皮肤",
+      "source": "both",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "dice-symbol",
+      "category": "dice",
+      "name_zh": "盘面骰子符号",
+      "source": "ccfolia",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "dice-madness-tables",
+      "category": "dice",
+      "name_zh": "疯狂与恐惧表",
+      "source": "ccfolia",
+      "planned": false,
+      "weight": 2,
+      "probes": []
+    },
+    {
+      "id": "dice-custom-script",
+      "category": "dice",
+      "name_zh": "自定义指令脚本",
+      "source": "echo",
+      "planned": false,
+      "weight": 2,
+      "probes": []
+    },
+    {
+      "id": "dice-rule-data-tables",
+      "category": "dice",
+      "name_zh": "规则数据表",
+      "source": "echo",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "cmp-chat-tabs",
+      "category": "chat",
+      "name_zh": "聊天标签页",
+      "source": "ccfolia",
+      "planned": true,
+      "weight": 2,
+      "probes": [
+        {
+          "type": "code_regex",
+          "pattern": "TabsTrigger",
+          "scope": "apps/client/src/features/play"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "\"ic\"|\"ooc\"",
+          "scope": "apps/client/src"
+        },
+        {
+          "type": "path_exists",
+          "glob": "apps/client/src/features/play/chat-area.tsx"
+        }
+      ]
+    },
+    {
+      "id": "chat-channels",
+      "category": "chat",
+      "name_zh": "频道即舞台",
+      "source": "echo",
+      "planned": false,
+      "weight": 3,
+      "probes": []
+    },
+    {
+      "id": "chat-private",
+      "category": "chat",
+      "name_zh": "私聊",
+      "source": "both",
+      "planned": false,
+      "weight": 2,
+      "probes": [],
+      "note_zh": "秘密情报为 GM 定向发放，未规划玩家间私聊"
+    },
+    {
+      "id": "chat-group",
+      "category": "chat",
+      "name_zh": "群组私聊",
+      "source": "ccfolia",
+      "planned": false,
+      "weight": 2,
+      "probes": []
+    },
+    {
+      "id": "chat-live-channel",
+      "category": "chat",
+      "name_zh": "实况频道",
+      "source": "echo",
+      "planned": false,
+      "weight": 2,
+      "probes": []
+    },
+    {
+      "id": "chat-ic-ooc",
+      "category": "chat",
+      "name_zh": "场内场外区分",
+      "source": "echo",
+      "planned": true,
+      "weight": 3,
+      "probes": [
+        {
+          "type": "code_regex",
+          "pattern": "MessageChannel",
+          "scope": "packages/shared/src"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "roleplay",
+          "scope": "packages/shared/src/session.ts"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "ooc",
+          "scope": "apps/client/src/features/chat"
+        }
+      ]
+    },
+    {
+      "id": "chat-danmaku",
+      "category": "chat",
+      "name_zh": "弹幕",
+      "source": "echo",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "chat-edit",
+      "category": "chat",
+      "name_zh": "消息编辑",
+      "source": "both",
+      "planned": false,
+      "weight": 2,
+      "probes": []
+    },
+    {
+      "id": "chat-recall",
+      "category": "chat",
+      "name_zh": "消息撤回",
+      "source": "echo",
+      "planned": false,
+      "weight": 2,
+      "probes": []
+    },
+    {
+      "id": "chat-quote",
+      "category": "chat",
+      "name_zh": "引用回复",
+      "source": "echo",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "chat-reorder",
+      "category": "chat",
+      "name_zh": "消息重排",
+      "source": "echo",
+      "planned": false,
+      "weight": 2,
+      "probes": []
+    },
+    {
+      "id": "chat-search",
+      "category": "chat",
+      "name_zh": "消息搜索",
+      "source": "echo",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "chat-bookmark",
+      "category": "chat",
+      "name_zh": "消息收藏与批注",
+      "source": "echo",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "chat-markdown",
+      "category": "chat",
+      "name_zh": "Markdown 消息",
+      "source": "echo",
+      "planned": false,
+      "weight": 2,
+      "probes": []
+    },
+    {
+      "id": "chat-emoji",
+      "category": "chat",
+      "name_zh": "表情包",
+      "source": "both",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "chat-scenario-text",
+      "category": "chat",
+      "name_zh": "预设长文",
+      "source": "ccfolia",
+      "planned": false,
+      "weight": 2,
+      "probes": []
+    },
+    {
+      "id": "chat-input-completion",
+      "category": "chat",
+      "name_zh": "输入补全",
+      "source": "both",
+      "planned": false,
+      "weight": 2,
+      "probes": []
+    },
+    {
+      "id": "chat-message-window",
+      "category": "chat",
+      "name_zh": "消息窗演出",
+      "source": "both",
+      "planned": true,
+      "weight": 3,
+      "probes": [
+        {
+          "type": "path_exists",
+          "glob": "apps/client/src/features/session-stage/dialogue-box.tsx"
+        },
+        {
+          "type": "path_exists",
+          "glob": "apps/client/src/features/play/desktop-scene.tsx"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "speakerRoleLabel",
+          "scope": "apps/client/src"
+        }
+      ]
+    },
+    {
+      "id": "chat-typing-indicator",
+      "category": "chat",
+      "name_zh": "输入状态",
+      "source": "echo",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "chat-history",
+      "category": "chat",
+      "name_zh": "输入历史",
+      "source": "echo",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "chat-log-export-html",
+      "category": "chat",
+      "name_zh": "聊天日志 HTML 导出",
+      "source": "both",
+      "planned": false,
+      "weight": 2,
+      "probes": []
+    },
+    {
+      "id": "chat-log-export-json",
+      "category": "chat",
+      "name_zh": "聊天日志 JSON 导出",
+      "source": "ccfolia",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "chat-report",
+      "category": "chat",
+      "name_zh": "跑团总结",
+      "source": "echo",
+      "planned": false,
+      "weight": 2,
+      "probes": []
+    },
+    {
+      "id": "audio-bgm-slots",
+      "category": "audio",
+      "name_zh": "双 BGM 通道",
+      "source": "ccfolia",
+      "planned": false,
+      "weight": 2,
+      "probes": [],
+      "note_zh": "规划单 BGM 加 SE 双通道，未规划双 BGM"
+    },
+    {
+      "id": "audio-multi-track",
+      "category": "audio",
+      "name_zh": "多音轨同时播放",
+      "source": "echo",
+      "planned": false,
+      "weight": 2,
+      "probes": []
+    },
+    {
+      "id": "audio-per-file-volume",
+      "category": "audio",
+      "name_zh": "文件级音量",
+      "source": "both",
+      "planned": false,
+      "weight": 2,
+      "probes": [],
+      "note_zh": "规划 GM 全局音量控制，未规划文件级音量"
+    },
+    {
+      "id": "audio-user-volume",
+      "category": "audio",
+      "name_zh": "个人音量与静音",
+      "source": "both",
+      "planned": true,
+      "weight": 2,
+      "probes": [
+        {
+          "type": "code_regex",
+          "pattern": "静音",
+          "scope": "apps/client/src"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "muted",
+          "scope": "apps/client/src/lib"
+        }
+      ]
+    },
+    {
+      "id": "audio-loop",
+      "category": "audio",
+      "name_zh": "循环播放",
+      "source": "both",
+      "planned": true,
+      "weight": 2,
+      "probes": [
+        {
+          "type": "code_regex",
+          "pattern": "loop",
+          "scope": "packages/shared/src/stage.ts"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "loop",
+          "scope": "apps/server/src/modules/realtime/application"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "loop",
+          "scope": "apps/client/src/lib/bgm.ts"
+        }
+      ]
+    },
+    {
+      "id": "audio-crossfade",
+      "category": "audio",
+      "name_zh": "切歌交叉淡化",
+      "source": "ccfolia",
+      "planned": true,
+      "weight": 1,
+      "probes": [
+        {
+          "type": "code_regex",
+          "pattern": "transitionMs",
+          "scope": "packages/shared/src/stage.ts"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "fade",
+          "scope": "apps/client/src/lib"
+        }
+      ]
+    },
+    {
+      "id": "audio-se-channel",
+      "category": "audio",
+      "name_zh": "音效通道",
+      "source": "both",
+      "planned": true,
+      "weight": 3,
+      "probes": [
+        {
+          "type": "code_regex",
+          "pattern": "audio:se",
+          "scope": "packages/shared/src"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "SePlayedEvent",
+          "scope": "packages/shared/src"
+        },
+        {
+          "type": "path_exists",
+          "glob": "apps/client/src/lib/bgm.ts"
+        }
+      ]
+    },
+    {
+      "id": "audio-scene-bind",
+      "category": "audio",
+      "name_zh": "音频绑定场景",
+      "source": "both",
+      "planned": false,
+      "weight": 2,
+      "probes": []
+    },
+    {
+      "id": "audio-library",
+      "category": "audio",
+      "name_zh": "官方/公共音源库",
+      "source": "both",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "audio-external-url",
+      "category": "audio",
+      "name_zh": "外部链接音源",
+      "source": "both",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "audio-video-play",
+      "category": "audio",
+      "name_zh": "视频播放",
+      "source": "both",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "stage-scene-preset",
+      "category": "stage",
+      "name_zh": "场景预设与一键切换",
+      "source": "both",
+      "planned": true,
+      "weight": 3,
+      "probes": [
+        {
+          "type": "path_exists",
+          "glob": "apps/client/src/features/gm-console/gm-panel-stage.tsx"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "scene:switch",
+          "scope": "packages/shared/src"
+        },
+        {
+          "type": "path_exists",
+          "glob": "apps/server/src/modules/catalog/application/use-cases.ts"
+        }
+      ]
+    },
+    {
+      "id": "stage-scene-partial-apply",
+      "category": "stage",
+      "name_zh": "场景局部应用",
+      "source": "ccfolia",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "stage-transition",
+      "category": "stage",
+      "name_zh": "场景转场",
+      "source": "echo",
+      "planned": true,
+      "weight": 2,
+      "probes": [
+        {
+          "type": "path_exists",
+          "glob": "apps/client/src/features/session-stage/scene-backdrop.tsx"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "transition|opacity",
+          "scope": "apps/client/src/features/session-stage"
+        }
+      ]
+    },
+    {
+      "id": "stage-scene-animation",
+      "category": "stage",
+      "name_zh": "场景镜头动画",
+      "source": "echo",
+      "planned": false,
+      "weight": 2,
+      "probes": []
+    },
+    {
+      "id": "stage-cutin",
+      "category": "stage",
+      "name_zh": "插入演出",
+      "source": "ccfolia",
+      "planned": false,
+      "weight": 3,
+      "probes": []
+    },
+    {
+      "id": "stage-mask-layer",
+      "category": "stage",
+      "name_zh": "遮罩层",
+      "source": "echo",
+      "planned": false,
+      "weight": 2,
+      "probes": []
+    },
+    {
+      "id": "stage-trigger",
+      "category": "stage",
+      "name_zh": "演出触发器",
+      "source": "echo",
+      "planned": false,
+      "weight": 2,
+      "probes": []
+    },
+    {
+      "id": "stage-filter",
+      "category": "stage",
+      "name_zh": "场景滤镜与调色",
+      "source": "echo",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "stage-code-node",
+      "category": "stage",
+      "name_zh": "代码节点",
+      "source": "echo",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "stage-pdf",
+      "category": "stage",
+      "name_zh": "内嵌 PDF 查看",
+      "source": "both",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "stage-timer",
+      "category": "stage",
+      "name_zh": "计时器",
+      "source": "ccfolia",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "stage-video-cutin",
+      "category": "stage",
+      "name_zh": "视频插入演出",
+      "source": "echo",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "info-handout",
+      "category": "info",
+      "name_zh": "线索素材",
+      "source": "echo",
+      "planned": true,
+      "weight": 3,
+      "probes": [
+        {
+          "type": "path_exists",
+          "glob": "apps/server/src/modules/handouts/application/commands.ts"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "CreateHandout",
+          "scope": "apps/server/src/modules/catalog"
+        },
+        {
+          "type": "path_exists",
+          "glob": "apps/client/src/features/session-live/handout-prompt.tsx"
+        }
+      ]
+    },
+    {
+      "id": "info-handout-lock",
+      "category": "info",
+      "name_zh": "线索解锁与上锁",
+      "source": "echo",
+      "planned": true,
+      "weight": 3,
+      "probes": [
+        {
+          "type": "code_regex",
+          "pattern": "handout:grant",
+          "scope": "packages/shared/src"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "isPublic",
+          "scope": "apps/server/src/modules/handouts"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "recipientCharacterIds",
+          "scope": "packages/shared/src"
+        }
+      ]
+    },
+    {
+      "id": "info-handout-visibility",
+      "category": "info",
+      "name_zh": "线索的频道级可见性",
+      "source": "echo",
+      "planned": true,
+      "weight": 3,
+      "probes": [
+        {
+          "type": "code_regex",
+          "pattern": "selectedPcIds",
+          "scope": "apps/server/src"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "checkVisibility",
+          "scope": "apps/server/src/modules/realtime"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "visibleHandouts",
+          "scope": "packages/shared/src"
+        }
+      ]
+    },
+    {
+      "id": "info-panel-private-view",
+      "category": "info",
+      "name_zh": "面板私看",
+      "source": "ccfolia",
+      "planned": false,
+      "weight": 2,
+      "probes": []
+    },
+    {
+      "id": "info-note-personal",
+      "category": "info",
+      "name_zh": "个人笔记",
+      "source": "echo",
+      "planned": false,
+      "weight": 2,
+      "probes": []
+    },
+    {
+      "id": "info-clue-board",
+      "category": "info",
+      "name_zh": "线索白板",
+      "source": "echo",
+      "planned": false,
+      "weight": 2,
+      "probes": []
+    },
+    {
+      "id": "info-knowledge-base",
+      "category": "info",
+      "name_zh": "公开知识库",
+      "source": "echo",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "info-shared-memo-panel",
+      "category": "info",
+      "name_zh": "共享备忘面板",
+      "source": "ccfolia",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "data-room-export-zip",
+      "category": "data",
+      "name_zh": "房间数据打包导出",
+      "source": "ccfolia",
+      "planned": false,
+      "weight": 2,
+      "probes": []
+    },
+    {
+      "id": "data-room-import",
+      "category": "data",
+      "name_zh": "房间数据导入",
+      "source": "both",
+      "planned": false,
+      "weight": 2,
+      "probes": []
+    },
+    {
+      "id": "data-game-export",
+      "category": "data",
+      "name_zh": "预设游戏导出",
+      "source": "echo",
+      "planned": false,
+      "weight": 2,
+      "probes": []
+    },
+    {
+      "id": "data-overwrite-sync",
+      "category": "data",
+      "name_zh": "模板与实例双向覆盖",
+      "source": "echo",
+      "planned": false,
+      "weight": 2,
+      "probes": []
+    },
+    {
+      "id": "data-save-slots",
+      "category": "data",
+      "name_zh": "盘面存档",
+      "source": "ccfolia",
+      "planned": false,
+      "weight": 2,
+      "probes": []
+    },
+    {
+      "id": "data-copy-room",
+      "category": "data",
+      "name_zh": "复制房间",
+      "source": "ccfolia",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "data-share-link",
+      "category": "data",
+      "name_zh": "公开分享链接",
+      "source": "both",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "combat-initiative",
+      "category": "combat",
+      "name_zh": "先攻排序",
+      "source": "both",
+      "planned": false,
+      "weight": 3,
+      "probes": []
+    },
+    {
+      "id": "combat-turn-tracker",
+      "category": "combat",
+      "name_zh": "战斗回合跟踪",
+      "source": "echo",
+      "planned": false,
+      "weight": 3,
+      "probes": []
+    },
+    {
+      "id": "combat-turn-events",
+      "category": "combat",
+      "name_zh": "回合事件",
+      "source": "echo",
+      "planned": false,
+      "weight": 2,
+      "probes": []
+    },
+    {
+      "id": "combat-end-notice",
+      "category": "combat",
+      "name_zh": "战斗结束广播",
+      "source": "echo",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "combat-aoe-target",
+      "category": "combat",
+      "name_zh": "范围选取目标",
+      "source": "echo",
+      "planned": false,
+      "weight": 2,
+      "probes": []
+    },
+    {
+      "id": "cards-deck-create",
+      "category": "cards",
+      "name_zh": "建立牌堆",
+      "source": "ccfolia",
+      "planned": false,
+      "weight": 2,
+      "probes": []
+    },
+    {
+      "id": "cards-draw",
+      "category": "cards",
+      "name_zh": "抽牌",
+      "source": "ccfolia",
+      "planned": false,
+      "weight": 2,
+      "probes": []
+    },
+    {
+      "id": "cards-draw-facedown",
+      "category": "cards",
+      "name_zh": "背面抽牌",
+      "source": "ccfolia",
+      "planned": false,
+      "weight": 2,
+      "probes": []
+    },
+    {
+      "id": "cards-return-collect",
+      "category": "cards",
+      "name_zh": "回牌与收牌",
+      "source": "ccfolia",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "cards-add-card",
+      "category": "cards",
+      "name_zh": "往牌堆加牌",
+      "source": "ccfolia",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "cards-trump",
+      "category": "cards",
+      "name_zh": "标准扑克牌堆",
+      "source": "ccfolia",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "cards-fixed",
+      "category": "cards",
+      "name_zh": "牌堆固定与层级",
+      "source": "ccfolia",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "mobile-responsive",
+      "category": "mobile",
+      "name_zh": "响应式布局",
+      "source": "both",
+      "planned": true,
+      "weight": 2,
+      "probes": [
+        {
+          "type": "path_exists",
+          "glob": "apps/client/src/features/play/mobile-portrait-scene.tsx"
+        },
+        {
+          "type": "path_exists",
+          "glob": "apps/client/src/features/play/mobile-landscape-scene.tsx"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "orientation",
+          "scope": "apps/client/src/features/play"
+        }
+      ]
+    },
+    {
+      "id": "mobile-pwa",
+      "category": "mobile",
+      "name_zh": "PWA 安装",
+      "source": "echo",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "mobile-android-app",
+      "category": "mobile",
+      "name_zh": "Android 客户端",
+      "source": "echo",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "mobile-keyboard",
+      "category": "mobile",
+      "name_zh": "键盘与舞台联动",
+      "source": "echo",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "mobile-touch-ux",
+      "category": "mobile",
+      "name_zh": "触控操作",
+      "source": "both",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "replay-auto-record",
+      "category": "replay",
+      "name_zh": "自动录制回放",
+      "source": "echo",
+      "planned": false,
+      "weight": 3,
+      "probes": []
+    },
+    {
+      "id": "replay-player",
+      "category": "replay",
+      "name_zh": "回放播放器",
+      "source": "echo",
+      "planned": false,
+      "weight": 3,
+      "probes": []
+    },
+    {
+      "id": "replay-edit",
+      "category": "replay",
+      "name_zh": "回放内编辑",
+      "source": "echo",
+      "planned": false,
+      "weight": 2,
+      "probes": []
+    },
+    {
+      "id": "replay-archive",
+      "category": "replay",
+      "name_zh": "结团归档",
+      "source": "both",
+      "planned": false,
+      "weight": 2,
+      "probes": [],
+      "note_zh": "规划结团状态与结团确认，未规划回放归档记录"
+    },
+    {
+      "id": "replay-video-export",
+      "category": "replay",
+      "name_zh": "回放导出视频",
+      "source": "echo",
+      "planned": false,
+      "weight": 2,
+      "probes": []
+    },
+    {
+      "id": "replay-typeset-book",
+      "category": "replay",
+      "name_zh": "记录排版书",
+      "source": "echo",
+      "planned": false,
+      "weight": 2,
+      "probes": []
+    },
+    {
+      "id": "replay-pdf-share",
+      "category": "replay",
+      "name_zh": "排版导出 PDF 与公开阅读",
+      "source": "echo",
+      "planned": false,
+      "weight": 2,
+      "probes": []
+    },
+    {
+      "id": "replay-poster",
+      "category": "replay",
+      "name_zh": "长图与分享海报",
+      "source": "echo",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "pricing-free",
+      "category": "pricing",
+      "name_zh": "免费档",
+      "source": "both",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "pricing-subscription",
+      "category": "pricing",
+      "name_zh": "订阅制",
+      "source": "ccfolia",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "pricing-credits",
+      "category": "pricing",
+      "name_zh": "社区点数",
+      "source": "echo",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "pricing-market",
+      "category": "pricing",
+      "name_zh": "用户交易市场",
+      "source": "echo",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "pricing-quota",
+      "category": "pricing",
+      "name_zh": "按等级的资源配额",
+      "source": "echo",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "community-forum",
+      "category": "community",
+      "name_zh": "社区论坛",
+      "source": "echo",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "community-asset-library",
+      "category": "community",
+      "name_zh": "素材库",
+      "source": "both",
+      "planned": false,
+      "weight": 2,
+      "probes": []
+    },
+    {
+      "id": "community-sandbox-publish",
+      "category": "community",
+      "name_zh": "社区组件发布",
+      "source": "echo",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "community-rule-system",
+      "category": "community",
+      "name_zh": "社区规则体系",
+      "source": "echo",
+      "planned": false,
+      "weight": 2,
+      "probes": []
+    },
+    {
+      "id": "community-achievement",
+      "category": "community",
+      "name_zh": "成就与头衔",
+      "source": "echo",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "ai-code-assist",
+      "category": "ai",
+      "name_zh": "AI 生成组件代码",
+      "source": "echo",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "ai-item-yaml",
+      "category": "ai",
+      "name_zh": "AI 生成物品规则",
+      "source": "echo",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "ai-char-creator-prompt",
+      "category": "ai",
+      "name_zh": "AI 生成车卡器",
+      "source": "echo",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "ai-voice-design",
+      "category": "ai",
+      "name_zh": "AI 音色设计",
+      "source": "echo",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "ai-depth-parallax",
+      "category": "ai",
+      "name_zh": "深度图转视差场景",
+      "source": "echo",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "ai-content-label",
+      "category": "ai",
+      "name_zh": "AIGC 标识",
+      "source": "echo",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "ops-undo",
+      "category": "ops",
+      "name_zh": "全局撤销重做",
+      "source": "ccfolia",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "ops-log-clear",
+      "category": "ops",
+      "name_zh": "日志清理",
+      "source": "both",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "ops-blocklist",
+      "category": "ops",
+      "name_zh": "黑名单",
+      "source": "both",
+      "planned": true,
+      "weight": 2,
+      "probes": [
+        {
+          "type": "path_exists",
+          "glob": "apps/server/src/platform/db/schema/identity.ts"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "player:ban",
+          "scope": "packages/shared/src"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "isFingerprintBlacklisted",
+          "scope": "apps/server/src/modules/identity"
+        }
+      ]
+    },
+    {
+      "id": "ops-online-list",
+      "category": "ops",
+      "name_zh": "在线成员管理",
+      "source": "both",
+      "planned": true,
+      "weight": 2,
+      "probes": [
+        {
+          "type": "code_regex",
+          "pattern": "presence:updated",
+          "scope": "packages/shared/src"
+        },
+        {
+          "type": "path_exists",
+          "glob": "apps/server/src/modules/realtime/presence-service.ts"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "OnlinePlayerDto",
+          "scope": "packages/shared/src"
+        }
+      ]
+    },
+    {
+      "id": "ops-review-workflow",
+      "category": "ops",
+      "name_zh": "内容审核流程",
+      "source": "echo",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    },
+    {
+      "id": "ops-report-ticket",
+      "category": "ops",
+      "name_zh": "举报与工单",
+      "source": "echo",
+      "planned": false,
+      "weight": 1,
+      "probes": []
+    }
+  ]
+}

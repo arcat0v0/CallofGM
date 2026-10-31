@@ -3,7 +3,7 @@
 ===/home/arcat/Develop/CallofGM/===
 .dockerignore[FV2T]: F:Docker 构建上下文排除清单：node_modules、dist、data、*.log、.env* | R:- | A:- | S:data 目录（SQLite 与媒体）不进镜像，运行时由卷提供
 .gitattributes[FV2T]: F:强制所有文本以 LF 检出（* text=auto eol=lf），覆盖 autocrlf | R:- | A:- | S:删除或改写换行策略会使 AOCI 全树基线标记 Stale
-.gitignore[FV2T]: F:Git 忽略清单：构建产物、routeTree.gen.ts、.env*、data/，及 init 写入的 .mcp.json 宿主配置 | R:- | A:- | S:.mcp.json 机器绑定，禁止提交
+.gitignore[FV2T]: F:Git 忽略清单：构建产物、routeTree.gen.ts、.env*、data/、日志，及 AOCI 宿主集成配置与其备份文件 | R:- | A:- | S:.mcp.json 机器绑定；宿主集成备份文件禁止入库
 AGENTS.md[SG7S]: F:全体 Agent 协作准则：四篇必读 docs/ 文档指引，硬性约束（Bun 工具链、规则系统抽象永久原则、服务端权威、WS schema 单源于 packages/shared），及 aoci managed block 内的 AOCI 认知层使用流程 | R:code:CLAUDE.md,code:docs/architecture.md | A:AOCI 入口：aoci_rules→aoci_overview→aoci_maintain→aoci_update_entry→aoci_report | S:语义只能由模型从证据生成，禁止从路径/模板/AST 直接生成；维护只在任务最终稳定态做一次，repair 只修被点名的候选
 CLAUDE.md[SG6T]: F:Claude Code 项目指令：镜像 AGENTS.md 硬性约束，另加前端组件优先级（通用 ui 组件→组合/variant 扩展→业务组件）与样式文件职责分离约束 | R:code:AGENTS.md,code:apps/client/src/styles/theme.css | A:- | S:全部设计 token 只能写在 theme.css 的 @theme 块，禁止写回 globals.css；禁止新增代码注释
 Dockerfile[OV6T]: F:两阶段构建：bun:1.3.14 构建阶段 install+typecheck+build:client；slim 运行时以 bun 用户运行 apps/server start，暴露 15632，healthcheck 探测 /api/health/live | R:- | A:运行时环境变量 PORT=15632、DATABASE_URL=/app/data/db.sqlite、MEDIA_DIR=/app/data/media | S:-
@@ -12,6 +12,7 @@ bunfig.toml[FV5T]: F:Bun 安装配置：30 天发布冷却、frozenLockfile、�
 package.json[FV7T]: F:根工作区：apps/*、packages/* 与 dev/build/typecheck/test/db 等统一脚本入口 | R:- | A:- | S:typecheck 串联 shared→server→client；verify:deps 含冻结安装、audit 与 typecheck
 skills-lock.json[FV3T]: F:Agent 技能来源锁定：GitHub 仓库、SKILL.md 路径与内容哈希 | R:- | A:- | S:-
 tsconfig.base.json[FV5T]: F:全仓 TS 基础配置：strict、noUncheckedIndexedAccess、verbatimModuleSyntax、bundler 解析 | R:- | A:- | S:noUncheckedIndexedAccess 开启，索引访问返回 T|undefined，新代码须处理
+autoresearch.sh[XQ2T]: F:autoresearch 基准入口：运行 bun scripts/parity/verify.ts 并原样透传输出供外层采集 METRIC 指标 | R:code:scripts/parity/verify.ts | A:bash autoresearch.sh | S:对齐分数不影响退出码；仅内部错误或无 METRIC 行时非零
 
 ===/home/arcat/Develop/CallofGM/.github/workflows/===
 ui-components.yml[OV4T]: F:UI CI：PR 或 push 到 main 且触及 apps/client、packages/shared、锁文件等路径时，用 Bun 1.4.2 依次跑 test:ui、client typecheck、build:client | R:code:apps/client/package.json | A:- | S:-
@@ -481,3 +482,12 @@ rule-id.ts[DB3T]: F:RuleId 枚举与中文标签（v1 仅 coc7e） | R:- | A:- |
 ===/home/arcat/Develop/CallofGM/scripts/===
 export-expressive-shapes.ts[XV4S]: F:从 material_new_shapes 导出 35 个形状的三次贝塞尔曲线数据：临时副本去除 dart:ui 依赖后以 Dart 运行 | R:code:docs/design-system/upstream.lock.json | A:- | S:导出物落临时目录而非仓库，需 Dart SDK；加载变形轮廊为 128 点采样近似
 fetch-expressive-sources.ts[XV4T]: F:按 upstream.lock.json 拉取参考包归档并校验 SHA-256 后解压到目标目录 | R:code:docs/design-system/upstream.lock.json | A:- | S:SHA-256 不匹配即中止，不做静默降级
+
+===/home/arcat/Develop/CallofGM/research/===
+competitors.md[SG3L]: F:CCFOLIA 与回声岛竞品调研：来源渠道与可信度标注约定、按功能域能力对照，条目附官方 URL | R:code:docs/product.md,code:research/feature-checklist.yaml | A:- | S:[未证实]/[推断] 条目未获官方直接确认，引用结论必须保留标注
+feature-checklist.yaml[XG3L]: F:竞品功能清单 195 条：id/category/name_zh/source/weight/detail 的规整 YAML，parity 矩阵竞品条目的唯一来源 | R:code:research/competitors.md,code:scripts/parity/feature-matrix.json | A:- | S:verify.ts 只读 feature-matrix.json；改后须重新生成矩阵
+gap-report-draft.md[SG3M]: F:差距报告草稿：按功能域对照竞品事实与 CoGM v1 规划，给出差距判断与优先级 | R:code:research/competitors.md,code:docs/product.md,code:scripts/parity/verify.ts | A:- | S:实现状态列在 harness 输出前为占位，回填以 DETAIL 判定为准
+
+===/home/arcat/Develop/CallofGM/scripts/parity/===
+feature-matrix.json[FQ4L]: F:竞品对齐度功能矩阵 256 项：CoGM v1 规划 61 项加竞品 195 条，planned 98 项（含 37 条竞品同类），含分类权重来源与探针 | R:code:research/feature-checklist.yaml,code:scripts/parity/verify.ts | A:- | S:竞品条目与 CoGM id 冲突加 cmp- 前缀；planned true 且 probes 空会被拒绝
+verify.ts[XQ4M]: F:确定性 parity 验证器：按矩阵探针扫描 apps 与 packages，首行输出 competitor_alignment_score（竞品对齐度），次行 feature_parity_score 与逐功能 DETAIL 明细 | R:code:scripts/parity/feature-matrix.json | A:bun scripts/parity/verify.ts | S:对齐分母为全部竞品来源条目含未规划；禁网络与时间随机依赖，两次运行输出须逐字节一致

@@ -1,0 +1,1180 @@
+version: 1
+generated: "2026-10-31"
+sources:
+  ccfolia: "https://docs.ccfolia.com/llms-full.txt"
+  echo: "https://跑团.cn/"
+weight_scale:
+  3: "跑团核心体验：骰点鉴定、人物卡、立绘演出、团内状态"
+  2: "主要功能：聊天、音频、地图、房间权限、日志"
+  1: "便利性功能"
+features:
+  - id: room-create
+    category: room
+    name_zh: 创建房间
+    source: both
+    weight: 2
+    detail: 填写房间名与规则/骰点引擎即可开房；回声岛为「预设游戏→房间」两层模型，CCFOLIA 直接建房间
+  - id: room-invite-url
+    category: room
+    name_zh: 邀请链接
+    source: both
+    weight: 2
+    detail: 一键复制房间邀请 URL，打开即进房；回声岛另有独立的观众链接
+  - id: room-join-by-id
+    category: room
+    name_zh: 房间号加入
+    source: both
+    weight: 2
+    detail: CCFOLIA 用房间 ID 在首页输入框进入；回声岛用 10 位字母数字房间号，可粘贴链接自动识别
+  - id: room-password
+    category: room
+    name_zh: 房间密码
+    source: echo
+    weight: 2
+    detail: 房主可设不少于 4 位的密码，玩家凭密码直接进房；与「房主在线审批」二选一
+  - id: room-host-approval
+    category: room
+    name_zh: 房主在线审批入场
+    source: echo
+    weight: 2
+    detail: 未设密码时玩家需等待房主在线同意；有排队态与超时提示
+  - id: room-guest-join
+    category: room
+    name_zh: 免注册游客进房
+    source: ccfolia
+    weight: 2
+    detail: 无账号者通过邀请链接或房间 ID 以游客身份游玩，不可创建房间
+  - id: room-permissions
+    category: room
+    name_zh: 成员权限分级
+    source: both
+    weight: 2
+    detail: CCFOLIA 分房主/副房主/玩家/见学/禁入五档；回声岛分房主/副房主/玩家/观众
+  - id: room-sub-gm
+    category: room
+    name_zh: 副主持人
+    source: both
+    weight: 2
+    detail: 副房主可切场景、改房间设置、用 GM 命令；CCFOLIA 副房主不可管权限与导出房间，回声岛副房主为付费权益
+  - id: room-helper-permission
+    category: room
+    name_zh: 助手权限
+    source: echo
+    weight: 1
+    detail: 房主可授予玩家「助手」，允许其以任意角色身份发言、切换房间资源以辅助演出
+  - id: room-kick
+    category: room
+    name_zh: 踢出玩家
+    source: both
+    weight: 2
+    detail: 将玩家移出房间并取消其自动进房资格，其角色与发言数据保留
+  - id: room-spectator
+    category: room
+    name_zh: 观战席位
+    source: both
+    weight: 2
+    detail: CCFOLIA「見学」可看不可动不可言；回声岛观众经观众链接加入且不计入房间人数
+  - id: room-multi-pc
+    category: room
+    name_zh: 同一房间多角色
+    source: echo
+    weight: 1
+    detail: 同一账号可在同一房间用多张角色卡多次加入
+  - id: room-capacity
+    category: room
+    name_zh: 房间容量与数量限制
+    source: both
+    weight: 1
+    detail: CCFOLIA 当前房间数与人数无硬限；回声岛按用户等级限制房间内人数、活跃房间数与资源配额
+  - id: room-reuse-template
+    category: room
+    name_zh: 房间模板复用
+    source: both
+    weight: 2
+    detail: CCFOLIA 用房间数据 ZIP / 公开链接；回声岛用预设游戏反复开多个房间
+  - id: room-recruit
+    category: room
+    name_zh: 招募玩家
+    source: echo
+    weight: 1
+    detail: 开启后房间进入首页「新团招募」，显示缺口人数，玩家可评论或私信联系
+  - id: room-sleep
+    category: room
+    name_zh: 房间休眠与唤醒
+    source: echo
+    weight: 1
+    detail: 长期未启动自动休眠且不占配额，唤醒需房主确认
+  - id: room-maintenance-mode
+    category: room
+    name_zh: 布场模式
+    source: ccfolia
+    weight: 2
+    detail: 「工事中モード」开启后玩家及以下权限无法进房，GM 可先布置场景再放人
+  - id: room-public-distribution
+    category: room
+    name_zh: 房间数据公开分发
+    source: both
+    weight: 1
+    detail: CCFOLIA 公开链接可一键生成同配置新房（PRO）；回声岛公开房间可被他人查看 Log 与复用预设游戏
+  - id: room-metadata
+    category: room
+    name_zh: 房间公开信息
+    source: both
+    weight: 1
+    detail: 房间标题、简介、封面、公开/私密标记、模组来源说明
+  - id: room-delete-archive
+    category: room
+    name_zh: 删除与结团归档
+    source: both
+    weight: 2
+    detail: 删除不可恢复；结团可归档为 Replay 或纯文字 Log 并终止房间
+  - id: map-foreground-background
+    category: map
+    name_zh: 前景与背景图
+    source: both
+    weight: 2
+    detail: CCFOLIA 前景限网格区域、背景铺满整屏，可叠透明图做动效；回声岛场景图即背景
+  - id: map-grid
+    category: map
+    name_zh: 网格
+    source: both
+    weight: 2
+    detail: 可开关、可调格距与颜色；CCFOLIA 支持前景上显示网格，回声岛支持方形与六边形
+  - id: map-token-drag
+    category: map
+    name_zh: 棋子拖动
+    source: both
+    weight: 2
+    detail: 拖拽移动棋子/面板；CCFOLIA 默认网格吸附，回声岛角色节点可开「棋子模式」
+  - id: map-token-size
+    category: map
+    name_zh: 棋子尺寸
+    source: both
+    weight: 2
+    detail: CCFOLIA 以格为单位设长边（上限 30 格）；回声岛按节点宽高与缩放
+  - id: map-token-layer
+    category: map
+    name_zh: 层级与置顶
+    source: both
+    weight: 2
+    detail: CCFOLIA 面板有重なり優先度可含负值；回声岛为显式图层（上移/置顶/置底/分组）
+  - id: map-panel-free-layout
+    category: map
+    name_zh: 自由摆放
+    source: both
+    weight: 1
+    detail: 关闭网格吸附做像素级摆放；CCFOLIA 为房间级开关，回声岛为自由画布模式
+  - id: map-panel-fixed
+    category: map
+    name_zh: 位置与尺寸固定
+    source: both
+    weight: 1
+    detail: 固定面板防止玩家误拖；回声岛另有节点锁定
+  - id: map-marker-panel
+    category: map
+    name_zh: 场景标记层
+    source: ccfolia
+    weight: 1
+    detail: マーカーパネル仅当前场景显示，用于地图图标与战斗装饰；切场景即消失
+  - id: map-panel-flip-private
+    category: map
+    name_zh: 卡片翻面与私看
+    source: ccfolia
+    weight: 2
+    detail: 面板可全体公开/仅自己看/非公开/仅自己以外可见；私看时背面显示查看者名字
+  - id: map-click-action
+    category: map
+    name_zh: 面板点击动作
+    source: ccfolia
+    weight: 1
+    detail: 点击面板即向当前聊天标签发送预设文本，可做成掷骰按钮、切场景按钮、开 PDF 按钮
+  - id: map-panel-hide
+    category: map
+    name_zh: 面板显示与隐藏
+    source: ccfolia
+    weight: 1
+    detail: 面板可整体隐藏，用于「找到后才公开地图」的桥段
+  - id: map-fog
+    category: map
+    name_zh: 战争迷雾
+    source: echo
+    weight: 2
+    detail: 沙盒战斗地图支持笔刷绘制/擦除迷雾、迷雾颜色与不透明度、迷雾透视
+  - id: map-lighting
+    category: map
+    name_zh: 动态光照
+    source: echo
+    weight: 1
+    detail: 固定光源与跟随光源、光色/强度/半径、火把脉冲闪烁、环境黑暗
+  - id: map-ruler
+    category: map
+    name_zh: 测距
+    source: echo
+    weight: 1
+    detail: 线段多次点击测距与圆形半径测距，可设单位格距（如 5 尺）
+  - id: map-aoe-template
+    category: map
+    name_zh: 范围模板
+    source: echo
+    weight: 2
+    detail: 圆/锥/线/矩形范围指示器，可常显尺寸、可拖拽移动，与物品施法范围联动选目标
+  - id: map-token-ownership
+    category: map
+    name_zh: 棋子所有权
+    source: both
+    weight: 2
+    detail: CCFOLIA 可「自分のものにする」夺取；回声岛角色节点绑定角色卡归属
+  - id: map-token-status
+    category: map
+    name_zh: 棋子状态显示
+    source: both
+    weight: 3
+    detail: 角色一览显示 HP 等状态条与先攻，低于上限 80% 变红；状态可对他人隐藏
+  - id: map-token-hide
+    category: map
+    name_zh: 棋子收起与再放回
+    source: both
+    weight: 1
+    detail: CCFOLIA「しまう」后再「盤面に追加」回原位；回声岛可隐藏节点
+  - id: map-undo-redo
+    category: map
+    name_zh: 盘面撤销重做
+    source: ccfolia
+    weight: 1
+    detail: Ctrl+Z / Ctrl+Y 回退盘面操作，含场景切换
+  - id: map-multi-select
+    category: map
+    name_zh: 多选移动删除
+    source: both
+    weight: 1
+    detail: Shift 点选/框选后批量移动或删除；CCFOLIA v1.35 加入，回声岛沙盒原生多选
+  - id: map-token-copy
+    category: map
+    name_zh: 棋子跨房间复制
+    source: ccfolia
+    weight: 1
+    detail: 右键复制或 Ctrl+C/V，把角色棋子连同属性与立绘带到其他房间
+  - id: map-3d-parallax
+    category: map
+    name_zh: 3D 视差场景
+    source: echo
+    weight: 1
+    detail: 单张场景图经深度估计生成视差场景，低配设备可禁用
+  - id: map-custom-ui
+    category: map
+    name_zh: 自定义 UI 沙盒
+    source: echo
+    weight: 2
+    detail: 类 PPT 节点系统可搭出地图、HUD、商店、计分板等任意界面，可绑定场景或作遮罩
+  - id: portrait-multi-diff
+    category: portrait
+    name_zh: 多表情差分
+    source: both
+    weight: 3
+    detail: 一张角色卡挂多张差分立绘；CCFOLIA 以标签命名，回声岛按差分名管理并受等级配额
+  - id: portrait-switch-via-chat
+    category: portrait
+    name_zh: 发言时切换差分
+    source: both
+    weight: 3
+    detail: CCFOLIA 发差分标签即切图；回声岛用 %角色%差分%台词 三段语法，发言同时唤起立绘
+  - id: portrait-auto-diff-on-roll
+    category: portrait
+    name_zh: 骰点结果自动切表情
+    source: ccfolia
+    weight: 3
+    detail: 把成功/失败/大失败设为差分标签，骰点末尾命中即自动换表情，多标签取最长
+  - id: portrait-triple-mode
+    category: portrait
+    name_zh: 头像/小立绘/大立绘三态
+    source: echo
+    weight: 3
+    detail: 三种形态各有独立位置、缩放、翻转，可一键应用到所有差分或所有角色
+  - id: portrait-position-scale
+    category: portrait
+    name_zh: 立绘位置与缩放微调
+    source: echo
+    weight: 3
+    detail: 拖动与缩放矫正立绘，支持逐差分与批量套用，并锁定左右排布顺序
+  - id: portrait-entrance-animation
+    category: portrait
+    name_zh: 立绘动画
+    source: echo
+    weight: 2
+    detail: 差分出场可配呼吸、漂浮、震动、失焦等动画，支持多段叠加、强度与循环
+  - id: portrait-border-float
+    category: portrait
+    name_zh: 悬浮立绘边框
+    source: echo
+    weight: 1
+    detail: 非透明背景立绘可加边框并悬浮于画面上层，避免视觉割裂
+  - id: portrait-alias
+    category: portrait
+    name_zh: 角色假名
+    source: echo
+    weight: 2
+    detail: 真实名之外设置对外显示的假名，用于隐藏身份或避免剧透
+  - id: portrait-tts
+    category: portrait
+    name_zh: 角色语音朗读
+    source: echo
+    weight: 2
+    detail: 角色绑定音色，发言与回放时朗读；支持预设音色、自建音色、多情绪
+  - id: portrait-batch-face-crop
+    category: portrait
+    name_zh: 差分批量裁切
+    source: echo
+    weight: 1
+    detail: 一次上传最多 50 张同构图，自动检测脸部差异区并批量裁切，可手动框选
+  - id: portrait-art-command
+    category: portrait
+    name_zh: 立绘开关指令
+    source: echo
+    weight: 1
+    detail: 用 /art 指令开关立绘；每频道可设最大立绘数量
+  - id: char-sheet
+    category: character
+    name_zh: 角色卡
+    source: both
+    weight: 3
+    detail: 姓名、头像、属性、技能、备注、补充信息；回声岛支持数值/文本/公式/骰子表达式四种属性
+  - id: char-derived-formula
+    category: character
+    name_zh: 派生属性公式
+    source: echo
+    weight: 3
+    detail: 取值与上限可用公式（如 floor((体质+体型)/10)），带循环引用与依赖深度检测
+  - id: char-status-bar
+    category: character
+    name_zh: 状态栏与数值条
+    source: both
+    weight: 3
+    detail: 当前值/上限、进度条、颜色标记；低于 80% 高亮，可置顶显示
+  - id: char-quick-dice
+    category: character
+    name_zh: 角色快捷键掷骰
+    source: both
+    weight: 2
+    detail: 角色卡内预存掷骰表达式（武器伤害等）随时投掷
+  - id: char-palette
+    category: character
+    name_zh: 聊天面板命令集
+    source: ccfolia
+    weight: 3
+    detail: chat palette 换行即分条，浮窗一键发送台词或骰点命令，输入片段可模糊补全
+  - id: char-command-import
+    category: character
+    name_zh: 属性批量导入
+    source: echo
+    weight: 2
+    detail: .st 侦查60 形式批量设置属性，支持从自动角色卡 Excel 文本粘贴，可过滤重复技能名
+  - id: char-template-creator
+    category: character
+    name_zh: 车卡模板与创建器
+    source: echo
+    weight: 3
+    detail: 内嵌 HTML 或外部 URL 创建器，postMessage 回传角色数据，支持数据文件与分步表单
+  - id: char-review
+    category: character
+    name_zh: 审卡流程
+    source: echo
+    weight: 2
+    detail: 创建结果有未审核/待审核/已通过/已拒绝，可生成只读审卡链接交给主持人
+  - id: char-npc-library
+    category: character
+    name_zh: 公开 NPC 库
+    source: echo
+    weight: 1
+    detail: 常用怪物/NPC 整卡可提交到公开库，同规则用户一键加入房间
+  - id: char-visibility
+    category: character
+    name_zh: 角色可见性
+    source: both
+    weight: 3
+    detail: CCFOLIA 可隐藏状态、先攻与编辑页；回声岛可设哪些玩家能看角色卡，默认仅主持人可见
+  - id: char-owner-claim
+    category: character
+    name_zh: 角色认领与所有权
+    source: both
+    weight: 3
+    detail: 玩家认领/夺取角色；CCFOLIA 可「自分のものにする」，回声岛玩家角色名锁定后不可代改
+  - id: char-name-lock
+    category: character
+    name_zh: 开团后改名限制
+    source: echo
+    weight: 2
+    detail: 角色名关系消息归属与回放身份，开团后不可改，仅可用假名调整对外显示
+  - id: char-memo
+    category: character
+    name_zh: 角色备注
+    source: ccfolia
+    weight: 1
+    detail: 悬停棋子显示补充信息；面板亦可设悬停备注
+  - id: char-room-variables
+    category: character
+    name_zh: 房间变量
+    source: ccfolia
+    weight: 2
+    detail: 最多 16 个键值（标签≤16 字、值≤64 字），聊天中 {标签} 取用，/var 增删改
+  - id: char-clipboard-api
+    category: character
+    name_zh: 剪贴板粘贴角色
+    source: ccfolia
+    weight: 1
+    detail: 以 JSON 字符串粘贴整只角色（名称、属性、差分、位置等）
+  - id: dice-expression
+    category: dice
+    name_zh: 骰点表达式
+    source: both
+    weight: 3
+    detail: XdY±Z 与四则运算、连投、取高取低；CCFOLIA 走 BCDice 语法，回声岛为自有表达式
+  - id: dice-multi-system-bot
+    category: dice
+    name_zh: 多规则骰点引擎
+    source: ccfolia
+    weight: 3
+    detail: 基于 BCDice，建房时选规则，官方称支持 200 种以上系统
+  - id: dice-coc7-skill-check
+    category: dice
+    name_zh: CoC 7e 技能检定
+    source: both
+    weight: 3
+    detail: 读角色技能值掷 d100 并判大成功/极难/困难/成功/失败/大失败；CCFOLIA 为 CC<=目标值
+  - id: dice-bonus-penalty
+    category: dice
+    name_zh: 奖励骰与惩罚骰
+    source: both
+    weight: 3
+    detail: 多掷十位骰取优/劣；CCFOLIA 写 CC(2)/CC-2，回声岛写 b1/p2
+  - id: dice-difficulty-level
+    category: dice
+    name_zh: 难度等级
+    source: both
+    weight: 3
+    detail: CCFOLIA 目标值后缀 r/h/e/c；回声岛 .ra 支持普通/困难/极难与规则参数档位
+  - id: dice-coc6-ccb
+    category: dice
+    name_zh: CoC 6 版 CCB 骰
+    source: ccfolia
+    weight: 2
+    detail: 6 版骰点 bot 的 CCB 采用 5% 规则（c=5%/f=96%），另有 RES 抵抗表；非 7 版命令
+  - id: dice-san-check
+    category: dice
+    name_zh: 理智检定
+    source: echo
+    weight: 3
+    detail: .sc 1/1d6 对当前 SAN 掷骰，自动掷损失并写回；CCFOLIA 只能把 SAN 当普通目标值手算
+  - id: dice-growth-check
+    category: dice
+    name_zh: 成长检定
+    source: echo
+    weight: 3
+    detail: .en 侦查 掷 d100 高于技能值即成长，默认加 1d10 并自动写回；CCFOLIA 无此命令
+  - id: dice-opposed-check
+    category: dice
+    name_zh: 对抗检定
+    source: echo
+    weight: 3
+    detail: 与对方已出成功等级比较给出较高/同级/较低，供闪避、反击类规则调用
+  - id: dice-autofire
+    category: dice
+    name_zh: 自动武器连发
+    source: both
+    weight: 2
+    detail: CCFOLIA FAR 命令结算命中/贯穿/残弹；回声岛 .burst 按组叠惩罚骰、超额转难度升级
+  - id: dice-roll-table
+    category: dice
+    name_zh: 原创随机表
+    source: both
+    weight: 2
+    detail: CCFOLIA /roll-table 现场定义表；回声岛 /draw 抽规则表与变量表，/q 私查规则数据
+  - id: dice-secret-roll
+    category: dice
+    name_zh: 暗骰
+    source: both
+    weight: 3
+    detail: 结果仅自己（回声岛另含主持人）可见；CCFOLIA 前缀 s，回声岛后缀 h（.rh/.rah）
+  - id: dice-3d-animation
+    category: dice
+    name_zh: 3D 骰子动画
+    source: both
+    weight: 1
+    detail: 盘面掷骰动画，可全局关闭；部分系统有专用骰模型
+  - id: dice-skin
+    category: dice
+    name_zh: 骰子皮肤
+    source: both
+    weight: 1
+    detail: 可按用户或角色定制骰子外观/材质/图案
+  - id: dice-symbol
+    category: dice
+    name_zh: 盘面骰子符号
+    source: ccfolia
+    weight: 1
+    detail: 盘面上摆放 D4–D20 与空白骰，可改点数、可隐藏，公开时向聊天发日志
+  - id: dice-madness-tables
+    category: dice
+    name_zh: 疯狂与恐惧表
+    source: ccfolia
+    weight: 2
+    detail: BMR/BMS 疯狂发作、PH 恐惧症、MA 躁狂、FCL/FCM 施法失败表
+  - id: dice-custom-script
+    category: dice
+    name_zh: 自定义指令脚本
+    source: echo
+    weight: 2
+    detail: QuickJS 沙盒内写 JS 定义命令、参数、判定展示与副作用，带审核与冲突检测
+  - id: dice-rule-data-tables
+    category: dice
+    name_zh: 规则数据表
+    source: echo
+    weight: 1
+    detail: 规则可挂 JSON 数据文件与 echo-tables.json 表索引，供查询与抽取
+  - id: chat-tabs
+    category: chat
+    name_zh: 聊天标签页
+    source: ccfolia
+    weight: 2
+    detail: 默认主/情报/杂谈三页不可删，可自建公开或私密页签，未读红点，可拖拽排序
+  - id: chat-channels
+    category: chat
+    name_zh: 频道即舞台
+    source: echo
+    weight: 3
+    detail: 每频道有独立场景、音乐、立绘与聊天记录，可设可见玩家与立绘上限
+  - id: chat-private
+    category: chat
+    name_zh: 私聊
+    source: both
+    weight: 2
+    detail: CCFOLIA 秘匿标签仅两人可见但房主导出全日志可读；回声岛发送对象切私聊
+  - id: chat-group
+    category: chat
+    name_zh: 群组私聊
+    source: ccfolia
+    weight: 2
+    detail: 建私密标签并勾选成员，3 人以上互见，仅登录用户可被加入
+  - id: chat-live-channel
+    category: chat
+    name_zh: 实况频道
+    source: echo
+    weight: 2
+    detail: 记录玩家进出时间，玩家只能看到自己在场期间的消息，仅高级会员可开
+  - id: chat-ic-ooc
+    category: chat
+    name_zh: 场内场外区分
+    source: echo
+    weight: 3
+    detail: 消息标记场内/场外，场外可作弹幕展示并带专属徽标
+  - id: chat-danmaku
+    category: chat
+    name_zh: 弹幕
+    source: echo
+    weight: 1
+    detail: 场外发言可作为弹幕飘过演出画面
+  - id: chat-edit
+    category: chat
+    name_zh: 消息编辑
+    source: both
+    weight: 2
+    detail: 编辑自己的消息并标记已编辑；超过一定条数后旧消息不可编辑
+  - id: chat-recall
+    category: chat
+    name_zh: 消息撤回
+    source: echo
+    weight: 2
+    detail: 撤回后显示撤回提示，可被管理员/主持人编辑
+  - id: chat-quote
+    category: chat
+    name_zh: 引用回复
+    source: echo
+    weight: 1
+    detail: 引用指定发言再回复
+  - id: chat-reorder
+    category: chat
+    name_zh: 消息重排
+    source: echo
+    weight: 2
+    detail: 拖拽调整消息顺序，影响回放与排版；操作记录不可重排
+  - id: chat-search
+    category: chat
+    name_zh: 消息搜索
+    source: echo
+    weight: 1
+    detail: 按文本、发言者、消息类型（骰点/场内/沙盒快照）查找并跳转
+  - id: chat-bookmark
+    category: chat
+    name_zh: 消息收藏与批注
+    source: echo
+    weight: 1
+    detail: 收藏消息并可加标签与批注，可查看他人共享的收藏
+  - id: chat-markdown
+    category: chat
+    name_zh: Markdown 消息
+    source: echo
+    weight: 2
+    detail: 支持标题、表格、折叠块、图片、视频、图表、内嵌投骰等富文本
+  - id: chat-emoji
+    category: chat
+    name_zh: 表情包
+    source: both
+    weight: 1
+    detail: 发送表情图片；回声岛有收藏表情合集
+  - id: chat-scenario-text
+    category: chat
+    name_zh: 预设长文
+    source: ccfolia
+    weight: 2
+    detail: シナリオテキスト 预存描写与情报，一键发到当前标签，可从聊天框模糊召回
+  - id: chat-input-completion
+    category: chat
+    name_zh: 输入补全
+    source: both
+    weight: 2
+    detail: CCFOLIA 按片段补全 palette 条目；回声岛补全属性、差分、频道、技能、规则表
+  - id: chat-message-window
+    category: chat
+    name_zh: 消息窗演出
+    source: both
+    weight: 3
+    detail: 屏幕下方逐字显示最新发言，可关闭；CCFOLIA 可设旧版骰子显示位置
+  - id: chat-typing-indicator
+    category: chat
+    name_zh: 输入状态
+    source: echo
+    weight: 1
+    detail: 显示他人正在输入，可设只显示状态或显示内容
+  - id: chat-history
+    category: chat
+    name_zh: 输入历史
+    source: echo
+    weight: 1
+    detail: 保留最近十条发送记录，发送失败可恢复
+  - id: chat-log-export-html
+    category: chat
+    name_zh: 聊天日志 HTML 导出
+    source: both
+    weight: 2
+    detail: 按标签或全部标签合并导出 HTML，保留角色色与角色图
+  - id: chat-log-export-json
+    category: chat
+    name_zh: 聊天日志 JSON 导出
+    source: ccfolia
+    weight: 1
+    detail: 含骰点结果与骰子数组、消息类型、频道、时间戳、角色图 base64
+  - id: chat-report
+    category: chat
+    name_zh: 跑团总结
+    source: echo
+    weight: 2
+    detail: 统计发言量、检定次数、成功率、大成功大失败、谁欧谁非，并可一键成长
+  - id: audio-bgm-slots
+    category: audio
+    name_zh: 双 BGM 通道
+    source: ccfolia
+    weight: 2
+    detail: BGM01/BGM02 两路可同时播放，一路音乐一路环境音，可切歌时关掉其它音乐
+  - id: audio-multi-track
+    category: audio
+    name_zh: 多音轨同时播放
+    source: echo
+    weight: 2
+    detail: 可同时播放多个音频，显示正在播放数量，每个音频独立音量
+  - id: audio-per-file-volume
+    category: audio
+    name_zh: 文件级音量
+    source: both
+    weight: 2
+    detail: 音频条目自身音量，生效于所有听众
+  - id: audio-user-volume
+    category: audio
+    name_zh: 个人音量与静音
+    source: both
+    weight: 2
+    detail: 只影响自己的音量与静音，不改变他人听到的效果；回声岛另分音乐/通知/朗读音量
+  - id: audio-loop
+    category: audio
+    name_zh: 循环播放
+    source: both
+    weight: 2
+    detail: 逐音频开关循环；回声岛音效默认不循环且播完自动关闭
+  - id: audio-crossfade
+    category: audio
+    name_zh: 切歌交叉淡化
+    source: ccfolia
+    weight: 1
+    detail: 房间级开关，切 BGM 时平滑过渡
+  - id: audio-se-channel
+    category: audio
+    name_zh: 音效通道
+    source: both
+    weight: 3
+    detail: CCFOLIA 无独立 SE 通道，用无图 cut-in 变通；回声岛音频可标为音效并绑定场景/触发器
+  - id: audio-scene-bind
+    category: audio
+    name_zh: 音频绑定场景
+    source: both
+    weight: 2
+    detail: 切换场景自动切歌，音效在进入场景时播一次；可解绑
+  - id: audio-library
+    category: audio
+    name_zh: 官方/公共音源库
+    source: both
+    weight: 1
+    detail: CCFOLIA SOUND MASTER 提供 50 万点以上音源；回声岛有公共素材库与音频分类
+  - id: audio-external-url
+    category: audio
+    name_zh: 外部链接音源
+    source: both
+    weight: 1
+    detail: 支持外链音频；回声岛可自动解析网易云/耳聆网链接为直链
+  - id: audio-video-play
+    category: audio
+    name_zh: 视频播放
+    source: both
+    weight: 1
+    detail: CCFOLIA /play 角落小窗播 YouTube，云盘视频为付费功能；回声岛用视频节点与 MP4 场景
+  - id: stage-scene-preset
+    category: stage
+    name_zh: 场景预设与一键切换
+    source: both
+    weight: 3
+    detail: 场景保存背景、音乐、遮罩/标记等，一键切换全员同步
+  - id: stage-scene-partial-apply
+    category: stage
+    name_zh: 场景局部应用
+    source: ccfolia
+    weight: 1
+    detail: 可只应用场景其余要素，不带 BGM 或不带切场文本；支持覆盖保存
+  - id: stage-transition
+    category: stage
+    name_zh: 场景转场
+    source: echo
+    weight: 2
+    detail: 淡入淡出、数字故障、水墨光圈、推远拉近，可配转场文字与音效
+  - id: stage-scene-animation
+    category: stage
+    name_zh: 场景镜头动画
+    source: echo
+    weight: 2
+    detail: 呼吸缩放、缓慢缩放、缓慢平移、镜头晃动、震动、失焦，可自定义
+  - id: stage-cutin
+    category: stage
+    name_zh: 插入演出
+    source: ccfolia
+    weight: 3
+    detail: 图片+音源+音量的全屏插入，可由聊天末尾文本或骰点结果触发，点任意处结束
+  - id: stage-mask-layer
+    category: stage
+    name_zh: 遮罩层
+    source: echo
+    weight: 2
+    detail: 图片/GIF/视频/沙盒遮罩，支持混合模式、单次播放、盖在立绘之上、鼠标穿透
+  - id: stage-trigger
+    category: stage
+    name_zh: 演出触发器
+    source: echo
+    weight: 2
+    detail: 关键词或正则、检定结果等级、属性阈值触发一次音效或瞬时遮罩，可设冷却与次数上限
+  - id: stage-filter
+    category: stage
+    name_zh: 场景滤镜与调色
+    source: echo
+    weight: 1
+    detail: 场景滤镜与调色曲线，营造电影感
+  - id: stage-code-node
+    category: stage
+    name_zh: 代码节点
+    source: echo
+    weight: 1
+    detail: iframe 内 HTML/JS 通过 window.EI 读写沙盒变量与消息，带超时与配额限制
+  - id: stage-pdf
+    category: stage
+    name_zh: 内嵌 PDF 查看
+    source: both
+    weight: 1
+    detail: CCFOLIA /pdf 与别窗查看；回声岛用文档节点渲染 PDF
+  - id: stage-timer
+    category: stage
+    name_zh: 计时器
+    source: ccfolia
+    weight: 1
+    detail: 倒计时小部件，付费功能，可移动
+  - id: stage-video-cutin
+    category: stage
+    name_zh: 视频插入演出
+    source: echo
+    weight: 1
+    detail: 视频节点与 MP4 遮罩/场景（视频上传为高级权益）
+  - id: info-handout
+    category: info
+    name_zh: 线索素材
+    source: echo
+    weight: 3
+    detail: 图片+Markdown 文本的线索条目，可设展示布局与字体，按频道解锁后玩家可见
+  - id: info-handout-lock
+    category: info
+    name_zh: 线索解锁与上锁
+    source: echo
+    weight: 3
+    detail: 主持人向玩家解锁线索；可全局一键上锁；未解锁内容玩家不可见
+  - id: info-handout-visibility
+    category: info
+    name_zh: 线索的频道级可见性
+    source: echo
+    weight: 3
+    detail: 线索按频道解锁，粒度是舞台而非单个角色；人级私密只能靠私聊
+  - id: info-panel-private-view
+    category: info
+    name_zh: 面板私看
+    source: ccfolia
+    weight: 2
+    detail: 面板可仅自己查看正面，用于个人线索与秘密信息
+  - id: info-note-personal
+    category: info
+    name_zh: 个人笔记
+    source: echo
+    weight: 2
+    detail: 云同步 Markdown 笔记，可按玩家设置可见性
+  - id: info-clue-board
+    category: info
+    name_zh: 线索白板
+    source: echo
+    weight: 2
+    detail: 沙盒白板，玩家可添加文档节点并引用线索或消息，各自只能改自己创建的节点
+  - id: info-knowledge-base
+    category: info
+    name_zh: 公开知识库
+    source: echo
+    weight: 1
+    detail: 房间可关联所有人可读写的公开文章，跨房间共享规则、世界观与情报
+  - id: info-shared-memo-panel
+    category: info
+    name_zh: 共享备忘面板
+    source: ccfolia
+    weight: 1
+    detail: 用屏幕面板展示房规、共享备忘、小地图，悬停可看备注
+  - id: data-room-export-zip
+    category: data
+    name_zh: 房间数据打包导出
+    source: ccfolia
+    weight: 2
+    detail: 导出 ZIP 复现房间，可选导出内容，但不含音频文件
+  - id: data-room-import
+    category: data
+    name_zh: 房间数据导入
+    source: both
+    weight: 2
+    detail: CCFOLIA 拖入 ZIP 或走导入入口；回声岛导入预设游戏文件
+  - id: data-game-export
+    category: data
+    name_zh: 预设游戏导出
+    source: echo
+    weight: 2
+    detail: 导出 .echois 文件，可在别处导入复用
+  - id: data-overwrite-sync
+    category: data
+    name_zh: 模板与实例双向覆盖
+    source: echo
+    weight: 2
+    detail: 用房间数据覆盖预设游戏，或用预设游戏覆盖场景/立绘/线索/沙盒/遮罩/触发器
+  - id: data-save-slots
+    category: data
+    name_zh: 盘面存档
+    source: ccfolia
+    weight: 2
+    detail: 3 个存档槽保存盘面（含 BGM 与角色），/save /load，/reset 回建房初态
+  - id: data-copy-room
+    category: data
+    name_zh: 复制房间
+    source: ccfolia
+    weight: 1
+    detail: 付费功能，整房复制为新房间
+  - id: data-share-link
+    category: data
+    name_zh: 公开分享链接
+    source: both
+    weight: 1
+    detail: CCFOLIA 公开链接一键建同配置房；回声岛可公开房间 Log 与排版阅读链接（免登录）
+  - id: combat-initiative
+    category: combat
+    name_zh: 先攻排序
+    source: both
+    weight: 3
+    detail: 角色设先攻值并自动排序行动顺序；CCFOLIA 仅排序，回声岛可重掷与手动拖拽
+  - id: combat-turn-tracker
+    category: combat
+    name_zh: 战斗回合跟踪
+    source: echo
+    weight: 3
+    detail: 显示第 N 轮与当前行动者，可结束回合、跳过、指定当前回合，并提示轮到你了
+  - id: combat-turn-events
+    category: combat
+    name_zh: 回合事件
+    source: echo
+    weight: 2
+    detail: 回合开始/结束触发物品规则（被动与自动反应），失败可手动补处理
+  - id: combat-end-notice
+    category: combat
+    name_zh: 战斗结束广播
+    source: echo
+    weight: 1
+    detail: 结束战斗时向所有参与者广播结果与总轮数
+  - id: combat-aoe-target
+    category: combat
+    name_zh: 范围选取目标
+    source: echo
+    weight: 2
+    detail: 使用群体物品时在地图放置范围，实时列出覆盖角色并确认目标
+  - id: cards-deck-create
+    category: cards
+    name_zh: 建立牌堆
+    source: ccfolia
+    weight: 2
+    detail: 同尺寸面板重叠后「山札を作る」，可设背面图与牌堆尺寸
+  - id: cards-draw
+    category: cards
+    name_zh: 抽牌
+    source: ccfolia
+    weight: 2
+    detail: 抽 1 张、10 张或任意 1–10 张，双击牌堆快捷抽牌
+  - id: cards-draw-facedown
+    category: cards
+    name_zh: 背面抽牌
+    source: ccfolia
+    weight: 2
+    detail: 背面抽 1 张或任意 1–10 张，避免抽牌者看到内容
+  - id: cards-return-collect
+    category: cards
+    name_zh: 回牌与收牌
+    source: ccfolia
+    weight: 1
+    detail: 拖回牌堆、右键山札に戻す、一键全て集める；可合并两个同尺寸牌堆
+  - id: cards-add-card
+    category: cards
+    name_zh: 往牌堆加牌
+    source: ccfolia
+    weight: 1
+    detail: 背面图与尺寸一致的面板叠上即入堆
+  - id: cards-trump
+    category: cards
+    name_zh: 标准扑克牌堆
+    source: ccfolia
+    weight: 1
+    detail: 一键添加 54 张扑克牌堆
+  - id: cards-fixed
+    category: cards
+    name_zh: 牌堆固定与层级
+    source: ccfolia
+    weight: 1
+    detail: 牌堆可固定位置/尺寸，可设重叠优先级
+  - id: mobile-responsive
+    category: mobile
+    name_zh: 响应式布局
+    source: both
+    weight: 2
+    detail: 小屏时聊天全屏、盘面独立缩放；回声岛有竖横屏两套布局与横屏提示
+  - id: mobile-pwa
+    category: mobile
+    name_zh: PWA 安装
+    source: echo
+    weight: 1
+    detail: 添加到主屏幕全屏运行，iOS 有引导文案，处理安全区与状态栏
+  - id: mobile-android-app
+    category: mobile
+    name_zh: Android 客户端
+    source: echo
+    weight: 1
+    detail: 提供 APK，含版本校验与更新提示，可回退网页版
+  - id: mobile-keyboard
+    category: mobile
+    name_zh: 键盘与舞台联动
+    source: echo
+    weight: 1
+    detail: 键盘弹起时自动收起舞台，让消息区占满键盘上方
+  - id: mobile-touch-ux
+    category: mobile
+    name_zh: 触控操作
+    source: both
+    weight: 1
+    detail: 长按菜单、单指拖动立绘、双指缩放；CCFOLIA 部分移动端操作受限
+  - id: replay-auto-record
+    category: replay
+    name_zh: 自动录制回放
+    source: echo
+    weight: 3
+    detail: 房间首次发言后记录场景、遮罩、立绘、骰点等一切操作，生成可交互回放
+  - id: replay-player
+    category: replay
+    name_zh: 回放播放器
+    source: echo
+    weight: 3
+    detail: 单步/自动播放、字幕区缩放、字速与间隔可调、可隐藏场外与操作记录
+  - id: replay-edit
+    category: replay
+    name_zh: 回放内编辑
+    source: echo
+    weight: 2
+    detail: 在记录起点之后停在此刻修改差分/场景，改动成为可删除的编辑条目
+  - id: replay-archive
+    category: replay
+    name_zh: 结团归档
+    source: both
+    weight: 2
+    detail: 归档为不可逆的静态记录；回声岛分交互回放与纯文字 Log 两种
+  - id: replay-video-export
+    category: replay
+    name_zh: 回放导出视频
+    source: echo
+    weight: 2
+    detail: 本地渲染 1920×1080，可混入朗读语音，不上传服务器，需新版桌面 Chrome/Edge
+  - id: replay-typeset-book
+    category: replay
+    name_zh: 记录排版书
+    source: echo
+    weight: 2
+    detail: 按频道/角色/类型/关键词设样式规则，插页、目录、封面、HTML 模板
+  - id: replay-pdf-share
+    category: replay
+    name_zh: 排版导出 PDF 与公开阅读
+    source: echo
+    weight: 2
+    detail: 打印为 PDF、生成免登录阅读链接、社区模板复用
+  - id: replay-poster
+    category: replay
+    name_zh: 长图与分享海报
+    source: echo
+    weight: 1
+    detail: 长图/分页长图/海报（含扫码），可复制图片或链接
+  - id: pricing-free
+    category: pricing
+    name_zh: 免费档
+    source: both
+    weight: 1
+    detail: 基础功能免费使用；CCFOLIA 无房间数限制，回声岛按等级给配额
+  - id: pricing-subscription
+    category: pricing
+    name_zh: 订阅制
+    source: ccfolia
+    weight: 1
+    detail: PRO 月费 500 日元，解锁导出/复制/计时器/日志无上限等；另有音源加购档
+  - id: pricing-credits
+    category: pricing
+    name_zh: 社区点数
+    source: echo
+    weight: 1
+    detail: 签到、发帖、被赞、素材被用等行为获得点数，可兑换高级会员与额度、抵扣 AI 消耗
+  - id: pricing-market
+    category: pricing
+    name_zh: 用户交易市场
+    source: echo
+    weight: 1
+    detail: 真实货币买卖模组/预设游戏/素材集，卖家自配收款，平台分账抽成
+  - id: pricing-quota
+    category: pricing
+    name_zh: 按等级的资源配额
+    source: echo
+    weight: 1
+    detail: 房间数、频道数、素材数、差分数、房间人数、私密素材额度随会员等级变化
+  - id: community-forum
+    category: community
+    name_zh: 社区论坛
+    source: echo
+    weight: 1
+    detail: 游戏讨论、挂团找团、攻略、模组、骰子酒馆（安科）、物品仓库、沙盒社区、指令、车卡模板、冒险大厅
+  - id: community-asset-library
+    category: community
+    name_zh: 素材库
+    source: both
+    weight: 2
+    detail: 场景/立绘/音频/线索/表情分类管理；CCFOLIA 支持 Unsplash 与跨房间复用，回声岛有公开素材集与标签
+  - id: community-sandbox-publish
+    category: community
+    name_zh: 社区组件发布
+    source: echo
+    weight: 1
+    detail: 沙盒可发布版本、被他人引用与二次编辑，带审核与风险标记
+  - id: community-rule-system
+    category: community
+    name_zh: 社区规则体系
+    source: echo
+    weight: 2
+    detail: 社区规则可挂数据文件、表索引、维护者与审核组，并绑定物品、模板、指令
+  - id: community-achievement
+    category: community
+    name_zh: 成就与头衔
+    source: echo
+    weight: 1
+    detail: 成就进度、头像框、头衔徽章
+  - id: ai-code-assist
+    category: ai
+    name_zh: AI 生成组件代码
+    source: echo
+    weight: 1
+    detail: 站内 AI 助手生成沙盒代码/物品/模板，按社区点数计费，支持模型选择与会话历史
+  - id: ai-item-yaml
+    category: ai
+    name_zh: AI 生成物品规则
+    source: echo
+    weight: 1
+    detail: 用 YAML 描述物品，可复制 AI 提示词让外部模型生成后粘贴导入
+  - id: ai-char-creator-prompt
+    category: ai
+    name_zh: AI 生成车卡器
+    source: echo
+    weight: 1
+    detail: 官方提示词模板引导外部模型生成内嵌 HTML 创建器并回传角色数据
+  - id: ai-voice-design
+    category: ai
+    name_zh: AI 音色设计
+    source: echo
+    weight: 1
+    detail: 用文字描述生成自定义音色，消耗社区点数
+  - id: ai-depth-parallax
+    category: ai
+    name_zh: 深度图转视差场景
+    source: echo
+    weight: 1
+    detail: 用深度估计模型把单张场景图转成 3D 视差场景
+  - id: ai-content-label
+    category: ai
+    name_zh: AIGC 标识
+    source: echo
+    weight: 1
+    detail: 素材与模板可标记 AI 生成，AI 内容默认不携带版权声明
+  - id: ops-undo
+    category: ops
+    name_zh: 全局撤销重做
+    source: ccfolia
+    weight: 1
+    detail: 盘面与场景操作支持撤销/重做，含快捷键
+  - id: ops-log-clear
+    category: ops
+    name_zh: 日志清理
+    source: both
+    weight: 1
+    detail: CCFOLIA 可清空房间日志；回声岛可清空单频道消息
+  - id: ops-blocklist
+    category: ops
+    name_zh: 黑名单
+    source: both
+    weight: 2
+    detail: CCFOLIA 成员权限「アクセス不可」阻止进房；回声岛用户级拉黑，屏蔽互动与私信
+  - id: ops-online-list
+    category: ops
+    name_zh: 在线成员管理
+    source: both
+    weight: 2
+    detail: 查看在线玩家、连接状态与所选角色，可移除或授权
+  - id: ops-review-workflow
+    category: ops
+    name_zh: 内容审核流程
+    source: echo
+    weight: 1
+    detail: 模板、指令、物品、沙盒、规则均需审核，区分草稿/待审/通过/拒绝与兼容更新策略
+  - id: ops-report-ticket
+    category: ops
+    name_zh: 举报与工单
+    source: echo
+    weight: 1
+    detail: 内容线索、权利人通知、Bug 反馈、功能许愿、片段投稿，工单仅提交者与管理员可见
