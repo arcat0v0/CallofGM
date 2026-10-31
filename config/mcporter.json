@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "aoci": {
+      "command": "/home/arcat/.local/bin/aoci",
+      "args": [
+        "--repo",
+        "/home/arcat/Develop/CallofGM",
+        "mcp"
+      ],
+      "description": "AOCI-CODE knowledge-index MCP (v0.1.0-rc23)"
+    }
+  }
+}
