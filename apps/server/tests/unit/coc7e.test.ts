@@ -41,6 +41,7 @@ const baseState: coc7e.CharacterSessionState = {
   statuses: [],
   tags: [],
   growthMarks: [],
+  hiddenGrowthMarks: [],
 };
 
 function check(roll: { tens: number[]; units: number }, opts?: Partial<Parameters<Coc7eRuleSystem["evaluateSkillCheck"]>[0]>) {

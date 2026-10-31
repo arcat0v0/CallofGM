@@ -42,6 +42,7 @@ export class Coc7eRuleSystem extends RuleSystem<coc7e.Coc7eCharacterSheet, coc7e
       statuses: [],
       tags: [],
       growthMarks: [],
+      hiddenGrowthMarks: [],
     };
   }
 
@@ -178,6 +179,7 @@ export class Coc7eRuleSystem extends RuleSystem<coc7e.Coc7eCharacterSheet, coc7e
       statuses: [...state.statuses],
       tags: [...state.tags],
       growthMarks: [...state.growthMarks],
+      hiddenGrowthMarks: [...state.hiddenGrowthMarks],
     };
     const hints: string[] = [];
 
@@ -272,6 +274,32 @@ export class Coc7eRuleSystem extends RuleSystem<coc7e.Coc7eCharacterSheet, coc7e
       ...state,
       growthMarks: [...state.growthMarks, skillKey],
     });
+  }
+
+  markSkillGrowthHidden(
+    state: coc7e.CharacterSessionState,
+    skillKey: string
+  ): coc7e.CharacterSessionState {
+    if (state.hiddenGrowthMarks.includes(skillKey)) {
+      return state;
+    }
+    return this.sessionStateSchema.parse({
+      ...state,
+      hiddenGrowthMarks: [...state.hiddenGrowthMarks, skillKey],
+    });
+  }
+
+  viewSessionState(
+    state: coc7e.CharacterSessionState,
+    viewer: { hidden: boolean }
+  ): coc7e.CharacterSessionState {
+    if (viewer.hidden) {
+      return state;
+    }
+    return {
+      ...state,
+      hiddenGrowthMarks: [],
+    };
   }
 
   private clamp(value: number, min: number, max: number): number {

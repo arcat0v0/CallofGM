@@ -197,7 +197,7 @@ export class BuildSessionSnapshotUseCase {
         try {
           const parsed = ruleSystem.sessionStateSchema.safeParse(JSON.parse(sc.stateJson));
           if (parsed.success) {
-            state = parsed.data;
+            state = ruleSystem.viewSessionState(parsed.data, { hidden: isGm });
           } else {
             console.error(`[Snapshot] Invalid state JSON for character ${sc.characterId}:`, parsed.error);
           }

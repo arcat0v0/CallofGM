@@ -8,7 +8,7 @@ export type GmLoginRequest = z.infer<typeof GmLoginRequest>;
 
 export const PlayerIdentityResponse = z.object({
   playerId: z.string(),
-  token: z.string(),
+  token: z.string().optional(),
 });
 export type PlayerIdentityResponse = z.infer<typeof PlayerIdentityResponse>;
 

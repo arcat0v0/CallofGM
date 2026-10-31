@@ -32,15 +32,6 @@ function readFingerprint(request: Request): string | null {
 export function createAuthPlugin(repo: IdentityRepository) {
   return new Elysia({ name: "identity-auth" })
     .derive({ as: "global" }, async ({ request, cookie }): Promise<{ actor: ActorContext | null }> => {
-      const fingerprint = readFingerprint(request);
-      if (fingerprint) {
-        const fingerprintHash = createHash("sha256").update(fingerprint).digest("hex");
-        const isBlacklisted = await repo.isFingerprintBlacklisted(fingerprintHash);
-        if (isBlacklisted) {
-          throw new BlacklistedFingerprintError();
-        }
-      }
-
       let token: string | null = null;
       const authHeader = request.headers.get("authorization") || request.headers.get("Authorization");
       if (authHeader && authHeader.startsWith("Bearer ")) {
@@ -54,19 +45,30 @@ export function createAuthPlugin(repo: IdentityRepository) {
         token = gmCookie || playerCookie;
       }
 
+      const now = Date.now();
+
+      if (token) {
+        const tokenHash = hashToken(token);
+        const gmSession = await repo.findGmSessionByTokenHash(tokenHash);
+        if (gmSession && gmSession.revokedAt === null && gmSession.expiresAt > now) {
+          return { actor: { type: "gm", loginSessionId: gmSession.id } };
+        }
+      }
+
+      const fingerprint = readFingerprint(request);
+      if (fingerprint) {
+        const fingerprintHash = createHash("sha256").update(fingerprint).digest("hex");
+        const isBlacklisted = await repo.isFingerprintBlacklisted(fingerprintHash);
+        if (isBlacklisted) {
+          throw new BlacklistedFingerprintError();
+        }
+      }
+
       if (!token) {
         return { actor: null };
       }
 
-      const tokenHash = hashToken(token);
-      const now = Date.now();
-
-      const gmSession = await repo.findGmSessionByTokenHash(tokenHash);
-      if (gmSession && gmSession.revokedAt === null && gmSession.expiresAt > now) {
-        return { actor: { type: "gm", loginSessionId: gmSession.id } };
-      }
-
-      const playerToken = await repo.findPlayerTokenByTokenHash(tokenHash);
+      const playerToken = await repo.findPlayerTokenByTokenHash(hashToken(token));
       if (playerToken && playerToken.revokedAt === null && playerToken.expiresAt > now) {
         const player = await repo.findAnonymousPlayerById(playerToken.playerId);
         if (!player || (await repo.isFingerprintBlacklisted(player.fingerprintHash))) {

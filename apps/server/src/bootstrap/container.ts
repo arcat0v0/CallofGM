@@ -2,6 +2,7 @@ import { parseEnv, type Env } from "@/config/env";
 import { createDb, type DbClient, type DbContext } from "@/platform/db/client";
 import { DrizzleTransactionRunner, type TransactionRunner } from "@/platform/db/transaction";
 import { SystemClock, UuidGenerator, SecureRandomSource, type Clock, type IdGenerator, type RandomSource } from "@/platform/ports";
+import { HttpLimits } from "@/platform/security/http-limits";
 import { StartupService } from "./startup";
 import { RuleRegistry } from "@/rules/registry";
 import { Coc7eRuleSystem } from "@/rules/coc7e";
@@ -25,6 +26,7 @@ export class Container {
   readonly randomSource: RandomSource;
   readonly startupService: StartupService;
   readonly ruleRegistry: RuleRegistry;
+  readonly httpLimits: HttpLimits;
 
   readonly connectionRegistry: ConnectionRegistry;
   readonly eventRingBuffer: EventRingBuffer;
@@ -35,7 +37,7 @@ export class Container {
 
   constructor(
     commandHandlers: CommandHandler[] = [],
-    overrides: { clock?: Clock; idGenerator?: IdGenerator; randomSource?: RandomSource } = {}
+    overrides: { clock?: Clock; idGenerator?: IdGenerator; randomSource?: RandomSource; httpLimits?: HttpLimits } = {}
   ) {
     this.env = parseEnv();
     this.dbContext = createDb(this.env.DATABASE_URL);
@@ -45,6 +47,7 @@ export class Container {
     this.idGenerator = overrides.idGenerator ?? new UuidGenerator();
     this.randomSource = overrides.randomSource ?? new SecureRandomSource();
     this.startupService = new StartupService(this.dbContext.sqlite, this.db, this.env.DATABASE_URL);
+    this.httpLimits = overrides.httpLimits ?? new HttpLimits();
 
     this.ruleRegistry = new RuleRegistry();
     this.ruleRegistry.register(new Coc7eRuleSystem());

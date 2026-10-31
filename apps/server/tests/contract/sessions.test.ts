@@ -5,7 +5,6 @@ import { createIdentityRoutes } from "@/modules/identity/transport/routes";
 import { createCharactersRoutes } from "@/modules/characters/transport/routes";
 import { createSessionsRoutes } from "@/modules/sessions/transport/routes";
 import { AppError } from "@/platform/errors/app-error";
-import { resetHttpLimits } from "@/platform/security/http-limits";
 import { seedGmPassword } from "../helpers/setup";
 import { modules, characters, sessions, moduleCharacters } from "@/platform/db/schema";
 
@@ -20,7 +19,6 @@ describe("Sessions contract tests", () => {
   let player2Id = "";
 
   beforeAll(async () => {
-    resetHttpLimits();
     process.env.DATABASE_URL = ":memory:";
     container = new Container();
     await container.startupService.startup();

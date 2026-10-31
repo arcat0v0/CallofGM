@@ -481,7 +481,7 @@ VisibilityScope =
 
 ### 11.2 玩家
 
-- 服务端首次签发 opaque token，客户端 localStorage 持久化。
+- 服务端首次签发 opaque token，仅存于 HttpOnly `player_token` cookie；不在 localStorage 或（生产）响应体重复暴露。
 - 数据库只保存 token hash；token 是恢复身份和 claim 的主凭据。
 - 指纹仅用于黑名单和风险辅助，不把指纹当作不可伪造的认证。
 - PC 操作必须同时验证 player、session claim、characterId 三者关系。

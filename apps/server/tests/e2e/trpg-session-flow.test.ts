@@ -9,7 +9,6 @@ import { createCharactersRoutes } from "@/modules/characters";
 import { createSessionsRoutes } from "@/modules/sessions";
 import { createRealtimeRoutes } from "@/modules/realtime";
 import { AppError } from "@/platform/errors/app-error";
-import { resetHttpLimits } from "@/platform/security/http-limits";
 import {
   CharacterDto,
   CreateSessionResponse,
@@ -62,7 +61,6 @@ describe("End-to-End TRPG Session Flow (GM Hosting & Player TRPG)", () => {
   let obWs: TestWebSocket;
 
   beforeAll(async () => {
-    resetHttpLimits();
     process.env.DATABASE_URL = ":memory:";
 
     container = new Container();

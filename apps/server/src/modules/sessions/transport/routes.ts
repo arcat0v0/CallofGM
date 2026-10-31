@@ -5,8 +5,9 @@ import { DrizzleSessionsRepository } from "../infrastructure/drizzle-sessions-re
 import { DrizzleIdentityRepository, createAuthPlugin, AuthRequiredError, ForbiddenError } from "@/modules/identity";
 import { AppError } from "@/platform/errors/app-error";
 import { validationFailed } from "@/platform/errors/validation";
-import { joinRateLimiter } from "@/platform/security/http-limits";
 import { clientIp } from "@/platform/security/request-ip";
+import { assertTrustedOrigin } from "@/platform/security/origin";
+import { corsOriginsFor } from "@/config/env";
 import {
   CreateSessionRequest,
   ClaimSeatRequest,
@@ -62,9 +63,12 @@ export function createSessionsRoutes(container: Container) {
   const listSessions = new ListSessionsUseCase(repo);
   const releaseSeat = new ReleaseSeatUseCase(repo, container.clock);
 
+  const allowedOrigins = corsOriginsFor(container.env);
+
   return new Elysia()
     .use(authPlugin)
-    .post("/api/v1/gm/sessions", async ({ actor, body }) => {
+    .post("/api/v1/gm/sessions", async ({ actor, body, request }) => {
+      assertTrustedOrigin(request, allowedOrigins);
       if (!actor || actor.type !== "gm") {
         throw new AuthRequiredError();
       }
@@ -90,7 +94,8 @@ export function createSessionsRoutes(container: Container) {
       }
       return SessionDetailResponse.parse(await getSessionSnapshot.execute(id));
     })
-    .post("/api/v1/gm/sessions/:id/status", async ({ actor, params: { id }, body }) => {
+    .post("/api/v1/gm/sessions/:id/status", async ({ actor, params: { id }, body, request }) => {
+      assertTrustedOrigin(request, allowedOrigins);
       if (!actor || actor.type !== "gm") {
         throw new AuthRequiredError();
       }
@@ -103,7 +108,8 @@ export function createSessionsRoutes(container: Container) {
         status: result.data.status,
       }));
     })
-    .post("/api/v1/gm/sessions/:id/phase", async ({ actor, params: { id }, body }) => {
+    .post("/api/v1/gm/sessions/:id/phase", async ({ actor, params: { id }, body, request }) => {
+      assertTrustedOrigin(request, allowedOrigins);
       if (!actor || actor.type !== "gm") {
         throw new AuthRequiredError();
       }
@@ -165,7 +171,7 @@ export function createSessionsRoutes(container: Container) {
       if (actor.type !== "player") {
         throw new ForbiddenError("Only players can claim seats");
       }
-      joinRateLimiter.assert(clientIp(request, server, container.env.TRUST_PROXY));
+      container.httpLimits.joinRateLimiter.assert(clientIp(request, server, container.env.TRUST_PROXY));
       const result = ClaimSeatRequest.safeParse(body);
       if (!result.success) {
         throw validationFailed(result.error);

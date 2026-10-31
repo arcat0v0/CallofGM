@@ -3,6 +3,8 @@ import { type Container } from "@/bootstrap/container";
 import { DrizzleCatalogRepository } from "../infrastructure/drizzle-catalog-repository";
 import { DrizzleIdentityRepository, createAuthPlugin, AuthRequiredError } from "@/modules/identity";
 import { validationFailed } from "@/platform/errors/validation";
+import { assertTrustedOrigin } from "@/platform/security/origin";
+import { corsOriginsFor } from "@/config/env";
 import {
   CreateModuleRequest,
   UpdateModuleRequest,
@@ -81,11 +83,16 @@ export function createCatalogRoutes(container: Container) {
   const deleteHandout = new DeleteHandoutUseCase(repo);
   const listHandouts = new ListHandoutsUseCase(repo);
 
+  const allowedOrigins = corsOriginsFor(container.env);
+
   return new Elysia({ prefix: "/api/v1/gm/modules" })
     .use(authPlugin)
-    .onBeforeHandle(({ actor }) => {
+    .onBeforeHandle(({ actor, request }) => {
       if (!actor || actor.type !== "gm") {
         throw new AuthRequiredError();
+      }
+      if (request.method !== "GET" && request.method !== "HEAD") {
+        assertTrustedOrigin(request, allowedOrigins);
       }
     })
     .post("/", async ({ body }) => {

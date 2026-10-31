@@ -74,6 +74,7 @@ v1 只实现 CoC 7e，但**所有规则相关逻辑必须通过统一的规则�
 - 表 `session_character_state`：主键 `(sessionId, characterId)` + `state`（JSON）。`state` 的 schema 由团所属规则模块定义并校验（CoC 7e：`hp/maxHp/mp/maxMp/san/maxSan`、`statuses` 预置标记、`tags` 自定义标签、`growthMarks` 技能名列表）；团创建/PC 进团时由规则模块从人物卡推算初始化。
 - 所有变更（GM 编辑、理智检定扣减、鉴定引擎写成长标记）走服务端统一入口：写库 → 生成 `state:changed` 事件（带 eventId，进事件日志）→ 按可见性广播。伤害/损失越阈（重伤线、HP 归零、单次 SAN ≥ 5）时向 GM 附加提示，不自动挂状态。
 - 可见性：PC 状态事件全员广播；NPC 状态事件仅推送 GM（复用定向推送）。全量快照包含对请求者可见的全部角色状态。
+- **暗骰作用域贯穿状态变更**：暗骰鉴定成功写入的成长标记记入 `hiddenGrowthMarks`，整次 `state:changed` / `state:hint` 仅发 GM；状态视图由规则模块按观察者裁剪（`viewSessionState`），玩家快照与广播都不含暗骰技能名。非暗骰状态变更保持公开。
 
 ## 音频同步（GM 控制）
 
@@ -97,9 +98,10 @@ BgmState = { trackId, playing, volume, loop, seekOffset, startedAt(服务器时�
 ## 身份、在线与黑名单
 
 - GM：密码登录 → HttpOnly session cookie。
-- 玩家：首次进入由服务端签发匿名 token（localStorage 持久化），同时上报 FingerprintJS 指纹。
+- 玩家：首次进入由服务端签发匿名 token，仅存于 HttpOnly `player_token` cookie（不落 localStorage），同时上报 FingerprintJS 指纹。
 - 在线列表来自 WS 连接注册表（连接 ↔ 团 ↔ 所选 PC/OB）。
-- 踢出 = 关闭 socket；拉黑 = 指纹写入黑名单表（含过期时间，NULL 为永久），HTTP 与 WS 握手均校验。
+- 踢出 = 关闭 socket；拉黑 = 指纹写入黑名单表（含过期时间，NULL 为永久），HTTP 与 WS 握手均校验；已通过 GM cookie 鉴权的请求优先于指纹黑名单。
+- GM 写接口（`/api/v1/gm/*` 的 POST/PATCH/PUT/DELETE）校验 Origin/Referer，命中允许来源才放行；GET 不受影响。
 
 ## 前端路由（TanStack Router）
 

@@ -10,8 +10,8 @@ import {
   type TestContext,
   type TestWebSocket,
 } from "../helpers/setup";
-import { checkRequests } from "@/platform/db/schema";
-import { eq } from "drizzle-orm";
+import { checkRequests, sessionCharacters } from "@/platform/db/schema";
+import { and, eq } from "drizzle-orm";
 
 describe("Gameplay contract tests", () => {
   let ctx: TestContext;
@@ -306,18 +306,25 @@ describe("Gameplay contract tests", () => {
     await closeAll(gm, pc1, pc2);
   });
 
-  test("暗骰成长：鉴定结果仅 GM 可见，PC 状态变更仍全员广播", async () => {
+  test("暗骰成长：鉴定结果与成长标记仅 GM 可见，公开状态不含暗骰技能", async () => {
     await setSessionPhase(ctx, "free_performance");
     const { gm, pc1, pc2 } = await openAll();
+    const before = await ctx.container.db
+      .select()
+      .from(sessionCharacters)
+      .where(and(eq(sessionCharacters.sessionId, ctx.sessionId), eq(sessionCharacters.characterId, "char-pc1")));
+    const publicGrowthBefore: string[] = JSON.parse(before[0]!.stateJson).growthMarks;
 
-    random.push(1, 2);
-    sendCommand(gm, "check:perform", { characterId: "char-pc1", skillKey: "侦查", hidden: true }, "hid-1");
+    random.push(3, 2);
+    sendCommand(gm, "check:perform", { characterId: "char-pc1", skillKey: "图书馆", hidden: true }, "hid-1");
     await gm.waitFor((m) => m.type === "check:resolved" && m.payload.hidden === true);
-    const publicState = await pc2.waitFor(
+    const gmState = await gm.waitFor(
       (m) => m.type === "state:changed" && m.payload.characterId === "char-pc1"
     );
-    expect(publicState.payload.state.growthMarks).toContain("侦查");
-    await new Promise((r) => setTimeout(r, 200));
+    expect(gmState.payload.state.hiddenGrowthMarks).toContain("图书馆");
+    expect(gmState.payload.state.growthMarks).toEqual(publicGrowthBefore);
+    expect(pc1.messages.some((m) => m.type === "state:changed" && m.payload.characterId === "char-pc1")).toBe(false);
+    expect(pc2.messages.some((m) => m.type === "state:changed" && m.payload.characterId === "char-pc1")).toBe(false);
     expect(pc1.messages.some((m) => m.type === "check:resolved" && m.payload.hidden === true)).toBe(false);
     expect(pc2.messages.some((m) => m.type === "check:resolved" && m.payload.hidden === true)).toBe(false);
 

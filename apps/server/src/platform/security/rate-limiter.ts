@@ -21,9 +21,6 @@ export class RateLimiter {
 
   /** 返回 true 表示放行；false 表示超限 */
   check(key: string): boolean {
-    if (process.env.COGM_SKIP_RATE_LIMIT === "1") {
-      return true;
-    }
     const now = Date.now();
     this.sweep(now);
 

@@ -82,15 +82,22 @@ async function persistStateAndBuildEvents(
   characterId: string,
   kind: string,
   newState: unknown,
-  hints: string[]
+  hints: string[],
+  rule: RuleSystem<unknown, unknown>,
+  hidden: boolean
 ): Promise<ProducedEvent[]> {
   await repo.updateSessionCharacterState(ctx.sessionId, characterId, JSON.stringify(newState));
 
+  const visibility = checkVisibilityScope(hidden, kind);
   const events: ProducedEvent[] = [
     {
       type: "state:changed",
-      payload: { characterId, kind: kind === "npc" ? "npc" : "pc", state: newState },
-      visibility: kind === "npc" ? { type: "gmOnly" } : { type: "public" },
+      payload: {
+        characterId,
+        kind: kind === "npc" ? "npc" : "pc",
+        state: rule.viewSessionState(newState, { hidden: visibility.type === "gmOnly" }),
+      },
+      visibility,
     },
   ];
   if (hints.length > 0) {
@@ -273,7 +280,9 @@ export class PerformCheckHandler implements CommandHandler {
     ];
 
     if (isGrowthEligible(result)) {
-      const newState = rule.markSkillGrowth(state, input.skillKey);
+      const newState = hidden
+        ? rule.markSkillGrowthHidden(state, input.skillKey)
+        : rule.markSkillGrowth(state, input.skillKey);
       events.push(
         ...(await persistStateAndBuildEvents(
           ctx,
@@ -281,7 +290,9 @@ export class PerformCheckHandler implements CommandHandler {
           input.characterId,
           sessionCharacter.kind,
           newState,
-          []
+          [],
+          rule,
+          hidden
         ))
       );
     }
@@ -290,7 +301,7 @@ export class PerformCheckHandler implements CommandHandler {
   }
 }
 
-/** GM 发起理智检定：立即判定、扣 SAN、广播。暗骰只藏结果，PC 状态仍全员可见。 */
+/** GM 发起理智检定：立即判定、扣 SAN、广播。暗骰时结果与随之的状态变更都只发 GM。 */
 export class PerformSanCheckHandler implements CommandHandler {
   readonly type = "check:san" as const;
 
@@ -353,7 +364,9 @@ export class PerformSanCheckHandler implements CommandHandler {
         input.characterId,
         sessionCharacter.kind,
         mutated.state,
-        mutated.hints
+        mutated.hints,
+        rule,
+        hidden
       ))
     );
 
@@ -511,7 +524,9 @@ export class RespondCheckRequestHandler implements CommandHandler {
     ];
 
     if (isGrowthEligible(skillResult)) {
-      const newState = rule.markSkillGrowth(state, request.skillKey);
+      const newState = hidden
+        ? rule.markSkillGrowthHidden(state, request.skillKey)
+        : rule.markSkillGrowth(state, request.skillKey);
       events.push(
         ...(await persistStateAndBuildEvents(
           ctx,
@@ -519,7 +534,9 @@ export class RespondCheckRequestHandler implements CommandHandler {
           request.characterId,
           sessionCharacter.kind,
           newState,
-          []
+          [],
+          rule,
+          hidden
         ))
       );
     }
@@ -569,7 +586,9 @@ export class EditCharacterStateHandler implements CommandHandler {
       input.characterId,
       sessionCharacter.kind,
       mutated.state,
-      mutated.hints
+      mutated.hints,
+      rule,
+      false
     );
 
     return { events, replyPayload: { ok: true } };

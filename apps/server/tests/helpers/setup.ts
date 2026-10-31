@@ -9,7 +9,6 @@ import type { CommandHandler } from "@/modules/realtime";
 import { buildCommandHandlers } from "@/bootstrap/handlers";
 import type { RandomSource } from "@/platform/ports";
 import { AppError } from "@/platform/errors/app-error";
-import { resetHttpLimits } from "@/platform/security/http-limits";
 import { modules, characters, characterPortraits, moduleCharacters } from "@/platform/db/schema";
 import { DrizzleIdentityRepository } from "@/modules/identity";
 import type { DbClient } from "@/platform/db/client";
@@ -117,8 +116,13 @@ export async function stopServer(server: { stop(closeActive?: boolean): Promise<
   ]);
 }
 
+export interface TestServer {
+  readonly server: { readonly port: number };
+  stop(closeActive?: boolean): Promise<unknown> | unknown;
+}
+
 /** Elysia 会把数值 0 当成未配置端口；先由 Bun 分配临时端口再启动测试应用。 */
-export function listenTestApp(app: { listen(port: number): any }): any {
+export function listenTestApp(app: { listen(port: number): any }): TestServer {
   const reservation = Bun.listen({
     hostname: "127.0.0.1",
     port: 0,
@@ -190,7 +194,6 @@ export async function seedGmPassword(db: DbClient, password: string): Promise<vo
 
 /** 搭建带真实数据库与 WS 的测试应用（随机端口，无需手工 listen） */
 export async function setupTestApp(options: TestSetupOptions = {}): Promise<TestContext> {
-  resetHttpLimits();
   const gmPassword = options.gmPassword ?? "test-gm-password";
   process.env.DATABASE_URL = ":memory:";
 
