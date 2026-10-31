@@ -19,7 +19,6 @@ import {
 } from "@/platform/db/schema";
 import { rm } from "fs/promises";
 import { existsSync } from "fs";
-import { resetHttpLimits } from "@/platform/security/http-limits";
 import { seedGmPassword } from "../helpers/setup";
 
 describe("Media Storage contract tests", () => {
@@ -31,7 +30,6 @@ describe("Media Storage contract tests", () => {
   let playerId = "";
 
   beforeAll(async () => {
-    resetHttpLimits();
     process.env.DATABASE_URL = ":memory:";
     container = new Container();
     await container.startupService.startup();

@@ -10,7 +10,6 @@ import { z } from "zod";
 import { AppError } from "@/platform/errors/app-error";
 import { validationFailed } from "@/platform/errors/validation";
 import { AuthRequiredError } from "../domain/errors";
-import { identityRateLimiter, loginRateLimiter } from "@/platform/security/http-limits";
 import { clientIp } from "@/platform/security/request-ip";
 import { assertTrustedOrigin } from "@/platform/security/origin";
 import { corsOriginsFor } from "@/config/env";
@@ -55,7 +54,7 @@ export function createIdentityRoutes(container: Container) {
     .use(authPlugin)
     .post("/api/v1/gm/auth/login", async ({ body, cookie, request, server }) => {
       assertTrustedOrigin(request, allowedOrigins);
-      loginRateLimiter.assert(clientIp(request, server, container.env.TRUST_PROXY));
+      container.httpLimits.loginRateLimiter.assert(clientIp(request, server, container.env.TRUST_PROXY));
 
       const parsed = GmLoginRequest.safeParse(body);
       if (!parsed.success) {
@@ -166,7 +165,7 @@ export function createIdentityRoutes(container: Container) {
     })
     .post("/api/v1/player/identity", async ({ body, cookie, request, server }) => {
       assertTrustedOrigin(request, allowedOrigins);
-      identityRateLimiter.assert(clientIp(request, server, container.env.TRUST_PROXY));
+      container.httpLimits.identityRateLimiter.assert(clientIp(request, server, container.env.TRUST_PROXY));
 
       const payload = body as Record<string, unknown> | null;
       const fingerprint = payload?.fingerprint;

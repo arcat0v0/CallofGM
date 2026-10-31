@@ -12,7 +12,6 @@ import {
   handouts
 } from "@/platform/db/schema";
 import { eq } from "drizzle-orm";
-import { resetHttpLimits } from "@/platform/security/http-limits";
 import { seedGmPassword } from "../helpers/setup";
 
 describe("Catalog contract tests", () => {
@@ -23,7 +22,6 @@ describe("Catalog contract tests", () => {
   let playerToken = "";
 
   beforeAll(async () => {
-    resetHttpLimits();
     process.env.DATABASE_URL = ":memory:";
     container = new Container();
     await container.startupService.startup();

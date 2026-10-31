@@ -13,7 +13,6 @@ import { CreateSessionUseCase, ClaimSeatUseCase } from "@/modules/sessions/appli
 import { DrizzleSessionsRepository } from "@/modules/sessions/infrastructure/drizzle-sessions-repository";
 import { eq } from "drizzle-orm";
 import { listenTestApp, seedGmPassword } from "../helpers/setup";
-import { resetHttpLimits } from "@/platform/security/http-limits";
 
 interface TestWebSocket extends WebSocket {
   messages: any[];
@@ -118,7 +117,6 @@ describe("Realtime contract tests", () => {
   let sessionId = "";
 
   beforeAll(async () => {
-    resetHttpLimits();
     process.env.DATABASE_URL = ":memory:";
     container = new Container([new TestEventProbeHandler()]);
     await container.startupService.startup();

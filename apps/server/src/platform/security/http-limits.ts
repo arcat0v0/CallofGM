@@ -1,14 +1,29 @@
 import { RateLimiter } from "./rate-limiter";
 
-export const loginRateLimiter = new RateLimiter(10, 60_000);
-export const identityRateLimiter = new RateLimiter(20, 60_000);
-export const joinRateLimiter = new RateLimiter(30, 60_000);
-export const uploadRateLimiter = new RateLimiter(20, 60_000);
+export class HttpLimits {
+  readonly loginRateLimiter: RateLimiter;
+  readonly identityRateLimiter: RateLimiter;
+  readonly joinRateLimiter: RateLimiter;
+  readonly uploadRateLimiter: RateLimiter;
 
-export function resetHttpLimits(): void {
-  process.env.COGM_SKIP_RATE_LIMIT = "1";
-  loginRateLimiter.reset();
-  identityRateLimiter.reset();
-  joinRateLimiter.reset();
-  uploadRateLimiter.reset();
+  constructor(
+    limits?: {
+      login?: RateLimiter;
+      identity?: RateLimiter;
+      join?: RateLimiter;
+      upload?: RateLimiter;
+    }
+  ) {
+    this.loginRateLimiter = limits?.login ?? new RateLimiter(10, 60_000);
+    this.identityRateLimiter = limits?.identity ?? new RateLimiter(20, 60_000);
+    this.joinRateLimiter = limits?.join ?? new RateLimiter(30, 60_000);
+    this.uploadRateLimiter = limits?.upload ?? new RateLimiter(20, 60_000);
+  }
+
+  reset(): void {
+    this.loginRateLimiter.reset();
+    this.identityRateLimiter.reset();
+    this.joinRateLimiter.reset();
+    this.uploadRateLimiter.reset();
+  }
 }
