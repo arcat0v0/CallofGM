@@ -1,5 +1,4 @@
 import { getFingerprint } from "./fingerprint";
-import { readPlayerToken } from "./storage";
 
 export class ApiError extends Error {
   constructor(
@@ -60,10 +59,6 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   headers.set("X-Fingerprint", fingerprint);
   if (init.body && !(init.body instanceof FormData) && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
-  }
-  const token = readPlayerToken();
-  if (token && !headers.has("Authorization") && !path.includes("/gm/")) {
-    headers.set("Authorization", `Bearer ${token}`);
   }
 
   const response = await fetch(normalizePath(path), {

@@ -3,19 +3,14 @@ import type { GmMeResponse, PlayerIdentityResponse } from "@cogm/shared";
 import { api, isApiError } from "./api";
 import { getFingerprint } from "./fingerprint";
 import { useIdentityStore } from "@/stores/identity-store";
-import { readPlayerToken } from "./storage";
 
 export async function ensurePlayer(): Promise<PlayerIdentityResponse> {
   const fingerprint = await getFingerprint();
-  const storedToken = useIdentityStore.getState().token ?? readPlayerToken();
   const result = await api<PlayerIdentityResponse>("/player/identity", {
     method: "POST",
-    body: JSON.stringify({
-      fingerprint,
-      ...(storedToken ? { token: storedToken } : {}),
-    }),
+    body: JSON.stringify({ fingerprint }),
   });
-  useIdentityStore.getState().setPlayer(result.playerId, result.token);
+  useIdentityStore.getState().setPlayer(result.playerId);
   return result;
 }
 

@@ -195,7 +195,7 @@ export function createIdentityRoutes(container: Container) {
 
       return {
         playerId: result.playerId,
-        token: result.token,
+        ...(container.env.NODE_ENV === "production" ? {} : { token: result.token }),
       };
     });
 }
