@@ -105,7 +105,9 @@ export class ClaimSeatUseCase {
       throw new SessionNotFoundError();
     }
     if (session.status === "ended") {
-      throw new SessionStateInvalidError("Cannot claim seat in an ended session");
+      if (input.role !== "ob") {
+        throw new SessionStateInvalidError("Cannot claim PC seat in an ended session");
+      }
     }
 
     if (input.role === "pc") {

@@ -88,7 +88,7 @@ function Composer({ compact = false, className }: { compact?: boolean; className
     setDraft("");
   }
 
-  const hint = phaseChatHint(phase);
+  const hint = ended ? "本团已结束 · 记录仅供回看" : phaseChatHint(phase);
 
   return (
     <div
@@ -148,7 +148,7 @@ function Composer({ compact = false, className }: { compact?: boolean; className
       <DiceTray characterId={claimed?.characterId} disabled={diceDisabled} />
 
       <MessageInput
-        placeholder={chatDisabled ? "当前阶段不可发言" : "输入消息…"}
+        placeholder={ended ? "本团已结束 · 记录仅供回看" : forcedCg ? "当前阶段不可发言" : "输入消息…"}
         value={draft}
         onChange={setDraft}
         onSubmit={handleSend}

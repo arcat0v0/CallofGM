@@ -523,6 +523,23 @@ describe("Realtime contract tests", () => {
     const port = server.server?.port;
     const wsUrl = `ws://localhost:${port}/api/v1/sessions/${sessionId}/ws`;
     const gmWs = await connectWs(wsUrl, gmToken);
+    // Allow player3 to claim OB in the ended session and connect via WS for read-only review
+    const p3ClaimRes = await app.handle(
+      new Request(`http://localhost/api/v1/sessions/${sessionId}/claim`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${player3Token}` },
+        body: JSON.stringify({ role: "ob" }),
+      })
+    );
+    expect(p3ClaimRes.status).toBe(200);
+
+    const p3Ws = await connectWs(wsUrl, player3Token);
+    const p3Snapshot = await p3Ws.waitForMessages(1);
+    expect(p3Snapshot[0].type).toBe("snapshot");
+    expect(p3Snapshot[0].payload.session.status).toBe("ended");
+    await closeWs(p3Ws);
+
+
     const snapshot = await gmWs.waitForMessages(1);
     expect(snapshot[0].type).toBe("snapshot");
     expect(snapshot[0].payload.session.status).toBe("ended");
