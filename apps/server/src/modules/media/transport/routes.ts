@@ -26,8 +26,9 @@ import { DrizzleIdentityRepository } from "@/modules/identity";
 import { AuthRequiredError } from "@/modules/identity";
 import { ForbiddenError } from "@/modules/identity";
 import { type ActorContext } from "@/modules/identity";
-import { uploadRateLimiter } from "@/platform/security/http-limits";
 import { clientIp } from "@/platform/security/request-ip";
+import { assertTrustedOrigin } from "@/platform/security/origin";
+import { corsOriginsFor } from "@/config/env";
 
 async function checkMediaAccess(
   db: DbClient,
@@ -167,7 +168,8 @@ export function createMediaRoutes(container: Container) {
         if (actor.type !== "gm") {
           throw new ForbiddenError("Only the GM can upload media");
         }
-        uploadRateLimiter.assert(clientIp(request, server, container.env.TRUST_PROXY));
+        assertTrustedOrigin(request, corsOriginsFor(container.env));
+        container.httpLimits.uploadRateLimiter.assert(clientIp(request, server, container.env.TRUST_PROXY));
         const file = body.file as Blob;
         const purpose = body.purpose || "general";
         const filename = body.filename || "file";

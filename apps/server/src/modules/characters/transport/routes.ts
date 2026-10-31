@@ -4,6 +4,8 @@ import { DrizzleCharactersRepository } from "../infrastructure/drizzle-character
 import { DrizzleIdentityRepository, createAuthPlugin, AuthRequiredError, type ActorContext } from "@/modules/identity";
 import { AppError } from "@/platform/errors/app-error";
 import { validationFailed } from "@/platform/errors/validation";
+import { assertTrustedOrigin } from "@/platform/security/origin";
+import { corsOriginsFor } from "@/config/env";
 import {
   CursorPageQuery,
   CursorPageResponse,
@@ -80,10 +82,15 @@ export function createCharactersRoutes(container: Container) {
   const linkModuleCharacter = new LinkModuleCharacterUseCase(repo, container.idGenerator, container.clock);
   const unlinkModuleCharacter = new UnlinkModuleCharacterUseCase(repo);
 
+  const allowedOrigins = corsOriginsFor(container.env);
+
   const characterRoutes = new Elysia({ prefix: "/api/v1/gm/characters" })
     .use(authPlugin)
-    .onBeforeHandle(({ actor }) => {
+    .onBeforeHandle(({ actor, request }) => {
       requireGm(actor);
+      if (request.method !== "GET" && request.method !== "HEAD") {
+        assertTrustedOrigin(request, allowedOrigins);
+      }
     })
     .post("/", async ({ body }) => {
       const data = parseBody(CreateCharacterRequest, body);
@@ -169,8 +176,11 @@ export function createCharactersRoutes(container: Container) {
 
   const moduleCharacterRoutes = new Elysia({ prefix: "/api/v1/gm/modules" })
     .use(authPlugin)
-    .onBeforeHandle(({ actor }) => {
+    .onBeforeHandle(({ actor, request }) => {
       requireGm(actor);
+      if (request.method !== "GET" && request.method !== "HEAD") {
+        assertTrustedOrigin(request, allowedOrigins);
+      }
     })
     .get("/:id/characters", async ({ params, query }) => {
       return CursorPageResponse(CharacterDto).parse(await listModuleCharacters.execute(params.id, parsePageQuery(query)));

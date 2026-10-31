@@ -125,7 +125,8 @@ export function createIdentityRoutes(container: Container) {
       }
       return z.array(BlacklistEntryDto).parse(await repo.listBlacklistEntries());
     })
-    .post("/api/v1/gm/blacklist", async ({ actor, body }) => {
+    .post("/api/v1/gm/blacklist", async ({ actor, body, request }) => {
+      assertTrustedOrigin(request, allowedOrigins);
       if (!actor || actor.type !== "gm") {
         throw new AuthRequiredError();
       }
@@ -150,7 +151,8 @@ export function createIdentityRoutes(container: Container) {
       logger.audit("gm.blacklist.ban", { playerId: parsed.data.playerId });
       return { banned: parsed.data.playerId, permanent: expiresAt === null, fingerprintHash };
     })
-    .post("/api/v1/gm/blacklist/unban", async ({ actor, body }) => {
+    .post("/api/v1/gm/blacklist/unban", async ({ actor, body, request }) => {
+      assertTrustedOrigin(request, allowedOrigins);
       if (!actor || actor.type !== "gm") {
         throw new AuthRequiredError();
       }

@@ -28,13 +28,29 @@ export function isAllowedOrigin(origin: string, allowed: string[], requestUrl: s
   return false;
 }
 
+function originOf(raw: string): string | null {
+  try {
+    const url = new URL(raw);
+    return `${url.protocol}//${url.host}`;
+  } catch {
+    return null;
+  }
+}
+
 /** Cookie 写接口：浏览器带 Origin 时必须命中允许列表；测试/非浏览器无 Origin 则放行。 */
 export function assertTrustedOrigin(request: Request, allowed: string[]): void {
   const origin = request.headers.get("origin");
-  if (!origin) {
+  if (origin) {
+    if (!isAllowedOrigin(origin, allowed, request.url)) {
+      throw new AppError("FORBIDDEN", "Invalid origin", 403);
+    }
     return;
   }
-  if (!isAllowedOrigin(origin, allowed, request.url)) {
-    throw new AppError("FORBIDDEN", "Invalid origin", 403);
+  const referer = request.headers.get("referer");
+  if (referer) {
+    const derived = originOf(referer);
+    if (!derived || !isAllowedOrigin(derived, allowed, request.url)) {
+      throw new AppError("FORBIDDEN", "Invalid origin", 403);
+    }
   }
 }
