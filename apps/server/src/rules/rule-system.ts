@@ -66,8 +66,12 @@ export abstract class RuleSystem<TSheet, TSessionState> {
   /** SAN 自动扣减（理智检定入口） */
   abstract applySanLoss(state: TSessionState, loss: number): StateMutationResult<TSessionState>;
 
+  abstract viewSessionState(state: TSessionState, viewer: { hidden: boolean }): TSessionState;
+
   /** 鉴定常规成功及以上时的成长标记写入 */
   abstract markSkillGrowth(state: TSessionState, skillKey: string): TSessionState;
+
+  abstract markSkillGrowthHidden(state: TSessionState, skillKey: string): TSessionState;
 
   abstract getChatCommands(): readonly RuleCommandDefinition[];
 }

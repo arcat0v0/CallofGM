@@ -32,6 +32,7 @@ export const CharacterSessionState = z.object({
   statuses: z.array(CharacterStatusFlag),
   tags: z.array(z.string()),
   growthMarks: z.array(z.string()),
+  hiddenGrowthMarks: z.array(z.string()).default([]),
 });
 
 export const Coc7eStateEditInput = z.object({

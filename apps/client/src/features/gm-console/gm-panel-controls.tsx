@@ -244,8 +244,10 @@ export function RulesSection() {
           ))}
         </div>
       ) : null}
-      {state && state.growthMarks.length > 0 ? (
-        <p className="text-md-on-surface-variant text-label-small">成长：{state.growthMarks.join("、")}</p>
+      {state && (state.growthMarks.length > 0 || state.hiddenGrowthMarks.length > 0) ? (
+        <p className="text-md-on-surface-variant text-label-small">
+          成长：{[...state.growthMarks, ...state.hiddenGrowthMarks.map((mark) => `暗骰·${mark}`)].join("、")}
+        </p>
       ) : null}
       <div className="flex gap-1.5">
         <Select value={skillKey} onValueChange={setSkillKey}>
