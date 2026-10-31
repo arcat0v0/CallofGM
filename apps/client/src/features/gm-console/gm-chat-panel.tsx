@@ -47,17 +47,17 @@ function GmChatPanel({ className }: { className?: string }) {
 
   return (
     <div className={cn("bg-md-surface-container-low animate-in fade-in slide-in-from-bottom-4 ease-standard-default-spatial flex h-full flex-col duration-500", className)}>
-      <ChatPanelHeader browseAllSheets />
-
-      <div className="px-4 pb-2.5">
-        <Tabs value={channel} onValueChange={setChannel}>
-          <TabsList>
-            <TabsTrigger value="all">全部</TabsTrigger>
-            <TabsTrigger value="ic">角色</TabsTrigger>
-            <TabsTrigger value="ooc">场外</TabsTrigger>
-          </TabsList>
-        </Tabs>
-      </div>
+      <ChatPanelHeader browseAllSheets>
+        <div className="px-4 pb-2.5">
+          <Tabs value={channel} onValueChange={setChannel}>
+            <TabsList>
+              <TabsTrigger value="all">全部</TabsTrigger>
+              <TabsTrigger value="ic">角色</TabsTrigger>
+              <TabsTrigger value="ooc">场外</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
+      </ChatPanelHeader>
 
       <MessageList messages={visible} showRoleBadge={false} className="min-h-0 flex-1 overflow-y-auto px-4 py-1.5" />
 

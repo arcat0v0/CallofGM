@@ -29,22 +29,28 @@ export function CharactersSection() {
             <div className="truncate text-label-large">{char.name}</div>
             <div className="text-md-on-surface-variant text-label-small">{char.kind === "pc" ? "PC" : "NPC"}</div>
           </div>
-          <Select
-            value={char.currentExpressionKey ?? char.portraits.find((item) => item.isDefault)?.expressionKey ?? "default"}
-            onValueChange={(value) => sendSessionCommand("expression:set", { characterId: char.characterId, expressionKey: value })}
-          >
-            <SelectTrigger className="h-[26px] w-[88px] px-2 text-label-small">
-              <SelectValue />
-              <ChevronDown className="size-3" />
-            </SelectTrigger>
-            <SelectContent>
-              {(char.portraits.length > 0 ? char.portraits : [{ expressionKey: "default", isDefault: true, portraitAssetId: "" }]).map((portrait) => (
-                <SelectItem key={portrait.expressionKey} value={portrait.expressionKey}>
-                  {expressionLabel(portrait.expressionKey)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {char.portraits.length > 0 ? (
+            <Select
+              value={char.currentExpressionKey ?? char.portraits.find((item) => item.isDefault)?.expressionKey ?? ""}
+              onValueChange={(value) => sendSessionCommand("expression:set", { characterId: char.characterId, expressionKey: value })}
+            >
+              <SelectTrigger className="h-[26px] w-[88px] px-2 text-label-small">
+                <SelectValue placeholder="未设置" />
+                <ChevronDown className="size-3" />
+              </SelectTrigger>
+              <SelectContent>
+                {char.portraits.map((portrait) => (
+                  <SelectItem key={portrait.expressionKey} value={portrait.expressionKey}>
+                    {expressionLabel(portrait.expressionKey)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <Button type="button" variant="tertiary" size="sm" disabled className="h-[26px] w-[88px] px-2 text-label-small">
+              无立绘
+            </Button>
+          )}
         </div>
       ))}
     </div>
@@ -163,26 +169,52 @@ export function RulesSection() {
   const [delta, setDelta] = useState("-1");
   const [maxValue, setMaxValue] = useState("10");
   const [tag, setTag] = useState("");
-  const selected = characterId || characters[0]?.characterId || "";
+  const selected = characters.some((character) => character.characterId === characterId) ? characterId : "";
   const current = characters.find((character) => character.characterId === selected);
+  const ready = Boolean(current);
   const state = parseCocState(current?.state);
   const skills = skillKeysFor(current);
 
-  function checkPayload() {
-    return { characterId: selected, skillKey, difficulty, bonusDice, penaltyDice, ...(hidden ? { hidden: true } : {}) };
+  function sendStateEdit(payload: Record<string, unknown>) {
+    if (!selected) {
+      return;
+    }
+    sendSessionCommand("state:edit", { characterId: selected, ...payload });
+  }
+
+  function sendCheck(command: "check:perform" | "check:request") {
+    if (!selected) {
+      return;
+    }
+    sendSessionCommand(command, { characterId: selected, skillKey, difficulty, bonusDice, penaltyDice, ...(hidden ? { hidden: true } : {}) });
+  }
+
+  function sendSanCheck() {
+    if (!selected) {
+      return;
+    }
+    sendSessionCommand("check:san", { characterId: selected, sanLossExpression: sanLoss, ...(hidden ? { hidden: true } : {}) });
   }
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 ease-standard-default-spatial flex flex-col gap-2.5 px-4 py-3 duration-500 delay-225">
       <SectionTitle icon={Zap}>规则 · 状态 / 鉴定 / SAN</SectionTitle>
       <Select value={selected} onValueChange={setCharacterId}>
-        <SelectTrigger className="h-8 text-label-medium"><SelectValue placeholder="选择角色" /></SelectTrigger>
+        <SelectTrigger className="h-8 text-label-medium" aria-label="目标角色">
+          <SelectValue placeholder="选择目标角色" />
+        </SelectTrigger>
         <SelectContent>
           {characters.map((character) => (
             <SelectItem key={character.characterId} value={character.characterId}>{character.name}</SelectItem>
           ))}
         </SelectContent>
       </Select>
+      <p
+        data-rules-target={current?.characterId ?? ""}
+        className={`text-label-small ${ready ? "text-md-on-surface-variant" : "text-warning"}`}
+      >
+        {current ? `当前目标：${current.name} · ${current.kind === "pc" ? "PC" : "NPC"}` : "未选择角色 · 状态编辑、鉴定与 SAN 检定已禁用"}
+      </p>
       {state ? (
         <p className="text-md-on-surface-variant text-label-small">
           HP {state.hp}/{state.maxHp} · MP {state.mp}/{state.maxMp} · SAN {state.san}/{state.maxSan}
@@ -190,18 +222,18 @@ export function RulesSection() {
       ) : null}
       <div className="flex gap-1.5">
         <Input value={delta} onChange={(event) => setDelta(event.target.value)} aria-label="数值增减" className="h-8 text-label-medium" />
-        <Button type="button" size="sm" variant="tertiary" className="h-8" onClick={() => sendSessionCommand("state:edit", { characterId: selected, hpDelta: Number(delta) || 0 })}>HP</Button>
-        <Button type="button" size="sm" variant="tertiary" className="h-8" onClick={() => sendSessionCommand("state:edit", { characterId: selected, mpDelta: Number(delta) || 0 })}>MP</Button>
-        <Button type="button" size="sm" variant="tertiary" className="h-8" onClick={() => sendSessionCommand("state:edit", { characterId: selected, sanDelta: Number(delta) || 0 })}>SAN</Button>
+        <Button type="button" size="sm" variant="tertiary" className="h-8 disabled:opacity-50" disabled={!ready} onClick={() => sendStateEdit({ hpDelta: Number(delta) || 0 })}>HP</Button>
+        <Button type="button" size="sm" variant="tertiary" className="h-8 disabled:opacity-50" disabled={!ready} onClick={() => sendStateEdit({ mpDelta: Number(delta) || 0 })}>MP</Button>
+        <Button type="button" size="sm" variant="tertiary" className="h-8 disabled:opacity-50" disabled={!ready} onClick={() => sendStateEdit({ sanDelta: Number(delta) || 0 })}>SAN</Button>
       </div>
       <div className="flex flex-wrap gap-1.5">
         <Input value={maxValue} onChange={(event) => setMaxValue(event.target.value)} aria-label="写入数值" className="h-8 w-16 text-label-medium" />
-        <Button type="button" size="sm" variant="tertiary" className="h-8" onClick={() => sendSessionCommand("state:edit", { characterId: selected, hp: Math.max(0, Number(maxValue) || 0) })}>写HP</Button>
-        <Button type="button" size="sm" variant="tertiary" className="h-8" onClick={() => sendSessionCommand("state:edit", { characterId: selected, mp: Math.max(0, Number(maxValue) || 0) })}>写MP</Button>
-        <Button type="button" size="sm" variant="tertiary" className="h-8" onClick={() => sendSessionCommand("state:edit", { characterId: selected, san: Math.max(0, Number(maxValue) || 0) })}>写SAN</Button>
-        <Button type="button" size="sm" variant="tertiary" className="h-8" onClick={() => sendSessionCommand("state:edit", { characterId: selected, maxHp: Math.max(1, Number(maxValue) || 1) })}>HP上限</Button>
-        <Button type="button" size="sm" variant="tertiary" className="h-8" onClick={() => sendSessionCommand("state:edit", { characterId: selected, maxMp: Math.max(0, Number(maxValue) || 0) })}>MP上限</Button>
-        <Button type="button" size="sm" variant="tertiary" className="h-8" onClick={() => sendSessionCommand("state:edit", { characterId: selected, maxSan: Math.max(0, Number(maxValue) || 0) })}>SAN上限</Button>
+        <Button type="button" size="sm" variant="tertiary" className="h-8 disabled:opacity-50" disabled={!ready} onClick={() => sendStateEdit({ hp: Math.max(0, Number(maxValue) || 0) })}>写HP</Button>
+        <Button type="button" size="sm" variant="tertiary" className="h-8 disabled:opacity-50" disabled={!ready} onClick={() => sendStateEdit({ mp: Math.max(0, Number(maxValue) || 0) })}>写MP</Button>
+        <Button type="button" size="sm" variant="tertiary" className="h-8 disabled:opacity-50" disabled={!ready} onClick={() => sendStateEdit({ san: Math.max(0, Number(maxValue) || 0) })}>写SAN</Button>
+        <Button type="button" size="sm" variant="tertiary" className="h-8 disabled:opacity-50" disabled={!ready} onClick={() => sendStateEdit({ maxHp: Math.max(1, Number(maxValue) || 1) })}>HP上限</Button>
+        <Button type="button" size="sm" variant="tertiary" className="h-8 disabled:opacity-50" disabled={!ready} onClick={() => sendStateEdit({ maxMp: Math.max(0, Number(maxValue) || 0) })}>MP上限</Button>
+        <Button type="button" size="sm" variant="tertiary" className="h-8 disabled:opacity-50" disabled={!ready} onClick={() => sendStateEdit({ maxSan: Math.max(0, Number(maxValue) || 0) })}>SAN上限</Button>
       </div>
       <div className="flex flex-wrap gap-1">
         {Object.entries(coc7e.CharacterStatusFlagLabel).map(([flag, label]) => {
@@ -212,8 +244,9 @@ export function RulesSection() {
               type="button"
               size="sm"
               variant={on ? "dangerSoft" : "tertiary"}
-              className="h-6 px-2"
-              onClick={() => sendSessionCommand("state:edit", on ? { characterId: selected, removeStatuses: [flag] } : { characterId: selected, addStatuses: [flag] })}
+              className="h-6 px-2 disabled:opacity-50"
+              disabled={!ready}
+              onClick={() => sendStateEdit(on ? { removeStatuses: [flag] } : { addStatuses: [flag] })}
             >
               {label}
             </Button>
@@ -222,9 +255,9 @@ export function RulesSection() {
       </div>
       <div className="flex gap-1.5">
         <Input value={tag} onChange={(event) => setTag(event.target.value)} placeholder="自定义标签" className="h-8 text-label-medium" />
-        <Button type="button" size="sm" variant="tertiary" className="h-8" onClick={() => {
+        <Button type="button" size="sm" variant="tertiary" className="h-8 disabled:opacity-50" disabled={!ready} onClick={() => {
           if (!tag.trim()) return;
-          sendSessionCommand("state:edit", { characterId: selected, addTags: [tag.trim()] });
+          sendStateEdit({ addTags: [tag.trim()] });
           setTag("");
         }}>挂标签</Button>
       </div>
@@ -236,8 +269,9 @@ export function RulesSection() {
               type="button"
               size="sm"
               variant="ghost"
-              className="h-6 px-2"
-              onClick={() => sendSessionCommand("state:edit", { characterId: selected, removeTags: [item] })}
+              className="h-6 px-2 disabled:opacity-50"
+              disabled={!ready}
+              onClick={() => sendStateEdit({ removeTags: [item] })}
             >
               {item} ×
             </Button>
@@ -271,12 +305,12 @@ export function RulesSection() {
         <Button type="button" size="sm" variant={hidden ? "dangerSoft" : "tertiary"} className="h-7" onClick={() => setHidden((value) => !value)}>{hidden ? "暗骰" : "公开"}</Button>
       </div>
       <div className="flex gap-1.5">
-        <Button type="button" size="sm" variant="tertiary" className="h-8" onClick={() => sendSessionCommand("check:perform", checkPayload())}>鉴定</Button>
-        <Button type="button" size="sm" variant="tertiary" className="h-8" onClick={() => sendSessionCommand("check:request", checkPayload())}>请求</Button>
+        <Button type="button" size="sm" variant="tertiary" className="h-8 disabled:opacity-50" disabled={!ready} onClick={() => sendCheck("check:perform")}>鉴定</Button>
+        <Button type="button" size="sm" variant="tertiary" className="h-8 disabled:opacity-50" disabled={!ready} onClick={() => sendCheck("check:request")}>请求</Button>
       </div>
       <div className="flex gap-1.5">
         <Input value={sanLoss} onChange={(event) => setSanLoss(event.target.value)} aria-label="SAN 损失" className="h-8 text-label-medium" />
-        <Button type="button" size="sm" variant="tertiary" className="h-8" onClick={() => sendSessionCommand("check:san", { characterId: selected, sanLossExpression: sanLoss, ...(hidden ? { hidden: true } : {}) })}>SAN 检定</Button>
+        <Button type="button" size="sm" variant="tertiary" className="h-8 disabled:opacity-50" disabled={!ready} onClick={sendSanCheck}>SAN 检定</Button>
       </div>
     </div>
   );
@@ -287,6 +321,8 @@ export function HandoutSection() {
   const granted = usePlayStore((state) => state.handouts);
   const characters = usePlayStore((state) => state.characters).filter((character) => character.kind === "pc");
   const [secretIds, setSecretIds] = useState<string[]>([]);
+  const recipients = characters.filter((character) => secretIds.includes(character.characterId));
+  const recipientNames = recipients.map((character) => character.name).join("、");
 
   function toggleSecret(characterId: string) {
     setSecretIds((current) => current.includes(characterId)
@@ -294,8 +330,12 @@ export function HandoutSection() {
       : [...current, characterId]);
   }
 
-  function secretTargets(): string[] {
-    return secretIds.length > 0 ? secretIds : (characters[0] ? [characters[0].characterId] : []);
+  function dispatchSecret(command: "handout:grant" | "handout:append", payload: Record<string, unknown>) {
+    if (recipients.length === 0) {
+      toast.error("请先选择情报接收的 PC");
+      return;
+    }
+    sendSessionCommand(command, { ...payload, recipientCharacterIds: recipients.map((character) => character.characterId) });
   }
 
   return (
@@ -308,6 +348,7 @@ export function HandoutSection() {
             type="button"
             size="sm"
             variant={secretIds.includes(character.characterId) ? "accentSoft" : "tertiary"}
+            aria-pressed={secretIds.includes(character.characterId)}
             className="h-6 px-2"
             onClick={() => toggleSecret(character.characterId)}
           >
@@ -315,6 +356,12 @@ export function HandoutSection() {
           </Button>
         ))}
       </div>
+      <p
+        data-secret-recipients={recipients.map((character) => character.characterId).join(",")}
+        className={`text-label-small ${recipients.length > 0 ? "text-md-on-surface-variant" : "text-warning"}`}
+      >
+        {recipients.length > 0 ? `秘密接收：${recipientNames}` : "未选择接收 PC · 「秘密」与「追加」已禁用"}
+      </p>
       {handouts.map((handout) => (
         <div key={handout.id} className="flex items-center gap-1.5">
           <span className="min-w-0 flex-1 truncate text-label-medium">{handout.title}</span>
@@ -331,15 +378,9 @@ export function HandoutSection() {
             type="button"
             size="sm"
             variant="tertiary"
-            className="h-7"
-            onClick={() => {
-              const recipientCharacterIds = secretTargets();
-              if (recipientCharacterIds.length === 0) {
-                toast.error("没有可发放的 PC");
-                return;
-              }
-              sendSessionCommand("handout:grant", { handoutId: handout.id, recipientCharacterIds });
-            }}
+            className="h-7 disabled:opacity-50"
+            disabled={recipients.length === 0}
+            onClick={() => dispatchSecret("handout:grant", { handoutId: handout.id })}
           >
             秘密
           </Button>
@@ -354,15 +395,9 @@ export function HandoutSection() {
               type="button"
               size="sm"
               variant="ghost"
-              className="h-6 px-2"
-              onClick={() => {
-                const recipientCharacterIds = secretTargets();
-                if (recipientCharacterIds.length === 0) {
-                  toast.error("没有可追加的 PC");
-                  return;
-                }
-                sendSessionCommand("handout:append", { grantId: item.grantId, recipientCharacterIds });
-              }}
+              className="h-6 px-2 disabled:opacity-50"
+              disabled={recipients.length === 0}
+              onClick={() => dispatchSecret("handout:append", { grantId: item.grantId })}
             >
               追加
             </Button>

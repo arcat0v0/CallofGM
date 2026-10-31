@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { LogOut, PanelRightClose, ScrollText, Users, VenetianMask } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CharacterSheetPanel } from "@/features/session-live/character-sheet-panel";
 import { HandoutLibrary } from "@/features/session-live/handout-library";
 import { cn } from "@/lib/utils";
@@ -11,71 +12,96 @@ function ChatPanelHeader({
   onCollapse,
   browseAllSheets = false,
   onLeaveSeat,
+  children,
 }: {
   compact?: boolean;
   onCollapse?: () => void;
   browseAllSheets?: boolean;
   onLeaveSeat?: () => void;
+  children?: ReactNode;
 }) {
   const [handoutsOpen, setHandoutsOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [presenceOpen, setPresenceOpen] = useState(false);
   const handouts = usePlayStore((state) => state.handouts);
   const presence = usePlayStore((state) => state.presence);
+  const presenceAvailable = usePlayStore((state) => state.presenceAvailable);
   const characters = usePlayStore((state) => state.characters);
 
   return (
-    <header
-      className={cn(
-        "relative flex items-center justify-between",
-        compact ? "h-10 px-3" : "h-[52px] px-4",
-      )}
-    >
-      <h2 className={cn("text-foreground font-serif", compact ? "text-title-small-emph" : "text-title-medium-emph")}>文字频道</h2>
-      <div className="flex items-center gap-1">
-        <Button variant="tertiary" size="icon-sm" aria-label="人物卡" onClick={() => setSheetOpen(true)}>
-          <VenetianMask />
-        </Button>
-        <Button variant="tertiary" size="icon-sm" aria-label="在线玩家" onClick={() => setPresenceOpen((value) => !value)}>
-          <Users />
-        </Button>
-        <Button variant="tertiary" size="icon-sm" aria-label="情报" onClick={() => setHandoutsOpen(true)}>
-          <ScrollText />
-        </Button>
-        {onLeaveSeat ? (
-          <Button variant="tertiary" size="icon-sm" aria-label="离开座位" onClick={onLeaveSeat}>
-            <LogOut />
+    <Popover>
+      <header
+        className={cn(
+          "relative flex items-center justify-between",
+          compact ? "h-10 px-3" : "h-[52px] px-4",
+        )}
+      >
+        <h2 className={cn("text-foreground font-serif", compact ? "text-title-small-emph" : "text-title-medium-emph")}>文字频道</h2>
+        <div className="flex items-center gap-1">
+          <Button variant="tertiary" size="icon-sm" aria-label="人物卡" onClick={() => setSheetOpen(true)}>
+            <VenetianMask />
           </Button>
-        ) : null}
-        {compact && onCollapse ? (
-          <Button
-            type="button"
-            variant="tertiary"
-            size="icon-sm"
-            onClick={onCollapse}
-            aria-label="收起文字频道"
-            className="size-7"
-          >
-            <PanelRightClose />
+          {presenceAvailable ? (
+            <PopoverTrigger asChild>
+              <Button variant="tertiary" size="icon-sm" aria-label="在线玩家">
+                <Users />
+              </Button>
+            </PopoverTrigger>
+          ) : null}
+          <Button variant="tertiary" size="icon-sm" aria-label="情报" onClick={() => setHandoutsOpen(true)}>
+            <ScrollText />
           </Button>
-        ) : null}
-      </div>
-      {presenceOpen ? (
-        <div className="bg-md-surface-container-high shadow-dropdown absolute top-full right-3 z-20 mt-1 w-56 rounded-xl p-3 text-body-small">
-          {presence.length === 0 ? "暂无在线列表" : presence.map((player) => {
-            const claimed = characters.find((character) => character.characterId === player.characterId);
-            return (
-              <div key={player.playerId} className="flex justify-between py-1">
-                <span>{claimed?.name ?? player.playerId.slice(0, 8)}</span>
-                <span>{player.role === "ob" ? "OB" : "PC"}</span>
-              </div>
-            );
-          })}
+          {onLeaveSeat ? (
+            <Button variant="tertiary" size="icon-sm" aria-label="离开座位" onClick={onLeaveSeat}>
+              <LogOut />
+            </Button>
+          ) : null}
+          {compact && onCollapse ? (
+            <Button
+              type="button"
+              variant="tertiary"
+              size="icon-sm"
+              onClick={onCollapse}
+              aria-label="收起文字频道"
+              className="size-7"
+            >
+              <PanelRightClose />
+            </Button>
+          ) : null}
         </div>
+        <HandoutLibrary handouts={handouts} open={handoutsOpen} onOpenChange={setHandoutsOpen} />
+        <CharacterSheetPanel open={sheetOpen} onOpenChange={setSheetOpen} browseAll={browseAllSheets} />
+      </header>
+      {children}
+      {presenceAvailable ? (
+        <>
+          <PopoverAnchor asChild>
+            <div aria-hidden className="pointer-events-none mr-3 h-0" />
+          </PopoverAnchor>
+          <PopoverContent
+            align="end"
+            side="bottom"
+            sideOffset={6}
+            avoidCollisions={false}
+            className="w-56 p-3 text-body-small"
+          >
+            <p className="text-label-medium-emph mb-1">在线玩家 · {presence.length}</p>
+            {presence.length === 0 ? (
+              <p className="text-md-on-surface-variant text-label-small">暂无在线玩家</p>
+            ) : (
+              presence.map((player) => {
+                const claimed = characters.find((character) => character.characterId === player.characterId);
+                return (
+                  <div key={player.playerId} className="flex justify-between py-1">
+                    <span>{claimed?.name ?? player.playerId.slice(0, 8)}</span>
+                    <span>{player.role === "ob" ? "OB" : "PC"}</span>
+                  </div>
+                );
+              })
+            )}
+          </PopoverContent>
+        </>
       ) : null}
-      <HandoutLibrary handouts={handouts} open={handoutsOpen} onOpenChange={setHandoutsOpen} />
-      <CharacterSheetPanel open={sheetOpen} onOpenChange={setSheetOpen} browseAll={browseAllSheets} />
-    </header>
+    </Popover>
   );
 }
 
