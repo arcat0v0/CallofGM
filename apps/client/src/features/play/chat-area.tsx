@@ -56,22 +56,22 @@ function ChatArea({ variant, onCollapse, className }: ChatAreaProps) {
         compact={compact}
         onCollapse={variant === "landscape" ? onCollapse : undefined}
         onLeaveSeat={() => setLeaveOpen(true)}
-      />
-
-      <div className={cn("flex items-center justify-between", variant === "desktop" ? "px-4 pb-2.5" : "px-3 py-2")}>
-        <Tabs value={channel} onValueChange={setChannel}>
-          <TabsList>
-            <TabsTrigger value="all">全部</TabsTrigger>
-            <TabsTrigger value="ic">角色</TabsTrigger>
-            <TabsTrigger value="ooc">场外</TabsTrigger>
-          </TabsList>
-        </Tabs>
-        {variant === "portrait" && (
-          <Badge variant="soft" tone="accent" size="md" className="h-6 px-2.5 text-label-small">
-            旋转到横屏体验更佳
-          </Badge>
-        )}
-      </div>
+      >
+        <div className={cn("flex items-center justify-between", variant === "desktop" ? "px-4 pb-2.5" : "px-3 py-2")}>
+          <Tabs value={channel} onValueChange={setChannel}>
+            <TabsList>
+              <TabsTrigger value="all">全部</TabsTrigger>
+              <TabsTrigger value="ic">角色</TabsTrigger>
+              <TabsTrigger value="ooc">场外</TabsTrigger>
+            </TabsList>
+          </Tabs>
+          {variant === "portrait" && (
+            <Badge variant="soft" tone="accent" size="md" className="h-6 px-2.5 text-label-small">
+              旋转到横屏体验更佳
+            </Badge>
+          )}
+        </div>
+      </ChatPanelHeader>
 
       <MessageList
         messages={visible}

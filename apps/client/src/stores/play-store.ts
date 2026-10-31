@@ -36,6 +36,7 @@ type PlayState = {
   scene: { id: string; name: string; bgAssetId: string | null } | null;
   handouts: GrantedHandoutDto[];
   presence: OnlinePlayerDto[];
+  presenceAvailable: boolean;
   pendingChecks: CheckRequestDto[];
   catalogScenes: SceneDto[];
   catalogTracks: TrackDto[];
@@ -71,6 +72,7 @@ const empty = {
   scene: null as PlayState["scene"],
   handouts: [] as GrantedHandoutDto[],
   presence: [] as OnlinePlayerDto[],
+  presenceAvailable: false,
   pendingChecks: [] as CheckRequestDto[],
   catalogScenes: [] as SceneDto[],
   catalogTracks: [] as TrackDto[],
@@ -261,6 +263,7 @@ export const usePlayStore = create<PlayState>((set, get) => ({
       scene: payload.currentScene,
       handouts: payload.visibleHandouts,
       presence: payload.online ?? [],
+      presenceAvailable: payload.online !== undefined,
       pendingChecks: payload.pendingCheckRequests,
       connected: true,
       terminal: null,
@@ -324,7 +327,7 @@ export const usePlayStore = create<PlayState>((set, get) => ({
     }
     if ("type" in message && message.type === "presence:updated") {
       const payload = message.payload as { online?: OnlinePlayerDto[] };
-      set({ presence: payload.online ?? [] });
+      set({ presence: payload.online ?? [], presenceAvailable: true });
       return;
     }
     if ("type" in message && message.type === "audio:se") {
