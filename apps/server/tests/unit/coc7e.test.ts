@@ -273,3 +273,25 @@ describe("CoC 7e 状态变更", () => {
     expect(preview.sheetData.attributes.luck).toBe(50);
   });
 });
+
+describe("CoC 7e getSkillTargetValue", () => {
+  function emptySheet(): coc7e.Coc7eCharacterSheet {
+    return { schemaVersion: 1, attributes: baseSheet.attributes, skills: {} };
+  }
+
+  test("卡上无技能时回退技能目录基础值", () => {
+    expect(rule.getSkillTargetValue(emptySheet(), "侦查")).toBe(25);
+    expect(rule.getSkillTargetValue(emptySheet(), "聆听")).toBe(20);
+    expect(rule.getSkillTargetValue(emptySheet(), "母语")).toBe(50);
+  });
+
+  test("属性目标值仍从卡读取，目录外的技能返回 null", () => {
+    expect(rule.getSkillTargetValue(emptySheet(), "str")).toBe(50);
+    expect(rule.getSkillTargetValue(emptySheet(), "非目录技能")).toBe(null);
+  });
+
+  test("人物卡已有技能值优先于目录基础值", () => {
+    expect(rule.getSkillTargetValue(baseSheet, "侦查")).toBe(60);
+    expect(rule.getSkillTargetValue(baseSheet, "聆听")).toBe(20);
+  });
+});
