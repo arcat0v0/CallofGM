@@ -84,7 +84,15 @@ function Composer({ compact = false, className }: { compact?: boolean; className
       toast.error("尚未连接到团");
       return;
     }
-    pendingSendsRef.current.set(sent, content);
+    const pending = pendingSendsRef.current;
+    pending.set(sent, content);
+    while (pending.size > 10) {
+      const oldest = pending.keys().next().value;
+      if (oldest === undefined) {
+        break;
+      }
+      pending.delete(oldest);
+    }
     setDraft("");
   }
 
