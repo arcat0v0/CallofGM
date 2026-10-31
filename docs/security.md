@@ -23,18 +23,6 @@ CI must always install via `bun install --frozen-lockfile`. The flag is redundan
 
 `bun audit` is wired into the typecheck gate (see `package.json` `scripts.audit` and `typecheck`). CI fails the build on any `high` or `critical` advisory.
 
-## Lockfile integrity
-
-The project's `bun.lock` is treated as an evidence artifact. Current fingerprint:
-
-```
-SHA256(bun.lock) = ddf90cdde7485a20cd3bbdcf6d3286b109596703a94d1acb5e76002037358d6d
-```
-
-Recompute locally with: `sha256sum bun.lock`. Any drift is investigated before merging.
-
----
-
 ## Incident log
 
 ### 2026-05-11 — TanStack npm supply-chain compromise (CVE-2026-45321 / GHSA-g7cv-rxg3-hmpx)
