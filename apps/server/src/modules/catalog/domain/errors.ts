@@ -35,3 +35,9 @@ export class MediaAssetInvalidError extends AppError {
     super("MEDIA_INVALID", message, 400);
   }
 }
+
+export class ModuleInUseError extends AppError {
+  constructor(message = "Module is referenced by sessions and cannot be deleted") {
+    super("MODULE_IN_USE", message, 409);
+  }
+}

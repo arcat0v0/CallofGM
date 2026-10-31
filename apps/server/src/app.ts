@@ -87,6 +87,15 @@ export function createApp(container: Container) {
           requestId,
         };
       }
+      const rawMessage = error instanceof Error ? error.message : String(error);
+      if (rawMessage.includes("FOREIGN KEY constraint failed")) {
+        set.status = 409;
+        return {
+          code: "RESOURCE_IN_USE",
+          message: "Resource is referenced by other records and cannot be deleted",
+          requestId,
+        };
+      }
       logger.error("unhandled http error", { requestId, err: error });
       set.status = 500;
       return {

@@ -39,6 +39,7 @@ export interface CatalogRepository {
   saveModule(module: CatalogModule): Promise<void>;
   updateModule(id: string, updates: Partial<Omit<CatalogModule, "id" | "createdAt">>): Promise<CatalogModule>;
   deleteModule(id: string): Promise<void>;
+  isModuleInUse(id: string): Promise<boolean>;
   listModules(options: {
     limit: number;
     offset?: number;

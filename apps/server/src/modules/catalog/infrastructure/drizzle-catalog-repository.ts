@@ -5,7 +5,8 @@ import {
   scenes,
   tracks,
   handouts,
-  mediaAssets
+  mediaAssets,
+  sessions,
 } from "@/platform/db/schema";
 import type {
   CatalogRepository,
@@ -67,6 +68,11 @@ export class DrizzleCatalogRepository implements CatalogRepository {
       throw new ModuleNotFoundError();
     }
     return row;
+  }
+
+  async isModuleInUse(id: string): Promise<boolean> {
+    const rows = await this.db.select({ id: sessions.id }).from(sessions).where(eq(sessions.moduleId, id)).limit(1);
+    return rows.length > 0;
   }
 
   async deleteModule(id: string): Promise<void> {

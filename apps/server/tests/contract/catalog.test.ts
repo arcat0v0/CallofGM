@@ -571,6 +571,53 @@ describe("Catalog contract tests", () => {
     expect(dbHandoutAfter.length).toBe(0);
   });
 
+  test("Deleting module referenced by a session returns 409 MODULE_IN_USE", async () => {
+    const modRes = await app.handle(
+      new Request("http://localhost/api/v1/gm/modules", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${gmToken}`,
+        },
+        body: JSON.stringify({
+          name: "Referenced Module",
+          description: "Desc",
+          ruleId: "coc7e",
+        }),
+      })
+    );
+    const mod = await modRes.json();
+
+    const { sessions } = await import("@/platform/db/schema");
+    await container.db.insert(sessions).values({
+      id: "sess-for-mod-test",
+      moduleId: mod.id,
+      status: "active",
+      phase: "free_discussion",
+      createdAt: Date.now(),
+    });
+
+    const delRes = await app.handle(
+      new Request(`http://localhost/api/v1/gm/modules/${mod.id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${gmToken}` },
+      })
+    );
+    expect(delRes.status).toBe(409);
+    const delBody = await delRes.json();
+    expect(delBody.code).toBe("MODULE_IN_USE");
+    expect(delBody.message).not.toContain("FOREIGN KEY");
+
+    // Clean up
+    await container.db.delete(sessions).where((await import("drizzle-orm")).eq(sessions.id, "sess-for-mod-test"));
+    await app.handle(
+      new Request(`http://localhost/api/v1/gm/modules/${mod.id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${gmToken}` },
+      })
+    );
+  });
+
   test("Pagination (cursor/offset)", async () => {
     const listBefore = await app.handle(
       new Request("http://localhost/api/v1/gm/modules?limit=100", {

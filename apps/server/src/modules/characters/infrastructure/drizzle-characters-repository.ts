@@ -7,6 +7,10 @@ import {
   importStagings,
   modules,
   mediaAssets,
+  sessionCharacters,
+  sessionClaims,
+  checkRequests,
+  sessionMessages,
 } from "@/platform/db/schema";
 import {
   CharacterNotFoundError,
@@ -58,6 +62,16 @@ export class DrizzleCharactersRepository implements CharactersRepository {
       throw new CharacterNotFoundError();
     }
     return row;
+  }
+
+  async isCharacterInUse(id: string): Promise<boolean> {
+    const [sc, claim, req, msg] = await Promise.all([
+      this.db.select({ id: sessionCharacters.id }).from(sessionCharacters).where(eq(sessionCharacters.characterId, id)).limit(1),
+      this.db.select({ id: sessionClaims.id }).from(sessionClaims).where(eq(sessionClaims.characterId, id)).limit(1),
+      this.db.select({ id: checkRequests.id }).from(checkRequests).where(eq(checkRequests.characterId, id)).limit(1),
+      this.db.select({ id: sessionMessages.id }).from(sessionMessages).where(eq(sessionMessages.characterId, id)).limit(1),
+    ]);
+    return sc.length > 0 || claim.length > 0 || req.length > 0 || msg.length > 0;
   }
 
   async deleteCharacter(id: string): Promise<void> {

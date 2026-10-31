@@ -5,7 +5,8 @@ import {
   TrackNotFoundError,
   HandoutNotFoundError,
   MediaAssetNotFoundError,
-  MediaAssetInvalidError
+  MediaAssetInvalidError,
+  ModuleInUseError
 } from "../domain/errors";
 import type {
   CatalogRepository,
@@ -74,6 +75,10 @@ export class DeleteModuleUseCase {
   constructor(private readonly repo: CatalogRepository) {}
 
   async execute(id: string): Promise<void> {
+    const inUse = await this.repo.isModuleInUse(id);
+    if (inUse) {
+      throw new ModuleInUseError();
+    }
     await this.repo.deleteModule(id);
   }
 }

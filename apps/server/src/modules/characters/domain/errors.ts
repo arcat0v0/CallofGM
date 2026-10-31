@@ -71,3 +71,9 @@ export class CharacterRuleMismatchError extends AppError {
     super("CHARACTER_RULE_MISMATCH", message, 400);
   }
 }
+
+export class CharacterInUseError extends AppError {
+  constructor(message = "Character is referenced by sessions or records and cannot be deleted") {
+    super("CHARACTER_IN_USE", message, 409);
+  }
+}

@@ -253,6 +253,46 @@ describe("Characters contract tests", () => {
     const gotAfterPortraitDelete = await getAfterPortraitDelete.json() as TestCharacterResponse;
     expect(gotAfterPortraitDelete.portraits.length).toBe(0);
 
+    // Pre-insert session using character to test referenced deletion
+    const { sessions, sessionCharacters } = await import("@/platform/db/schema");
+    const { modules } = await import("@/platform/db/schema");
+    await container.db.insert(modules).values({
+      id: "mod-ref-test",
+      name: "Mod Ref",
+      description: "",
+      ruleId: "coc7e",
+      createdAt: Date.now(),
+    }).onConflictDoNothing();
+    await container.db.insert(sessions).values({
+      id: "sess-ref-test",
+      moduleId: "mod-ref-test",
+      status: "active",
+      phase: "free_discussion",
+      createdAt: Date.now(),
+    }).onConflictDoNothing();
+    await container.db.insert(sessionCharacters).values({
+      id: "sc-ref-test",
+      sessionId: "sess-ref-test",
+      characterId: character.id,
+      kind: "pc",
+      stateJson: "{}",
+      createdAt: Date.now(),
+    });
+
+    const deleteReferencedRes = await app.handle(
+      new Request(`http://localhost/api/v1/gm/characters/${character.id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${gmToken}` },
+      })
+    );
+    expect(deleteReferencedRes.status).toBe(409);
+    const delErr = (await deleteReferencedRes.json()) as { code: string; message: string };
+    expect(delErr.code).toBe("CHARACTER_IN_USE");
+    expect(delErr.message).not.toContain("FOREIGN KEY");
+
+    // Clean up reference to allow subsequent delete
+    await container.db.delete(sessionCharacters).where((await import("drizzle-orm")).eq(sessionCharacters.id, "sc-ref-test"));
+
     const deleteRes = await app.handle(
       new Request(`http://localhost/api/v1/gm/characters/${character.id}`, {
         method: "DELETE",

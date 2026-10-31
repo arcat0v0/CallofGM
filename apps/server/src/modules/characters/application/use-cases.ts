@@ -13,6 +13,7 @@ import {
   StagingOwnerMismatchError,
   InvalidMediaAssetError,
   CharacterRuleMismatchError,
+  CharacterInUseError,
 } from "../domain/errors";
 import { ModuleNotFoundError, MediaAssetNotFoundError } from "@/modules/catalog";
 import { type RuleId } from "@cogm/shared";
@@ -101,6 +102,10 @@ export class UpdateCharacterUseCase {
 export class DeleteCharacterUseCase {
   constructor(private readonly repo: CharactersRepository) {}
   async execute(id: string) {
+    const inUse = await this.repo.isCharacterInUse(id);
+    if (inUse) {
+      throw new CharacterInUseError();
+    }
     await this.repo.deleteCharacter(id);
   }
 }
