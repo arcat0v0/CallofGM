@@ -22,14 +22,16 @@ describe("Chat contract tests", () => {
 
   beforeAll(async () => {
     ctx = await setupTestApp({
-      players: ["pc1", "ob1"],
+      players: ["pc1", "ob1", "pc_no_pic"],
       characters: [
         { id: "char-pc1", name: "调查员一号", kind: "pc", portraits: ["default", "angry"] },
+        { id: "char-pc-noportrait", name: "无立绘调查员", kind: "pc" },
         { id: "char-npc1", name: "神秘学者", kind: "npc", portraits: ["default"] },
       ],
       claims: [
         { player: "pc1", role: "pc", characterId: "char-pc1" },
         { player: "ob1", role: "ob" },
+        { player: "pc_no_pic", role: "pc", characterId: "char-pc-noportrait" },
       ],
     });
     server = listenTestApp(ctx.app);
@@ -238,6 +240,26 @@ describe("Chat contract tests", () => {
     expect(pcSnapshot.payload.recentMessages.some((msg: any) => msg.content === "快照中的pending")).toBe(false);
 
     await closeAll(gm2, pc2);
+  });
+
+  test("无立绘 PC：发送 roleplay 消息时不携带 expressionKey 成功进入队列", async () => {
+    await setSessionPhase(ctx, "performance_time");
+    const gm = await connectWs(wsUrl(), ctx.gmToken);
+    const pcNoPic = await connectWs(wsUrl(), ctx.playerTokens.get("pc_no_pic")!);
+    await Promise.all([
+      gm.waitFor((m) => m.type === "snapshot"),
+      pcNoPic.waitFor((m) => m.type === "snapshot"),
+    ]);
+
+    sendCommand(pcNoPic, "chat:send", { channel: "roleplay", content: "我虽然没有立绘但我能说话" }, "c-nopic-1");
+    const reply = await pcNoPic.waitFor((m) => m.commandId === "c-nopic-1");
+    expect(reply.type).toBe("command:accepted");
+    expect(reply.payload.presented).toBe(false);
+
+    const queue = await gm.waitFor((m) => m.type === "chat:queue");
+    expect(queue.payload.messages.some((msg: any) => msg.content === "我虽然没有立绘但我能说话")).toBe(true);
+
+    await closeAll(gm, pcNoPic);
   });
 
   test("非法表情引用被服务端拒绝", async () => {

@@ -45,6 +45,7 @@ type PlayState = {
   muted: boolean;
   connected: boolean;
   terminal: ConnectionTerminal | null;
+  lastRejection: { commandId: string; message: string } | null;
   applySnapshot: (payload: SessionSnapshotPayload, watermark: number) => void;
   applyMessage: (message: ServerMessage) => void;
   setCatalog: (input: { scenes?: SceneDto[]; tracks?: TrackDto[]; handouts?: CatalogHandoutDto[] }) => void;
@@ -79,6 +80,7 @@ const empty = {
   muted: false,
   connected: false,
   terminal: null as ConnectionTerminal | null,
+  lastRejection: null as { commandId: string; message: string } | null,
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -272,7 +274,10 @@ export const usePlayStore = create<PlayState>((set, get) => ({
     if ("type" in message && (message.type === "command:accepted" || message.type === "command:rejected")) {
       const payload = isRecord(message.payload) ? message.payload : {};
       if (message.type === "command:rejected") {
-        toast.error(typeof payload.message === "string" ? payload.message : "指令被拒绝");
+        const errorMsg = typeof payload.message === "string" ? payload.message : "指令被拒绝";
+        toast.error(errorMsg);
+        const cmdId = "commandId" in message && typeof message.commandId === "string" ? message.commandId : "";
+        set({ lastRejection: { commandId: cmdId, message: errorMsg } });
         return;
       }
       const requestId = typeof payload.requestId === "string" ? payload.requestId : null;

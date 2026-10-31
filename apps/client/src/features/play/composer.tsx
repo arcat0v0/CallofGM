@@ -1,5 +1,5 @@
 import { Eye, VenetianMask } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -21,23 +21,41 @@ import { usePlayStore } from "@/stores/play-store";
 
 function Composer({ compact = false, className }: { compact?: boolean; className?: string }) {
   const [mode, setMode] = useState<MessageMode>("roleplay");
-  const [expression, setExpression] = useState("default");
   const [draft, setDraft] = useState("");
   const [previewOpen, setPreviewOpen] = useState(false);
   const playerId = useIdentityStore((state) => state.playerId);
   const phase = usePlayStore((state) => state.phase);
   const status = usePlayStore((state) => state.status);
   const characters = usePlayStore((state) => state.characters);
+  const lastRejection = usePlayStore((state) => state.lastRejection);
   const claimed = characters.find((character) => character.claim?.playerId === playerId && character.claim.role === "pc");
   const isOb = !claimed && characters.some((character) => character.claim?.playerId === playerId && character.claim.role === "ob");
   const speakerName = claimed?.name ?? (isOb ? "观战" : "玩家");
-  const canExpress = Boolean(claimed);
   const expressionOptions =
     claimed?.portraits?.map((portrait) => ({
       key: portrait.expressionKey,
       label: expressionLabel(portrait.expressionKey),
       src: mediaUrl(portrait.portraitAssetId),
     })) ?? [];
+  const canExpress = Boolean(claimed && expressionOptions.length > 0);
+  const [expression, setExpression] = useState(expressionOptions[0]?.key ?? "");
+
+  const pendingSendsRef = useRef<Map<string, string>>(new Map());
+
+  useEffect(() => {
+    if (expressionOptions.length > 0 && !expressionOptions.some((opt) => opt.key === expression)) {
+      setExpression(expressionOptions[0]?.key ?? "");
+    }
+  }, [expressionOptions, expression]);
+
+  useEffect(() => {
+    if (!lastRejection) return;
+    const restoredText = pendingSendsRef.current.get(lastRejection.commandId);
+    if (restoredText !== undefined) {
+      pendingSendsRef.current.delete(lastRejection.commandId);
+      setDraft((current) => (current ? `${current} ${restoredText}` : restoredText));
+    }
+  }, [lastRejection]);
 
   const ended = status === "ended";
   const forcedCg = phase === "forced_cg";
@@ -60,12 +78,13 @@ function Composer({ compact = false, className }: { compact?: boolean; className
     const sent = sendSessionCommand("chat:send", {
       channel: effectiveMode === "ooc" ? "ooc" : "roleplay",
       content,
-      ...(effectiveMode === "roleplay" && canExpress ? { expressionKey: expression } : {}),
+      ...(effectiveMode === "roleplay" && canExpress && expression ? { expressionKey: expression } : {}),
     });
     if (!sent) {
       toast.error("尚未连接到团");
       return;
     }
+    pendingSendsRef.current.set(sent, content);
     setDraft("");
   }
 
@@ -103,7 +122,7 @@ function Composer({ compact = false, className }: { compact?: boolean; className
             </Button>
           </div>
           <div className="bg-md-surface-container-high flex rounded-full p-0.5">
-            {(expressionOptions.length > 0 ? expressionOptions : [{ key: "default", label: "默认", src: null }]).map((tile) => {
+            {expressionOptions.map((tile) => {
               const isActive = tile.key === expression;
               return (
                 <button
