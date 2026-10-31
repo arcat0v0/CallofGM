@@ -60,6 +60,7 @@ function ConfirmDialog({
           </Button>
           <AlertDialogAction
             variant={variant === "danger" ? "danger" : "primary"}
+            onClick={onConfirm}
             className={cn(
               "flex h-11 flex-1 items-center justify-center gap-2",
               variant === "warning" && "bg-warning text-warning-foreground hover:bg-warning-hover",

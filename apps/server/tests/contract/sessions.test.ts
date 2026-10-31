@@ -361,7 +361,25 @@ describe("Sessions contract tests", () => {
     const phaseRes3Err = (await phaseRes3.json()) as any;
     expect(phaseRes3Err.code).toBe("SESSION_STATE_INVALID");
 
-    const p1ClaimRes2 = await app.handle(
+    // In an ended session, PC claim is rejected but OB claim is allowed for read-only review
+    const p1PcClaimRes = await app.handle(
+      new Request(`http://localhost/api/v1/sessions/${sessionId}/claim`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${player1Token}`,
+        },
+        body: JSON.stringify({
+          role: "pc",
+          characterId: "char-1",
+        }),
+      })
+    );
+    expect(p1PcClaimRes.status).toBe(400);
+    const p1PcClaimErr = (await p1PcClaimRes.json()) as any;
+    expect(p1PcClaimErr.code).toBe("SESSION_STATE_INVALID");
+
+    const p1ObClaimRes = await app.handle(
       new Request(`http://localhost/api/v1/sessions/${sessionId}/claim`, {
         method: "POST",
         headers: {
@@ -373,9 +391,9 @@ describe("Sessions contract tests", () => {
         }),
       })
     );
-    expect(p1ClaimRes2.status).toBe(400);
-    const p1ClaimRes2Err = (await p1ClaimRes2.json()) as any;
-    expect(p1ClaimRes2Err.code).toBe("SESSION_STATE_INVALID");
+    expect(p1ObClaimRes.status).toBe(200);
+    const p1ObClaimBody = (await p1ObClaimRes.json()) as any;
+    expect(p1ObClaimBody.role).toBe("ob");
   });
 
   test("Create session rejects characters not linked to the module", async () => {

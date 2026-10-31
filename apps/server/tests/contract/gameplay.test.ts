@@ -22,7 +22,7 @@ describe("Gameplay contract tests", () => {
   beforeAll(async () => {
     ctx = await setupTestApp({
       randomSource: random,
-      players: ["pc1", "pc2"],
+      players: ["pc1", "pc2", "pc3"],
       characters: [
         {
           id: "char-pc1",
@@ -38,11 +38,21 @@ describe("Gameplay contract tests", () => {
           name: "调查员二号",
           kind: "pc",
         },
+        {
+          id: "char-pc3",
+          name: "新人调查员",
+          kind: "pc",
+          sheet: {
+            attributes: { str: 50, con: 50, siz: 50, dex: 50, app: 50, int: 50, pow: 50, edu: 50, luck: 50 },
+            skills: {},
+          },
+        },
         { id: "char-npc1", name: "神秘学者", kind: "npc" },
       ],
       claims: [
         { player: "pc1", role: "pc", characterId: "char-pc1" },
         { player: "pc2", role: "pc", characterId: "char-pc2" },
+        { player: "pc3", role: "pc", characterId: "char-pc3" },
       ],
     });
     server = listenTestApp(ctx.app);
@@ -150,6 +160,37 @@ describe("Gameplay contract tests", () => {
     expect(reply3.payload.code).toBe("SKILL_NOT_FOUND");
 
     await closeAll(gm, pc1, pc2);
+  });
+
+  test("空卡人物：技能目录基础值兜底，GM 鉴定与请求可写入", async () => {
+    await setSessionPhase(ctx, "free_performance");
+    const gm = await connectWs(wsUrl(), ctx.gmToken);
+    const pc3 = await connectWs(wsUrl(), ctx.playerTokens.get("pc3")!);
+    await Promise.all([
+      gm.waitFor((m) => m.type === "snapshot"),
+      pc3.waitFor((m) => m.type === "snapshot"),
+    ]);
+
+    random.push(1, 1);
+    sendCommand(gm, "check:perform", { characterId: "char-pc3", skillKey: "侦查" }, "c-empty-1");
+    const resolved = await gm.waitFor(
+      (m) => m.type === "check:resolved" && m.payload.characterId === "char-pc3"
+    );
+    expect(resolved.payload.result.targetValue).toBe(25);
+
+    sendCommand(gm, "check:request", { characterId: "char-pc3", skillKey: "聆听" }, "c-empty-2");
+    const reply = await gm.waitFor((m) => m.commandId === "c-empty-2");
+    expect(reply.type).toBe("command:accepted");
+    await pc3.waitFor((m) => m.type === "check:requested");
+
+    random.push(5, 0);
+    sendCommand(pc3, "check:respond", { requestId: reply.payload.requestId }, "c-empty-3");
+    const selfResolved = await gm.waitFor(
+      (m) => m.type === "check:resolved" && m.payload.characterId === "char-pc3" && m.payload.requestId === reply.payload.requestId
+    );
+    expect(selfResolved.payload.result.targetValue).toBe(20);
+
+    await closeAll(gm, pc3);
   });
 
   test("GM 对 NPC 的鉴定结果仅 GM 可见", async () => {

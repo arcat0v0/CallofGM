@@ -55,6 +55,7 @@ export interface CharactersRepository {
     }
   ): Promise<CharacterRecord>;
   deleteCharacter(id: string): Promise<void>;
+  isCharacterInUse(id: string): Promise<boolean>;
   listCharacters(options: CursorPageOptions): Promise<{ items: CharacterRecord[]; nextCursor: string | null }>;
 
   findMediaAsset(id: string): Promise<{ id: string; purpose: string; mimeType: string } | null>;

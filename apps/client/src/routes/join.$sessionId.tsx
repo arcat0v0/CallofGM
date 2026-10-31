@@ -198,8 +198,12 @@ function JoinPage() {
         setSeats(nextSeats);
         setStatus(info.session.status);
         setModuleName(info.session.moduleName);
-        const firstOpen = nextSeats.find((seat) => !seat.claimed);
-        setSelectedId(firstOpen?.id ?? null);
+        if (info.session.status === "ended") {
+          setSelectedId(OB_SEAT.id);
+        } else {
+          const firstOpen = nextSeats.find((seat) => !seat.claimed);
+          setSelectedId(firstOpen?.id ?? null);
+        }
       } catch (error) {
         if (!cancelled) {
           toast.error(isApiError(error) ? error.message : "无法加载座位信息");
@@ -217,24 +221,24 @@ function JoinPage() {
 
   const selectedSeat = seats.find((seat) => seat.id === selectedId && !seat.claimed);
 
+  const isEnded = status === "ended";
   const handleJoin = async () => {
-    if (!selectedSeat || joining) {
+    if (joining) {
       return;
     }
     setJoining(true);
     try {
       await ensurePlayer();
+      const claimPayload = isEnded || selectedSeat?.kind === "spectator"
+        ? { role: "ob" as const }
+        : { role: "pc" as const, characterId: selectedSeat?.id };
       await api(`/sessions/${encodeURIComponent(sessionId)}/claim`, {
         method: "POST",
-        body: JSON.stringify(
-          selectedSeat.kind === "spectator"
-            ? { role: "ob" }
-            : { role: "pc", characterId: selectedSeat.id },
-        ),
+        body: JSON.stringify(claimPayload),
       });
       await navigate({ to: "/play/$sessionId", params: { sessionId } });
     } catch (error) {
-      toast.error(isApiError(error) ? error.message : "认领失败");
+      toast.error(isApiError(error) ? error.message : "进入失败");
     } finally {
       setJoining(false);
     }
@@ -253,7 +257,7 @@ function JoinPage() {
           {moduleName ?? "选择你的位置"}
         </h1>
         <p className="text-body-large text-md-on-surface-variant">
-          选择你的位置 · 已认领的角色不可重复选择
+          {isEnded ? "本团已结团 · 可作为观战进入回看聊天记录与情报" : "选择你的位置 · 已认领的角色不可重复选择"}
         </p>
       </div>
 
@@ -289,15 +293,17 @@ function JoinPage() {
       <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 ease-expressive-default-spatial fill-mode-backwards delay-225 flex flex-col items-center gap-3">
         <Button
           type="button"
-          disabled={!selectedSeat || joining}
+          disabled={joining || (!isEnded && !selectedSeat)}
           onClick={() => void handleJoin()}
           variant="primary"
           size="lg"
         >
           <LogIn className="size-4" />
-          {selectedSeat ? `以「${selectedSeat.name}」进入` : "请选择一个位置"}
+          {isEnded ? "进入回看记录" : selectedSeat ? `以「${selectedSeat.name}」进入` : "请选择一个位置"}
         </Button>
-        <p className="text-label-small text-foreground-tertiary">进入后将自动同步 GM 控制的 BGM 播放</p>
+        <p className="text-label-small text-foreground-tertiary">
+          {isEnded ? "结团回看模式：聊天记录与公开情报完整可查" : "进入后将自动同步 GM 控制的 BGM 播放"}
+        </p>
       </div>
     </main>
   );
