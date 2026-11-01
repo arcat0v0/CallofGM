@@ -13,6 +13,7 @@ package.json[FV6T]: F:仓库根清单：bun workspaces（apps/*、packages/*）�
 skills-lock.json[FV3T]: F:Agent 技能来源锁定：GitHub 仓库、SKILL.md 路径与内容哈希 | R:- | A:- | S:-
 tsconfig.base.json[FV5T]: F:全仓 TS 基础配置：strict、noUncheckedIndexedAccess、verbatimModuleSyntax、bundler 解析 | R:- | A:- | S:noUncheckedIndexedAccess 开启，索引访问返回 T|undefined，新代码须处理
 autoresearch.sh[XQ2T]: F:autoresearch 基准入口：运行 bun scripts/parity/verify.ts 并原样透传输出供外层采集 METRIC 指标 | R:code:scripts/parity/verify.ts | A:bash autoresearch.sh | S:对齐分数不影响退出码；仅内部错误或无 METRIC 行时非零
+frontend.pen[ZU3L]: F:Pen 设计稿（约 3.2MB JSON）：docs/design-system/README.md 记载的 CoGM Expressive 01–06 画板、可编辑图层与动效分镜 | R:code:docs/design-system/README.md,code:docs/DESIGN.md | A:- | S:仅 Pen 可安全编辑，不参与构建；手改 JSON 易破坏画板结构
 
 ===/home/arcat/Develop/CallofGM/.github/workflows/===
 ui-components.yml[OV4T]: F:UI CI：PR 或 push 到 main 且触及 apps/client、packages/shared、锁文件等路径时，用 Bun 1.4.2 依次跑 test:ui、client typecheck、build:client | R:code:apps/client/package.json | A:- | S:-
@@ -596,6 +597,7 @@ routes.ts[AN4T]: F:界面设置路由（GM 专用 /api/v1/gm/ui-settings）：GE
 
 ===/home/arcat/Develop/CallofGM/docs/qa/===
 findings-2026-11-01.md[TQ6L]: F:2026-11-01 全量验证报告：87 项发现（F1–F87），逐项含文件定位、复现与证据、严重度速览与截图包索引 | R:code:docs/product.md,code:docs/architecture.md | A:截图证据为同目录 screenshots-2026-11-01.tar.zst | S:历史报告，修复后不应据此改代码；部分发现（如 message-policy.ts 路径）已被后续重构移除，引用前需核对当前代码
+screenshots-2026-11-01.tar.zst[ZQ3L]: F:2026-11-01 全量验证的截图证据包：127 张截图的 tar + Zstandard 归档，对应 findings 报告中的「截图 NNN」 | R:code:docs/qa/findings-2026-11-01.md | A:- | S:二进制归档不可直接编辑；解压后可核对每项发现的视觉证据
 
 ===/home/arcat/Develop/CallofGM/packages/theme-cli/===
 package.json[FV4T]: F:theme-cli 清单：bin cogm-theme 指向 src/index.ts，依赖 esbuild/fflate 与 react 供 shim，scripts 含 typecheck 与 test | R:code:packages/theme-cli/src/index.ts | A:- | S:未发布到 npm，仅经仓库 bun run theme 调用
@@ -610,3 +612,35 @@ tsconfig.json[FC2T]: F:theme-sdk 的 TS 配置：继承 base，DOM lib 与 react
 
 ===/home/arcat/Develop/CallofGM/packages/theme-sdk/src/===
 index.ts[EE6M]: F:主题 SDK：13 个插槽名与各自上下文类型、PlayViewport/ChatMessageView/JoinSeatView 视图模型、defineTheme，以及经 globalThis.__COGM_THEME_SDK__ 代理的 cn/t/assetUrl/navigate/useLocale | R:code:packages/shared/src/themes.ts | A:导出 THEME_SLOT_NAMES/ThemeSlotCtxMap/defineTheme 与运行时函数 | S:新增插槽必须同时进 THEME_SLOT_NAMES、CtxMap 与默认主题；运行时函数未注入时会抛错
+
+===/home/arcat/Develop/CallofGM/apps/client/public/demo/scenes/===
+library.png[ZU2L]: F:场景背景素材（1376×768）：夜间图书馆内景，木质书架环绕、临窗书桌与油灯，用作演示场景整幅背景 | R:- | A:- | S:代码无直接引用；与 images/generated-1783950920511.png 字节相同
+boathouse-thumb.png[ZU2L]: F:演示场景缩略图（1408×768）：雨夜木船屋内部，油灯、木桌与窗外湖面，门边可见小船 | R:- | A:- | S:代码无引用；与 images/generated-1783951182676.png 字节相同
+lake-altar-thumb.png[ZU2L]: F:演示场景缩略图（1376×768）：湖底祭坛，触手状石雕、石阶与绿色幽光 | R:- | A:- | S:代码无引用；与 images/generated-1783951182729.png 字节相同
+library-night-thumb.png[ZU2L]: F:演示场景缩略图（1376×768）：夜间图书馆，木质书架、书桌、油灯与高窗 | R:- | A:- | S:代码无引用；与 images/generated-1783951182442.png 字节相同
+
+===/home/arcat/Develop/CallofGM/apps/client/public/demo/modules/===
+abandoned-mine.png[ZU2L]: F:演示模组封面（1584×672）：黄昏山谷中的废弃银矿入口，木制矿架、铁轨矿车与「SILVER PEAK MINE」招牌 | R:- | A:- | S:代码无直接引用；与 images/generated-1783951329025.png 字节相同
+color-out-of-space.png[ZU2L]: F:演示模组封面（1584×672）：紫色虚空裂隙降临荒原，持杖法师背影与「虚無の降臨 VOIDFALL」标题 | R:- | A:- | S:代码无直接引用；与 images/generated-1783951328878.png 字节相同
+sunk-memory.png[ZU2L]: F:演示模组封面（1584×672）：雨夜湖畔的维多利亚式宅邸，绿色窗光与林间小径 | R:- | A:- | S:代码无直接引用；与 images/generated-1783951326539.png 字节相同
+
+===/home/arcat/Develop/CallofGM/apps/client/public/demo/portraits/===
+shiraishi-takuma.png[ZU2L]: F:演示人物立绘（1408×768）：西装、领结与手杖的年轻男性全身像，纯深色背景 | R:- | A:- | S:代码无引用；与 images/generated-1783950921099.png 字节相同
+tono-mio.png[ZU2L]: F:演示人物立绘（1408×768）：和服外披羽织、手提油灯的少女全身像，深色背景 | R:- | A:- | S:代码无引用；与 images/generated-1783950921482.png 字节相同
+
+===/home/arcat/Develop/CallofGM/images/===
+generated-1783950920511.png[ZU1L]: F:素材产出（1376×768）：夜间图书馆场景的重复存档 | R:- | A:- | S:与 demo/scenes/library.png 字节相同，改图需同步两处
+generated-1783950921099.png[ZU1L]: F:素材产出（1408×768）：西装男性立绘的重复存档 | R:- | A:- | S:与 demo/portraits/shiraishi-takuma.png 字节相同
+generated-1783950921482.png[ZU1L]: F:素材产出（1408×768）：提灯少女立绘的重复存档 | R:- | A:- | S:与 demo/portraits/tono-mio.png 字节相同
+generated-1783951182442.png[ZU1L]: F:素材产出（1376×768）：夜间图书馆缩略图的重复存档 | R:- | A:- | S:与 demo/scenes/library-night-thumb.png 字节相同
+generated-1783951182676.png[ZU1L]: F:素材产出（1408×768）：雨夜船屋缩略图的重复存档 | R:- | A:- | S:与 demo/scenes/boathouse-thumb.png 字节相同
+generated-1783951182729.png[ZU1L]: F:素材产出（1376×768）：湖底祭坛缩略图的重复存档 | R:- | A:- | S:与 demo/scenes/lake-altar-thumb.png 字节相同
+generated-1783951326539.png[ZU1L]: F:素材产出（1584×672）：雨夜湖畔宅邸封面的重复存档 | R:- | A:- | S:与 demo/modules/sunk-memory.png 字节相同
+generated-1783951328878.png[ZU1L]: F:素材产出（1584×672）：紫色虚空降临封面的重复存档 | R:- | A:- | S:与 demo/modules/color-out-of-space.png 字节相同
+generated-1783951329025.png[ZU1L]: F:素材产出（1584×672）：废弃银矿封面的重复存档 | R:- | A:- | S:与 demo/modules/abandoned-mine.png 字节相同
+generated-1783956316795.png[ZU1L]: F:素材产出（1408×768）：雨夜船屋内景变体，油灯照亮的木桌与湖景门窗 | R:- | A:- | S:未被引用；与 demo 船屋图为不同画面，属未采用稿
+generated-1783956317113.png[ZU1L]: F:素材产出（约 1584×672）：图书馆内人物伏案阅读，暖色台灯与书架 | R:- | A:- | S:未被引用；属未采用的场景候选稿
+generated-1783956317969.png[ZU1L]: F:素材产出（约 1584×672）：宅邸门厅，旋转楼梯、吊灯、肖像画与深色木作 | R:- | A:- | S:未被引用；属未采用的场景候选稿
+generated-1783956319076.png[ZU1L]: F:素材产出（约 1584×672）：雨夜日式旅馆庭院，石灯笼、水洼石径与木屋 | R:- | A:- | S:未被引用；属未采用的场景候选稿
+generated-1783956319159.png[ZU1L]: F:素材产出（约 1376×768）：水下祭坛变体，石雕台座、触手与绿色光源 | R:- | A:- | S:未被引用；与 lake-altar 系列同题材，属未采用稿
+generated-1783956389970.png[ZU1L]: F:素材产出（约 1408×768）：提灯少女半身近景，和服与暖色灯光 | R:- | A:- | S:未被引用；与 tono-mio 立绘同一角色，属近景候选稿
