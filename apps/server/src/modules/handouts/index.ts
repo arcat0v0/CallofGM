@@ -12,6 +12,7 @@ export function createHandoutCommandHandlers(
 export {
   GrantHandoutHandler,
   AppendHandoutRecipientsHandler,
+  ReadHandoutHandler,
 } from "./application/commands";
 export * from "./domain/errors";
 export { DrizzleHandoutsRepository } from "./infrastructure/drizzle-handouts-repository";

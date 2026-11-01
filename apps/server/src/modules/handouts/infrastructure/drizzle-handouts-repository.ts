@@ -1,6 +1,12 @@
 import { and, eq, inArray } from "drizzle-orm";
 import type { DbClient } from "@/platform/db/client";
-import { handouts, handoutGrants, handoutGrantRecipients, sessionCharacters } from "@/platform/db/schema";
+import {
+  handouts,
+  handoutGrants,
+  handoutGrantRecipients,
+  handoutReads,
+  sessionCharacters,
+} from "@/platform/db/schema";
 import type { HandoutsRepository } from "../application/ports";
 
 export class DrizzleHandoutsRepository implements HandoutsRepository {
@@ -33,6 +39,15 @@ export class DrizzleHandoutsRepository implements HandoutsRepository {
       .from(handoutGrantRecipients)
       .where(eq(handoutGrantRecipients.grantId, grantId));
     return rows.map((r) => r.characterId);
+  }
+
+  async markGrantRead(row: {
+    id: string;
+    grantId: string;
+    playerId: string;
+    readAt: number;
+  }): Promise<void> {
+    await this.db.insert(handoutReads).values(row).onConflictDoNothing();
   }
 
   /** 校验给定人物是否都是团内 PC，返回无效 id */

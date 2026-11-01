@@ -9,10 +9,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { mediaUrl } from "@/lib/api";
+import { sendSessionCommand } from "@/lib/session-socket";
+import { usePlayStore } from "@/stores/play-store";
 
 export function HandoutPrompt({ handouts }: { handouts: GrantedHandoutDto[] }) {
-  const [seen, setSeen] = useState<Set<string>>(new Set());
-  const newest = [...handouts].reverse().find((item) => !seen.has(item.grantId)) ?? null;
+  const markHandoutRead = usePlayStore((state) => state.markHandoutRead);
+  const unread = handouts.filter((item) => !item.read);
+  const newest = unread[unread.length - 1] ?? null;
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -23,7 +26,8 @@ export function HandoutPrompt({ handouts }: { handouts: GrantedHandoutDto[] }) {
 
   function dismiss() {
     if (newest) {
-      setSeen((current) => new Set(current).add(newest.grantId));
+      markHandoutRead(newest.grantId);
+      sendSessionCommand("handout:read", { grantId: newest.grantId });
     }
     setOpen(false);
   }
