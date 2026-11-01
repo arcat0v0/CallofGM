@@ -59,7 +59,7 @@ function DesktopScene() {
           speaker={latest.speakerName}
           roleLabel={latest.speakerRoleLabel}
           text={latest.body}
-          className="absolute inset-x-10 bottom-[36px]"
+          className="absolute inset-x-10 bottom-6"
         />
       ) : null}
     </div>

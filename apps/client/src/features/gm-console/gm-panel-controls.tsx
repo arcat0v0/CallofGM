@@ -223,18 +223,18 @@ export function RulesSection() {
       ) : null}
       <div className="flex gap-1.5">
         <Input value={delta} onChange={(event) => setDelta(event.target.value)} aria-label="数值增减" className="h-8 text-label-medium" />
-        <Button type="button" size="sm" variant="tertiary" className="h-8 disabled:opacity-50" disabled={!ready} onClick={() => sendStateEdit({ hpDelta: Number(delta) || 0 })}>HP</Button>
-        <Button type="button" size="sm" variant="tertiary" className="h-8 disabled:opacity-50" disabled={!ready} onClick={() => sendStateEdit({ mpDelta: Number(delta) || 0 })}>MP</Button>
-        <Button type="button" size="sm" variant="tertiary" className="h-8 disabled:opacity-50" disabled={!ready} onClick={() => sendStateEdit({ sanDelta: Number(delta) || 0 })}>SAN</Button>
+        <Button type="button" size="sm" variant="tertiary" className="h-8" disabled={!ready} onClick={() => sendStateEdit({ hpDelta: Number(delta) || 0 })}>HP</Button>
+        <Button type="button" size="sm" variant="tertiary" className="h-8" disabled={!ready} onClick={() => sendStateEdit({ mpDelta: Number(delta) || 0 })}>MP</Button>
+        <Button type="button" size="sm" variant="tertiary" className="h-8" disabled={!ready} onClick={() => sendStateEdit({ sanDelta: Number(delta) || 0 })}>SAN</Button>
       </div>
       <div className="flex flex-wrap gap-1.5">
         <Input value={maxValue} onChange={(event) => setMaxValue(event.target.value)} aria-label="写入数值" className="h-8 w-16 text-label-medium" />
-        <Button type="button" size="sm" variant="tertiary" className="h-8 disabled:opacity-50" disabled={!ready} onClick={() => sendStateEdit({ hp: Math.max(0, Number(maxValue) || 0) })}>写HP</Button>
-        <Button type="button" size="sm" variant="tertiary" className="h-8 disabled:opacity-50" disabled={!ready} onClick={() => sendStateEdit({ mp: Math.max(0, Number(maxValue) || 0) })}>写MP</Button>
-        <Button type="button" size="sm" variant="tertiary" className="h-8 disabled:opacity-50" disabled={!ready} onClick={() => sendStateEdit({ san: Math.max(0, Number(maxValue) || 0) })}>写SAN</Button>
-        <Button type="button" size="sm" variant="tertiary" className="h-8 disabled:opacity-50" disabled={!ready} onClick={() => sendStateEdit({ maxHp: Math.max(1, Number(maxValue) || 1) })}>HP上限</Button>
-        <Button type="button" size="sm" variant="tertiary" className="h-8 disabled:opacity-50" disabled={!ready} onClick={() => sendStateEdit({ maxMp: Math.max(0, Number(maxValue) || 0) })}>MP上限</Button>
-        <Button type="button" size="sm" variant="tertiary" className="h-8 disabled:opacity-50" disabled={!ready} onClick={() => sendStateEdit({ maxSan: Math.max(0, Number(maxValue) || 0) })}>SAN上限</Button>
+        <Button type="button" size="sm" variant="tertiary" className="h-8" disabled={!ready} onClick={() => sendStateEdit({ hp: Math.max(0, Number(maxValue) || 0) })}>写HP</Button>
+        <Button type="button" size="sm" variant="tertiary" className="h-8" disabled={!ready} onClick={() => sendStateEdit({ mp: Math.max(0, Number(maxValue) || 0) })}>写MP</Button>
+        <Button type="button" size="sm" variant="tertiary" className="h-8" disabled={!ready} onClick={() => sendStateEdit({ san: Math.max(0, Number(maxValue) || 0) })}>写SAN</Button>
+        <Button type="button" size="sm" variant="tertiary" className="h-8" disabled={!ready} onClick={() => sendStateEdit({ maxHp: Math.max(1, Number(maxValue) || 1) })}>HP上限</Button>
+        <Button type="button" size="sm" variant="tertiary" className="h-8" disabled={!ready} onClick={() => sendStateEdit({ maxMp: Math.max(0, Number(maxValue) || 0) })}>MP上限</Button>
+        <Button type="button" size="sm" variant="tertiary" className="h-8" disabled={!ready} onClick={() => sendStateEdit({ maxSan: Math.max(0, Number(maxValue) || 0) })}>SAN上限</Button>
       </div>
       <div className="flex flex-wrap gap-1">
         {Object.entries(coc7e.CharacterStatusFlagLabel).map(([flag, label]) => {
@@ -245,7 +245,7 @@ export function RulesSection() {
               type="button"
               size="sm"
               variant={on ? "dangerSoft" : "tertiary"}
-              className="h-6 px-2 disabled:opacity-50"
+              className="h-6 px-2"
               disabled={!ready}
               onClick={() => sendStateEdit(on ? { removeStatuses: [flag] } : { addStatuses: [flag] })}
             >
@@ -256,7 +256,7 @@ export function RulesSection() {
       </div>
       <div className="flex gap-1.5">
         <Input value={tag} onChange={(event) => setTag(event.target.value)} placeholder="自定义标签" className="h-8 text-label-medium" />
-        <Button type="button" size="sm" variant="tertiary" className="h-8 disabled:opacity-50" disabled={!ready} onClick={() => {
+        <Button type="button" size="sm" variant="tertiary" className="h-8" disabled={!ready} onClick={() => {
           if (!tag.trim()) return;
           sendStateEdit({ addTags: [tag.trim()] });
           setTag("");
@@ -270,7 +270,7 @@ export function RulesSection() {
               type="button"
               size="sm"
               variant="ghost"
-              className="h-6 px-2 disabled:opacity-50"
+              className="h-6 px-2"
               disabled={!ready}
               onClick={() => sendStateEdit({ removeTags: [item] })}
             >
@@ -308,12 +308,12 @@ export function RulesSection() {
         <Button type="button" size="sm" variant={hidden ? "dangerSoft" : "tertiary"} className="h-7" onClick={() => setHidden((value) => !value)}>{hidden ? "暗骰" : "公开"}</Button>
       </div>
       <div className="flex gap-1.5">
-        <Button type="button" size="sm" variant="tertiary" className="h-8 disabled:opacity-50" disabled={!ready} onClick={() => sendCheck("check:perform")}>鉴定</Button>
-        <Button type="button" size="sm" variant="tertiary" className="h-8 disabled:opacity-50" disabled={!ready} onClick={() => sendCheck("check:request")}>请求</Button>
+        <Button type="button" size="sm" variant="tertiary" className="h-8" disabled={!ready} onClick={() => sendCheck("check:perform")}>鉴定</Button>
+        <Button type="button" size="sm" variant="tertiary" className="h-8" disabled={!ready} onClick={() => sendCheck("check:request")}>请求</Button>
       </div>
       <div className="flex gap-1.5">
         <Input value={sanLoss} onChange={(event) => setSanLoss(event.target.value)} aria-label="SAN 损失" className="h-8 text-label-medium" />
-        <Button type="button" size="sm" variant="tertiary" className="h-8 disabled:opacity-50" disabled={!ready} onClick={sendSanCheck}>SAN 检定</Button>
+        <Button type="button" size="sm" variant="tertiary" className="h-8" disabled={!ready} onClick={sendSanCheck}>SAN 检定</Button>
       </div>
     </div>
   );
@@ -419,7 +419,7 @@ export function HandoutSection() {
             type="button"
             size="sm"
             variant="tertiary"
-            className="h-7 disabled:opacity-50"
+            className="h-7"
             disabled={recipients.length === 0}
             onClick={() => dispatchSecret("handout:grant", { handoutId: handout.id })}
           >
@@ -436,7 +436,7 @@ export function HandoutSection() {
               type="button"
               size="sm"
               variant="ghost"
-              className="h-6 px-2 disabled:opacity-50"
+              className="h-6 px-2"
               disabled={recipients.length === 0}
               onClick={() => dispatchSecret("handout:append", { grantId: item.grantId })}
             >

@@ -132,11 +132,12 @@
     [data-slot="icon-button"],
     [data-slot="chip"]
   ):disabled {
-    opacity: 1;
+    opacity: var(--opacity-m3-disabled);
     background: var(--color-m3-disabled-container);
     color: var(--color-m3-disabled-content);
     box-shadow: none;
     pointer-events: none;
+    cursor: not-allowed;
   }
   [data-slot="button-group"],
   [data-slot="toggle-group"] {

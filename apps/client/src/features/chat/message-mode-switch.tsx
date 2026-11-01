@@ -10,14 +10,19 @@ const MESSAGE_MODE_OPTIONS = [
 function MessageModeSwitch({
   value,
   onValueChange,
+  roleplayDisabled = false,
 }: {
   value: MessageMode;
   onValueChange: (value: MessageMode) => void;
+  roleplayDisabled?: boolean;
 }) {
+  const options = MESSAGE_MODE_OPTIONS.map((option) =>
+    option.value === "roleplay" ? { ...option, disabled: roleplayDisabled } : option,
+  );
   return (
     <SegmentedControl
       value={value}
-      options={MESSAGE_MODE_OPTIONS}
+      options={options}
       onValueChange={onValueChange}
       className="rounded-full"
       itemClassName="h-6"

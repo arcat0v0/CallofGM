@@ -51,7 +51,7 @@ function PortraitLayer({ className, compact = false }: { className?: string; com
   return (
     <div className={cn(
       "pointer-events-none absolute inset-x-0 flex items-end justify-center",
-      compact ? "top-14 bottom-22 gap-2 px-3" : "bottom-24 gap-6 px-10",
+      compact ? "top-14 bottom-22 gap-2 px-3" : "bottom-36 gap-6 px-10",
       className,
     )}>
       {visible.map((character) => {
