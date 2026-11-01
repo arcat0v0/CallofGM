@@ -22,7 +22,9 @@ async function serveClient(pathname: string): Promise<Response> {
     return new Response("Not Found", { status: 404 });
   }
   const asset = Bun.file(requested);
-  if (relativePath && await asset.exists()) return new Response(asset);
+  if (relativePath && await asset.exists()) {
+    return new Response(asset, { headers: { "Content-Type": asset.type || "application/octet-stream" } });
+  }
   if (relativePath && extname(relativePath)) return new Response("Not Found", { status: 404 });
   const index = Bun.file(resolve(clientDist, "index.html"));
   return await index.exists()
