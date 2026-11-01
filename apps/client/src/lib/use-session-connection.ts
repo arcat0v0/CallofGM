@@ -18,7 +18,7 @@ export function useSessionConnection(
   const markEnded = usePlayStore((state) => state.markEnded);
 
   const controls = useRef<{
-    open: (lastEventId?: number) => Promise<void>;
+    resync: () => Promise<void>;
   } | null>(null);
 
   useEffect(() => {
@@ -30,6 +30,7 @@ export function useSessionConnection(
     let handshakeFailures = 0;
     let refreshingSnapshot = false;
     let reopenedAfterEnd = false;
+    let attemptGeneration = 0;
     reset();
 
     function scheduleReconnect() {
@@ -69,20 +70,26 @@ export function useSessionConnection(
     }
 
     async function open(lastEventId?: number): Promise<void> {
+      const generation = ++attemptGeneration;
+      const isCurrent = () => !cancelled && generation === attemptGeneration;
       try {
         if (options?.ensurePlayer !== false) {
           await ensurePlayer();
         }
-        if (cancelled) {
+        if (!isCurrent()) {
           return;
         }
-        socket = await connectSession({
+        const next = await connectSession({
           sessionId,
           lastEventId,
           signal: controller.signal,
-          onMessage: handleMessage,
+          onMessage: (message) => {
+            if (isCurrent()) {
+              handleMessage(message);
+            }
+          },
           onClose: ({ code, reason }) => {
-            if (cancelled) {
+            if (!isCurrent()) {
               return;
             }
             setConnected(false);
@@ -105,10 +112,15 @@ export function useSessionConnection(
             scheduleReconnect();
           },
         });
+        if (!isCurrent()) {
+          next.close();
+          return;
+        }
+        socket = next;
         attempt = 0;
         handshakeFailures = 0;
       } catch {
-        if (cancelled) {
+        if (!isCurrent()) {
           return;
         }
         setConnected(false);
@@ -122,10 +134,10 @@ export function useSessionConnection(
     }
 
     controls.current = {
-      open: async (lastEventId?: number) => {
+      resync: async () => {
         attempt = 0;
         handshakeFailures = 0;
-        await open(lastEventId);
+        await open();
       },
     };
 
@@ -145,8 +157,7 @@ export function useSessionConnection(
 
   const retryConnection = useCallback(() => {
     setTerminal(null);
-    const watermark = usePlayStore.getState().lastEventId;
-    void controls.current?.open(watermark > 0 ? watermark : undefined);
+    void controls.current?.resync();
   }, [setTerminal]);
 
   return { retry: retryConnection };
