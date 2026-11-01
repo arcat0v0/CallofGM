@@ -72,7 +72,7 @@ function DiceTray({
     <div className={cn("flex flex-col gap-2", className)}>
       {gm ? (
         <Select value={resolvedId ?? ""} onValueChange={setSelectedId}>
-          <SelectTrigger className="h-8 text-label-medium">
+          <SelectTrigger className="h-8 text-label-medium" aria-label="鉴定对象">
             <SelectValue placeholder="鉴定对象" />
           </SelectTrigger>
           <SelectContent>
@@ -116,7 +116,7 @@ function DiceTray({
       </div>
       <div className="flex items-center gap-1.5">
         <Select value={skillKey} onValueChange={setSkillKey} disabled={disabled}>
-          <SelectTrigger className="h-8 flex-1 text-label-medium">
+          <SelectTrigger className="h-8 flex-1 text-label-medium" aria-label="技能或属性">
             <SelectValue placeholder="技能 / 属性" />
           </SelectTrigger>
           <SelectContent>
@@ -129,7 +129,7 @@ function DiceTray({
           </SelectContent>
         </Select>
         <Select value={difficulty} onValueChange={(next) => setDifficulty(next as typeof difficulty)} disabled={disabled}>
-          <SelectTrigger className="h-8 w-[88px] text-label-medium"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="h-8 w-[88px] text-label-medium" aria-label="鉴定难度"><SelectValue /></SelectTrigger>
           <SelectContent>
             {(["regular", "hard", "extreme"] as const).map((item) => (
               <SelectItem key={item} value={item}>{coc7e.CheckDifficultyLabel[item]}</SelectItem>

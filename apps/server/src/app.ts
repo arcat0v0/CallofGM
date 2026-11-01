@@ -74,6 +74,9 @@ export function createApp(container: Container) {
 
       if (error instanceof AppError) {
         set.status = error.statusCode;
+        if (error.statusCode === 429 && typeof error.metadata.retryAfterSeconds === "number") {
+          set.headers["Retry-After"] = String(error.metadata.retryAfterSeconds);
+        }
         return {
           code: error.code,
           message: error.message,

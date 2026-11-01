@@ -264,10 +264,14 @@ async function main(): Promise<void> {
 
   console.log(`METRIC competitor_alignment_score=${competitorScore.toFixed(1)}`);
   console.log(`METRIC feature_parity_score=${score.toFixed(1)}`);
+  console.log("METRIC probe_kind=static-existence");
   console.log(`METRIC features_total_planned=${plannedOutcomes.length}`);
   console.log(`METRIC features_implemented=${implementedPlanned.length}`);
   console.log(`METRIC features_missing=${plannedOutcomes.length - implementedPlanned.length}`);
   console.log(`METRIC features_competitor_only=${outcomes.length - plannedOutcomes.length}`);
+  console.log(
+    "NOTICE feature_parity_score is a static existence-probe score (file presence and key literals); a passing probe does not prove runtime behavior."
+  );
   for (const category of matrix.categories) {
     const rows = plannedOutcomes.filter((outcome) => outcome.category === category.id);
     const totalWeight = rows.reduce((sum, outcome) => sum + outcome.weight, 0);

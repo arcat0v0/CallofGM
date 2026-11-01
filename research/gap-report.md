@@ -3,13 +3,13 @@
 日期：2026-10-31
 状态：终版（可对外发布）
 依据：`research/competitors.md`（竞品功能清单与来源 URL）、`docs/product.md`（CoGM v1 产品需求）、`scripts/parity/feature-matrix.json` + `scripts/parity/verify.ts`（实现状态探测 harness，通过 `bash autoresearch.sh` 运行）
-实现状态口径：本文所有「实现状态」单元格均来自 harness 的 `DETAIL` 行（每项功能带命中探针），不依赖人工判断。
+实现状态口径：本文所有「实现状态」单元格均来自 harness 的 `DETAIL` 行（每项功能带命中探针），不依赖人工判断。**这些探针是静态存在性检查**（文件存在 + 关键字符串/命令字面量），不是行为级 e2e；探针通过只证明对应代码存在，不证明运行时行为正确（详见 F44）。harness 输出以 `probe_kind=static-existence` 标注这一口径。
 
 ---
 
 ## 0. 一句话结论
 
-**CoGM v1 已把「说了的都做了」做到满分（feature_parity_score = 100.0），但对标竞品功能并集的加权覆盖率只有 26.9%（competitor_alignment_score）——差的不是执行力，而是产品取舍：160 项竞品独有功能大部分是刻意不做的地图/社区/商业化，其余是暂缓的回放、私聊、模板复用。**
+**CoGM v1 已把「说了的都做了」做到满分（feature_parity_score = 100.0，口径为静态存在性探针，不代表运行时行为已验证），但对标竞品功能并集的加权覆盖率只有 26.9%（competitor_alignment_score）——差的不是执行力，而是产品取舍：160 项竞品独有功能大部分是刻意不做的地图/社区/商业化，其余是暂缓的回放、私聊、模板复用。**
 
 ---
 
@@ -19,7 +19,7 @@
 
 | 指标 | 数值 | 口径 | 分子 / 分母 |
 |---|---|---|---|
-| `feature_parity_score` | **100.0** | CoGM 规划内功能的加权执行完整度（「说了的都做了」） | 98 项规划功能，全部命中行为级探针 / 98 项 |
+| `feature_parity_score` | **100.0** | CoGM 规划内功能的加权执行完整度（「说了的都做了」；**静态存在性探针**口径，非运行时行为证明） | 97 项规划功能，全部命中静态存在性探针 / 97 项 |
 | `competitor_alignment_score` | **26.9** | **竞品功能并集的加权覆盖率**：分子 = 竞品条目中 CoGM 规划且已实现的权重，分母 = 全部竞品来源条目权重（346） | 93 / 346 |
 
 两个指标口径不同、不可互相换算：`feature_parity_score` 只看 CoGM 自己写下的规划兑现了没有；`competitor_alignment_score` 把竞品并集整体当分母，其中 160 项竞品独有功能（`features_competitor_only=158` + 部分未规划条目）大部分是 CoGM 刻意不做（地图、卡牌、社区、商业化、AI、战斗轮），小部分是暂缓的真实负债（回放、私聊、模板复用等）。因此 26.9 不代表「欠账 73 分」，而是「主线覆盖 27 分 + 明确放弃的广度」。
@@ -48,7 +48,7 @@ METRIC cat_community=0.0   METRIC cat_ai=0.0
 
 ### 1.2 两个指标为什么不一样
 
-- `feature_parity_score` 的分母是 **CoGM 自己写下的规划**（`docs/product.md` 映射到 98 项功能，含 2 项对标竞品的规划内条目：骰点表达式、聊天标签页）。它回答的是「产品承诺兑现了没有」。100.0 意味着：文档里写的房间与阶段机、人物卡与 Excel 导入、立绘差分与表情同步、团内状态与越阈提示、服务端骰点与判级、奖惩骰、暗骰、鉴定请求、SAN 检定、成长标记、演绎队列与零感知、聊天权限矩阵、BGM/SE 双通道、情报定向发放、黑名单与踢人、断线重连与快照裁剪、移动端三布局——全部落地且被探针命中。
+- `feature_parity_score` 的分母是 **CoGM 自己写下的规划**（`docs/product.md` 映射到 97 项功能，含 2 项对标竞品的规划内条目：骰点表达式、聊天标签页）。它回答的是「产品承诺兑现了没有」。100.0 意味着：文档里写的房间与阶段机、人物卡与 Excel 导入、立绘差分与表情同步、团内状态与越阈提示、服务端骰点与判级、奖惩骰、暗骰、鉴定请求、SAN 检定、成长标记、演绎队列与零感知、聊天权限矩阵、BGM/SE 双通道、情报定向发放、黑名单与踢人、断线重连与快照裁剪、移动端三布局——全部落地且被静态存在性探针命中（探针命中不构成运行时行为验证，见 F44）。
 - `competitor_alignment_score` 的分母是 **竞品功能并集的全部权重**（195 项、权重 346，即 CCFOLIA 与回声岛功能清单的并集，不含 CoGM 独有项）。它回答的是「竞品有、且我们打算做的能力，占竞品整体的多大比例」。26.9 = 已规划且已实现的竞品条目权重 93 / 346。此前临时观察到的 100.0 是并发编辑期间的旧口径（只把「规划内竞品条目」当分母），最终口径以本节为准。
 - **缺口的 73 分不是待办清单，而是有意识的取舍**：竞品并集中 CoGM 未规划的 158 项（`features_competitor_only=158`）大部分刻意不做，小部分暂缓，分三类：
   1. **刻意不做（占缺口主体）**：地图与棋子（23 项 / 权重 35，cat_map=0.0）、卡牌（7 项）、社区（5 项）、商业化（5 项）、AI 辅助（6 项）、战斗轮与 AOE（5 项）。这些与 CoGM「单规则、沉浸式文字演出、无社区」的定位冲突，做了反而稀释主线。
@@ -312,9 +312,9 @@ METRIC cat_community=0.0   METRIC cat_ai=0.0
 
 ---
 
-## 6. 附录：关键能力的 harness 行为级探针证据
+## 6. 附录：关键能力的 harness 静态存在性探针证据
 
-以下探针均来自 `bash autoresearch.sh` 的 `DETAIL implemented` 行，可直接引用：
+以下探针均来自 `bash autoresearch.sh` 的 `DETAIL implemented` 行，可直接引用；它们验证的是文件与关键字面量存在，不是运行时行为（`probe_kind=static-existence`）：
 
 | 能力 | 命中探针 |
 |---|---|
@@ -342,7 +342,7 @@ METRIC cat_community=0.0   METRIC cat_ai=0.0
 | 规则系统抽象（扩展点） | `path_exists:apps/server/src/rules/rule-system.ts`、`path_exists:apps/server/src/rules/registry.ts`、`code_regex:RuleId` |
 | 共享 zod 协议单源 | `path_exists:packages/shared/src/websocket.ts`、`code_regex:ClientCommandType`、`code_regex:protocolVersion` |
 
-> 复跑方式：仓库根目录执行 `bash autoresearch.sh`。输出为 30 行 `METRIC` + 256 行 `DETAIL`（98 implemented / 158 not-planned）。2026-10-31 连续 3 次运行退出码均为 0、METRIC 完全一致（competitor_alignment_score=26.9、feature_parity_score=100.0、features_total_planned=98），门禁无失败。
+> 复跑方式：仓库根目录执行 `bash autoresearch.sh`。输出为 31 行 `METRIC`（含 `probe_kind=static-existence`）+ 1 行 `NOTICE`（说明探针通过不等于运行时行为）+ 256 行 `DETAIL`（97 implemented / 158 not-planned）。2026-10-31 连续 3 次运行退出码均为 0、METRIC 完全一致（competitor_alignment_score=26.9、feature_parity_score=100.0、features_total_planned=97），门禁无失败。
 
 ---
 
@@ -351,6 +351,6 @@ METRIC cat_community=0.0   METRIC cat_ai=0.0
 - `research/competitors.md` — 两家竞品的分领域功能清单，每条附来源 URL；含「对 CoGM 的启示」与「关键事实核对」。
 - `research/feature-checklist.yaml` — 机器可读功能清单（195 项，id/category/name_zh/source/weight/detail），供 harness 与基准消费。
 - `research/gap-report-draft.md` — 本报告的初稿（保留原样，未回填）。
-- `scripts/parity/feature-matrix.json` — 256 项功能矩阵（98 项规划功能，含 61 项 CoGM 独有规划与 37 项对标竞品的规划内条目 + 158 项竞品独有条目），含行为级探针定义。
+- `scripts/parity/feature-matrix.json` — 256 项功能矩阵（97 项规划功能，含 61 项 CoGM 独有规划与 37 项对标竞品的规划内条目 + 158 项竞品独有条目），含静态存在性探针定义（非行为级）。
 - `scripts/parity/verify.ts` — 探针执行与指标计算。
 - `docs/product.md` — CoGM v1 产品需求（规划口径来源）。

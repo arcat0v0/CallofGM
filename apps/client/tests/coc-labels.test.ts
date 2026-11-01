@@ -75,12 +75,12 @@ describe("check result display", () => {
         characterName: "陈默",
         skillKey: "str",
         hidden: false,
-        result: { roll: 18, targetValue: 60, outcome: "hard_success" },
+        result: { roll: 18, targetValue: 60, difficulty: "hard", outcome: "hard_success" },
       },
       7,
       1_700_000_000_000,
     );
-    expect(message?.body).toBe("力量 18/60 · 困难成功");
+    expect(message?.body).toBe("力量 18/60 · 困难成功（目标值 60 · 困难阈值 30）");
   });
 
   test("SAN checks keep their dedicated wording", () => {

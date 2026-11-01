@@ -252,7 +252,7 @@ export function RulesSection() {
         <Button type="button" size="sm" variant="tertiary" className="h-8" disabled={!ready} onClick={() => sendStateEdit({ sanDelta: Number(delta) || 0 })}>SAN</Button>
       </div>
       <div className="flex flex-wrap gap-1.5">
-        <Input value={maxValue} onChange={(event) => setMaxValue(event.target.value)} aria-label="写入数值" className="h-8 w-16 text-label-medium" />
+        <Input value={maxValue} onChange={(event) => setMaxValue(event.target.value)} aria-label="写入数值" type="number" min={0} max={99} className="h-8 w-16 text-label-medium" />
         <Button type="button" size="sm" variant="tertiary" className="h-8" disabled={!ready} onClick={() => sendStateEdit({ hp: Math.max(0, Number(maxValue) || 0) })}>写HP</Button>
         <Button type="button" size="sm" variant="tertiary" className="h-8" disabled={!ready} onClick={() => sendStateEdit({ mp: Math.max(0, Number(maxValue) || 0) })}>写MP</Button>
         <Button type="button" size="sm" variant="tertiary" className="h-8" disabled={!ready} onClick={() => sendStateEdit({ san: Math.max(0, Number(maxValue) || 0) })}>写SAN</Button>
@@ -260,6 +260,7 @@ export function RulesSection() {
         <Button type="button" size="sm" variant="tertiary" className="h-8" disabled={!ready} onClick={() => sendStateEdit({ maxMp: Math.max(0, Number(maxValue) || 0) })}>MP上限</Button>
         <Button type="button" size="sm" variant="tertiary" className="h-8" disabled={!ready} onClick={() => sendStateEdit({ maxSan: Math.max(0, Number(maxValue) || 0) })}>SAN上限</Button>
       </div>
+      <p className="text-md-on-surface-variant text-label-small">写入与上限范围 0–99 · 当前值超过上限时按上限钳制</p>
       <div className="flex flex-wrap gap-1">
         {Object.entries(coc7e.CharacterStatusFlagLabel).map(([flag, label]) => {
           const on = Boolean(state?.statuses.some((item) => item === flag));

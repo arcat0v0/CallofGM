@@ -8,6 +8,7 @@ import {
   type StateMutationResult,
 } from "@/rules/rule-system";
 import { evaluateLossExpression } from "@/rules/dice-engine";
+import { AppError } from "@/platform/errors/app-error";
 import { coc7e } from "@cogm/shared";
 import { parseCoc7eCharacterSheet } from "./excel-parser";
 
@@ -163,21 +164,33 @@ export class Coc7eRuleSystem extends RuleSystem<coc7e.Coc7eCharacterSheet, coc7e
     };
     const hints: string[] = [];
 
-    const readInt = (key: string): number | undefined => {
-      const value = edit[key];
+    const parsedEdit = coc7e.Coc7eStateEditInput.safeParse(edit);
+    if (!parsedEdit.success) {
+      const field = parsedEdit.error.issues[0]?.path.join(".") || "value";
+      throw new AppError(
+        "STATE_EDIT_OUT_OF_RANGE",
+        `${field} must stay within the CoC 7e range (0-99)`,
+        400,
+        { field }
+      );
+    }
+    const editInput = parsedEdit.data;
+
+    const readInt = (key: keyof typeof editInput): number | undefined => {
+      const value = editInput[key];
       return typeof value === "number" && Number.isInteger(value) ? value : undefined;
     };
-    const readStringArray = (key: string): string[] => {
-      const value = edit[key];
+    const readStringArray = (key: keyof typeof editInput): string[] => {
+      const value = editInput[key];
       return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : [];
     };
 
     const maxHp = readInt("maxHp") ?? next.maxHp;
     const maxMp = readInt("maxMp") ?? next.maxMp;
     const maxSan = readInt("maxSan") ?? next.maxSan;
-    next.maxHp = Math.max(1, maxHp);
-    next.maxMp = Math.max(0, maxMp);
-    next.maxSan = Math.max(0, maxSan);
+    next.maxHp = Math.min(99, Math.max(1, maxHp));
+    next.maxMp = Math.min(99, Math.max(0, maxMp));
+    next.maxSan = Math.min(99, Math.max(0, maxSan));
 
     const hpDelta = readInt("hpDelta") ?? 0;
     const mpDelta = readInt("mpDelta") ?? 0;

@@ -1,4 +1,3 @@
-import { createFileRoute, notFound } from "@tanstack/react-router";
 import {
   BookOpenIcon,
   CheckIcon,
@@ -165,14 +164,6 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import shapes from "@/lib/expressive-shapes.json";
-
-export const Route = createFileRoute("/design-system")({
-  beforeLoad: () => {
-    if (!import.meta.env.DEV) throw notFound();
-  },
-  component: DesignSystem,
-});
-
 function Section({
   id,
   title,
@@ -244,7 +235,7 @@ function NavigationDemo({ variant }: { variant: "rail" | "bar" | "drawer" }) {
   );
 }
 
-function DesignSystem() {
+function DesignSystemDemo() {
   const [motion, setMotion] = useState("expressive");
   const [playing, setPlaying] = useState(true);
   const [progress, setProgress] = useState([42]);
@@ -898,3 +889,5 @@ function DesignSystem() {
     </main>
   );
 }
+
+export { DesignSystemDemo };

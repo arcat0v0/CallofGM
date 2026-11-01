@@ -1,17 +1,44 @@
 import { redirect } from "@tanstack/react-router";
-import type { GmMeResponse, PlayerIdentityResponse } from "@cogm/shared";
+import type { GmMeResponse, PlayerIdentityResponse, PlayerMeResponse } from "@cogm/shared";
 import { api, isApiError } from "./api";
 import { getFingerprint } from "./fingerprint";
 import { useIdentityStore } from "@/stores/identity-store";
 
-export async function ensurePlayer(): Promise<PlayerIdentityResponse> {
+let identityRequest: Promise<PlayerIdentityResponse> | null = null;
+
+async function resolvePlayer(): Promise<PlayerIdentityResponse> {
+  try {
+    const me = await api<PlayerMeResponse>("/player/me");
+    useIdentityStore.getState().setPlayer(me.playerId);
+    return { playerId: me.playerId };
+  } catch (error) {
+    if (!isApiError(error) || error.status !== 401) {
+      throw error;
+    }
+  }
+
   const fingerprint = await getFingerprint();
   const result = await api<PlayerIdentityResponse>("/player/identity", {
     method: "POST",
+    fingerprint: true,
     body: JSON.stringify({ fingerprint }),
   });
   useIdentityStore.getState().setPlayer(result.playerId);
   return result;
+}
+
+export function ensurePlayer(): Promise<PlayerIdentityResponse> {
+  if (!identityRequest) {
+    identityRequest = resolvePlayer();
+    identityRequest.catch(() => {
+      identityRequest = null;
+    });
+  }
+  return identityRequest;
+}
+
+export function resetPlayerIdentityCache(): void {
+  identityRequest = null;
 }
 
 export async function loginGm(password: string): Promise<void> {

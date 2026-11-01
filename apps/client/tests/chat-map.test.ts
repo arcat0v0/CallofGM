@@ -86,3 +86,47 @@ describe("chat speaker identity", () => {
     expect(event?.speakerName).toBe("观战 · b4e0d0");
   });
 });
+
+describe("check result clarity", () => {
+  function resolved(result: Record<string, unknown>) {
+    return mapActivityEvent(
+      "check:resolved",
+      { characterId: "c1", characterName: "陈默", skillKey: "侦查", hidden: false, result },
+      9,
+      1_700_000_000_000,
+    );
+  }
+
+  test("a hard check states the target value and the hard threshold", () => {
+    const event = resolved({
+      roll: 25,
+      targetValue: 70,
+      difficulty: "hard",
+      outcome: "hard_success",
+      success: true,
+    });
+    expect(event?.body).toBe("侦查 25/70 · 困难成功（目标值 70 · 困难阈值 35）");
+  });
+
+  test("a regular check states the target value only", () => {
+    const event = resolved({
+      roll: 25,
+      targetValue: 60,
+      difficulty: "regular",
+      outcome: "regular_success",
+      success: true,
+    });
+    expect(event?.body).toBe("侦查 25/60 · 常规成功（目标值 60）");
+  });
+
+  test("a failed hard check keeps the requested difficulty context", () => {
+    const event = resolved({
+      roll: 80,
+      targetValue: 70,
+      difficulty: "hard",
+      outcome: "failure",
+      success: false,
+    });
+    expect(event?.body).toBe("侦查 80/70 · 失败（目标值 70 · 困难阈值 35）");
+  });
+});

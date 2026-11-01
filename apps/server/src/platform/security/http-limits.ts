@@ -15,7 +15,7 @@ export class HttpLimits {
     }
   ) {
     this.loginRateLimiter = limits?.login ?? new RateLimiter(10, 60_000);
-    this.identityRateLimiter = limits?.identity ?? new RateLimiter(20, 60_000);
+    this.identityRateLimiter = limits?.identity ?? new RateLimiter(60, 60_000);
     this.joinRateLimiter = limits?.join ?? new RateLimiter(30, 60_000);
     this.uploadRateLimiter = limits?.upload ?? new RateLimiter(20, 60_000);
   }

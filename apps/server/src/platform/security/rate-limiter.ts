@@ -1,8 +1,8 @@
 import { AppError } from "@/platform/errors/app-error";
 
 export class RateLimitedError extends AppError {
-  constructor(message = "Too many requests, please try again later") {
-    super("RATE_LIMITED", message, 429);
+  constructor(retryAfterSeconds: number, message = "Too many requests, please try again later") {
+    super("RATE_LIMITED", message, 429, { retryAfterSeconds });
   }
 }
 
@@ -38,8 +38,15 @@ export class RateLimiter {
 
   assert(key: string): void {
     if (!this.check(key)) {
-      throw new RateLimitedError();
+      throw new RateLimitedError(this.retryAfterSeconds(key));
     }
+  }
+
+  /** 距离当前窗口重置的整秒数（下级 1 秒），用于 Retry-After 响应头 */
+  retryAfterSeconds(key: string): number {
+    const bucket = this.buckets.get(key);
+    const remainingMs = bucket ? Math.max(0, bucket.resetAt - Date.now()) : 0;
+    return Math.max(1, Math.ceil(remainingMs / 1000));
   }
 
   reset(): void {
