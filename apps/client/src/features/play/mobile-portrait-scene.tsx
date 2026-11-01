@@ -3,6 +3,7 @@ import { Volume2, VolumeX } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DialogueBox } from "@/features/session-stage/dialogue-box";
+import { LocalVolumeControl } from "@/features/session-stage/local-volume-control";
 import { PortraitLayer } from "@/features/session-stage/portrait-layer";
 import { SceneBackdrop } from "@/features/session-stage/scene-backdrop";
 import { mediaUrl } from "@/lib/api";
@@ -14,6 +15,8 @@ function MobilePortraitScene() {
   const scene = usePlayStore((state) => state.scene);
   const muted = usePlayStore((state) => state.muted);
   const setMuted = usePlayStore((state) => state.setMuted);
+  const localVolume = usePlayStore((state) => state.localVolume);
+  const setLocalVolume = usePlayStore((state) => state.setLocalVolume);
   const messages = usePlayStore((state) => state.messages);
   const latest = [...messages].reverse().find((message) => message.tone !== "ooc");
   const sceneSrc = mediaUrl(scene?.bgAssetId) ?? undefined;
@@ -37,6 +40,7 @@ function MobilePortraitScene() {
             </Badge>
           ) : null}
         </div>
+        <LocalVolumeControl value={localVolume} onChange={setLocalVolume} compact />
         <Button
           type="button"
           variant="tertiary"
