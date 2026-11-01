@@ -47,7 +47,7 @@ function GmChatPanel({ className }: { className?: string }) {
 
   return (
     <div className={cn("bg-md-surface-container-low animate-in fade-in slide-in-from-bottom-4 ease-standard-default-spatial flex h-full flex-col duration-500", className)}>
-      <ChatPanelHeader browseAllSheets>
+      <ChatPanelHeader>
         <div className="px-4 pb-2.5">
           <Tabs value={channel} onValueChange={setChannel}>
             <TabsList>

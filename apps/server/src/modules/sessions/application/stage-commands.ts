@@ -4,6 +4,7 @@ import {
   SetExpressionCommand,
   UpdateBgmCommand,
   PlaySeCommand,
+  UpdateSessionSettingsCommand,
   type BgmState,
 } from "@cogm/shared";
 import type {
@@ -355,12 +356,48 @@ export class PlaySeHandler implements CommandHandler {
   }
 }
 
+export class UpdateSessionSettingsHandler implements CommandHandler {
+  readonly type = "session:settings" as const;
+  readonly allowedStatuses = ["waiting", "preparing", "active"] as const;
+
+  async execute(ctx: CommandHandlerContext, payload: unknown): Promise<CommandHandlerResult> {
+    if (ctx.actor.type !== "gm") {
+      throw new ForbiddenError("Only the GM can change session settings");
+    }
+    const parsed = UpdateSessionSettingsCommand.safeParse(payload);
+    if (!parsed.success) {
+      throw new AppError("VALIDATION_FAILED", parsed.error.message, 400);
+    }
+    const settings = parsed.data;
+
+    await ctx.tx
+      .update(sessions)
+      .set({
+        sharePcSheets: settings.sharePcSheets ? 1 : 0,
+        obSeePcState: settings.obSeePcState ? 1 : 0,
+      })
+      .where(eq(sessions.id, ctx.sessionId));
+
+    return {
+      events: [
+        {
+          type: "session:settings-changed",
+          payload: settings,
+          visibility: { type: "public" },
+        },
+      ],
+      replyPayload: settings,
+    };
+  }
+}
+
 export function createStageCommandHandlers(): CommandHandler[] {
   return [
     new SwitchSceneHandler(),
     new SetExpressionHandler(),
     new UpdateBgmHandler(),
     new PlaySeHandler(),
+    new UpdateSessionSettingsHandler(),
   ];
 }
 

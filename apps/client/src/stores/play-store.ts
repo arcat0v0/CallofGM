@@ -12,7 +12,9 @@ import {
   type SePlayedEvent,
   type ServerMessage,
   type SessionPhase,
+  type SessionSettings,
   type SessionSnapshotPayload,
+  SessionSettingsDefaults,
   type SessionStatus,
   type SeatRole,
   type SnapshotCharacter,
@@ -29,9 +31,11 @@ type PlayState = {
   sessionId: string | null;
   moduleId: string | null;
   moduleName: string | null;
+  sessionName: string | null;
   status: SessionStatus | null;
   phase: SessionPhase | null;
   lastEventId: number;
+  settings: SessionSettings;
   viewer: { isGm: boolean; seatRole: SeatRole | null };
   characters: SnapshotCharacter[];
   messages: ChatMessage[];
@@ -57,6 +61,7 @@ type PlayState = {
   setConnected: (connected: boolean) => void;
   setTerminal: (terminal: ConnectionTerminal | null) => void;
   markEnded: () => void;
+  markHandoutRead: (grantId: string) => void;
   setMuted: (muted: boolean) => void;
   clearSeCue: () => void;
   reset: () => void;
@@ -66,9 +71,11 @@ const empty = {
   sessionId: null as string | null,
   moduleId: null as string | null,
   moduleName: null as string | null,
+  sessionName: null as string | null,
   status: null as SessionStatus | null,
   phase: null as SessionPhase | null,
   lastEventId: 0,
+  settings: SessionSettingsDefaults,
   viewer: { isGm: false, seatRole: null } as PlayState["viewer"],
   characters: [] as SnapshotCharacter[],
   messages: [] as ChatMessage[],
@@ -147,6 +154,17 @@ function applyEvent(state: PlayState, type: string, payload: unknown, eventId?: 
         return { status };
       }
       return {};
+    }
+    case "session:settings-changed": {
+      if (typeof payload.sharePcSheets !== "boolean" || typeof payload.obSeePcState !== "boolean") {
+        return {};
+      }
+      return {
+        settings: {
+          sharePcSheets: payload.sharePcSheets,
+          obSeePcState: payload.obSeePcState,
+        },
+      };
     }
     case "session:phase-changed": {
       const phase = payload.phase;
@@ -258,9 +276,11 @@ export const usePlayStore = create<PlayState>((set, get) => ({
       sessionId: payload.session.id,
       moduleId: payload.session.moduleId,
       moduleName: payload.session.moduleName,
+      sessionName: payload.session.name,
       status: payload.session.status,
       phase: payload.session.phase,
       lastEventId: watermark,
+      settings: payload.session.settings,
       viewer: payload.viewer,
       characters: payload.characters,
       messages: merged,
@@ -350,6 +370,10 @@ export const usePlayStore = create<PlayState>((set, get) => ({
   setConnected: (connected) => set({ connected }),
   setTerminal: (terminal) => set({ terminal }),
   markEnded: () => set({ status: "ended" }),
+  markHandoutRead: (grantId) =>
+    set((state) => ({
+      handouts: state.handouts.map((item) => (item.grantId === grantId ? { ...item, read: true } : item)),
+    })),
   setMuted: (muted) => set({ muted }),
   clearSeCue: () => set({ seCue: null }),
   reset: () => set({ ...empty }),
