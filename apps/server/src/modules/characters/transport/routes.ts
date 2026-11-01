@@ -150,6 +150,7 @@ export function createCharactersRoutes(container: Container) {
           kind: data.kind,
           ruleId: data.ruleId,
           moduleId: data.moduleId,
+          characterId: data.characterId,
           gmSessionId: gmSessionIdOf(actor),
         }));
       }

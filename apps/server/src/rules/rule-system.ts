@@ -9,6 +9,11 @@ export interface CharacterSheetPreview<T> {
     cell: string;
     message: string;
   }>;
+  /** 非致命提示：不阻塞入库 */
+  warnings?: Array<{
+    cell: string;
+    message: string;
+  }>;
 }
 
 export interface SkillCheckInput {

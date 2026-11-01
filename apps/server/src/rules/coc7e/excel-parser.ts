@@ -8,9 +8,12 @@ export async function parseCoc7eCharacterSheet(input: ArrayBuffer): Promise<Char
   const attributes: Record<string, number> = {};
   const skills: Record<string, number> = {};
   const errors: Array<{ cell: string; message: string }> = [];
+  const warnings: Array<{ cell: string; message: string }> = [];
 
   const nameQueries = ["姓名", "角色姓名", "调查员姓名", "name", "character name"];
   const attrMap = coc7e.COC7E_ATTRIBUTE_ALIASES;
+  const normalizeNameLabel = (value: string): string =>
+    value.trim().toLowerCase().replace(/[:：]\s*$/, "");
 
   const getNumber = (val: unknown): number | null => {
     if (typeof val === "number") {
@@ -50,6 +53,26 @@ export async function parseCoc7eCharacterSheet(input: ArrayBuffer): Promise<Char
     if (!worksheet) continue;
     const rows = xlsx.utils.sheet_to_json<unknown[]>(worksheet, { header: 1 });
 
+    const readAdjacentName = (r: number, c: number): string | null => {
+      const row = rows[r];
+      const nextRow = rows[r + 1];
+      const raw = row?.[c + 1] ?? nextRow?.[c];
+      if (raw === undefined || raw === null) {
+        return null;
+      }
+      const cleaned = String(raw).trim();
+      if (!cleaned) {
+        return null;
+      }
+      const lowered = cleaned.toLowerCase();
+      if (lowered === "str" || lowered === "con") {
+        return null;
+      }
+      return cleaned;
+    };
+
+    let exactName: string | null = null;
+    let fuzzyMatch: { cell: string; label: string } | null = null;
     for (let r = 0; r < rows.length; r++) {
       const row = rows[r];
       if (!row) continue;
@@ -58,16 +81,56 @@ export async function parseCoc7eCharacterSheet(input: ArrayBuffer): Promise<Char
         if (val === undefined || val === null) continue;
         const text = String(val).trim();
         if (!text) continue;
-        if (nameQueries.some(q => text.toLowerCase() === q || text.toLowerCase() === `${q}:` || text.toLowerCase() === `${q}：` || text.toLowerCase().includes(q))) {
-          const nextRow = rows[r + 1];
-          const nameVal = row[c + 1] || (nextRow && nextRow[c]);
-          if (nameVal !== undefined && nameVal !== null) {
-            const cleanedName = String(nameVal).trim();
-            if (cleanedName && cleanedName.toLowerCase() !== "str" && cleanedName.toLowerCase() !== "con") {
-              characterName = cleanedName;
+        const normalized = normalizeNameLabel(text);
+        const exactLabel = nameQueries.find((q) => q.toLowerCase() === normalized);
+        if (exactLabel && exactName === null) {
+          exactName = readAdjacentName(r, c);
+          continue;
+        }
+        if (fuzzyMatch === null) {
+          const skip = /玩家姓名|玩家名字|player name/.test(normalized);
+          const fuzzyLabel = nameQueries.find((q) => normalized.includes(q.toLowerCase()));
+          if (fuzzyLabel && !skip) {
+            fuzzyMatch = { cell: `${String.fromCharCode(65 + c)}${r + 1}`, label: fuzzyLabel };
+          }
+        }
+      }
+    }
+    if (exactName !== null) {
+      characterName = exactName;
+    } else if (fuzzyMatch) {
+      const matchedName = (() => {
+        for (let r = 0; r < rows.length; r++) {
+          const row = rows[r];
+          if (!row) continue;
+          for (let c = 0; c < row.length; c++) {
+            const val = row[c];
+            if (val === undefined || val === null) continue;
+            const normalized = normalizeNameLabel(String(val).trim());
+            if (normalized.includes(fuzzyMatch.label.toLowerCase())) {
+              return readAdjacentName(r, c);
             }
           }
         }
+        return null;
+      })();
+      if (matchedName !== null) {
+        characterName = matchedName;
+        warnings.push({
+          cell: fuzzyMatch.cell,
+          message: `姓名标签「${fuzzyMatch.label}」为模糊匹配，请核对角色名「${matchedName}」`,
+        });
+      }
+    }
+
+    for (let r = 0; r < rows.length; r++) {
+      const row = rows[r];
+      if (!row) continue;
+      for (let c = 0; c < row.length; c++) {
+        const val = row[c];
+        if (val === undefined || val === null) continue;
+        const text = String(val).trim();
+        if (!text) continue;
 
         for (const [key, terms] of Object.entries(attrMap)) {
           if (terms.some(term => text.toLowerCase() === term || text.toLowerCase() === `${term.toLowerCase()}:` || text.toLowerCase() === `${term.toLowerCase()}：` || text.includes(term))) {
@@ -96,18 +159,13 @@ export async function parseCoc7eCharacterSheet(input: ArrayBuffer): Promise<Char
   }
 
   const keys = ["str", "con", "siz", "dex", "app", "int", "pow", "edu", "luck"] as const;
-  const criticals: Record<string, true> = { con: true, siz: true, pow: true };
+  const coreKeys = new Set(["str", "con", "siz", "dex", "int", "pow", "edu"]);
   for (const key of keys) {
     if (attributes[key] === undefined) {
-      if (criticals[key]) {
+      if (coreKeys.has(key)) {
         errors.push({
           cell: key.toUpperCase(),
           message: `关键属性 ${key.toUpperCase()} 缺失或无效 (必须在 1-99 之间)`,
-        });
-      } else {
-        errors.push({
-          cell: key.toUpperCase(),
-          message: `属性 ${key.toUpperCase()} 缺失`,
         });
       }
       attributes[key] = 50;
@@ -149,5 +207,6 @@ export async function parseCoc7eCharacterSheet(input: ArrayBuffer): Promise<Char
     characterName,
     sheetData,
     errors,
+    warnings,
   };
 }

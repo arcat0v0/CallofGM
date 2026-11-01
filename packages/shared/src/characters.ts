@@ -22,6 +22,8 @@ export const ImportConfirmRequest = z.object({
   kind: CharacterRole,
   ruleId: RuleId.optional(),
   moduleId: z.string().min(1).optional(),
+  /** 传入既有人物 ID 时更新该人物（姓名 + 数值），否则新建 */
+  characterId: z.string().min(1).optional(),
 });
 export type ImportConfirmRequest = z.infer<typeof ImportConfirmRequest>;
 
@@ -69,6 +71,7 @@ export const CharacterImportPreviewResponse = z.object({
     characterName: z.string(),
     sheetData: z.unknown(),
     errors: z.array(CharacterImportErrorDto),
+    warnings: z.array(CharacterImportErrorDto).default([]),
   }),
 });
 export type CharacterImportPreviewResponse = z.infer<typeof CharacterImportPreviewResponse>;

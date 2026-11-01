@@ -3,6 +3,7 @@ import {
   Check,
   CircleCheck,
   FileSpreadsheet,
+  Info,
   TriangleAlert,
   X,
 } from "lucide-react";
@@ -29,10 +30,13 @@ function ImportCharacterSheetDialog({
   open,
   onOpenChange,
   onImported,
+  updateCharacterId,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onImported?: () => void;
+  /** 传入时把解析结果写入该既有人物，而不是新建 */
+  updateCharacterId?: string | null;
 }) {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<CharacterImportPreviewResponse | null>(null);
@@ -67,9 +71,13 @@ function ImportCharacterSheetDialog({
     try {
       await api("/gm/characters/import/confirm", {
         method: "POST",
-        body: JSON.stringify({ importToken: preview.importToken, kind }),
+        body: JSON.stringify({
+          importToken: preview.importToken,
+          kind,
+          ...(updateCharacterId ? { characterId: updateCharacterId } : {}),
+        }),
       });
-      toast.success("人物卡已入库");
+      toast.success(updateCharacterId ? "已更新人物卡" : "人物卡已入库");
       onOpenChange(false);
       setPreview(null);
       setFile(null);
@@ -90,8 +98,12 @@ function ImportCharacterSheetDialog({
       <DialogContent className="max-w-160 gap-0 p-0" showCloseButton={false}>
         <DialogHeader className="flex-row items-center justify-between px-5 py-[18px]">
           <div className="flex flex-col gap-0.5">
-            <DialogTitle>导入人物卡 Excel</DialogTitle>
-            <DialogDescription>按 CoC 7e 模板解析 · 确认无误后入库</DialogDescription>
+            <DialogTitle>{updateCharacterId ? "重新导入人物卡 Excel" : "导入人物卡 Excel"}</DialogTitle>
+            <DialogDescription>
+              {updateCharacterId
+                ? "按 CoC 7e 模板解析 · 确认后覆盖该人物的姓名与数值"
+                : "按 CoC 7e 模板解析 · 确认无误后入库"}
+            </DialogDescription>
           </div>
           <Button variant="ghost" size="icon-sm" aria-label="关闭导入弹窗" onClick={() => onOpenChange(false)}>
             <X />
@@ -149,6 +161,16 @@ function ImportCharacterSheetDialog({
                   <AlertDescription>映射无错误，可以入库。</AlertDescription>
                 </Alert>
               )}
+              {preview.preview.warnings.length > 0 ? (
+                <Alert>
+                  <AlertIcon>
+                    <Info />
+                  </AlertIcon>
+                  <AlertDescription>
+                    {preview.preview.warnings.map((warning) => warning.message).join("；")}
+                  </AlertDescription>
+                </Alert>
+              ) : null}
             </>
           ) : null}
         </div>
@@ -159,7 +181,7 @@ function ImportCharacterSheetDialog({
           </Button>
           <Button variant="primary" size="sm" disabled={!preview || pending} onClick={() => void confirm()}>
             <Check className={cn("size-4", pending && "opacity-50")} />
-            确认入库
+            {updateCharacterId ? "确认更新" : "确认入库"}
           </Button>
         </div>
       </DialogContent>
