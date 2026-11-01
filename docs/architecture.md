@@ -25,6 +25,7 @@ CallofGM/
 - 掷骰与技能鉴定（服务端生成随机数、从库中人物卡读取目标值并判级，前端不传任何数值）
 - 角色团内状态变更（HP/MP/SAN、状态标记；仅 GM 指令与理智检定自动扣减两个入口）
 - 情报可见性（秘密情报只推送给可见者，禁止全员广播后前端隐藏）
+- 团级可见性设置（公开队友人物卡 / OB 可见 PC 数值）对快照与事件的过滤，按查看者席位逐连接裁剪
 
 发言与自主掷骰的权限矩阵定义在 `packages/shared` 的 `policy.ts`（`decideChatMessage` / `canPlayerInitiateDiceRoll`）：服务端据此拒绝命令，前端用同一函数只做输入禁用，避免两套规则漂移；席位（PC/OB）由快照的 `viewer.seatRole` 下发，前端不自行推断。
 - 踢人、黑名单校验（WS 握手时校验指纹）
@@ -34,7 +35,8 @@ CallofGM/
 - 每个团一个 topic：`session:{id}`。连接加入团即 `ws.subscribe`，广播用 `server.publish`。
 - **定向消息**（如秘密情报）不走 topic，服务端按连接注册表向可见者逐连接推送。
 - 消息信封：`{ eventId: number, type: string, payload: T }`，eventId 为团内单调递增序号。
-- **断线补发**：服务端为每个进行中的团在内存维护一个环形事件日志（近 N 条），日志条目带可见范围（全体 / 指定 PC 集合）。客户端（partysocket 自动重连）重连时携带 `lastEventId`，服务端按请求者身份过滤后补发缺失事件；缺口超出日志范围则下发全量快照（请求者身份 `viewer`（是否 GM、席位 PC/OB）、当前场景、在场立绘及表情、阶段、音频状态、对该玩家可见的情报列表、对该玩家可见的各角色团内状态、待其响应的鉴定请求、最近聊天记录）。
+- 事件可见范围 `visibility` 四种以上：`public`（全员）、`gmOnly`（仅 GM）、`pcPlayers`（GM + 有 PC 席位的玩家，用于 OB 不可见但 PC 可见的状态同步）、`selectedPcIds`（指定 PC）与 `connectionOnly`（单连接）。投递、补发与快照共用同一套 `checkVisibility` 判定。
+- **断线补发**：服务端为每个进行中的团在内存维护一个环形事件日志（近 N 条），日志条目带可见范围（全体 / 指定 PC 集合 / GM + PC 席位）。客户端（partysocket 自动重连）重连时携带 `lastEventId`，服务端按请求者身份过滤后补发缺失事件；缺口超出日志范围则下发全量快照（团名与可见性设置、请求者身份 `viewer`（是否 GM、席位 PC/OB）、当前场景、在场立绘及表情、阶段、音频状态、对该玩家可见的情报及其已读状态、对该玩家可见的各角色团内状态与人物卡、待其响应的鉴定请求、最近聊天记录）。
 - 新加入者直接走全量快照路径。
 
 ## 演绎发言队列（隐式审核）
@@ -75,7 +77,7 @@ v1 只实现 CoC 7e，但**所有规则相关逻辑必须通过统一的规则�
 
 - 表 `session_character_state`：主键 `(sessionId, characterId)` + `state`（JSON）。`state` 的 schema 由团所属规则模块定义并校验（CoC 7e：`hp/maxHp/mp/maxMp/san/maxSan`、`statuses` 预置标记、`tags` 自定义标签、`growthMarks` 技能名列表）；团创建/PC 进团时由规则模块从人物卡推算初始化。
 - 所有变更（GM 编辑、理智检定扣减、鉴定引擎写成长标记）走服务端统一入口：写库 → 生成 `state:changed` 事件（带 eventId，进事件日志）→ 按可见性广播。伤害/损失越阈（重伤线、HP 归零、单次 SAN ≥ 5）时向 GM 附加提示，不自动挂状态。
-- 可见性：PC 状态事件全员广播；NPC 状态事件仅推送 GM（复用定向推送）。全量快照包含对请求者可见的全部角色状态。
+- 可见性：PC 状态事件默认广播全员；团级设置「OB 可见 PC 数值」关闭后改为 `pcPlayers` 作用域（GM + PC 席位玩家），OB 连接收不到 `state:changed`，快照中的 PC 状态也为 null。NPC 状态事件仅推送 GM（复用定向推送）。全量快照包含对请求者可见的全部角色状态。
 - **暗骰作用域贯穿状态变更**：暗骰鉴定成功写入的成长标记记入 `hiddenGrowthMarks`，整次 `state:changed` / `state:hint` 仅发 GM；状态视图由规则模块按观察者裁剪（`viewSessionState`），玩家快照与广播都不含暗骰技能名。非暗骰状态变更保持公开。
 
 ## 音频同步（GM 控制）
@@ -96,6 +98,8 @@ BgmState = { trackId, playing, volume, loop, seekOffset, startedAt(服务器时�
 - 情报条目存于模组（标题、正文、可选图片），发放记录存于团：`{ handoutId, sessionId, visibility: 'all' | pcIds[] , grantedAt }`。
 - GM 发放/追加对象 → 服务端写入发放记录 → 公开情报走 topic 广播、秘密情报走定向推送 → 玩家端弹出展示并计入情报面板。
 - 可见性判定只在服务端：REST 拉取情报列表与 WS 推送/补发共用同一套过滤逻辑。
+- 已读状态存于 `handout_reads`（`grantId × playerId` 唯一）：玩家发送 `handout:read` 命令后落库，快照与 REST 返回的 `GrantedHandoutDto` 携带 `read` 字段；自动弹窗只显示未读条目，重连/重进不再重复提示。
+- 团名与人卡可见性：`sessions.name`（可空，界面回退模组名）与 `sessions.share_pc_sheets` / `sessions.ob_see_pc_state`（默认开启）。GM 通过 `session:settings` 命令切换可见性并广播 `session:settings-changed`，客户端收到后重新拉取全量快照，使已连接的玩家立即按新规则生效。
 
 ## 身份、在线与黑名单
 
@@ -110,7 +114,7 @@ BgmState = { trackId, playing, volume, loop, seekOffset, startedAt(服务器时�
 | 路径 | 视图 |
 |---|---|
 | `/` | 入口：输入/选择团 |
-| `/join/$sessionId` | 玩家进团：选 PC 或 OB 位 |
+| `/join/$sessionId` | 玩家进团：选 PC 或 OB 位（标题优先显示团名，未命名时回退模组名） |
 | `/play/$sessionId` | 玩家沉浸视图 |
 | `/gm/login` | GM 登录 |
 | `/gm` | GM 后台：模组/人物/场景/音乐/情报/团管理 |
