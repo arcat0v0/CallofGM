@@ -57,7 +57,7 @@ function GmModulesPage() {
   }
 
   return (
-    <AdminLayout active="modules">
+    <AdminLayout>
       <div className="flex flex-col gap-5">
         <PageHeader
           title="模组管理"

@@ -83,7 +83,7 @@ function GmCharactersPage() {
   const counts = { all: list.length, PC: list.filter((c) => c.kind === "PC").length, NPC: list.filter((c) => c.kind === "NPC").length };
 
   return (
-    <AdminLayout active="characters">
+    <AdminLayout>
       <div className="-mx-10 -my-9 flex h-screen overflow-hidden">
         <aside className="bg-background flex w-80 flex-col">
           <div className="flex flex-col gap-3 px-4 pt-5 pb-3">

@@ -103,7 +103,7 @@ function GmDashboardPage() {
   }
 
   return (
-    <AdminLayout active="sessions">
+    <AdminLayout>
       <div className="flex flex-col gap-5">
         <PageHeader
           title="团管理"
