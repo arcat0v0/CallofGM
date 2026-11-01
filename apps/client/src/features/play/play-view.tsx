@@ -31,7 +31,7 @@ function PlaySkeleton({ label }: { label: string }) {
   return (
     <div className="bg-background flex h-full w-full flex-col items-center justify-center gap-3">
       <LoadingIndicator contained />
-      <p className="text-foreground-secondary text-body-medium">{label}</p>
+      <h1 className="text-foreground-secondary text-body-medium">{label}</h1>
     </div>
   );
 }
@@ -84,9 +84,9 @@ function PlayView() {
 
   if (gate.state === "checking") {
     return (
-      <div className="bg-background h-dvh w-full overflow-hidden">
+      <main className="bg-background h-dvh w-full overflow-hidden">
         <PlaySkeleton label="正在确认座位…" />
-      </div>
+      </main>
     );
   }
   if (gate.state === "error") {
@@ -122,16 +122,16 @@ function PlaySession({ sessionId }: { sessionId: string }) {
 
   if (!snapshotReady || storeSessionId !== sessionId) {
     return (
-      <div className="bg-background relative h-dvh w-full overflow-hidden">
+      <main className="bg-background relative h-dvh w-full overflow-hidden">
         <ConnectionBanner />
         <PlaySkeleton label="正在连接团…" />
         <SessionTerminalOverlay sessionId={sessionId} onRetry={retry} />
-      </div>
+      </main>
     );
   }
 
   return (
-    <div className="bg-background relative h-dvh w-full overflow-hidden">
+    <main className="bg-background relative h-dvh w-full overflow-hidden">
       <ConnectionBanner />
       <div className="hidden h-full lg:flex">
         <div className="min-w-0 flex-1">
@@ -195,7 +195,7 @@ function PlaySession({ sessionId }: { sessionId: string }) {
         </DialogContent>
       </Dialog>
       <SessionTerminalOverlay sessionId={sessionId} onRetry={retry} />
-    </div>
+    </main>
   );
 }
 

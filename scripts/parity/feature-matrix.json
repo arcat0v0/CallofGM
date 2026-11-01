@@ -850,7 +850,7 @@
       "probes": [
         {
           "type": "code_regex",
-          "pattern": "TabsTrigger",
+          "pattern": "SegmentedControl",
           "scope": "apps/client/src/features/play"
         },
         {
@@ -2521,7 +2521,7 @@
       "probes": [
         {
           "type": "code_regex",
-          "pattern": "TabsTrigger",
+          "pattern": "SegmentedControl",
           "scope": "apps/client/src/features/play"
         },
         {

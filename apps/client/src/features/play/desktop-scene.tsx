@@ -27,7 +27,7 @@ function DesktopScene() {
       <div className="absolute inset-x-0 top-0 h-40 bg-linear-to-b from-stage-scrim to-transparent" />
 
       <div className="absolute top-5 left-6 flex items-center gap-2.5">
-        <span className="text-foreground font-serif text-headline-medium-emph">{scene?.name ?? "团"}</span>
+        <h1 className="text-foreground font-serif text-headline-medium-emph">{scene?.name ?? "团"}</h1>
         {status ? (
           <Badge variant="soft" tone="success" size="sm">
             {SessionStatusLabel[status]}

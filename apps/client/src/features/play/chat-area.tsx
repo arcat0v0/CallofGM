@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "@tanstack/react-router";
 import { LogOut } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SegmentedControl } from "@/components/shared/segmented-control";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { ChatPanelHeader } from "@/features/chat/chat-panel-header";
 import { MessageList } from "@/features/chat/message-list";
@@ -19,10 +19,18 @@ type ChatAreaProps = {
   className?: string;
 };
 
+type ChatChannel = "all" | "ic" | "ooc";
+
+const CHANNEL_OPTIONS = [
+  { value: "all", label: "全部" },
+  { value: "ic", label: "角色" },
+  { value: "ooc", label: "场外" },
+] as const;
+
 function ChatArea({ variant, onCollapse, className }: ChatAreaProps) {
   const { sessionId } = useParams({ from: "/play/$sessionId" });
   const navigate = useNavigate();
-  const [channel, setChannel] = useState("all");
+  const [channel, setChannel] = useState<ChatChannel>("all");
   const [leaveOpen, setLeaveOpen] = useState(false);
   const compact = variant !== "desktop";
   const messages = usePlayStore((state) => state.messages);
@@ -63,13 +71,12 @@ function ChatArea({ variant, onCollapse, className }: ChatAreaProps) {
         onLeaveSeat={() => setLeaveOpen(true)}
       >
         <div className={cn("flex items-center justify-between", variant === "desktop" ? "px-4 pb-2.5" : "px-3 py-2")}>
-          <Tabs value={channel} onValueChange={setChannel}>
-            <TabsList>
-              <TabsTrigger value="all">全部</TabsTrigger>
-              <TabsTrigger value="ic">角色</TabsTrigger>
-              <TabsTrigger value="ooc">场外</TabsTrigger>
-            </TabsList>
-          </Tabs>
+          <SegmentedControl
+            value={channel}
+            options={CHANNEL_OPTIONS}
+            onValueChange={setChannel}
+            aria-label="聊天频道"
+          />
           {variant === "portrait" && (
             <Badge variant="soft" tone="accent" size="md" className="h-6 px-2.5 text-label-small">
               旋转到横屏体验更佳

@@ -30,9 +30,9 @@ function MobilePortraitScene() {
 
       <div className="absolute inset-x-0 top-0 flex flex-col gap-1 px-3.5 pt-2">
         <div className="flex items-center justify-between gap-2">
-          <span className="text-foreground min-w-0 flex-1 truncate font-serif text-title-large-emph">
+          <h1 className="text-foreground min-w-0 flex-1 truncate font-serif text-title-large-emph">
             {scene?.name ?? "团"}
-          </span>
+          </h1>
           <Button
             type="button"
             variant="tertiary"

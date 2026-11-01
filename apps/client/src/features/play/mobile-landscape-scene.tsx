@@ -25,9 +25,9 @@ function MobileLandscapeScene() {
       <div className="absolute inset-x-0 top-0 h-20 bg-linear-to-b from-stage-scrim to-transparent" />
 
       <div className="absolute inset-x-0 top-0 flex h-12 items-center justify-between gap-2 px-3 py-1">
-        <span className="text-foreground line-clamp-2 min-w-0 flex-1 font-serif text-title-small-emph">
+        <h1 className="text-foreground line-clamp-2 min-w-0 flex-1 font-serif text-title-small-emph">
           {scene?.name ?? "团"}
-        </span>
+        </h1>
         <SceneAudioStatus
           trackName={bgmStatusLabel(bgm)}
           showProgress={bgmShowsProgress(bgm)}
