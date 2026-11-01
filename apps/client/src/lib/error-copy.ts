@@ -39,6 +39,7 @@ const CODE_COPY: Record<string, string> = {
   SCENE_NOT_FOUND: "找不到该场景",
   SEAT_ALREADY_CLAIMED: "这个位置已被认领",
   SESSION_EXPIRED: "登录状态已过期，请重新登录",
+  SESSION_KICKED: "你已被主持人移出本团，需由主持人解除禁入后才能重新进入",
   SESSION_NOT_FOUND: "找不到这个团，链接可能已失效",
   SESSION_PHASE_FORBIDS_ACTION: "当前阶段或席位不允许自主掷骰",
   SESSION_STATE_INVALID: "当前团状态不允许该操作",
