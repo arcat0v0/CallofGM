@@ -1,4 +1,4 @@
-import { KickPlayerCommand, BanFingerprintCommand, UnbanFingerprintCommand } from "@cogm/shared";
+import { KickPlayerCommand, UnkickPlayerCommand, BanFingerprintCommand, UnbanFingerprintCommand } from "@cogm/shared";
 import { and, eq, isNull } from "drizzle-orm";
 import { sessionClaims } from "@/platform/db/schema";
 import type {
@@ -9,7 +9,7 @@ import type {
 import { AppError } from "@/platform/errors/app-error";
 import { ForbiddenError } from "@/modules/identity";
 import type { DbClient } from "@/platform/db/client";
-import type { ModerationRepository } from "./ports";
+import type { ModerationRepository, SessionKickStore } from "./ports";
 
 export class PlayerNotFoundError extends AppError {
   constructor(message = "Player not found") {
@@ -17,10 +17,12 @@ export class PlayerNotFoundError extends AppError {
   }
 }
 
-/** player:kick — 关闭玩家当前连接（不拉黑，不释放 claim） */
+/** player:kick — 记录团内禁入并关闭玩家当前连接；解除前无法重新认领或握手 */
 export class KickPlayerHandler implements CommandHandler {
   readonly type = "player:kick" as const;
   readonly allowWhenEnded = true;
+
+  constructor(private readonly kickStoreFactory: (tx: DbClient) => SessionKickStore) {}
 
   async execute(ctx: CommandHandlerContext, payload: unknown): Promise<CommandHandlerResult> {
     if (ctx.actor.type !== "gm") {
@@ -30,25 +32,66 @@ export class KickPlayerHandler implements CommandHandler {
     if (!parsed.success) {
       throw new AppError("VALIDATION_FAILED", parsed.error.message, 400);
     }
+    const playerId = parsed.data.playerId;
+    const store = this.kickStoreFactory(ctx.tx);
+    const existing = await store.findActiveSessionKick(ctx.sessionId, playerId);
 
-    const claims = await ctx.tx
-      .select({ id: sessionClaims.id })
-      .from(sessionClaims)
-      .where(
-        and(
-          eq(sessionClaims.sessionId, ctx.sessionId),
-          eq(sessionClaims.playerId, parsed.data.playerId),
-          isNull(sessionClaims.releasedAt)
-        )
-      );
-    if (claims.length === 0) {
-      throw new PlayerNotFoundError("Player has no active claim in this session");
+    if (!existing) {
+      const claims = await ctx.tx
+        .select({ id: sessionClaims.id })
+        .from(sessionClaims)
+        .where(
+          and(
+            eq(sessionClaims.sessionId, ctx.sessionId),
+            eq(sessionClaims.playerId, playerId),
+            isNull(sessionClaims.releasedAt)
+          )
+        );
+      if (claims.length === 0) {
+        throw new PlayerNotFoundError("Player has no active claim in this session");
+      }
+      const reason = parsed.data.reason?.trim() ?? "";
+      await store.recordSessionKick({
+        id: ctx.idGenerator.nextId(),
+        sessionId: ctx.sessionId,
+        playerId,
+        reason: reason.length > 0 ? reason : null,
+        createdAt: ctx.clock.nowEpochMs(),
+      });
     }
 
     return {
-      closeConnectionsOfPlayerIds: [parsed.data.playerId],
+      closeConnectionsOfPlayerIds: [playerId],
       refreshPresence: true,
-      replyPayload: { kicked: parsed.data.playerId },
+      replyPayload: { kicked: playerId, alreadyKicked: existing !== null },
+    };
+  }
+}
+
+export class UnkickPlayerHandler implements CommandHandler {
+  readonly type = "player:unkick" as const;
+  readonly allowWhenEnded = true;
+
+  constructor(private readonly kickStoreFactory: (tx: DbClient) => SessionKickStore) {}
+
+  async execute(ctx: CommandHandlerContext, payload: unknown): Promise<CommandHandlerResult> {
+    if (ctx.actor.type !== "gm") {
+      throw new ForbiddenError("Only the GM can lift a kick");
+    }
+    const parsed = UnkickPlayerCommand.safeParse(payload);
+    if (!parsed.success) {
+      throw new AppError("VALIDATION_FAILED", parsed.error.message, 400);
+    }
+
+    const lifted = await this.kickStoreFactory(ctx.tx).liftSessionKick(
+      ctx.sessionId,
+      parsed.data.playerId,
+      ctx.clock.nowEpochMs()
+    );
+
+    return {
+      refreshPresence: true,
+      replyPayload: { playerId: parsed.data.playerId, lifted },
     };
   }
 }
@@ -119,10 +162,12 @@ export class UnbanFingerprintHandler implements CommandHandler {
 }
 
 export function createModerationCommandHandlers(
-  repoFactory: (tx: DbClient) => ModerationRepository
+  repoFactory: (tx: DbClient) => ModerationRepository,
+  kickStoreFactory: (tx: DbClient) => SessionKickStore
 ): CommandHandler[] {
   return [
-    new KickPlayerHandler(),
+    new KickPlayerHandler(kickStoreFactory),
+    new UnkickPlayerHandler(kickStoreFactory),
     new BanFingerprintHandler(repoFactory),
     new UnbanFingerprintHandler(repoFactory),
   ];

@@ -32,6 +32,7 @@ import type { RuleId } from "@cogm/shared";
 import type { PresenceService } from "../presence-service";
 import { SessionHistoryPager } from "./session-history";
 import { collectCharacterIds, loadCharacterNames, toMessageDto } from "./chat-message-mapper";
+import { loadKickedPlayers } from "./kicked-players";
 
 const RECENT_HISTORY_LIMIT = 50;
 
@@ -101,6 +102,7 @@ export class BuildSessionSnapshotUseCase {
       pendingCheckRequests,
       pendingQueue,
       online,
+      kickedPlayers,
     ] = await Promise.all([
       this.buildCharacters(sessionId, ruleId, actor, seatRole, {
         sharePcSheets: session.sharePcSheets === 1,
@@ -124,6 +126,7 @@ export class BuildSessionSnapshotUseCase {
       this.buildPendingCheckRequests(sessionId, isGm, claimedCharacterId),
       isGm ? this.buildPendingQueue(sessionId) : Promise.resolve(undefined),
       isGm ? this.presenceService.listOnline(sessionId) : Promise.resolve(undefined),
+      isGm ? loadKickedPlayers(this.db, sessionId) : Promise.resolve(undefined),
     ]);
 
     return {
@@ -151,6 +154,7 @@ export class BuildSessionSnapshotUseCase {
       pendingCheckRequests,
       pendingQueue,
       online,
+      kickedPlayers,
     };
   }
 

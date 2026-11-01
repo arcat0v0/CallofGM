@@ -24,6 +24,12 @@ export class SeatAlreadyClaimedError extends AppError {
   }
 }
 
+export class SessionKickedError extends AppError {
+  constructor(message = "You were removed from this session by the GM") {
+    super("SESSION_KICKED", message, 403);
+  }
+}
+
 export class CharacterAlreadyParticipatingError extends AppError {
   constructor(message = "Character already participating in session") {
     super("CHARACTER_ALREADY_PARTICIPATING", message, 400);

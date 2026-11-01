@@ -33,6 +33,23 @@ export interface SessionCharacterSnapshotItem {
   } | null;
 }
 
+export interface SessionKickRecord {
+  id: string;
+  sessionId: string;
+  playerId: string;
+  reason: string | null;
+  createdAt: number;
+  liftedAt: number | null;
+}
+
+export interface SessionKickInput {
+  id: string;
+  sessionId: string;
+  playerId: string;
+  reason: string | null;
+  createdAt: number;
+}
+
 export interface SessionsRepository {
   findSessionById(id: string, db?: DbClient): Promise<SessionRecord | null>;
   saveSession(session: SessionRecord): Promise<void>;
@@ -94,4 +111,7 @@ export interface SessionsRepository {
   findActiveClaims(
     sessionId: string
   ): Promise<Array<{ id: string; sessionId: string; playerId: string; role: string; characterId: string | null }>>;
+  findActiveSessionKick(sessionId: string, playerId: string): Promise<SessionKickRecord | null>;
+  recordSessionKick(kick: SessionKickInput): Promise<void>;
+  liftSessionKick(sessionId: string, playerId: string, liftedAt: number): Promise<boolean>;
 }

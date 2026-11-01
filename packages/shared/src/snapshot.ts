@@ -4,7 +4,7 @@ import { ChatMessageDto } from "./chat";
 import { CheckRequestDto } from "./gameplay";
 import { GrantedHandoutDto } from "./handouts";
 import { HistoryCursor, HistoryItem } from "./history";
-import { OnlinePlayerDto } from "./moderation";
+import { KickedPlayerDto, OnlinePlayerDto } from "./moderation";
 import { BgmState } from "./stage";
 
 export const SnapshotPortrait = z.object({
@@ -67,5 +67,6 @@ export const SessionSnapshotPayload = z.object({
   pendingQueue: z.array(ChatMessageDto).optional(),
   /** GM 专属：在线列表 */
   online: z.array(OnlinePlayerDto).optional(),
+  kickedPlayers: z.array(KickedPlayerDto).optional(),
 });
 export type SessionSnapshotPayload = z.infer<typeof SessionSnapshotPayload>;

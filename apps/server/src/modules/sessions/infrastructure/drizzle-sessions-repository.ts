@@ -4,11 +4,12 @@ import {
   sessions,
   sessionCharacters,
   sessionClaims,
+  sessionKicks,
   characters,
   modules,
   moduleCharacters,
 } from "@/platform/db/schema";
-import type { SessionsRepository } from "../application/ports";
+import type { SessionsRepository, SessionKickInput, SessionKickRecord } from "../application/ports";
 
 export class DrizzleSessionsRepository implements SessionsRepository {
   constructor(private readonly db: DbClient) {}
@@ -298,5 +299,39 @@ export class DrizzleSessionsRepository implements SessionsRepository {
           isNull(sessionClaims.releasedAt)
         )
       );
+  }
+
+  async findActiveSessionKick(sessionId: string, playerId: string): Promise<SessionKickRecord | null> {
+    const rows = await this.db
+      .select()
+      .from(sessionKicks)
+      .where(
+        and(
+          eq(sessionKicks.sessionId, sessionId),
+          eq(sessionKicks.playerId, playerId),
+          isNull(sessionKicks.liftedAt)
+        )
+      )
+      .limit(1);
+    return rows[0] ?? null;
+  }
+
+  async recordSessionKick(kick: SessionKickInput): Promise<void> {
+    await this.db.insert(sessionKicks).values(kick).onConflictDoNothing();
+  }
+
+  async liftSessionKick(sessionId: string, playerId: string, liftedAt: number): Promise<boolean> {
+    const rows = await this.db
+      .update(sessionKicks)
+      .set({ liftedAt })
+      .where(
+        and(
+          eq(sessionKicks.sessionId, sessionId),
+          eq(sessionKicks.playerId, playerId),
+          isNull(sessionKicks.liftedAt)
+        )
+      )
+      .returning({ id: sessionKicks.id });
+    return rows.length > 0;
   }
 }

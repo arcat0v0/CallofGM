@@ -228,16 +228,26 @@ describe("Handouts & moderation contract tests", () => {
     await closeAll(pc3);
   });
 
-  test("踢出：连接被关闭，可重连（未拉黑）", async () => {
+  test("踢出：连接被关闭且团内禁入，GM 解除后可重连", async () => {
     const { gm, pc1 } = await openAll();
 
     sendCommand(gm, "player:kick", { playerId: ctx.playerIds.get("pc1") }, "kick-1");
-    await gm.waitFor((m) => m.commandId === "kick-1" && m.type === "command:accepted");
+    const kickReply = await gm.waitFor((m) => m.commandId === "kick-1" && m.type === "command:accepted");
+    expect(kickReply.payload.kicked).toBe(ctx.playerIds.get("pc1"));
+    expect(kickReply.payload.alreadyKicked).toBe(false);
 
-    await new Promise((r) => setTimeout(r, 300));
-    expect(pc1.readyState).toBe(WebSocket.CLOSED);
+    expect((await pc1.closed).code).toBe(4000);
 
-    // 未被拉黑，可重连
+    const rejected = await connectWs(wsUrl(), ctx.playerTokens.get("pc1")!);
+    const kickedMessage = await rejected.waitFor((m) => m.type === "session:kicked");
+    expect(kickedMessage.payload.code).toBe("SESSION_KICKED");
+    expect(rejected.messages.some((m) => m.type === "snapshot")).toBe(false);
+    await rejected.closed;
+
+    sendCommand(gm, "player:unkick", { playerId: ctx.playerIds.get("pc1") }, "unkick-1");
+    const unkickReply = await gm.waitFor((m) => m.commandId === "unkick-1" && m.type === "command:accepted");
+    expect(unkickReply.payload.lifted).toBe(true);
+
     const reconnected = await connectWs(wsUrl(), ctx.playerTokens.get("pc1")!);
     await reconnected.waitFor((m) => m.type === "snapshot");
 

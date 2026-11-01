@@ -108,7 +108,8 @@ BgmState = { trackId, playing, volume, loop, seekOffset, startedAt(服务器时�
 - GM：密码登录 → HttpOnly session cookie。
 - 玩家：首次进入由服务端签发匿名 token，仅存于 HttpOnly `player_token` cookie（不落 localStorage），同时上报 FingerprintJS 指纹。
 - 在线列表来自 WS 连接注册表（连接 ↔ 团 ↔ 所选 PC/OB）。
-- 踢出 = 关闭 socket；拉黑 = 指纹写入黑名单表（含过期时间，NULL 为永久），HTTP 与 WS 握手均校验；已通过 GM cookie 鉴权的请求优先于指纹黑名单。
+- 踢出 = 团内禁入：`player:kick` 写入 `session_kicks`（按 `sessionId × playerId`，`lifted_at` 为空即生效）并关闭该玩家在本团的连接；生效期间认领席位返回 `SESSION_KICKED`（403），WS 握手直接下发 `session:kicked` 后以 4000 关闭。`player:unkick` 由 GM 解除禁入，玩家恢复进入；禁入只作用于该团，不涉及指纹。
+- 拉黑 = 指纹写入黑名单表（含过期时间，NULL 为永久），HTTP 与 WS 握手均校验；已通过 GM cookie 鉴权的请求优先于指纹黑名单。
 - GM 写接口（`/api/v1/gm/*` 的 POST/PATCH/PUT/DELETE）校验 Origin/Referer，命中允许来源才放行；GET 不受影响。
 
 ## 前端路由（TanStack Router）

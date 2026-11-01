@@ -634,11 +634,11 @@ describe("End-to-End TRPG Session Flow (GM Hosting & Player TRPG)", () => {
 
   test("Phase 10: Player moderation and Session completion", async () => {
     sendCommand(gmWs, "player:kick", {
-      targetId: obId,
+      playerId: obId,
       reason: "违反观战规则",
     });
 
-    await obWs.waitForMessages(1);
+    expect((await obWs.closed).code).toBe(4000);
 
     const endRes = await fetch(`${baseUrl}/api/v1/gm/sessions/${sessionId}/status`, {
       method: "POST",
