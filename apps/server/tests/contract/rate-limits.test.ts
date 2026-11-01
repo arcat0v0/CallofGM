@@ -1,7 +1,10 @@
 import { expect, test, describe, beforeAll, afterAll } from "bun:test";
 import { Elysia } from "elysia";
 import { Container } from "@/bootstrap/container";
+import { createApp } from "@/app";
 import { createIdentityRoutes } from "@/modules/identity/transport/routes";
+import { RateLimiter } from "@/platform/security/rate-limiter";
+import { HttpLimits } from "@/platform/security/http-limits";
 import { AppError } from "@/platform/errors/app-error";
 import { seedGmPassword } from "../helpers/setup";
 
@@ -62,5 +65,45 @@ describe("HTTP rate limits", () => {
     const app = buildApp(isolatedContainer);
     const response = await login(app, gmPassword);
     expect(response.status).toBe(200);
+  });
+
+  test("identity 429 responses carry Retry-After and stay Chinese-copy friendly", async () => {
+    process.env.DATABASE_URL = ":memory:";
+    const bounded = new Container([], {
+      httpLimits: new HttpLimits({ identity: new RateLimiter(1, 60_000) }),
+    });
+    await bounded.startupService.startup();
+    try {
+      const app = createApp(bounded);
+      const identify = () =>
+        app.handle(
+          new Request("http://localhost/api/v1/player/identity", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ fingerprint: "retry-after-fp" }),
+          })
+        );
+      expect((await identify()).status).toBe(200);
+      const blocked = await identify();
+      expect(blocked.status).toBe(429);
+      const retryAfter = Number(blocked.headers.get("Retry-After"));
+      expect(Number.isInteger(retryAfter)).toBe(true);
+      expect(retryAfter).toBeGreaterThanOrEqual(1);
+      expect(retryAfter).toBeLessThanOrEqual(60);
+      const body = (await blocked.json()) as { code: string; metadata: { retryAfterSeconds: number } };
+      expect(body.code).toBe("RATE_LIMITED");
+      expect(body.metadata.retryAfterSeconds).toBe(retryAfter);
+    } finally {
+      bounded.dbContext.sqlite.close();
+    }
+  });
+
+  test("the default identity budget is 60 requests per minute per IP", () => {
+    const limiter = new HttpLimits().identityRateLimiter;
+    for (let i = 0; i < 60; i++) {
+      expect(limiter.check("198.51.100.7")).toBe(true);
+    }
+    expect(limiter.check("198.51.100.7")).toBe(false);
+    expect(limiter.check("198.51.100.8")).toBe(true);
   });
 });

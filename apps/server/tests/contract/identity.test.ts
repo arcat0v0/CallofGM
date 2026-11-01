@@ -193,6 +193,63 @@ describe("Identity and Auth contract tests", () => {
     expect(body.code).toBe("BLACKLISTED_FINGERPRINT");
   });
 
+  test("Player Me - resolves the player from the cookie without a fingerprint", async () => {
+    const identity = await app.handle(
+      new Request("http://localhost/api/v1/player/identity", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fingerprint: "me-cookie-fp" }),
+      })
+    );
+    expect(identity.status).toBe(200);
+    const identityBody = await identity.json();
+    const setCookie = identity.headers.get("set-cookie") ?? "";
+    expect(setCookie).toContain("player_token=");
+    const cookie = setCookie.split(";")[0] ?? "";
+
+    const me = await app.handle(
+      new Request("http://localhost/api/v1/player/me", {
+        headers: { Cookie: cookie },
+      })
+    );
+    expect(me.status).toBe(200);
+    const meBody = (await me.json()) as { playerId: string };
+    expect(meBody.playerId).toBe(identityBody.playerId);
+  });
+
+  test("Player Me - rejects requests without a valid player cookie", async () => {
+    const anonymous = await app.handle(
+      new Request("http://localhost/api/v1/player/me")
+    );
+    expect(anonymous.status).toBe(401);
+    expect((await anonymous.json()).code).toBe("AUTH_REQUIRED");
+
+    const forged = await app.handle(
+      new Request("http://localhost/api/v1/player/me", {
+        headers: { Cookie: "player_token=forged-token-value" },
+      })
+    );
+    expect(forged.status).toBe(401);
+    expect((await forged.json()).code).toBe("AUTH_REQUIRED");
+  });
+
+  test("Player Me - a GM session cookie does not resolve a player", async () => {
+    const login = await app.handle(
+      new Request("http://localhost/api/v1/gm/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: "gm", password: gmPassword }),
+      })
+    );
+    const { sessionToken } = await login.json();
+    const me = await app.handle(
+      new Request("http://localhost/api/v1/player/me", {
+        headers: { Cookie: `gm_session=${sessionToken}` },
+      })
+    );
+    expect(me.status).toBe(401);
+  });
+
   test("clientIp prefers forwarded header only when trustProxy is true", async () => {
     const { clientIp } = await import("@/platform/security/request-ip");
     const req = new Request("http://localhost", {

@@ -179,6 +179,12 @@ export function createIdentityRoutes(container: Container) {
       logger.audit("gm.blacklist.unban", { fingerprintHash: parsed.data.fingerprintHash, removed });
       return { removed };
     })
+    .get("/api/v1/player/me", ({ actor }) => {
+      if (!actor || actor.type !== "player") {
+        throw new AuthRequiredError();
+      }
+      return { playerId: actor.playerId };
+    })
     .post("/api/v1/player/identity", async ({ body, cookie, request, server }) => {
       assertTrustedOrigin(request, allowedOrigins);
       container.httpLimits.identityRateLimiter.assert(clientIp(request, server, container.env.TRUST_PROXY));

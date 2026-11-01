@@ -54,17 +54,21 @@ function normalizePath(path: string): string {
   return `/api/v1${path.startsWith("/") ? path : `/${path}`}`;
 }
 
-export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const fingerprint = await getFingerprint();
-  const headers = new Headers(init.headers);
-  headers.set("X-Fingerprint", fingerprint);
-  if (init.body && !(init.body instanceof FormData) && !headers.has("Content-Type")) {
+export type ApiRequestInit = RequestInit & { fingerprint?: boolean };
+
+export async function api<T>(path: string, init: ApiRequestInit = {}): Promise<T> {
+  const { fingerprint: withFingerprint = false, ...requestInit } = init;
+  const headers = new Headers(requestInit.headers);
+  if (withFingerprint) {
+    headers.set("X-Fingerprint", await getFingerprint());
+  }
+  if (requestInit.body && !(requestInit.body instanceof FormData) && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
 
   const response = await fetch(normalizePath(path), {
     credentials: "include",
-    ...init,
+    ...requestInit,
     headers,
   });
   if (!response.ok) {

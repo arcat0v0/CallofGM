@@ -12,6 +12,11 @@ export const PlayerIdentityResponse = z.object({
 });
 export type PlayerIdentityResponse = z.infer<typeof PlayerIdentityResponse>;
 
+export const PlayerMeResponse = z.object({
+  playerId: z.string(),
+});
+export type PlayerMeResponse = z.infer<typeof PlayerMeResponse>;
+
 export const GmMeResponse = z.object({
   type: z.literal("gm"),
 });
