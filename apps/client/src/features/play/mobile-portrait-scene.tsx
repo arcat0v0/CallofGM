@@ -19,12 +19,12 @@ function MobilePortraitScene() {
   const sceneSrc = mediaUrl(scene?.bgAssetId) ?? undefined;
 
   return (
-    <div className="relative h-[330px] w-full shrink-0 overflow-hidden bg-background">
+    <div className="relative h-[clamp(320px,46dvh,420px)] w-full shrink-0 overflow-hidden bg-background">
       <SceneBackdrop src={sceneSrc} alt={scene?.name ?? "当前场景"} />
       <div className="absolute inset-x-0 top-0 h-24 bg-linear-to-b from-stage-scrim-strong to-transparent" />
 
-      <div className="absolute inset-x-0 top-0 flex h-[52px] items-center justify-between px-3.5">
-        <div className="flex min-w-0 items-center gap-1.5">
+      <div className="absolute inset-x-0 top-0 flex h-[52px] items-center justify-between gap-2 px-3.5">
+        <div className="flex min-w-0 flex-1 items-center gap-1.5">
           <span className="text-foreground truncate font-serif text-title-large-emph">{scene?.name ?? "团"}</span>
           {status ? (
             <Badge variant="soft" tone="success" size="sm">
@@ -49,7 +49,7 @@ function MobilePortraitScene() {
         </Button>
       </div>
 
-      <PortraitLayer compact className="bottom-[72px]" />
+      <PortraitLayer compact className="top-[52px] bottom-[88px]" />
 
       {latest ? (
         <DialogueBox

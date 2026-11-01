@@ -1,6 +1,7 @@
 import { Send } from "lucide-react";
 import type * as React from "react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { InputGroup, InputGroupInput } from "@/components/ui/input-group";
 
 function MessageInput({
@@ -9,12 +10,14 @@ function MessageInput({
   onChange,
   onSubmit,
   disabled,
+  compact = false,
 }: {
   placeholder: string;
   value?: string;
   onChange?: (value: string) => void;
   onSubmit?: () => void;
   disabled?: boolean;
+  compact?: boolean;
 }) {
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -23,7 +26,7 @@ function MessageInput({
 
   return (
     <form className="flex items-center gap-2" onSubmit={handleSubmit}>
-      <InputGroup className="h-10 flex-1 border-separator-secondary px-3.5">
+      <InputGroup className={cn("flex-1 border-separator-secondary px-3.5", compact ? "h-9" : "h-10")}>
         <InputGroupInput
           placeholder={placeholder}
           aria-label={placeholder}
@@ -36,7 +39,7 @@ function MessageInput({
       <Button
         type="submit"
         variant="primary"
-        size="icon-md"
+        size={compact ? "icon-sm" : "icon-md"}
         aria-label="发送消息"
         disabled={disabled}
       >

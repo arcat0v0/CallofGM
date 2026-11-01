@@ -4,18 +4,27 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
-async function lockLandscape(): Promise<boolean> {
-  const orientation = screen.orientation as ScreenOrientation & { lock?: (mode: OrientationLockType) => Promise<void> };
-  if (!orientation.lock) {
+type LockableOrientation = ScreenOrientation & { lock?: (mode: OrientationLockType) => Promise<void> };
+
+export function canLockOrientation(): boolean {
+  if (typeof screen === "undefined") {
     return false;
   }
+  return typeof (screen.orientation as LockableOrientation | undefined)?.lock === "function";
+}
+
+async function lockLandscape(): Promise<boolean> {
+  if (!canLockOrientation()) {
+    return false;
+  }
+  const orientation = screen.orientation as LockableOrientation;
   try {
-    await orientation.lock("landscape");
+    await orientation.lock?.("landscape");
     return true;
   } catch {
     try {
       await document.documentElement.requestFullscreen();
-      await orientation.lock("landscape");
+      await orientation.lock?.("landscape");
       return true;
     } catch {
       return false;
@@ -24,13 +33,15 @@ async function lockLandscape(): Promise<boolean> {
 }
 
 function RotateSuggestionOverlay({ onDismiss, className }: { onDismiss: () => void; className?: string }) {
+  const lockable = canLockOrientation();
+
   async function handleRotate() {
     const locked = await lockLandscape();
     if (locked) {
       onDismiss();
       return;
     }
-    toast.message("当前浏览器不支持自动旋转，请手动横持设备");
+    toast.message("当前浏览器未能自动旋转，请手动横持设备");
   }
 
   return (
@@ -49,24 +60,26 @@ function RotateSuggestionOverlay({ onDismiss, className }: { onDismiss: () => vo
           <p className="text-foreground-secondary font-sans text-body-medium">
             横屏模式下场景立绘更大、对话与掷骰并排显示，跑团体验更沉浸。
           </p>
+          {lockable ? null : (
+            <p className="text-foreground-tertiary font-sans text-label-small">
+              当前浏览器不支持自动旋转，请手动横持设备；竖屏布局同样可用。
+            </p>
+          )}
         </div>
         <div className="flex w-full flex-col gap-2">
+          {lockable ? (
+            <Button type="button" variant="primary" className="h-11 w-full" onClick={() => void handleRotate()}>
+              <RotateCw className="size-4" />
+              自动旋转屏幕
+            </Button>
+          ) : null}
           <Button
             type="button"
-            variant="primary"
-            className="h-11 w-full"
-            onClick={() => void handleRotate()}
-          >
-            <RotateCw className="size-4" />
-            自动旋转屏幕
-          </Button>
-          <Button
-            type="button"
+            variant={lockable ? "ghost" : "primary"}
             onClick={onDismiss}
-            variant="ghost"
-            className="h-9 w-full text-foreground-secondary"
+            className={cn("w-full", lockable ? "h-9 text-foreground-secondary" : "h-11")}
           >
-            仍使用竖屏
+            {lockable ? "仍使用竖屏" : "继续使用竖屏"}
           </Button>
         </div>
       </Card>
