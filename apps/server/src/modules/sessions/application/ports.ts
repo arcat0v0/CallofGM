@@ -63,6 +63,15 @@ export interface SessionsRepository {
     sessionId: string,
     characterId: string
   ): Promise<{ id: string; sessionId: string; playerId: string; role: string; characterId: string | null } | null>;
+  findActiveClaimByPlayer(sessionId: string, playerId: string): Promise<{
+    id: string;
+    sessionId: string;
+    playerId: string;
+    role: string;
+    characterId: string | null;
+    releasedAt: number | null;
+    createdAt: number;
+  } | null>;
   releasePlayerClaims(sessionId: string, playerId: string, releasedAt: number): Promise<void>;
   saveClaim(claim: {
     id: string;

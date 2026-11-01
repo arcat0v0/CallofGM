@@ -12,7 +12,8 @@ import type { VisibilityScope } from "@/modules/realtime";
 import { CreateSessionUseCase, ClaimSeatUseCase } from "@/modules/sessions/application/use-cases";
 import { DrizzleSessionsRepository } from "@/modules/sessions/infrastructure/drizzle-sessions-repository";
 import { eq } from "drizzle-orm";
-import { listenTestApp, seedGmPassword } from "../helpers/setup";
+import { listenTestApp, seedGmPassword, stopServer } from "../helpers/setup";
+import { SessionCloseCode } from "@cogm/shared";
 
 interface TestWebSocket extends WebSocket {
   messages: any[];
@@ -658,5 +659,54 @@ describe("Realtime contract tests", () => {
       claimedCharacterId: null,
     });
     expect(obSnapshot.viewer).toEqual({ isGm: false, seatRole: "ob" });
+  });
+
+  test("Replacing a player's claim closes their previous connection with a dedicated code", async () => {
+    const sessionsRepo = new DrizzleSessionsRepository(container.db);
+    const createSession = new CreateSessionUseCase(
+      sessionsRepo,
+      container.ruleRegistry,
+      container.idGenerator,
+      container.clock
+    );
+    const created = await createSession.execute({
+      moduleId: "module-rt",
+      characterIds: ["char-rt-1", "char-rt-2"],
+    });
+    const freshSessionId = created.session.id;
+    const claimSeat = new ClaimSeatUseCase(sessionsRepo, container.idGenerator, container.clock);
+    await claimSeat.execute({
+      sessionId: freshSessionId,
+      playerId: player3Id,
+      role: "pc",
+      characterId: "char-rt-1",
+    });
+
+    const server = listenTestApp(app);
+    const wsUrl = `ws://localhost:${server.server?.port}/api/v1/sessions/${freshSessionId}/ws`;
+    const ws = await connectWs(wsUrl, player3Token);
+    await ws.waitForMessages(1);
+
+    const closed = new Promise<{ code: number; reason: string }>((resolve) => {
+      ws.onclose = (event) => resolve({ code: event.code, reason: event.reason });
+    });
+
+    const claimRes = await app.handle(
+      new Request(`http://localhost/api/v1/sessions/${freshSessionId}/claim`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${player3Token}`,
+        },
+        body: JSON.stringify({ role: "ob" }),
+      })
+    );
+    expect(claimRes.status).toBe(200);
+
+    const closeInfo = await closed;
+    expect(closeInfo.code).toBe(SessionCloseCode.claimReplaced);
+    expect(closeInfo.reason).toBe("claim replaced");
+
+    await stopServer(server);
   });
 });

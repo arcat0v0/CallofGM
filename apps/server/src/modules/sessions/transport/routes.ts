@@ -21,8 +21,11 @@ import {
   SessionDto,
   JoinInfoResponse,
   ClaimDto,
+  MyClaimResponse,
+  SessionCloseCode,
 } from "@cogm/shared";
 import { sessionClaims } from "@/platform/db/schema";
+import { SessionNotFoundError } from "../domain/errors";
 import {
   CreateSessionUseCase,
   ClaimSeatUseCase,
@@ -45,7 +48,14 @@ export function createSessionsRoutes(container: Container) {
     container.idGenerator,
     container.clock
   );
-  const claimSeat = new ClaimSeatUseCase(repo, container.idGenerator, container.clock);
+  const claimSeat = new ClaimSeatUseCase(repo, container.idGenerator, container.clock, ({ sessionId, playerId }) => {
+    container.connectionRegistry.closePlayerConnections(
+      playerId,
+      sessionId,
+      SessionCloseCode.claimReplaced,
+      "claim replaced"
+    );
+  });
   const updateSessionStatus = new UpdateSessionStatusUseCase(
     repo,
     container.transactionRunner,
@@ -179,6 +189,34 @@ export function createSessionsRoutes(container: Container) {
           actor.type === "player" ? actor.playerId : null
         ),
       };
+    })
+    .get("/api/v1/sessions/:id/my-claim", async ({ actor, params: { id } }) => {
+      if (!actor) {
+        throw new AuthRequiredError();
+      }
+      const session = await repo.findSessionById(id);
+      if (!session) {
+        throw new SessionNotFoundError();
+      }
+      if (actor.type === "gm") {
+        return MyClaimResponse.parse({ claim: null, sessionStatus: session.status, isGm: true });
+      }
+      const claim = await repo.findActiveClaimByPlayer(id, actor.playerId);
+      return MyClaimResponse.parse({
+        claim: claim
+          ? {
+              id: claim.id,
+              sessionId: claim.sessionId,
+              playerId: claim.playerId,
+              role: claim.role,
+              characterId: claim.characterId,
+              releasedAt: claim.releasedAt,
+              createdAt: claim.createdAt,
+            }
+          : null,
+        sessionStatus: session.status,
+        isGm: false,
+      });
     })
     .post("/api/v1/sessions/:id/claim", async ({ actor, params: { id }, body, request, server }) => {
       if (!actor) {

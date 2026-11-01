@@ -102,7 +102,8 @@ export class ClaimSeatUseCase {
   constructor(
     private readonly repo: SessionsRepository,
     private readonly idGenerator: IdGenerator,
-    private readonly clock: Clock
+    private readonly clock: Clock,
+    private readonly onClaimReplaced?: (input: { sessionId: string; playerId: string }) => void
   ) {}
 
   async execute(input: {
@@ -142,6 +143,8 @@ export class ClaimSeatUseCase {
 
     const now = this.clock.nowEpochMs();
 
+    const previousClaim = await this.repo.findActiveClaimByPlayer(input.sessionId, input.playerId);
+
     const claim = {
       id: this.idGenerator.nextId(),
       sessionId: input.sessionId,
@@ -155,6 +158,9 @@ export class ClaimSeatUseCase {
     const claimed = await this.repo.replacePlayerClaim(claim, now);
     if (!claimed) {
       throw new SeatAlreadyClaimedError("This character's seat is already claimed");
+    }
+    if (previousClaim) {
+      this.onClaimReplaced?.({ sessionId: input.sessionId, playerId: input.playerId });
     }
     return claim;
   }
