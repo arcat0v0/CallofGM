@@ -8,7 +8,7 @@
 bun run dev:client
 ```
 
-打开 `http://localhost:15633/design-system`。此路由仅开发环境开放，示例状态完全本地，不连接实际团、不发送消息。页面包含原有 27 个组件、新增组件、状态、两种 motion scheme、播放暂停、滑块、浮层、日期/时间、加载与 35 种形状。
+打开 `http://localhost:15633/design-system`。该页面是独立的 Vite 开发入口（`design-system.html`），不注册进 SPA 路由表，也不进入生产构建产物；开发服务器只把 `/design-system` 重写到该入口。示例状态完全本地，不连接实际团、不发送消息。页面包含原有 27 个组件、新增组件、状态、两种 motion scheme、播放暂停、滑块、浮层、日期/时间、加载与 35 种形状。
 
 `frontend.pen` 新增六个 `CoGM Expressive / 01–06` 画板。旧 HeroUI 库、旧页面以及 GM Expressive V2 页面均保留。新可复用组件以 `M3/` 命名。Pen 展示可编辑图层、关键状态和动效分镜；可运行的交互动画以 Web 组件为准。
 
