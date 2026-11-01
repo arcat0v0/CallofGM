@@ -6,6 +6,7 @@ import { createCharactersRoutes } from "@/modules/characters/transport/routes";
 import { createSessionsRoutes } from "@/modules/sessions/transport/routes";
 import { AppError } from "@/platform/errors/app-error";
 import { seedGmPassword } from "../helpers/setup";
+import { CreateSessionResponse, MyClaimResponse } from "@cogm/shared";
 import { modules, characters, sessions, moduleCharacters } from "@/platform/db/schema";
 
 describe("Sessions contract tests", () => {
@@ -391,6 +392,84 @@ describe("Sessions contract tests", () => {
     expect(p1ObClaimRes.status).toBe(200);
     const p1ObClaimBody = (await p1ObClaimRes.json()) as any;
     expect(p1ObClaimBody.role).toBe("ob");
+  });
+
+  test("my-claim reports the caller's active claim and session status", async () => {
+    const createRes = await app.handle(
+      new Request("http://localhost/api/v1/gm/sessions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${gmToken}`,
+        },
+        body: JSON.stringify({ moduleId: "module-1", characterIds: ["char-1", "char-2"] }),
+      })
+    );
+    const created = CreateSessionResponse.parse(await createRes.json());
+    const sessionId = created.session.id;
+
+    const noClaimRes = await app.handle(
+      new Request(`http://localhost/api/v1/sessions/${sessionId}/my-claim`, {
+        headers: { Authorization: `Bearer ${player1Token}` },
+      })
+    );
+    expect(noClaimRes.status).toBe(200);
+    const noClaimBody = MyClaimResponse.parse(await noClaimRes.json());
+    expect(noClaimBody.claim).toBeNull();
+    expect(noClaimBody.sessionStatus).toBe("waiting");
+    expect(noClaimBody.isGm).toBe(false);
+
+    await app.handle(
+      new Request(`http://localhost/api/v1/sessions/${sessionId}/claim`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${player1Token}`,
+        },
+        body: JSON.stringify({ role: "pc", characterId: "char-2" }),
+      })
+    );
+
+    const claimRes = await app.handle(
+      new Request(`http://localhost/api/v1/sessions/${sessionId}/my-claim`, {
+        headers: { Authorization: `Bearer ${player1Token}` },
+      })
+    );
+    expect(claimRes.status).toBe(200);
+    const claimBody = MyClaimResponse.parse(await claimRes.json());
+    expect(claimBody.claim?.characterId).toBe("char-2");
+    expect(claimBody.claim?.role).toBe("pc");
+    expect(claimBody.claim?.releasedAt).toBeNull();
+
+    const otherRes = await app.handle(
+      new Request(`http://localhost/api/v1/sessions/${sessionId}/my-claim`, {
+        headers: { Authorization: `Bearer ${player2Token}` },
+      })
+    );
+    const otherBody = MyClaimResponse.parse(await otherRes.json());
+    expect(otherBody.claim).toBeNull();
+
+    const gmRes = await app.handle(
+      new Request(`http://localhost/api/v1/sessions/${sessionId}/my-claim`, {
+        headers: { Authorization: `Bearer ${gmToken}` },
+      })
+    );
+    expect(gmRes.status).toBe(200);
+    const gmBody = MyClaimResponse.parse(await gmRes.json());
+    expect(gmBody.claim).toBeNull();
+    expect(gmBody.isGm).toBe(true);
+
+    const anonRes = await app.handle(
+      new Request(`http://localhost/api/v1/sessions/${sessionId}/my-claim`)
+    );
+    expect(anonRes.status).toBe(401);
+
+    const missingRes = await app.handle(
+      new Request("http://localhost/api/v1/sessions/does-not-exist/my-claim", {
+        headers: { Authorization: `Bearer ${player1Token}` },
+      })
+    );
+    expect(missingRes.status).toBe(404);
   });
 
   test("Create session rejects characters not linked to the module", async () => {

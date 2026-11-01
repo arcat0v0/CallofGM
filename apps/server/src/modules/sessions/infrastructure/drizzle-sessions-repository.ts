@@ -128,6 +128,21 @@ export class DrizzleSessionsRepository implements SessionsRepository {
     return result[0] || null;
   }
 
+  async findActiveClaimByPlayer(sessionId: string, playerId: string) {
+    const result = await this.db
+      .select()
+      .from(sessionClaims)
+      .where(
+        and(
+          eq(sessionClaims.sessionId, sessionId),
+          eq(sessionClaims.playerId, playerId),
+          isNull(sessionClaims.releasedAt)
+        )
+      )
+      .limit(1);
+    return result[0] || null;
+  }
+
   async releasePlayerClaims(sessionId: string, playerId: string, releasedAt: number): Promise<void> {
     await this.db
       .update(sessionClaims)

@@ -1,11 +1,10 @@
-import type { ServerMessage } from "@cogm/shared";
+import { SessionCloseCode, type ServerMessage } from "@cogm/shared";
 import { useCallback, useEffect, useRef } from "react";
 import { ensurePlayer } from "./identity";
 import { connectSession, type SessionSocket } from "./session-socket";
 import { usePlayStore } from "@/stores/play-store";
 
 const MAX_HANDSHAKE_FAILURES = 5;
-const KICKED_CLOSE_CODE = 4000;
 const SESSION_ENDED_REASON = "session ended";
 
 export function useSessionConnection(
@@ -85,8 +84,12 @@ export function useSessionConnection(
               return;
             }
             setConnected(false);
-            if (code === KICKED_CLOSE_CODE) {
+            if (code === SessionCloseCode.kicked) {
               setTerminal("kicked");
+              return;
+            }
+            if (code === SessionCloseCode.claimReplaced) {
+              setTerminal("replaced");
               return;
             }
             if (code === 1001 && reason === SESSION_ENDED_REASON) {

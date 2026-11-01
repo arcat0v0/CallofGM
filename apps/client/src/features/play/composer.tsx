@@ -19,6 +19,7 @@ import { mediaUrl } from "@/lib/api";
 import { sendSessionCommand } from "@/lib/session-socket";
 import { cn } from "@/lib/utils";
 import { useIdentityStore } from "@/stores/identity-store";
+import { useBlockingModalOpen } from "@/stores/modal-store";
 import { usePlayStore } from "@/stores/play-store";
 
 function Composer({ compact = false, className }: { compact?: boolean; className?: string }) {
@@ -31,6 +32,7 @@ function Composer({ compact = false, className }: { compact?: boolean; className
   const characters = usePlayStore((state) => state.characters);
   const lastRejection = usePlayStore((state) => state.lastRejection);
   const seatRole = usePlayStore((state) => state.viewer.seatRole);
+  const blockingModalOpen = useBlockingModalOpen();
   const claimed = characters.find((character) => character.claim?.playerId === playerId && character.claim.role === "pc");
   const isOb = seatRole === "ob";
   const speakerName = claimed?.name ?? (isOb ? "观战" : "玩家");
@@ -76,7 +78,7 @@ function Composer({ compact = false, className }: { compact?: boolean; className
 
   function handleSend() {
     const content = draft.trim();
-    if (!content || chatDisabled) {
+    if (!content || chatDisabled || blockingModalOpen) {
       return;
     }
     const sent = sendSessionCommand("chat:send", {
@@ -102,9 +104,11 @@ function Composer({ compact = false, className }: { compact?: boolean; className
 
   const hint = ended
     ? "本团已结束 · 记录仅供回看"
-    : isOb
-      ? "观战席位 · 发言经主持人放行，不可自主掷骰"
-      : phaseChatHint(phase);
+    : discussion
+      ? "自由讨论阶段所有发言记为场外"
+      : isOb
+        ? "观战席位 · 发言经主持人放行，不可自主掷骰"
+        : phaseChatHint(phase);
 
   return (
     <div
@@ -140,8 +144,8 @@ function Composer({ compact = false, className }: { compact?: boolean; className
               </PopoverContent>
             </Popover>
           ) : null}
-          {discussion || performance ? null : (
-            <MessageModeSwitch value={mode} onValueChange={setMode} />
+          {performance ? null : (
+            <MessageModeSwitch value={effectiveMode} onValueChange={setMode} roleplayDisabled={discussion} />
           )}
         </div>
       </div>
@@ -192,7 +196,9 @@ function Composer({ compact = false, className }: { compact?: boolean; className
         disabled={chatDisabled}
       />
 
-      <p className="text-foreground-tertiary font-sans text-label-small">{hint}</p>
+      <p className={cn("font-sans text-label-small", discussion ? "text-accent" : "text-foreground-tertiary")}>
+        {hint}
+      </p>
 
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
         <DialogContent className="max-w-md">

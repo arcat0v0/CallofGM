@@ -3,6 +3,7 @@ import { LOCAL_VOLUME_DEFAULT, normalizeLocalVolume } from "./local-volume";
 export const PLAYER_ID_KEY = "cogm.playerId";
 export const ROTATE_SUGGESTION_KEY = "cogm.rotateSuggestionDismissed";
 export const LOCAL_VOLUME_KEY = "cogm.localVolume";
+export const LOCAL_MUTED_KEY = "cogm.localMuted";
 
 export function readPlayerId(): string | null {
   if (typeof localStorage === "undefined") {
@@ -43,4 +44,18 @@ export function writeLocalVolume(value: number): void {
     return;
   }
   localStorage.setItem(LOCAL_VOLUME_KEY, String(normalizeLocalVolume(value)));
+}
+
+export function readLocalMuted(): boolean {
+  if (typeof localStorage === "undefined") {
+    return false;
+  }
+  return localStorage.getItem(LOCAL_MUTED_KEY) === "1";
+}
+
+export function writeLocalMuted(muted: boolean): void {
+  if (typeof localStorage === "undefined") {
+    return;
+  }
+  localStorage.setItem(LOCAL_MUTED_KEY, muted ? "1" : "0");
 }

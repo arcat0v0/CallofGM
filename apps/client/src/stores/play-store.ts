@@ -30,9 +30,9 @@ import { errorCopy } from "@/lib/error-copy";
 import { formatClock, initialsOf } from "@/lib/format";
 import { LOCAL_VOLUME_DEFAULT, normalizeLocalVolume } from "@/lib/local-volume";
 import { sendSessionCommand } from "@/lib/session-socket";
-import { readLocalVolume, writeLocalVolume } from "@/lib/storage";
+import { readLocalMuted, readLocalVolume, writeLocalMuted, writeLocalVolume } from "@/lib/storage";
 
-export type ConnectionTerminal = "kicked" | "unavailable";
+export type ConnectionTerminal = "kicked" | "unavailable" | "replaced";
 
 type PlayState = {
   sessionId: string | null;
@@ -55,6 +55,7 @@ type PlayState = {
   kickedPlayers: KickedPlayerDto[];
   kickedReason: string | null;
   pendingChecks: CheckRequestDto[];
+  dismissedChecks: string[];
   catalogScenes: SceneDto[];
   catalogTracks: TrackDto[];
   catalogHandouts: CatalogHandoutDto[];
@@ -63,6 +64,7 @@ type PlayState = {
   muted: boolean;
   localVolume: number;
   connected: boolean;
+  snapshotReady: boolean;
   terminal: ConnectionTerminal | null;
   lastRejection: { commandId: string; message: string } | null;
   historyBeforeEventId: number | null;
@@ -77,6 +79,8 @@ type PlayState = {
   setTerminal: (terminal: ConnectionTerminal | null) => void;
   markEnded: () => void;
   markHandoutRead: (grantId: string) => void;
+  dismissCheck: (requestId: string) => void;
+  resumeChecks: () => void;
   setMuted: (muted: boolean) => void;
   setLocalVolume: (localVolume: number) => void;
   clearSeCue: () => void;
@@ -105,6 +109,7 @@ const empty = {
   kickedPlayers: [] as KickedPlayerDto[],
   kickedReason: null as string | null,
   pendingChecks: [] as CheckRequestDto[],
+  dismissedChecks: [] as string[],
   catalogScenes: [] as SceneDto[],
   catalogTracks: [] as TrackDto[],
   catalogHandouts: [] as CatalogHandoutDto[],
@@ -113,6 +118,7 @@ const empty = {
   muted: false,
   localVolume: LOCAL_VOLUME_DEFAULT,
   connected: false,
+  snapshotReady: false,
   terminal: null as ConnectionTerminal | null,
   lastRejection: null as { commandId: string; message: string } | null,
   historyBeforeEventId: null as number | null,
@@ -185,6 +191,7 @@ function applyEvent(state: PlayState, type: string, payload: unknown, eventId?: 
         const requestId = typeof payload.requestId === "string" ? payload.requestId : null;
         if (requestId) {
           patch.pendingChecks = state.pendingChecks.filter((item) => item.id !== requestId);
+          patch.dismissedChecks = state.dismissedChecks.filter((item) => item !== requestId);
         }
       }
       return patch;
@@ -303,6 +310,7 @@ function applyEvent(state: PlayState, type: string, payload: unknown, eventId?: 
 export const usePlayStore = create<PlayState>((set, get) => ({
   ...empty,
   localVolume: readLocalVolume(),
+  muted: readLocalMuted(),
   applySnapshot: (payload, watermark) => {
     const merged = mergeMessages([], mapHistoryItems(payload.recentHistory, payload.characters));
     set({
@@ -325,7 +333,9 @@ export const usePlayStore = create<PlayState>((set, get) => ({
       presenceAvailable: payload.online !== undefined,
       kickedPlayers: payload.kickedPlayers ?? [],
       pendingChecks: payload.pendingCheckRequests,
+      dismissedChecks: [],
       connected: true,
+      snapshotReady: true,
       terminal: null,
       historyBeforeEventId: payload.history.beforeEventId,
       historyHasMore: payload.history.hasMore,
@@ -380,6 +390,7 @@ export const usePlayStore = create<PlayState>((set, get) => ({
         set((state) => {
           const patch: Partial<PlayState> = {
             pendingChecks: state.pendingChecks.filter((item) => item.id !== requestId),
+            dismissedChecks: state.dismissedChecks.filter((item) => item !== requestId),
           };
           if (hiddenRolled) {
             patch.messages = appendMessage(state.messages, {
@@ -461,12 +472,22 @@ export const usePlayStore = create<PlayState>((set, get) => ({
     set((state) => ({
       handouts: state.handouts.map((item) => (item.grantId === grantId ? { ...item, read: true } : item)),
     })),
-  setMuted: (muted) => set({ muted }),
+  dismissCheck: (requestId) =>
+    set((state) =>
+      state.dismissedChecks.includes(requestId)
+        ? {}
+        : { dismissedChecks: [...state.dismissedChecks, requestId] },
+    ),
+  resumeChecks: () => set({ dismissedChecks: [] }),
+  setMuted: (muted) => {
+    writeLocalMuted(muted);
+    set({ muted });
+  },
   setLocalVolume: (localVolume) => {
     const next = normalizeLocalVolume(localVolume);
     writeLocalVolume(next);
     set({ localVolume: next });
   },
   clearSeCue: () => set({ seCue: null }),
-  reset: () => set({ ...empty, localVolume: readLocalVolume() }),
+  reset: () => set({ ...empty, localVolume: readLocalVolume(), muted: readLocalMuted() }),
 }));

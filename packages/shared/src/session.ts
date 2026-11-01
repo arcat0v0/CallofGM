@@ -142,6 +142,19 @@ export const ClaimDto = z.object({
 });
 export type ClaimDto = z.infer<typeof ClaimDto>;
 
+export const SessionCloseCode = {
+  kicked: 4000,
+  claimReplaced: 4001,
+} as const;
+export type SessionCloseCode = (typeof SessionCloseCode)[keyof typeof SessionCloseCode];
+
+export const MyClaimResponse = z.object({
+  claim: ClaimDto.nullable(),
+  sessionStatus: SessionStatus,
+  isGm: z.boolean(),
+});
+export type MyClaimResponse = z.infer<typeof MyClaimResponse>;
+
 export const JoinInfoResponse = z.object({
   session: z.object({
     id: z.string(),

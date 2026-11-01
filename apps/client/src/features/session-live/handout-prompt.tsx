@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { mediaUrl } from "@/lib/api";
 import { sendSessionCommand } from "@/lib/session-socket";
+import { useBlockingDialog } from "@/stores/modal-store";
 import { usePlayStore } from "@/stores/play-store";
 
 export function HandoutPrompt({ handouts }: { handouts: GrantedHandoutDto[] }) {
@@ -17,6 +18,7 @@ export function HandoutPrompt({ handouts }: { handouts: GrantedHandoutDto[] }) {
   const unread = handouts.filter((item) => !item.read);
   const newest = unread[unread.length - 1] ?? null;
   const [open, setOpen] = useState(false);
+  const dialog = useBlockingDialog("handout", open && newest !== null, setOpen);
 
   useEffect(() => {
     if (newest) {
@@ -39,7 +41,7 @@ export function HandoutPrompt({ handouts }: { handouts: GrantedHandoutDto[] }) {
   const image = mediaUrl(newest.handout.imageAssetId);
 
   return (
-    <Dialog open={open} onOpenChange={(next) => !next && dismiss()}>
+    <Dialog open={dialog.open} onOpenChange={(next) => !next && dismiss()}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>{newest.handout.title}</DialogTitle>
