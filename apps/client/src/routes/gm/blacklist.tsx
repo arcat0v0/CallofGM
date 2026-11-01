@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import type { BlacklistEntryDto } from "@cogm/shared";
-import { ScanLine, Search, ShieldBan, ShieldOff, ShieldX, Timer, UserX } from "lucide-react";
+import { Copy, ScanLine, Search, ShieldBan, ShieldOff, ShieldX, Timer, UserX } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
@@ -9,6 +9,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Table,
   TableBody,
@@ -32,6 +33,8 @@ type DurationTone = "warning" | "danger" | "default";
 
 type BlacklistEntry = {
   fingerprintHash: string;
+  playerId: string | null;
+  displayName: string | null;
   fingerprint: string;
   note: string;
   duration: string;
@@ -71,6 +74,8 @@ function mapEntry(row: BlacklistEntryDto, now: number): BlacklistEntry {
   }
   return {
     fingerprintHash: row.fingerprintHash,
+    playerId: row.playerId,
+    displayName: row.displayName,
     fingerprint: shortHash(row.fingerprintHash),
     note: row.reason || "—",
     duration,
@@ -82,8 +87,17 @@ function mapEntry(row: BlacklistEntryDto, now: number): BlacklistEntry {
   };
 }
 
+async function copyText(value: string, label: string): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(value);
+    toast.success(`已复制${label}`);
+  } catch {
+    toast.error("复制失败");
+  }
+}
+
 function BlacklistPage() {
-  const [banOpen, setBanOpen] = useState(false);
+  const [banContext, setBanContext] = useState<{ playerId: string; fingerprintHash: string } | null>(null);
   const [unbanTarget, setUnbanTarget] = useState<BlacklistEntry | null>(null);
   const [rows, setRows] = useState<BlacklistEntryDto[]>([]);
   const [query, setQuery] = useState("");
@@ -108,7 +122,14 @@ function BlacklistPage() {
     if (!q) {
       return mapped;
     }
-    return mapped.filter((entry) => entry.fingerprint.includes(q) || entry.note.includes(q) || entry.fingerprintHash.includes(q));
+    return mapped.filter(
+      (entry) =>
+        entry.fingerprint.includes(q) ||
+        entry.note.includes(q) ||
+        entry.fingerprintHash.includes(q) ||
+        entry.playerId?.includes(q) ||
+        entry.displayName?.includes(q),
+    );
   }, [rows, query]);
 
   const activeCount = entries.filter((entry) => entry.active).length;
@@ -134,7 +155,7 @@ function BlacklistPage() {
                   className="text-label-large"
                 />
               </InputGroup>
-              <Button variant="dangerSoft" className="h-12 px-6" onClick={() => setBanOpen(true)}>
+              <Button variant="dangerSoft" className="h-12 px-6" onClick={() => setBanContext({ playerId: "", fingerprintHash: "" })}>
                 <UserX />
                 手动拉黑
               </Button>
@@ -152,8 +173,9 @@ function BlacklistPage() {
         <Table className="table-fixed">
           <TableHeader>
             <TableRow>
+              <TableHead className="w-52">玩家</TableHead>
               <TableHead className="w-58">指纹</TableHead>
-              <TableHead>备注 / 曾用名</TableHead>
+              <TableHead>封禁备注</TableHead>
               <TableHead className="w-30">封禁时长</TableHead>
               <TableHead className="w-32">剩余</TableHead>
               <TableHead className="w-30">封禁时间</TableHead>
@@ -164,11 +186,46 @@ function BlacklistPage() {
             {entries.map((entry) => (
               <TableRow key={entry.fingerprintHash}>
                 <TableCell>
+                  <div className="flex min-w-0 flex-col">
+                    <span className="text-foreground truncate text-label-large">{entry.displayName ?? "未知玩家"}</span>
+                    <span className="text-foreground-tertiary flex items-center gap-1 font-mono text-body-small">
+                      <span className="truncate">{entry.playerId ? `${entry.playerId.slice(0, 8)}…` : "无 playerId"}</span>
+                      {entry.playerId ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-sm"
+                          className="size-6 shrink-0 text-foreground-tertiary"
+                          aria-label="复制玩家 ID"
+                          onClick={() => void copyText(entry.playerId!, "玩家 ID")}
+                        >
+                          <Copy className="size-3" />
+                        </Button>
+                      ) : null}
+                    </span>
+                  </div>
+                </TableCell>
+                <TableCell>
                   <div className="flex items-center gap-2">
-                <span className="bg-default flex size-[26px] items-center justify-center rounded-sm">
-                  <ScanLine className="text-foreground-secondary size-3.5" />
-                </span>
-                <span className="text-foreground font-mono text-body-small">{entry.fingerprint}</span>
+                    <span className="bg-default flex size-[26px] items-center justify-center rounded-sm">
+                      <ScanLine className="text-foreground-secondary size-3.5" />
+                    </span>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="text-foreground min-w-0 flex-1 truncate font-mono text-body-small">{entry.fingerprintHash}</span>
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-[320px] break-all font-mono">{entry.fingerprintHash}</TooltipContent>
+                    </Tooltip>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      className="size-6 shrink-0 text-foreground-tertiary"
+                      aria-label="复制指纹哈希"
+                      onClick={() => void copyText(entry.fingerprintHash, "指纹哈希")}
+                    >
+                      <Copy className="size-3" />
+                    </Button>
                   </div>
                 </TableCell>
                 <TableCell className="text-foreground-secondary truncate text-body-medium">{entry.note}</TableCell>
@@ -196,7 +253,12 @@ function BlacklistPage() {
                     variant="tertiary"
                     size="sm"
                     className="h-7 px-3"
-                    onClick={() => setBanOpen(true)}
+                    onClick={() =>
+                      setBanContext({
+                        playerId: entry.playerId ?? "",
+                        fingerprintHash: entry.playerId ? "" : entry.fingerprintHash,
+                      })
+                    }
                   >
                     再次封禁
                   </Button>
@@ -210,14 +272,22 @@ function BlacklistPage() {
       </div>
 
       <BanPlayerDialog
-        open={banOpen}
-        onOpenChange={setBanOpen}
+        open={banContext !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setBanContext(null);
+          }
+        }}
+        playerName={banContext?.fingerprintHash ? "已解封记录" : undefined}
+        defaultPlayerId={banContext?.playerId ?? ""}
+        defaultFingerprintHash={banContext?.fingerprintHash ?? ""}
         onBan={async (input) => {
           try {
             await api("/gm/blacklist", {
               method: "POST",
               body: JSON.stringify({
-                playerId: input.playerId,
+                ...(input.playerId ? { playerId: input.playerId } : {}),
+                ...(input.fingerprintHash ? { fingerprintHash: input.fingerprintHash } : {}),
                 reason: input.reason,
                 ...(input.durationSeconds ? { durationSeconds: input.durationSeconds } : {}),
               }),

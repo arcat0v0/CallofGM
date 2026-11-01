@@ -114,9 +114,21 @@ export class BanFingerprintHandler implements CommandHandler {
     const input = parsed.data;
 
     const repo = this.repoFactory(ctx.tx);
-    const fingerprintHash = await repo.findPlayerFingerprintHash(input.playerId);
-    if (!fingerprintHash) {
-      throw new PlayerNotFoundError();
+    let fingerprintHash: string;
+    let playerId: string | null = null;
+    let displayName: string | null = null;
+    if (input.playerId) {
+      const context = await repo.findPlayerBanContext(input.playerId);
+      if (!context) {
+        throw new PlayerNotFoundError();
+      }
+      fingerprintHash = context.fingerprintHash;
+      playerId = input.playerId;
+      displayName = context.displayName;
+    } else if (input.fingerprintHash) {
+      fingerprintHash = input.fingerprintHash;
+    } else {
+      throw new AppError("VALIDATION_FAILED", "playerId or fingerprintHash is required", 400);
     }
 
     const now = ctx.clock.nowEpochMs();
@@ -126,15 +138,21 @@ export class BanFingerprintHandler implements CommandHandler {
     await repo.upsertBlacklistEntry({
       id: ctx.idGenerator.nextId(),
       fingerprintHash,
+      playerId,
+      displayName,
       reason: input.reason,
       expiresAt,
       createdAt: now,
     });
 
     return {
-      closeConnectionsOfPlayerIds: [input.playerId],
+      ...(input.playerId ? { closeConnectionsOfPlayerIds: [input.playerId] } : {}),
       refreshPresence: true,
-      replyPayload: { banned: input.playerId, permanent: expiresAt === null },
+      replyPayload: {
+        banned: playerId,
+        fingerprintHash,
+        permanent: expiresAt === null,
+      },
     };
   }
 }

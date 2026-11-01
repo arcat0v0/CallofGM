@@ -25,6 +25,8 @@ export interface PlayerToken {
 export interface BlacklistEntry {
   id: string;
   fingerprintHash: string;
+  playerId: string | null;
+  displayName: string | null;
   reason: string;
   expiresAt: number | null;
   createdAt: number;

@@ -13,12 +13,18 @@ export const UnkickPlayerCommand = z.object({
 });
 export type UnkickPlayerCommand = z.infer<typeof UnkickPlayerCommand>;
 
-export const BanFingerprintCommand = z.object({
-  playerId: z.string().min(1),
-  reason: z.string().max(500).default(""),
-  /** 封禁时长（秒）；不传表示永久 */
-  durationSeconds: z.number().int().min(60).optional(),
-});
+export const BanFingerprintCommand = z
+  .object({
+    playerId: z.string().min(1).optional(),
+    fingerprintHash: z.string().min(1).optional(),
+    reason: z.string().max(500).default(""),
+    /** 封禁时长（秒）；不传表示永久 */
+    durationSeconds: z.number().int().min(60).optional(),
+  })
+  .refine((input) => Boolean(input.playerId || input.fingerprintHash), {
+    message: "playerId or fingerprintHash is required",
+    path: ["playerId"],
+  });
 export type BanFingerprintCommand = z.infer<typeof BanFingerprintCommand>;
 
 export const UnbanFingerprintCommand = z.object({
