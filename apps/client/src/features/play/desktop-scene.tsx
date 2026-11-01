@@ -14,6 +14,8 @@ function DesktopScene() {
   const bgm = usePlayStore((state) => state.bgm);
   const muted = usePlayStore((state) => state.muted);
   const setMuted = usePlayStore((state) => state.setMuted);
+  const localVolume = usePlayStore((state) => state.localVolume);
+  const setLocalVolume = usePlayStore((state) => state.setLocalVolume);
   const messages = usePlayStore((state) => state.messages);
   const latest = [...messages].reverse().find((message) => message.tone !== "ooc");
   const sceneSrc = mediaUrl(scene?.bgAssetId) ?? undefined;
@@ -42,6 +44,8 @@ function DesktopScene() {
         volume={muted ? 0 : (bgm?.volume ?? 0)}
         muted={muted}
         onMuteToggle={() => setMuted(!muted)}
+        localVolume={localVolume}
+        onLocalVolumeChange={setLocalVolume}
         className="absolute top-5 right-6"
       />
 

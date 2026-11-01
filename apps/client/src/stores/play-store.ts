@@ -27,7 +27,9 @@ import type { ChatMessage } from "@/features/chat/types";
 import { mapActivityEvent, mapChatMessage, mapHistoryItem, resolveActivityPayload } from "@/lib/chat-map";
 import { errorCopy } from "@/lib/error-copy";
 import { formatClock, initialsOf } from "@/lib/format";
+import { LOCAL_VOLUME_DEFAULT, normalizeLocalVolume } from "@/lib/local-volume";
 import { sendSessionCommand } from "@/lib/session-socket";
+import { readLocalVolume, writeLocalVolume } from "@/lib/storage";
 
 export type ConnectionTerminal = "kicked" | "unavailable";
 
@@ -56,6 +58,7 @@ type PlayState = {
   seCue: SePlayedEvent | null;
   bgmTransitionMs: number;
   muted: boolean;
+  localVolume: number;
   connected: boolean;
   terminal: ConnectionTerminal | null;
   lastRejection: { commandId: string; message: string } | null;
@@ -72,6 +75,7 @@ type PlayState = {
   markEnded: () => void;
   markHandoutRead: (grantId: string) => void;
   setMuted: (muted: boolean) => void;
+  setLocalVolume: (localVolume: number) => void;
   clearSeCue: () => void;
   loadOlderHistory: () => void;
   reset: () => void;
@@ -102,6 +106,7 @@ const empty = {
   seCue: null as SePlayedEvent | null,
   bgmTransitionMs: 400,
   muted: false,
+  localVolume: LOCAL_VOLUME_DEFAULT,
   connected: false,
   terminal: null as ConnectionTerminal | null,
   lastRejection: null as { commandId: string; message: string } | null,
@@ -292,6 +297,7 @@ function applyEvent(state: PlayState, type: string, payload: unknown, eventId?: 
 
 export const usePlayStore = create<PlayState>((set, get) => ({
   ...empty,
+  localVolume: readLocalVolume(),
   applySnapshot: (payload, watermark) => {
     const merged = mergeMessages([], mapHistoryItems(payload.recentHistory, payload.characters));
     set({
@@ -439,6 +445,11 @@ export const usePlayStore = create<PlayState>((set, get) => ({
       handouts: state.handouts.map((item) => (item.grantId === grantId ? { ...item, read: true } : item)),
     })),
   setMuted: (muted) => set({ muted }),
+  setLocalVolume: (localVolume) => {
+    const next = normalizeLocalVolume(localVolume);
+    writeLocalVolume(next);
+    set({ localVolume: next });
+  },
   clearSeCue: () => set({ seCue: null }),
-  reset: () => set({ ...empty }),
+  reset: () => set({ ...empty, localVolume: readLocalVolume() }),
 }));

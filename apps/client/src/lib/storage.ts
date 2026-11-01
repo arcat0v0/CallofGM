@@ -1,5 +1,8 @@
+import { LOCAL_VOLUME_DEFAULT, normalizeLocalVolume } from "./local-volume";
+
 export const PLAYER_ID_KEY = "cogm.playerId";
 export const ROTATE_SUGGESTION_KEY = "cogm.rotateSuggestionDismissed";
+export const LOCAL_VOLUME_KEY = "cogm.localVolume";
 
 export function readPlayerId(): string | null {
   if (typeof localStorage === "undefined") {
@@ -21,4 +24,23 @@ export function readRotateSuggestionDismissed(): boolean {
 
 export function writeRotateSuggestionDismissed(): void {
   localStorage.setItem(ROTATE_SUGGESTION_KEY, "1");
+}
+
+export function readLocalVolume(): number {
+  if (typeof localStorage === "undefined") {
+    return LOCAL_VOLUME_DEFAULT;
+  }
+  const raw = localStorage.getItem(LOCAL_VOLUME_KEY);
+  if (raw === null || raw.trim() === "") {
+    return LOCAL_VOLUME_DEFAULT;
+  }
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? normalizeLocalVolume(parsed) : LOCAL_VOLUME_DEFAULT;
+}
+
+export function writeLocalVolume(value: number): void {
+  if (typeof localStorage === "undefined") {
+    return;
+  }
+  localStorage.setItem(LOCAL_VOLUME_KEY, String(normalizeLocalVolume(value)));
 }

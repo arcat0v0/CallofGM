@@ -2,6 +2,7 @@ import { Howl } from "howler";
 import { useEffect, useRef } from "react";
 import type { BgmState, SePlayedEvent } from "@cogm/shared";
 import { mediaUrl } from "./api";
+import { effectiveVolume } from "./local-volume";
 import { usePlayStore } from "@/stores/play-store";
 
 function currentBgmPosition(bgm: BgmState): number {
@@ -21,11 +22,14 @@ export function useBgmPlayback(
   audioAssetId: string | null | undefined,
   seCue?: SePlayedEvent | null,
   onSePlayed?: () => void,
-  options?: { muted?: boolean; transitionMs?: number },
+  options?: { muted?: boolean; localVolume?: number; isGm?: boolean; transitionMs?: number },
 ): void {
   const howlRef = useRef<Howl | null>(null);
   const assetRef = useRef<string | null>(null);
+  const seRef = useRef<{ howl: Howl; broadcastVolume: number } | null>(null);
   const muted = options?.muted ?? false;
+  const localVolume = options?.localVolume ?? 100;
+  const isGm = options?.isGm ?? false;
   const transitionMs = Math.max(0, options?.transitionMs ?? 400);
 
   useEffect(() => {
@@ -68,7 +72,19 @@ export function useBgmPlayback(
     }
 
     howl.loop(bgm.loop);
-    const targetVolume = muted ? 0 : bgm.volume / 100;
+    const targetVolume = effectiveVolume({
+      broadcastVolume: bgm.volume,
+      localVolume,
+      muted,
+      isGm,
+    });
+    if (Math.abs(howl.volume() - targetVolume) > 0.01) {
+      if (transitionMs > 0 && howl.state() === "loaded") {
+        howl.fade(howl.volume(), targetVolume, transitionMs);
+      } else {
+        howl.volume(targetVolume);
+      }
+    }
     const seekSec = currentBgmPosition(bgm) / 1000;
     const currentSeek = typeof howl.seek() === "number" ? Number(howl.seek()) : 0;
     if (Math.abs(currentSeek - seekSec) > 0.75) {
@@ -81,14 +97,7 @@ export function useBgmPlayback(
     } else if (howl.playing()) {
       howl.pause();
     }
-    if (Math.abs(howl.volume() - targetVolume) > 0.01) {
-      if (transitionMs > 0) {
-        howl.fade(howl.volume(), targetVolume, transitionMs);
-      } else {
-        howl.volume(targetVolume);
-      }
-    }
-  }, [audioAssetId, bgm, muted, transitionMs]);
+  }, [audioAssetId, bgm, isGm, localVolume, muted, transitionMs]);
 
   useEffect(() => {
     if (!seCue) {
@@ -99,21 +108,45 @@ export function useBgmPlayback(
       onSePlayed?.();
       return;
     }
+    const broadcastVolume = seCue.volume ?? 100;
     const se = new Howl({
       src: [src],
       html5: true,
       xhr: { withCredentials: true },
-      volume: muted ? 0 : (seCue.volume ?? 100) / 100,
+      volume: effectiveVolume({ broadcastVolume, localVolume, muted, isGm }),
     });
-    se.once("end", () => se.unload());
+    seRef.current = { howl: se, broadcastVolume };
+    se.once("end", () => {
+      se.unload();
+      if (seRef.current?.howl === se) {
+        seRef.current = null;
+      }
+    });
     se.play();
     onSePlayed?.();
-  }, [muted, onSePlayed, seCue]);
+  }, [onSePlayed, seCue]);
+
+  useEffect(() => {
+    const active = seRef.current;
+    if (!active) {
+      return;
+    }
+    active.howl.volume(
+      effectiveVolume({
+        broadcastVolume: active.broadcastVolume,
+        localVolume,
+        muted,
+        isGm,
+      }),
+    );
+  }, [isGm, localVolume, muted]);
 
   useEffect(() => {
     return () => {
       howlRef.current?.unload();
       howlRef.current = null;
+      seRef.current?.howl.unload();
+      seRef.current = null;
     };
   }, []);
 }
@@ -124,7 +157,9 @@ export function usePlayAudio(): void {
   const clearSeCue = usePlayStore((state) => state.clearSeCue);
   const tracks = usePlayStore((state) => state.catalogTracks);
   const muted = usePlayStore((state) => state.muted);
+  const localVolume = usePlayStore((state) => state.localVolume);
+  const isGm = usePlayStore((state) => state.viewer.isGm);
   const transitionMs = usePlayStore((state) => state.bgmTransitionMs);
   const audioAssetId = bgm?.audioAssetId ?? tracks.find((track) => track.id === bgm?.trackId)?.audioAssetId ?? null;
-  useBgmPlayback(bgm, audioAssetId, seCue, clearSeCue, { muted, transitionMs });
+  useBgmPlayback(bgm, audioAssetId, seCue, clearSeCue, { muted, localVolume, isGm, transitionMs });
 }
