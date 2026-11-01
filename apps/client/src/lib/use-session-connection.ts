@@ -24,6 +24,7 @@ export function useSessionConnection(
   useEffect(() => {
     let cancelled = false;
     let socket: SessionSocket | null = null;
+    const controller = new AbortController();
     let retry: ReturnType<typeof setTimeout> | null = null;
     let attempt = 0;
     let handshakeFailures = 0;
@@ -78,6 +79,7 @@ export function useSessionConnection(
         socket = await connectSession({
           sessionId,
           lastEventId,
+          signal: controller.signal,
           onMessage: handleMessage,
           onClose: ({ code, reason }) => {
             if (cancelled) {
@@ -135,6 +137,7 @@ export function useSessionConnection(
       if (retry) {
         clearTimeout(retry);
       }
+      controller.abort();
       socket?.close();
       reset();
     };

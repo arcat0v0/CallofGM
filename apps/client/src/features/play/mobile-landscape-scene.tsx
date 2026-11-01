@@ -22,9 +22,9 @@ function MobileLandscapeScene() {
   return (
     <div className="relative h-full min-w-0 flex-1 overflow-hidden bg-background">
       <SceneBackdrop src={sceneSrc} alt={scene?.name ?? "当前场景"} />
-      <div className="absolute inset-x-0 top-0 h-20 bg-linear-to-b from-stage-scrim to-transparent" />
+      <div className="absolute inset-x-0 top-12 h-16 bg-linear-to-b from-stage-scrim to-transparent" />
 
-      <div className="absolute inset-x-0 top-0 flex h-12 items-center justify-between gap-2 px-3 py-1">
+      <div className="bg-stage-scrim absolute inset-x-0 top-0 flex h-12 items-center justify-between gap-2 px-3 py-1">
         <h1 className="text-foreground line-clamp-2 min-w-0 flex-1 font-serif text-title-small-emph">
           {scene?.name ?? "团"}
         </h1>

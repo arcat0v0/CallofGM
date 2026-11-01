@@ -100,7 +100,7 @@ function PortraitLayer({ className, compact = false }: { className?: string; com
                 >
                   {character.name.slice(0, 1)}
                 </span>
-                <span className={cn("text-md-on-surface-variant relative mb-2 text-label-small", compact && "mb-1")}>
+                <span className={cn("text-md-on-surface relative mb-2 text-label-small", compact && "mb-1")}>
                   立绘待上传
                 </span>
               </div>

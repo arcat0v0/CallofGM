@@ -9,6 +9,7 @@ export type SessionSocket = {
 type ConnectSessionOptions = {
   sessionId: string;
   lastEventId?: number;
+  signal?: AbortSignal;
   onMessage: (message: ServerMessage) => void;
   onClose?: (info: { code: number; reason: string }) => void;
 };
@@ -19,6 +20,9 @@ let active: SessionSocket | null = null;
 
 export async function connectSession(options: ConnectSessionOptions): Promise<SessionSocket> {
   const fingerprint = await getFingerprint();
+  if (options.signal?.aborted) {
+    throw new DOMException("连接已取消", "AbortError");
+  }
   const protocol = location.protocol === "https:" ? "wss:" : "ws:";
   const params = new URLSearchParams({ fingerprint });
   if (options.lastEventId !== undefined) {
@@ -62,6 +66,16 @@ export async function connectSession(options: ConnectSessionOptions): Promise<Se
     },
   };
 
+  let rejectOpen: ((reason?: unknown) => void) | null = null;
+
+  const abortConnection = () => {
+    socket.close();
+    rejectOpen?.(new DOMException("连接已取消", "AbortError"));
+    rejectOpen = null;
+  };
+
+  options.signal?.addEventListener("abort", abortConnection, { once: true });
+
   ws.addEventListener("open", () => {
     heartbeat = setInterval(() => {
       if (ws.readyState === WebSocket.OPEN) {
@@ -96,17 +110,29 @@ export async function connectSession(options: ConnectSessionOptions): Promise<Se
   });
 
   await new Promise<void>((resolve, reject) => {
+    rejectOpen = reject;
+    if (options.signal?.aborted) {
+      abortConnection();
+      return;
+    }
     const onOpen = () => {
       ws.removeEventListener("error", onError);
+      rejectOpen = null;
       resolve();
     };
     const onError = () => {
       ws.removeEventListener("open", onOpen);
+      rejectOpen = null;
       reject(new Error("无法连接团内实时通道"));
     };
     ws.addEventListener("open", onOpen, { once: true });
     ws.addEventListener("error", onError, { once: true });
   });
+
+  if (options.signal?.aborted) {
+    abortConnection();
+    throw new DOMException("连接已取消", "AbortError");
+  }
 
   previous?.close();
   active = socket;

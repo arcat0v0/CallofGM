@@ -26,7 +26,7 @@ function MobilePortraitScene() {
   return (
     <div className="relative h-[clamp(340px,48dvh,440px)] w-full shrink-0 overflow-hidden bg-background">
       <SceneBackdrop src={sceneSrc} alt={scene?.name ?? "当前场景"} />
-      <div className="absolute inset-x-0 top-0 h-24 bg-linear-to-b from-stage-scrim-strong to-transparent" />
+      <div className="absolute inset-x-0 top-0 h-32 bg-linear-to-b from-stage-scrim-strong to-transparent" />
 
       <div className="absolute inset-x-0 top-0 flex flex-col gap-1 px-3.5 pt-2">
         <div className="flex items-center justify-between gap-2">
@@ -65,6 +65,7 @@ function MobilePortraitScene() {
             value={localVolume}
             onChange={setLocalVolume}
             compact
+            className="bg-stage-panel rounded-full px-2 backdrop-blur"
           />
         </div>
       </div>

@@ -32,6 +32,24 @@ const OB_SEAT: Seat = {
 
 const STAGGER_DELAYS = ["delay-75", "delay-150", "delay-225"] as const;
 
+const joinInfoRequests = new Map<string, Promise<JoinInfoResponse>>();
+
+function fetchJoinInfo(sessionId: string): Promise<JoinInfoResponse> {
+  const pending = joinInfoRequests.get(sessionId);
+  if (pending) {
+    return pending;
+  }
+  const request = api<JoinInfoResponse>(`/public/sessions/${encodeURIComponent(sessionId)}/join-info`);
+  joinInfoRequests.set(sessionId, request);
+  const clear = () => {
+    if (joinInfoRequests.get(sessionId) === request) {
+      joinInfoRequests.delete(sessionId);
+    }
+  };
+  void request.then(clear, clear);
+  return request;
+}
+
 function SeatStatus({ seat, selected }: { seat: Seat; selected: boolean }) {
   if (seat.claimed) {
     return (
@@ -183,7 +201,7 @@ function JoinPage() {
     void (async () => {
       try {
         await ensurePlayer();
-        const info = await api<JoinInfoResponse>(`/public/sessions/${encodeURIComponent(sessionId)}/join-info`);
+        const info = await fetchJoinInfo(sessionId);
         if (cancelled) {
           return;
         }
