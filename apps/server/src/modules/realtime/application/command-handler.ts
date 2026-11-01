@@ -61,7 +61,6 @@ export interface CommandHandler {
   readonly allowWhenEnded?: boolean;
   /** 未结团时允许的团状态；缺省仅 `active` */
   readonly allowedStatuses?: ReadonlyArray<"waiting" | "preparing" | "active">;
-  /** 查询型命令：回执不进入去重缓存，避免体积较大的查询结果占用缓存 */
   readonly transientReply?: boolean;
   execute(ctx: CommandHandlerContext, payload: unknown): Promise<CommandHandlerResult>;
 }
