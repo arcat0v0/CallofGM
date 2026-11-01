@@ -125,7 +125,7 @@ describe("Media Storage contract tests", () => {
       ),
       "image.png"
     );
-    formData.append("purpose", "scene_bg");
+    formData.append("purpose", "scene");
     formData.append("filename", "image.png");
 
     const response = await app.handle(
@@ -142,8 +142,39 @@ describe("Media Storage contract tests", () => {
     const body = await response.json();
     expect(body.id).toBeDefined();
     expect(body.mimeType).toBe("image/png");
-    expect(body.purpose).toBe("scene_bg");
+    expect(body.purpose).toBe("scene");
     expect(body.size).toBe(12);
+  });
+
+  test("Upload media - Unknown purpose rejected with stable validation error", async () => {
+    const formData = new FormData();
+    formData.append(
+      "file",
+      new Blob(
+        [
+          new Uint8Array([
+            0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0
+          ])
+        ],
+        { type: "image/png" }
+      ),
+      "image.png"
+    );
+    formData.append("purpose", "nonsense");
+
+    const response = await app.handle(
+      new Request("http://localhost/api/v1/media/upload", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${gmToken}`
+        },
+        body: formData
+      })
+    );
+
+    expect(response.status).toBe(400);
+    const body = await response.json();
+    expect(body.code).toBe("VALIDATION_FAILED");
   });
 
   test("Upload media - Unsupported Mime Type", async () => {
@@ -211,7 +242,7 @@ describe("Media Storage contract tests", () => {
       ),
       "gm-only.png"
     );
-    formData.append("purpose", "private");
+    formData.append("purpose", "general");
     formData.append("filename", "gm-only.png");
 
     const uploadRes = await app.handle(

@@ -1,5 +1,5 @@
 import { Elysia, t } from "elysia";
-import { MediaAssetDto } from "@cogm/shared";
+import { MediaAssetDto, MediaPurpose } from "@cogm/shared";
 import { eq, and, isNull } from "drizzle-orm";
 import { type Container } from "@/bootstrap/container";
 import { type DbClient } from "@/platform/db/client";
@@ -29,6 +29,7 @@ import { type ActorContext } from "@/modules/identity";
 import { clientIp } from "@/platform/security/request-ip";
 import { assertTrustedOrigin } from "@/platform/security/origin";
 import { corsOriginsFor } from "@/config/env";
+import { validationFailed } from "@/platform/errors/validation";
 
 async function checkMediaAccess(
   db: DbClient,
@@ -171,7 +172,11 @@ export function createMediaRoutes(container: Container) {
         assertTrustedOrigin(request, corsOriginsFor(container.env));
         container.httpLimits.uploadRateLimiter.assert(clientIp(request, server, container.env.TRUST_PROXY));
         const file = body.file as Blob;
-        const purpose = body.purpose || "general";
+        const parsedPurpose = MediaPurpose.safeParse(body.purpose ?? "general");
+        if (!parsedPurpose.success) {
+          throw validationFailed(parsedPurpose.error);
+        }
+        const purpose = parsedPurpose.data;
         const filename = body.filename || "file";
 
         const asset = await uploadUseCase.execute({
