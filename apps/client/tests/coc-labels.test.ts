@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { coc7e } from "@cogm/shared";
 import { mapActivityEvent } from "../src/lib/chat-map";
+import { skillKeysFor, skillValue } from "../src/lib/coc-live";
 
 const sheet = {
   schemaVersion: 1 as const,
@@ -33,6 +34,35 @@ describe("coc7e skill target values", () => {
   test("derived catalog skills use the rule formulas", () => {
     expect(coc7e.coc7eSkillTargetValue(sheet, "闪避")).toBe(35);
     expect(coc7e.coc7eSkillTargetValue(sheet, "母语")).toBe(80);
+  });
+});
+
+describe("skill list shared by dice tray and character sheet", () => {
+  const character = {
+    characterId: "c1",
+    name: "陈默",
+    kind: "pc" as const,
+    currentExpressionKey: null,
+    state: null,
+    portraits: [],
+    claim: null,
+    sheet,
+  };
+
+  test("covers every attribute and catalog skill, plus sheet-only skills", () => {
+    const keys = skillKeysFor({ ...character, sheet: { ...sheet, skills: { ...sheet.skills, 家传手艺: 40 } } });
+    expect(keys.slice(0, 9)).toEqual(["str", "con", "siz", "dex", "app", "int", "pow", "edu", "luck"]);
+    expect(keys).toContain("侦查");
+    expect(keys).toContain("图书馆");
+    expect(keys).toContain("家传手艺");
+    expect(new Set(keys).size).toBe(keys.length);
+  });
+
+  test("values resolve through the rule system for sheet and catalog skills", () => {
+    expect(skillValue(character, "str")).toBe(60);
+    expect(skillValue(character, "侦查")).toBe(70);
+    expect(skillValue(character, "图书馆")).toBe(20);
+    expect(skillValue(character, "急救")).toBe(30);
   });
 });
 
