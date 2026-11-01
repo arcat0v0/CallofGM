@@ -1,7 +1,9 @@
 import { Drama, GripVertical, Image as ImageIcon, LayoutDashboard, Link as LinkIcon, ListVideo, SquarePower, Trash2 } from "lucide-react";
 import { Link, useParams } from "@tanstack/react-router";
+import { useState } from "react";
 import { SessionPhaseLabel, SessionStatusLabel, type SessionPhase, type SessionStatus } from "@cogm/shared";
 import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -40,6 +42,7 @@ export function GmHead() {
   const moduleName = usePlayStore((state) => state.moduleName);
   const sessionName = usePlayStore((state) => state.sessionName);
   const nextStatus = status ? nextSessionStatus(status) : null;
+  const [endConfirmOpen, setEndConfirmOpen] = useState(false);
 
   async function patchStatus(next: SessionStatus) {
     try {
@@ -92,12 +95,25 @@ export function GmHead() {
           </Button>
         ) : null}
         {status === "active" ? (
-          <Button variant="dangerSoft" size="sm" className="h-[26px] px-2.5" onClick={() => void patchStatus("ended")}>
+          <Button variant="dangerSoft" size="sm" className="h-[26px] px-2.5" onClick={() => setEndConfirmOpen(true)}>
             <SquarePower className="size-3.5" />
             结团
           </Button>
         ) : null}
       </div>
+      <ConfirmDialog
+        open={endConfirmOpen}
+        onOpenChange={setEndConfirmOpen}
+        icon={SquarePower}
+        title="确认结团？"
+        description="结团不可撤销：玩家只能回看聊天记录与情报，控场、阶段、掷骰与情报发放将全部停止，仅保留踢出与拉黑。"
+        confirmLabel="确认结团"
+        variant="danger"
+        onConfirm={() => {
+          setEndConfirmOpen(false);
+          void patchStatus("ended");
+        }}
+      />
     </div>
   );
 }

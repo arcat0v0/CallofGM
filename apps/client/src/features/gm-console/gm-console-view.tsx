@@ -53,7 +53,7 @@ function GmConsoleView() {
       <ConnectionBanner />
       {status === "ended" ? (
         <div className="bg-warning/20 text-warning absolute inset-x-0 top-0 z-30 px-3 py-1.5 text-center text-label-small">
-          本团已结团 · 控制台仅用于回看
+          本团已结团 · 控场面板已停用，仅在线玩家的踢出与拉黑可用
         </div>
       ) : null}
       <GmPanel className="w-[360px] shrink-0" />
