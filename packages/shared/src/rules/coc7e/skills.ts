@@ -69,7 +69,6 @@ export const COC7E_ATTRIBUTE_LABELS: Record<string, { label: string; abbr: strin
   Object.entries(COC7E_ATTRIBUTE_ALIASES).map(([key, aliases]) => [key, { label: aliases[0]!, abbr: key.toUpperCase() }]),
 );
 
-/** 技能或属性键 → 展示名：属性用中文名，技能用目录键（本身即中文），未知键原样返回 */
 export function coc7eSkillLabel(rawKey: string): string {
   const key = rawKey.trim();
   const attribute = COC7E_ATTRIBUTE_LABELS[key];
@@ -80,7 +79,6 @@ export function coc7eSkillLabel(rawKey: string): string {
   return catalogEntry?.key ?? key;
 }
 
-/** 鉴定目标值：人物卡已有数值优先，其次属性，最后回退技能目录基础值 */
 export function coc7eSkillTargetValue(sheet: Coc7eCharacterSheet, rawKey: string): number | null {
   const key = rawKey.trim();
   const skillValue = sheet.skills[key];
