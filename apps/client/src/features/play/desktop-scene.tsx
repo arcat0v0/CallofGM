@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { DialogueBox } from "@/features/session-stage/dialogue-box";
 import { PortraitLayer } from "@/features/session-stage/portrait-layer";
 import { SceneBackdrop } from "@/features/session-stage/scene-backdrop";
+import { bgmShowsProgress, bgmStatusLabel } from "@/lib/audio-status";
 import { mediaUrl } from "@/lib/api";
 import { SceneAudioStatus } from "@/features/session-stage/scene-audio-status";
 import { usePlayStore } from "@/stores/play-store";
@@ -40,8 +41,9 @@ function DesktopScene() {
       </div>
 
       <SceneAudioStatus
-        trackName={bgm?.playing ? (bgm.name ?? "BGM 播放中") : "未播放"}
+        trackName={bgmStatusLabel(bgm)}
         volume={muted ? 0 : (bgm?.volume ?? 0)}
+        showProgress={bgmShowsProgress(bgm)}
         muted={muted}
         onMuteToggle={() => setMuted(!muted)}
         localVolume={localVolume}

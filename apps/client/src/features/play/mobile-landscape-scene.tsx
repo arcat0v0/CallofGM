@@ -1,6 +1,7 @@
 import { DialogueBox } from "@/features/session-stage/dialogue-box";
 import { PortraitLayer } from "@/features/session-stage/portrait-layer";
 import { SceneBackdrop } from "@/features/session-stage/scene-backdrop";
+import { bgmShowsProgress, bgmStatusLabel } from "@/lib/audio-status";
 import { mediaUrl } from "@/lib/api";
 import { SceneAudioStatus } from "@/features/session-stage/scene-audio-status";
 import { usePlayStore } from "@/stores/play-store";
@@ -24,7 +25,8 @@ function MobileLandscapeScene() {
       <div className="absolute inset-x-0 top-0 flex h-12 items-center justify-between gap-2 px-3.5">
         <span className="text-foreground min-w-0 flex-1 truncate font-serif text-title-small-emph">{scene?.name ?? "团"}</span>
         <SceneAudioStatus
-          trackName={bgm?.playing ? (bgm.name ?? "BGM") : "未播放"}
+          trackName={bgmStatusLabel(bgm)}
+          showProgress={bgmShowsProgress(bgm)}
           compact
           muted={muted}
           onMuteToggle={() => setMuted(!muted)}

@@ -29,7 +29,7 @@ import { errorCopy } from "@/lib/error-copy";
 import { formatClock, initialsOf } from "@/lib/format";
 import { LOCAL_VOLUME_DEFAULT, normalizeLocalVolume } from "@/lib/local-volume";
 import { sendSessionCommand } from "@/lib/session-socket";
-import { readLocalVolume, writeLocalVolume } from "@/lib/storage";
+import { readLocalMuted, readLocalVolume, writeLocalMuted, writeLocalVolume } from "@/lib/storage";
 
 export type ConnectionTerminal = "kicked" | "unavailable" | "replaced";
 
@@ -305,6 +305,7 @@ function applyEvent(state: PlayState, type: string, payload: unknown, eventId?: 
 export const usePlayStore = create<PlayState>((set, get) => ({
   ...empty,
   localVolume: readLocalVolume(),
+  muted: readLocalMuted(),
   applySnapshot: (payload, watermark) => {
     const merged = mergeMessages([], mapHistoryItems(payload.recentHistory, payload.characters));
     set({
@@ -461,12 +462,15 @@ export const usePlayStore = create<PlayState>((set, get) => ({
         : { dismissedChecks: [...state.dismissedChecks, requestId] },
     ),
   resumeChecks: () => set({ dismissedChecks: [] }),
-  setMuted: (muted) => set({ muted }),
+  setMuted: (muted) => {
+    writeLocalMuted(muted);
+    set({ muted });
+  },
   setLocalVolume: (localVolume) => {
     const next = normalizeLocalVolume(localVolume);
     writeLocalVolume(next);
     set({ localVolume: next });
   },
   clearSeCue: () => set({ seCue: null }),
-  reset: () => set({ ...empty, localVolume: readLocalVolume() }),
+  reset: () => set({ ...empty, localVolume: readLocalVolume(), muted: readLocalMuted() }),
 }));
