@@ -44,6 +44,19 @@ export const sessionClaims = sqliteTable("session_claims", {
     .where(sql`${table.releasedAt} is null`),
 ]);
 
+export const sessionKicks = sqliteTable("session_kicks", {
+  id: text("id").primaryKey(),
+  sessionId: text("session_id").notNull().references(() => sessions.id, { onDelete: "cascade" }),
+  playerId: text("player_id").notNull().references(() => anonymousPlayers.id, { onDelete: "cascade" }),
+  reason: text("reason"),
+  createdAt: integer("created_at").notNull(),
+  liftedAt: integer("lifted_at"),
+}, (table) => [
+  uniqueIndex("session_kicks_active_uq")
+    .on(table.sessionId, table.playerId)
+    .where(sql`${table.liftedAt} is null`),
+]);
+
 export const sessionAudioState = sqliteTable("session_audio_state", {
   id: text("id").primaryKey(),
   sessionId: text("session_id").notNull().references(() => sessions.id, { onDelete: "cascade" }),

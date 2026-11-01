@@ -1,7 +1,7 @@
 import { Elysia } from "elysia";
 import { and, eq, isNull } from "drizzle-orm";
 import type { Container } from "@/bootstrap/container";
-import { sessionClaims } from "@/platform/db/schema";
+import { sessionClaims, sessionKicks } from "@/platform/db/schema";
 import { SessionNotFoundError } from "@/modules/sessions";
 import {
   DrizzleIdentityRepository,
@@ -10,12 +10,37 @@ import {
   ForbiddenError,
   type ActorContext,
 } from "@/modules/identity";
-import { ClientCommand, type CommandReply, type SessionSnapshot } from "@cogm/shared";
+import { ClientCommand, type CommandReply, type SessionSnapshot, type SessionKickedMessage } from "@cogm/shared";
 import { checkVisibility } from "../domain/visibility";
 import { logger } from "@/platform/logging/logger";
 
 const RATE_LIMIT_WINDOW_MS = 5_000;
 const RATE_LIMIT_MAX_COMMANDS = 50;
+const KICKED_CLOSE_CODE = 4000;
+
+interface KickNotice {
+  reason: string | null;
+  createdAt: number;
+}
+
+async function findActiveKick(
+  container: Container,
+  sessionId: string,
+  playerId: string
+): Promise<KickNotice | null> {
+  const rows = await container.db
+    .select({ reason: sessionKicks.reason, createdAt: sessionKicks.createdAt })
+    .from(sessionKicks)
+    .where(
+      and(
+        eq(sessionKicks.sessionId, sessionId),
+        eq(sessionKicks.playerId, playerId),
+        isNull(sessionKicks.liftedAt)
+      )
+    )
+    .limit(1);
+  return rows[0] ?? null;
+}
 
 async function resolveClaimedCharacterId(
   container: Container,
@@ -67,7 +92,8 @@ export function createRealtimeRoutes(container: Container) {
     .use(authPlugin)
     .ws("/api/v1/sessions/:id/ws", {
       idleTimeout: 30,
-      async beforeHandle({ actor, params: { id } }) {
+      async beforeHandle(context) {
+        const { actor, params: { id } } = context;
         if (!actor) {
           throw new AuthRequiredError();
         }
@@ -78,6 +104,11 @@ export function createRealtimeRoutes(container: Container) {
         }
 
         if (actor.type === "player") {
+          const kick = await findActiveKick(container, id, actor.playerId);
+          if (kick) {
+            Object.assign(context, { kick });
+            return;
+          }
           const claimedCharacterId = await resolveClaimedCharacterId(container, id, actor);
           const hasClaim = claimedCharacterId !== null || (await hasObClaim(container, id, actor.playerId));
           if (!hasClaim) {
@@ -90,6 +121,22 @@ export function createRealtimeRoutes(container: Container) {
         const actor = ws.data.actor;
         if (!actor) {
           ws.close();
+          return;
+        }
+
+        const kick = (ws.data as Record<string, unknown>).kick as KickNotice | undefined;
+        if (kick) {
+          const payload: SessionKickedMessage = {
+            code: "SESSION_KICKED",
+            reason: kick.reason,
+            createdAt: kick.createdAt,
+          };
+          ws.send(JSON.stringify({ protocolVersion: 1, type: "session:kicked", payload }));
+          setTimeout(() => {
+            try {
+              ws.close(KICKED_CLOSE_CODE, "kicked");
+            } catch {}
+          }, 0);
           return;
         }
 

@@ -8,6 +8,7 @@ import {
   SessionNotFoundError,
   SessionStateInvalidError,
   SeatAlreadyClaimedError,
+  SessionKickedError,
   CharacterAlreadyParticipatingError,
   CharacterNotInModuleError,
 } from "../domain/errors";
@@ -114,6 +115,10 @@ export class ClaimSeatUseCase {
     const session = await this.repo.findSessionById(input.sessionId);
     if (!session) {
       throw new SessionNotFoundError();
+    }
+    const activeKick = await this.repo.findActiveSessionKick(input.sessionId, input.playerId);
+    if (activeKick) {
+      throw new SessionKickedError();
     }
     if (session.status === "ended") {
       if (input.role !== "ob") {

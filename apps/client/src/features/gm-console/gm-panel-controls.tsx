@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { BanPlayerDialog } from "@/features/gm-admin/dialogs/ban-player-dialog";
-import { expressionLabel, formatDurationMmSs, initialsOf } from "@/lib/format";
+import { expressionLabel, formatClock, formatDurationMmSs, initialsOf } from "@/lib/format";
 import { parseCocState, skillKeysFor } from "@/lib/coc-live";
 import { sendSessionCommand } from "@/lib/session-socket";
 import { usePlayStore } from "@/stores/play-store";
@@ -451,6 +451,7 @@ export function HandoutSection() {
 
 export function OnlineSection() {
   const presence = usePlayStore((state) => state.presence);
+  const kickedPlayers = usePlayStore((state) => state.kickedPlayers);
   const characters = usePlayStore((state) => state.characters);
   const [banPlayerId, setBanPlayerId] = useState<string | null>(null);
   const banTarget = presence.find((player) => player.playerId === banPlayerId);
@@ -497,6 +498,37 @@ export function OnlineSection() {
           );
         })}
       </div>
+      <SectionTitle icon={UserX}>已踢出 · {kickedPlayers.length}</SectionTitle>
+      {kickedPlayers.length === 0 ? (
+        <p className="text-md-on-surface-variant text-label-small">暂无禁入中的玩家</p>
+      ) : (
+        <div className="flex flex-col gap-2.5">
+          {kickedPlayers.map((kicked) => {
+            const name = kicked.displayName ?? kicked.playerId.slice(0, 8);
+            return (
+              <div key={kicked.playerId} className="flex items-center gap-2">
+                <span className="bg-danger size-[7px] shrink-0 rounded-full" />
+                <div className="flex min-w-0 flex-1 flex-col">
+                  <span className="text-foreground truncate font-sans text-label-large">{name}</span>
+                  <span className="text-md-on-surface-variant truncate text-label-small">
+                    {formatClock(kicked.createdAt)}
+                    {kicked.reason ? ` · ${kicked.reason}` : ""}
+                  </span>
+                </div>
+                <Button
+                  type="button"
+                  size="xs"
+                  variant="accentSoft"
+                  className="shrink-0"
+                  onClick={() => sendSessionCommand("player:unkick", { playerId: kicked.playerId })}
+                >
+                  解除禁入
+                </Button>
+              </div>
+            );
+          })}
+        </div>
+      )}
       <BanPlayerDialog
         open={banPlayerId !== null}
         onOpenChange={(open) => {

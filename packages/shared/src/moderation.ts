@@ -4,8 +4,14 @@ import { z } from "zod";
 
 export const KickPlayerCommand = z.object({
   playerId: z.string().min(1),
+  reason: z.string().max(500).optional(),
 });
 export type KickPlayerCommand = z.infer<typeof KickPlayerCommand>;
+
+export const UnkickPlayerCommand = z.object({
+  playerId: z.string().min(1),
+});
+export type UnkickPlayerCommand = z.infer<typeof UnkickPlayerCommand>;
 
 export const BanFingerprintCommand = z.object({
   playerId: z.string().min(1),
@@ -30,8 +36,24 @@ export const OnlinePlayerDto = z.object({
 });
 export type OnlinePlayerDto = z.infer<typeof OnlinePlayerDto>;
 
-/** GM 专用 DirectControlMessage: presence:updated（在线列表全量，无 eventId） */
+export const KickedPlayerDto = z.object({
+  playerId: z.string(),
+  displayName: z.string().nullable(),
+  reason: z.string().nullable(),
+  createdAt: z.number().int(),
+});
+export type KickedPlayerDto = z.infer<typeof KickedPlayerDto>;
+
+/** GM 专用 DirectControlMessage: presence:updated（在线列表与禁入名单全量，无 eventId） */
 export const PresenceUpdatedMessage = z.object({
   online: z.array(OnlinePlayerDto),
+  kickedPlayers: z.array(KickedPlayerDto),
 });
 export type PresenceUpdatedMessage = z.infer<typeof PresenceUpdatedMessage>;
+
+export const SessionKickedMessage = z.object({
+  code: z.literal("SESSION_KICKED"),
+  reason: z.string().nullable(),
+  createdAt: z.number().int(),
+});
+export type SessionKickedMessage = z.infer<typeof SessionKickedMessage>;

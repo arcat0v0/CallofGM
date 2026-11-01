@@ -8,6 +8,9 @@ describe("errorCopy", () => {
     expect(errorCopy({ code: "SKILL_NOT_FOUND" })).toBe("人物卡上没有这个技能或属性");
     expect(errorCopy({ code: "SESSION_NOT_FOUND" })).toBe("找不到这个团，链接可能已失效");
     expect(errorCopy({ code: "INVALID_CREDENTIALS", status: 401 })).toBe("密码不正确，请重新输入");
+    expect(errorCopy({ code: "SESSION_KICKED", status: 403 })).toBe(
+      "你已被主持人移出本团，需由主持人解除禁入后才能重新进入"
+    );
   });
 
   test("maps HTTP 429 to rate-limit copy with or without a code", () => {

@@ -353,4 +353,60 @@ describe("chat history paging", () => {
     expect(state.messages.map((message) => message.id)).toEqual(["msg-9", "msg-10", "msg-11", "msg-12"]);
     expect(state.lastEventId).toBe(12);
   });
+
+  test("session:kicked puts the player into the terminal kick state with the GM reason", () => {
+    usePlayStore.getState().applyMessage({
+      protocolVersion: 1,
+      type: "session:kicked",
+      payload: { code: "SESSION_KICKED", reason: "干扰他人发言", createdAt: 1_700_000_000_000 },
+    });
+
+    const state = usePlayStore.getState();
+    expect(state.terminal).toBe("kicked");
+    expect(state.kickedReason).toBe("干扰他人发言");
+    expect(state.connected).toBe(false);
+  });
+
+  test("GM presence push and snapshot carry the kicked list", () => {
+    usePlayStore.getState().applyMessage({
+      protocolVersion: 1,
+      type: "presence:updated",
+      payload: {
+        online: [],
+        kickedPlayers: [{ playerId: "p1", displayName: "调查员甲", reason: null, createdAt: 1 }],
+      },
+    });
+    expect(usePlayStore.getState().kickedPlayers).toEqual([
+      { playerId: "p1", displayName: "调查员甲", reason: null, createdAt: 1 },
+    ]);
+
+    usePlayStore.getState().applySnapshot(
+      {
+        viewer: { isGm: true, seatRole: null },
+        session: {
+          id: "s1",
+          name: null,
+          moduleId: "m1",
+          moduleName: "模组",
+          status: "active",
+          phase: "free_discussion",
+          currentSceneId: null,
+          lastEventId: 0,
+          settings: { sharePcSheets: true, obSeePcState: true },
+        },
+        currentScene: null,
+        characters: [],
+        bgm: null,
+        recentHistory: [],
+        history: { beforeEventId: null, hasMore: false },
+        visibleHandouts: [],
+        pendingCheckRequests: [],
+        kickedPlayers: [{ playerId: "p2", displayName: null, reason: "测试", createdAt: 2 }],
+      },
+      0,
+    );
+    expect(usePlayStore.getState().kickedPlayers).toEqual([
+      { playerId: "p2", displayName: null, reason: "测试", createdAt: 2 },
+    ]);
+  });
 });

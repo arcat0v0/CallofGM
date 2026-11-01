@@ -10,6 +10,7 @@ import {
   type CheckRequestDto,
   type GrantedHandoutDto,
   type HistoryPage,
+  type KickedPlayerDto,
   type OnlinePlayerDto,
   type SceneDto,
   type SePlayedEvent,
@@ -51,6 +52,8 @@ type PlayState = {
   handouts: GrantedHandoutDto[];
   presence: OnlinePlayerDto[];
   presenceAvailable: boolean;
+  kickedPlayers: KickedPlayerDto[];
+  kickedReason: string | null;
   pendingChecks: CheckRequestDto[];
   catalogScenes: SceneDto[];
   catalogTracks: TrackDto[];
@@ -99,6 +102,8 @@ const empty = {
   handouts: [] as GrantedHandoutDto[],
   presence: [] as OnlinePlayerDto[],
   presenceAvailable: false,
+  kickedPlayers: [] as KickedPlayerDto[],
+  kickedReason: null as string | null,
   pendingChecks: [] as CheckRequestDto[],
   catalogScenes: [] as SceneDto[],
   catalogTracks: [] as TrackDto[],
@@ -318,6 +323,7 @@ export const usePlayStore = create<PlayState>((set, get) => ({
       handouts: payload.visibleHandouts,
       presence: payload.online ?? [],
       presenceAvailable: payload.online !== undefined,
+      kickedPlayers: payload.kickedPlayers ?? [],
       pendingChecks: payload.pendingCheckRequests,
       connected: true,
       terminal: null,
@@ -407,8 +413,19 @@ export const usePlayStore = create<PlayState>((set, get) => ({
       return;
     }
     if ("type" in message && message.type === "presence:updated") {
-      const payload = message.payload as { online?: OnlinePlayerDto[] };
-      set({ presence: payload.online ?? [], presenceAvailable: true });
+      const payload = message.payload as { online?: OnlinePlayerDto[]; kickedPlayers?: KickedPlayerDto[] };
+      set({
+        presence: payload.online ?? [],
+        presenceAvailable: true,
+        ...(payload.kickedPlayers ? { kickedPlayers: payload.kickedPlayers } : {}),
+      });
+      return;
+    }
+    if ("type" in message && message.type === "session:kicked") {
+      const payload = isRecord(message.payload) ? message.payload : {};
+      const reason = typeof payload.reason === "string" ? payload.reason : null;
+      set({ terminal: "kicked", kickedReason: reason, connected: false });
+      toast.error("主持人尚未解除禁入，暂时无法进入本团");
       return;
     }
     if ("type" in message && message.type === "audio:se") {

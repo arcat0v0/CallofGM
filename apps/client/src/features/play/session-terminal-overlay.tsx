@@ -6,7 +6,8 @@ import { usePlayStore, type ConnectionTerminal } from "@/stores/play-store";
 const TERMINAL_COPY: Record<ConnectionTerminal, { title: string; description: string }> = {
   kicked: {
     title: "你已被主持人移出本团",
-    description: "如需继续参与，请与主持人确认后重新进入。",
+    description:
+      "主持人已将你移出本团，并禁止你再次进入。需要主持人先在在线管理中解除禁入，你才能重新进入。",
   },
   unavailable: {
     title: "无法连接到团",
@@ -16,6 +17,7 @@ const TERMINAL_COPY: Record<ConnectionTerminal, { title: string; description: st
 
 function SessionTerminalOverlay({ sessionId, onRetry }: { sessionId: string; onRetry: () => void }) {
   const terminal = usePlayStore((state) => state.terminal);
+  const kickedReason = usePlayStore((state) => state.kickedReason);
   const navigate = useNavigate();
 
   if (!terminal) {
@@ -37,13 +39,18 @@ function SessionTerminalOverlay({ sessionId, onRetry }: { sessionId: string; onR
       <div className="flex flex-col items-center gap-1.5">
         <h1 className="text-foreground font-serif text-headline-small-emph">{copy.title}</h1>
         <p className="text-foreground-secondary max-w-72 text-center text-body-medium">{copy.description}</p>
+        {terminal === "kicked" && kickedReason ? (
+          <p className="text-danger-soft-foreground max-w-72 text-center text-body-small">
+            主持人备注：{kickedReason}
+          </p>
+        ) : null}
       </div>
       <div className="flex items-center gap-2.5">
         <Button type="button" variant="outline" onClick={() => void navigate({ to: "/join/$sessionId", params: { sessionId } })}>
           返回入口
         </Button>
         <Button type="button" variant="primary" onClick={onRetry}>
-          {terminal === "kicked" ? "重新进入" : "重试连接"}
+          重试连接
         </Button>
       </div>
     </div>

@@ -17,6 +17,8 @@ import { DrizzleSessionsRepository } from "@/modules/sessions/infrastructure/dri
 
 export interface TestWebSocket extends WebSocket {
   messages: any[];
+  closeInfo: { code: number; reason: string } | null;
+  closed: Promise<{ code: number; reason: string }>;
   waitForMessages(count: number): Promise<any[]>;
   waitFor(predicate: (msg: any) => boolean, timeoutMs?: number): Promise<any>;
 }
@@ -31,6 +33,14 @@ export function connectWs(url: string, token: string, fingerprint?: string): Pro
   }) as TestWebSocket;
 
   ws.messages = [];
+  ws.closeInfo = null;
+  const closeSignal = Promise.withResolvers<{ code: number; reason: string }>();
+  ws.closed = closeSignal.promise;
+  ws.addEventListener("close", (event) => {
+    const info = { code: (event as CloseEvent).code, reason: (event as CloseEvent).reason };
+    ws.closeInfo = info;
+    closeSignal.resolve(info);
+  });
   const resolvers = new Set<{ count: number; resolve: (msgs: any[]) => void }>();
   const predicates = new Set<{ predicate: (msg: any) => boolean; resolve: (msg: any) => void }>();
 
