@@ -2,8 +2,9 @@ import { z } from "zod";
 import { SessionSnapshotPayload, CreateSessionResponse, ModuleDto, CharacterDto, PlayerIdentityResponse } from "@cogm/shared";
 
 const PORT = Number(process.env.PORT ?? 15632);
-const BASE = `http://127.0.0.1:${PORT}`;
-const WS_BASE = `ws://127.0.0.1:${PORT}`;
+const RUN = process.env.E2E_RUN ?? "default";
+const BASE = `http://localhost:${PORT}`;
+const WS_BASE = `ws://localhost:${PORT}`;
 const GM_PASSWORD = process.env.GM_PASSWORD!;
 
 const checks: Array<{ name: string; ok: boolean; detail: string }> = [];
@@ -118,8 +119,8 @@ async function main() {
 
   const playerIdentity = await fetch(`${BASE}/api/v1/player/identity`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "X-Fingerprint": "e2e-player-fp" },
-    body: JSON.stringify({ fingerprint: "e2e-player-fp" }),
+    headers: { "Content-Type": "application/json", "X-Fingerprint": `e2e-player-fp-${RUN}` },
+    body: JSON.stringify({ fingerprint: `e2e-player-fp-${RUN}` }),
   });
   const playerCookie = cookieOf(playerIdentity);
   record("(c) player identity issued", playerIdentity.status === 200, `status=${playerIdentity.status}`);
@@ -204,7 +205,7 @@ async function main() {
     socket.messages.length = 0;
   }
 
-  const bannedFp = "e2e-banned-fingerprint";
+  const bannedFp = `e2e-banned-fingerprint-${RUN}`;
   const bannedIdentity = await fetch(`${BASE}/api/v1/player/identity`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-Fingerprint": bannedFp },

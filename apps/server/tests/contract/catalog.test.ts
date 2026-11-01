@@ -606,7 +606,6 @@ describe("Catalog contract tests", () => {
     expect(delBody.code).toBe("MODULE_IN_USE");
     expect(delBody.message).not.toContain("FOREIGN KEY");
 
-    // Clean up
     await container.db.delete(sessions).where((await import("drizzle-orm")).eq(sessions.id, "sess-for-mod-test"));
     await app.handle(
       new Request(`http://localhost/api/v1/gm/modules/${mod.id}`, {

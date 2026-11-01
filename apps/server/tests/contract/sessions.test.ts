@@ -359,7 +359,6 @@ describe("Sessions contract tests", () => {
     const phaseRes3Err = (await phaseRes3.json()) as any;
     expect(phaseRes3Err.code).toBe("SESSION_STATE_INVALID");
 
-    // In an ended session, PC claim is rejected but OB claim is allowed for read-only review
     const p1PcClaimRes = await app.handle(
       new Request(`http://localhost/api/v1/sessions/${sessionId}/claim`, {
         method: "POST",

@@ -251,7 +251,6 @@ describe("Characters contract tests", () => {
     const gotAfterPortraitDelete = await getAfterPortraitDelete.json() as TestCharacterResponse;
     expect(gotAfterPortraitDelete.portraits.length).toBe(0);
 
-    // Pre-insert session using character to test referenced deletion
     const { sessions, sessionCharacters } = await import("@/platform/db/schema");
     const { modules } = await import("@/platform/db/schema");
     await container.db.insert(modules).values({
@@ -288,7 +287,6 @@ describe("Characters contract tests", () => {
     expect(delErr.code).toBe("CHARACTER_IN_USE");
     expect(delErr.message).not.toContain("FOREIGN KEY");
 
-    // Clean up reference to allow subsequent delete
     await container.db.delete(sessionCharacters).where((await import("drizzle-orm")).eq(sessionCharacters.id, "sc-ref-test"));
 
     const deleteRes = await app.handle(

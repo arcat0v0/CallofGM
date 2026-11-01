@@ -521,7 +521,6 @@ describe("Realtime contract tests", () => {
     const port = server.server?.port;
     const wsUrl = `ws://localhost:${port}/api/v1/sessions/${sessionId}/ws`;
     const gmWs = await connectWs(wsUrl, gmToken);
-    // Allow player3 to claim OB in the ended session and connect via WS for read-only review
     const p3ClaimRes = await app.handle(
       new Request(`http://localhost/api/v1/sessions/${sessionId}/claim`, {
         method: "POST",
