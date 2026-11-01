@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { ArrowLeft, KeyRound } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
+import { t } from "@/i18n";
 
 function NotFoundPage() {
   return (
@@ -17,9 +18,9 @@ function NotFoundPage() {
 
       <div className="animate-in fade-in slide-in-from-bottom-4 ease-expressive-default-spatial flex flex-col items-center gap-4 text-center duration-500">
         <Logo className="size-16" />
-        <h1 className="text-foreground font-serif text-display-small-emph">页面不存在</h1>
+        <h1 className="text-foreground font-serif text-display-small-emph">{t("notFound.title")}</h1>
         <p className="text-md-on-surface-variant max-w-md text-body-large">
-          这条路似乎通向虚空。链接可能已经失效，或者这个页面从未存在。
+          {t("notFound.description")}
         </p>
       </div>
 
@@ -27,19 +28,19 @@ function NotFoundPage() {
         <Button asChild variant="primary" className="h-12 px-6">
           <Link to="/">
             <ArrowLeft />
-            返回首页
+            {t("notFound.home")}
           </Link>
         </Button>
         <Button asChild variant="tertiary" className="h-12 px-6">
           <Link to="/gm/login">
             <KeyRound />
-            主持人入口
+            {t("home.gmEntry")}
           </Link>
         </Button>
       </div>
 
       <p className="text-foreground-tertiary font-sans text-label-small">
-        主持人的呼唤 · CoGM
+        {t("notFound.footer")}
       </p>
     </main>
   );

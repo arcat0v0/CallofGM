@@ -8,10 +8,11 @@
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "test": "bun test tests"
+    "test": "bun test --preload ./tests/setup.ts tests"
   },
   "dependencies": {
     "@cogm/shared": "workspace:*",
+    "@cogm/theme-sdk": "workspace:*",
     "@fingerprintjs/fingerprintjs": "^5.2.0",
     "@tanstack/react-router": "^1.170.17",
     "class-variance-authority": "^0.7.1",
@@ -43,6 +44,10 @@
     "vite": "^8.1.4",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
-    "@types/howler": "^2.2.13"
+    "@types/howler": "^2.2.13",
+    "happy-dom": "^20.0.0",
+    "@happy-dom/global-registrator": "^20.0.0",
+    "@testing-library/react": "^16.3.0",
+    "@types/bun": "latest"
   }
 }

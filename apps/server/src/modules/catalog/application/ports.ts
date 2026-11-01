@@ -3,6 +3,7 @@ export interface CatalogModule {
   name: string;
   description: string;
   ruleId: string;
+  themeId: string | null;
   createdAt: number;
 }
 

@@ -13,6 +13,7 @@ import { BanPlayerDialog } from "@/features/gm-admin/dialogs/ban-player-dialog";
 import { expressionLabel, formatClock, formatDurationMmSs, initialsOf } from "@/lib/format";
 import { parseCocState, skillKeysFor } from "@/lib/coc-live";
 import { sendSessionCommand } from "@/lib/session-socket";
+import { t } from "@/i18n";
 import { usePlayStore } from "@/stores/play-store";
 import { SectionTitle } from "./gm-panel-stage";
 
@@ -20,7 +21,7 @@ export function CharactersSection() {
   const characters = usePlayStore((state) => state.characters);
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 ease-standard-default-spatial flex flex-col gap-2.5 px-4 py-3 duration-500 delay-150">
-      <SectionTitle icon={VenetianMask}>立绘控制</SectionTitle>
+      <SectionTitle icon={VenetianMask}>{t("gm.console.portraits")}</SectionTitle>
       {characters.map((char) => (
         <div key={char.characterId} className="flex items-center gap-2">
           <Avatar size="sm" className="bg-default">
@@ -36,7 +37,7 @@ export function CharactersSection() {
               onValueChange={(value) => sendSessionCommand("expression:set", { characterId: char.characterId, expressionKey: value })}
             >
               <SelectTrigger className="h-[26px] w-[88px] px-2 text-label-small">
-                <SelectValue placeholder="未设置" />
+                <SelectValue placeholder={t("gm.console.unset")} />
                 <ChevronDown className="size-3" />
               </SelectTrigger>
               <SelectContent>
@@ -49,7 +50,7 @@ export function CharactersSection() {
             </Select>
           ) : (
             <Button type="button" variant="tertiary" size="sm" disabled className="h-[26px] w-[88px] px-2 text-label-small">
-              无立绘
+              {t("gm.console.noPortrait")}
             </Button>
           )}
         </div>
@@ -99,7 +100,7 @@ export function AudioSection() {
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 ease-standard-default-spatial flex flex-col gap-2.5 px-4 py-3 duration-500 delay-225">
-      <SectionTitle icon={AudioLines}>音频 · GM 全局控制</SectionTitle>
+      <SectionTitle icon={AudioLines}>{t("gm.console.audio")}</SectionTitle>
       {bgmTracks.map((track) => (
         <Button
           key={track.id}
@@ -117,17 +118,17 @@ export function AudioSection() {
         </Button>
       ))}
       <div className="bg-md-surface-container flex items-center gap-2 rounded-xl px-2.5 py-2.5">
-        <Button type="button" variant="primary" size="icon-sm" className="size-7" aria-label={bgm?.playing ? "暂停" : "播放"} onClick={() => (bgm?.playing ? sendBgm("pause") : sendBgm("play", { trackId: bgm?.trackId ?? bgmTracks[0]?.id }))}>
+        <Button type="button" variant="primary" size="icon-sm" className="size-7" aria-label={bgm?.playing ? t("gm.console.audioPause") : t("gm.console.audioPlay")} onClick={() => (bgm?.playing ? sendBgm("pause") : sendBgm("play", { trackId: bgm?.trackId ?? bgmTracks[0]?.id }))}>
           {bgm?.playing ? <Pause className="size-[13px]" /> : <Play className="size-[13px]" />}
         </Button>
         <div className="min-w-0 flex-1">
-          <div className="truncate text-label-medium-emph">{current?.name ?? bgm?.name ?? "未选择曲目"}</div>
-          <div className="text-md-on-surface-variant text-label-small">{bgm?.loop ? "循环" : "单曲"} · v{bgm?.version ?? 0}</div>
+          <div className="truncate text-label-medium-emph">{current?.name ?? bgm?.name ?? t("gm.console.audioNone")}</div>
+          <div className="text-md-on-surface-variant text-label-small">{bgm?.loop ? t("gm.console.audioLoopOn") : t("gm.console.audioLoopOff")} · v{bgm?.version ?? 0}</div>
         </div>
         <Button
           variant="ghost"
           size="icon-sm"
-          aria-label="从头播放"
+          aria-label={t("gm.console.audioRestart")}
           disabled={!bgm?.trackId}
           onClick={() => {
             if (bgm?.trackId) {
@@ -137,8 +138,8 @@ export function AudioSection() {
         >
           <RotateCcw />
         </Button>
-        <Button variant="ghost" size="icon-sm" aria-label="循环" onClick={() => sendBgm("loop", { loop: !bgm?.loop })}><Repeat /></Button>
-        <Button variant="ghost" size="icon-sm" aria-label="下一首" onClick={() => {
+        <Button variant="ghost" size="icon-sm" aria-label={t("gm.console.audioLoop")} onClick={() => sendBgm("loop", { loop: !bgm?.loop })}><Repeat /></Button>
+        <Button variant="ghost" size="icon-sm" aria-label={t("gm.console.audioNext")} onClick={() => {
           const index = bgmTracks.findIndex((track) => track.id === bgm?.trackId);
           const next = bgmTracks[(index + 1) % Math.max(bgmTracks.length, 1)];
           if (next) sendBgm("play", { trackId: next.id });
@@ -152,7 +153,7 @@ export function AudioSection() {
             min={0}
             max={durationMs}
             size="sm"
-            aria-label="播放进度"
+            aria-label={t("gm.console.progressAria")}
             className="flex-1"
             onValueChange={(value) => setSeekDraft(value[0] ?? 0)}
             onValueCommit={(value) => {
@@ -166,9 +167,9 @@ export function AudioSection() {
       ) : null}
       <div className="flex items-center gap-2.5">
         <Volume2 className="size-[13px]" />
-        <Slider value={[bgm?.volume ?? 0]} size="sm" aria-label="音量" className="flex-1" onValueChange={(value) => sendBgm("volume", { volume: value[0] ?? 0 })} />
-        <Button type="button" variant="tertiary" size="sm" className="h-6 px-2" onClick={() => sendBgm("volume", { volume: 80, transitionMs: 2500 })}>淡入</Button>
-        <Button type="button" variant="tertiary" size="sm" className="h-6 px-2" onClick={() => sendBgm("volume", { volume: 0, transitionMs: 2500 })}>淡出</Button>
+        <Slider value={[bgm?.volume ?? 0]} size="sm" aria-label={t("gm.console.volumeAria")} className="flex-1" onValueChange={(value) => sendBgm("volume", { volume: value[0] ?? 0 })} />
+        <Button type="button" variant="tertiary" size="sm" className="h-6 px-2" onClick={() => sendBgm("volume", { volume: 80, transitionMs: 2500 })}>{t("gm.console.fadeIn")}</Button>
+        <Button type="button" variant="tertiary" size="sm" className="h-6 px-2" onClick={() => sendBgm("volume", { volume: 0, transitionMs: 2500 })}>{t("gm.console.fadeOut")}</Button>
       </div>
       <div className="flex flex-wrap gap-1.5">
         {soundEffects.map((se) => (
@@ -185,7 +186,7 @@ export function AudioSection() {
 export function RulesSection() {
   const characters = usePlayStore((state) => state.characters);
   const [characterId, setCharacterId] = useState("");
-  const [skillKey, setSkillKey] = useState("侦查");
+  const [skillKey, setSkillKey] = useState(t("gm.console.defaultSkill"));
   const [difficulty, setDifficulty] = useState<"regular" | "hard" | "extreme">("regular");
   const [bonusDice, setBonusDice] = useState(0);
   const [penaltyDice, setPenaltyDice] = useState(0);
@@ -223,10 +224,10 @@ export function RulesSection() {
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 ease-standard-default-spatial flex flex-col gap-2.5 px-4 py-3 duration-500 delay-225">
-      <SectionTitle icon={Zap}>规则 · 状态 / 鉴定 / SAN</SectionTitle>
+      <SectionTitle icon={Zap}>{t("gm.console.rules")}</SectionTitle>
       <Select value={selected} onValueChange={setCharacterId}>
-        <SelectTrigger className="h-8 text-label-medium" aria-label="目标角色">
-          <SelectValue placeholder="选择目标角色" />
+        <SelectTrigger className="h-8 text-label-medium" aria-label={t("gm.console.targetAria")}>
+          <SelectValue placeholder={t("gm.console.targetPlaceholder")} />
         </SelectTrigger>
         <SelectContent>
           {characters.map((character) => (
@@ -238,7 +239,12 @@ export function RulesSection() {
         data-rules-target={current?.characterId ?? ""}
         className={`text-label-small ${ready ? "text-md-on-surface-variant" : "text-warning"}`}
       >
-        {current ? `当前目标：${current.name} · ${current.kind === "pc" ? "PC" : "NPC"}` : "未选择角色 · 状态编辑、鉴定与 SAN 检定已禁用"}
+        {current
+          ? t("gm.console.currentTarget", {
+              name: current.name,
+              kind: current.kind === "pc" ? t("common.pc") : t("common.npc"),
+            })
+          : t("gm.console.noTarget")}
       </p>
       {state ? (
         <p className="text-md-on-surface-variant text-label-small">
@@ -246,21 +252,21 @@ export function RulesSection() {
         </p>
       ) : null}
       <div className="flex gap-1.5">
-        <Input value={delta} onChange={(event) => setDelta(event.target.value)} aria-label="数值增减" className="h-8 text-label-medium" />
+        <Input value={delta} onChange={(event) => setDelta(event.target.value)} aria-label={t("gm.console.stateDelta")} className="h-8 text-label-medium" />
         <Button type="button" size="sm" variant="tertiary" className="h-8" disabled={!ready} onClick={() => sendStateEdit({ hpDelta: Number(delta) || 0 })}>HP</Button>
         <Button type="button" size="sm" variant="tertiary" className="h-8" disabled={!ready} onClick={() => sendStateEdit({ mpDelta: Number(delta) || 0 })}>MP</Button>
         <Button type="button" size="sm" variant="tertiary" className="h-8" disabled={!ready} onClick={() => sendStateEdit({ sanDelta: Number(delta) || 0 })}>SAN</Button>
       </div>
       <div className="flex flex-wrap gap-1.5">
-        <Input value={maxValue} onChange={(event) => setMaxValue(event.target.value)} aria-label="写入数值" type="number" min={0} max={99} className="h-8 w-16 text-label-medium" />
-        <Button type="button" size="sm" variant="tertiary" className="h-8" disabled={!ready} onClick={() => sendStateEdit({ hp: Math.max(0, Number(maxValue) || 0) })}>写HP</Button>
-        <Button type="button" size="sm" variant="tertiary" className="h-8" disabled={!ready} onClick={() => sendStateEdit({ mp: Math.max(0, Number(maxValue) || 0) })}>写MP</Button>
-        <Button type="button" size="sm" variant="tertiary" className="h-8" disabled={!ready} onClick={() => sendStateEdit({ san: Math.max(0, Number(maxValue) || 0) })}>写SAN</Button>
-        <Button type="button" size="sm" variant="tertiary" className="h-8" disabled={!ready} onClick={() => sendStateEdit({ maxHp: Math.max(1, Number(maxValue) || 1) })}>HP上限</Button>
-        <Button type="button" size="sm" variant="tertiary" className="h-8" disabled={!ready} onClick={() => sendStateEdit({ maxMp: Math.max(0, Number(maxValue) || 0) })}>MP上限</Button>
-        <Button type="button" size="sm" variant="tertiary" className="h-8" disabled={!ready} onClick={() => sendStateEdit({ maxSan: Math.max(0, Number(maxValue) || 0) })}>SAN上限</Button>
+        <Input value={maxValue} onChange={(event) => setMaxValue(event.target.value)} aria-label={t("gm.console.stateValue")} type="number" min={0} max={99} className="h-8 w-16 text-label-medium" />
+        <Button type="button" size="sm" variant="tertiary" className="h-8" disabled={!ready} onClick={() => sendStateEdit({ hp: Math.max(0, Number(maxValue) || 0) })}>{t("gm.console.writeHp")}</Button>
+        <Button type="button" size="sm" variant="tertiary" className="h-8" disabled={!ready} onClick={() => sendStateEdit({ mp: Math.max(0, Number(maxValue) || 0) })}>{t("gm.console.writeMp")}</Button>
+        <Button type="button" size="sm" variant="tertiary" className="h-8" disabled={!ready} onClick={() => sendStateEdit({ san: Math.max(0, Number(maxValue) || 0) })}>{t("gm.console.writeSan")}</Button>
+        <Button type="button" size="sm" variant="tertiary" className="h-8" disabled={!ready} onClick={() => sendStateEdit({ maxHp: Math.max(1, Number(maxValue) || 1) })}>{t("gm.console.maxHp")}</Button>
+        <Button type="button" size="sm" variant="tertiary" className="h-8" disabled={!ready} onClick={() => sendStateEdit({ maxMp: Math.max(0, Number(maxValue) || 0) })}>{t("gm.console.maxMp")}</Button>
+        <Button type="button" size="sm" variant="tertiary" className="h-8" disabled={!ready} onClick={() => sendStateEdit({ maxSan: Math.max(0, Number(maxValue) || 0) })}>{t("gm.console.maxSan")}</Button>
       </div>
-      <p className="text-md-on-surface-variant text-label-small">写入与上限范围 0–99 · 当前值超过上限时按上限钳制</p>
+      <p className="text-md-on-surface-variant text-label-small">{t("gm.console.rangeHint")}</p>
       <div className="flex flex-wrap gap-1">
         {Object.entries(coc7e.CharacterStatusFlagLabel).map(([flag, label]) => {
           const on = Boolean(state?.statuses.some((item) => item === flag));
@@ -280,12 +286,12 @@ export function RulesSection() {
         })}
       </div>
       <div className="flex gap-1.5">
-        <Input value={tag} onChange={(event) => setTag(event.target.value)} placeholder="自定义标签" className="h-8 text-label-medium" />
+        <Input value={tag} onChange={(event) => setTag(event.target.value)} placeholder={t("gm.console.tagPlaceholder")} className="h-8 text-label-medium" />
         <Button type="button" size="sm" variant="tertiary" className="h-8" disabled={!ready} onClick={() => {
           if (!tag.trim()) return;
           sendStateEdit({ addTags: [tag.trim()] });
           setTag("");
-        }}>挂标签</Button>
+        }}>{t("gm.console.addTag")}</Button>
       </div>
       {state && state.tags.length > 0 ? (
         <div className="flex flex-wrap gap-1">
@@ -306,7 +312,12 @@ export function RulesSection() {
       ) : null}
       {state && (state.growthMarks.length > 0 || state.hiddenGrowthMarks.length > 0) ? (
         <p className="text-md-on-surface-variant text-label-small">
-          成长：{[...state.growthMarks, ...state.hiddenGrowthMarks.map((mark) => `暗骰·${mark}`)].join("、")}
+          {t("gm.console.growth", {
+            marks: [
+              ...state.growthMarks,
+              ...state.hiddenGrowthMarks.map((mark) => t("gm.console.hiddenGrowth", { mark })),
+            ].join(t("common.listSeparator")),
+          })}
         </p>
       ) : null}
       <div className="flex gap-1.5">
@@ -328,17 +339,17 @@ export function RulesSection() {
         </Select>
       </div>
       <div className="flex gap-1.5">
-        <Button type="button" size="sm" variant={bonusDice ? "accentSoft" : "tertiary"} className="h-7" onClick={() => setBonusDice((n) => (n + 1) % 3)}>奖励 {bonusDice}</Button>
-        <Button type="button" size="sm" variant={penaltyDice ? "dangerSoft" : "tertiary"} className="h-7" onClick={() => setPenaltyDice((n) => (n + 1) % 3)}>惩罚 {penaltyDice}</Button>
-        <Button type="button" size="sm" variant={hidden ? "dangerSoft" : "tertiary"} className="h-7" onClick={() => setHidden((value) => !value)}>{hidden ? "暗骰" : "公开"}</Button>
+        <Button type="button" size="sm" variant={bonusDice ? "accentSoft" : "tertiary"} className="h-7" onClick={() => setBonusDice((n) => (n + 1) % 3)}>{t("dice.bonus", { count: bonusDice })}</Button>
+        <Button type="button" size="sm" variant={penaltyDice ? "dangerSoft" : "tertiary"} className="h-7" onClick={() => setPenaltyDice((n) => (n + 1) % 3)}>{t("dice.penalty", { count: penaltyDice })}</Button>
+        <Button type="button" size="sm" variant={hidden ? "dangerSoft" : "tertiary"} className="h-7" onClick={() => setHidden((value) => !value)}>{hidden ? t("dice.hidden") : t("dice.public")}</Button>
       </div>
       <div className="flex gap-1.5">
-        <Button type="button" size="sm" variant="tertiary" className="h-8" disabled={!ready} onClick={() => sendCheck("check:perform")}>鉴定</Button>
-        <Button type="button" size="sm" variant="tertiary" className="h-8" disabled={!ready} onClick={() => sendCheck("check:request")}>请求</Button>
+        <Button type="button" size="sm" variant="tertiary" className="h-8" disabled={!ready} onClick={() => sendCheck("check:perform")}>{t("gm.console.checkShort")}</Button>
+        <Button type="button" size="sm" variant="tertiary" className="h-8" disabled={!ready} onClick={() => sendCheck("check:request")}>{t("gm.console.request")}</Button>
       </div>
       <div className="flex gap-1.5">
-        <Input value={sanLoss} onChange={(event) => setSanLoss(event.target.value)} aria-label="SAN 损失" className="h-8 text-label-medium" />
-        <Button type="button" size="sm" variant="tertiary" className="h-8" disabled={!ready} onClick={sendSanCheck}>SAN 检定</Button>
+        <Input value={sanLoss} onChange={(event) => setSanLoss(event.target.value)} aria-label={t("gm.console.sanLossAria")} className="h-8 text-label-medium" />
+        <Button type="button" size="sm" variant="tertiary" className="h-8" disabled={!ready} onClick={sendSanCheck}>{t("gm.console.sanCheck")}</Button>
       </div>
     </div>
   );
@@ -353,27 +364,27 @@ export function SessionSettingsSection() {
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 ease-standard-default-spatial flex flex-col gap-2.5 px-4 py-3 duration-500 delay-75">
-      <SectionTitle icon={Settings2}>团设置 · 可见性</SectionTitle>
+      <SectionTitle icon={Settings2}>{t("gm.console.settingsTitle")}</SectionTitle>
       <div className="bg-md-surface-container flex items-center justify-between gap-2 rounded-xl px-3 py-2.5">
         <div className="flex min-w-0 flex-col">
-          <span className="text-foreground text-label-large">公开队友人物卡</span>
-          <span className="text-md-on-surface-variant text-label-small">开启后玩家与 OB 都能查看全部 PC 人物卡；NPC 仅 GM 可见</span>
+          <span className="text-foreground text-label-large">{t("gm.console.sharePcSheets")}</span>
+          <span className="text-md-on-surface-variant text-label-small">{t("gm.console.sharePcSheetsDescription")}</span>
         </div>
         <Switch
           size="sm"
-          aria-label="公开队友人物卡"
+          aria-label={t("gm.console.sharePcSheets")}
           checked={settings.sharePcSheets}
           onCheckedChange={(checked) => update({ sharePcSheets: Boolean(checked) })}
         />
       </div>
       <div className="bg-md-surface-container flex items-center justify-between gap-2 rounded-xl px-3 py-2.5">
         <div className="flex min-w-0 flex-col">
-          <span className="text-foreground text-label-large">OB 可见 PC 数值</span>
-          <span className="text-md-on-surface-variant text-label-small">关闭后观战位看不到任何 PC 的 HP / MP / SAN</span>
+          <span className="text-foreground text-label-large">{t("gm.console.obSeePcState")}</span>
+          <span className="text-md-on-surface-variant text-label-small">{t("gm.console.obSeePcStateDescription")}</span>
         </div>
         <Switch
           size="sm"
-          aria-label="OB 可见 PC 数值"
+          aria-label={t("gm.console.obSeePcState")}
           checked={settings.obSeePcState}
           onCheckedChange={(checked) => update({ obSeePcState: Boolean(checked) })}
         />
@@ -398,7 +409,7 @@ export function HandoutSection() {
 
   function dispatchSecret(command: "handout:grant" | "handout:append", payload: Record<string, unknown>) {
     if (recipients.length === 0) {
-      toast.error("请先选择情报接收的 PC");
+      toast.error(t("gm.console.noRecipient"));
       return;
     }
     sendSessionCommand(command, { ...payload, recipientCharacterIds: recipients.map((character) => character.characterId) });
@@ -406,7 +417,7 @@ export function HandoutSection() {
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 ease-standard-default-spatial flex flex-col gap-2.5 px-4 py-3 duration-500 delay-225">
-      <SectionTitle icon={FileText}>情报 · 公开 / 秘密发放</SectionTitle>
+      <SectionTitle icon={FileText}>{t("gm.console.handoutTitle")}</SectionTitle>
       <div className="flex flex-wrap gap-1.5">
         {characters.map((character) => (
           <Button
@@ -426,7 +437,9 @@ export function HandoutSection() {
         data-secret-recipients={recipients.map((character) => character.characterId).join(",")}
         className={`text-label-small ${recipients.length > 0 ? "text-md-on-surface-variant" : "text-warning"}`}
       >
-        {recipients.length > 0 ? `秘密接收：${recipientNames}` : "未选择接收 PC · 「秘密」与「追加」已禁用"}
+        {recipients.length > 0
+          ? t("gm.console.secretRecipients", { names: recipientNames })
+          : t("gm.console.noRecipients")}
       </p>
       {handouts.map((handout) => (
         <div key={handout.id} className="flex items-center gap-1.5">
@@ -438,7 +451,7 @@ export function HandoutSection() {
             className="h-7"
             onClick={() => sendSessionCommand("handout:grant", { handoutId: handout.id, recipientCharacterIds: [] })}
           >
-            公开
+            {t("gm.console.public")}
           </Button>
           <Button
             type="button"
@@ -448,14 +461,14 @@ export function HandoutSection() {
             disabled={recipients.length === 0}
             onClick={() => dispatchSecret("handout:grant", { handoutId: handout.id })}
           >
-            秘密
+            {t("gm.console.secret")}
           </Button>
         </div>
       ))}
       {granted.map((item) => (
         <div key={item.grantId} className="text-md-on-surface-variant flex items-center gap-1.5 text-label-small">
           <span className="min-w-0 flex-1 truncate">{item.handout.title}</span>
-          <Badge variant="soft" size="sm">{item.isPublic ? "公开" : "秘密"}</Badge>
+          <Badge variant="soft" size="sm">{item.isPublic ? t("gm.console.public") : t("gm.console.secret")}</Badge>
           {!item.isPublic ? (
             <Button
               type="button"
@@ -465,7 +478,7 @@ export function HandoutSection() {
               disabled={recipients.length === 0}
               onClick={() => dispatchSecret("handout:append", { grantId: item.grantId })}
             >
-              追加
+              {t("gm.console.append")}
             </Button>
           ) : null}
         </div>
@@ -484,7 +497,7 @@ export function OnlineSection() {
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 ease-standard-default-spatial flex flex-col gap-2.5 px-4 py-3 duration-500 delay-225">
-      <SectionTitle icon={Users}>在线玩家 · {presence.length}</SectionTitle>
+      <SectionTitle icon={Users}>{t("gm.console.onlineTitle", { count: presence.length })}</SectionTitle>
       <div className="flex flex-col gap-2.5">
         {presence.map((player) => {
           const claimed = characters.find((character) => character.characterId === player.characterId);
@@ -497,13 +510,13 @@ export function OnlineSection() {
                 <span className="text-md-on-surface-variant font-mono text-label-small">{player.playerId.slice(0, 8)}</span>
               </div>
               <Badge variant="soft" tone="accent" size="sm" className="shrink-0">
-                {player.role === "ob" ? "OB" : "PC"}
+                {player.role === "ob" ? t("common.ob") : t("common.pc")}
               </Badge>
               <Button
                 type="button"
                 variant="ghost"
                 size="icon-sm"
-                aria-label={`踢出 ${name}`}
+                aria-label={t("gm.console.kickAria", { name })}
                 className="text-danger-soft-foreground size-7 shrink-0"
                 onClick={() => sendSessionCommand("player:kick", { playerId: player.playerId })}
               >
@@ -513,7 +526,7 @@ export function OnlineSection() {
                 type="button"
                 variant="ghost"
                 size="icon-sm"
-                aria-label={`拉黑 ${name}`}
+                aria-label={t("gm.console.banAria", { name })}
                 className="text-md-on-surface-variant size-7 shrink-0"
                 onClick={() => setBanPlayerId(player.playerId)}
               >
@@ -523,9 +536,9 @@ export function OnlineSection() {
           );
         })}
       </div>
-      <SectionTitle icon={UserX}>已踢出 · {kickedPlayers.length}</SectionTitle>
+      <SectionTitle icon={UserX}>{t("gm.console.kickedTitle", { count: kickedPlayers.length })}</SectionTitle>
       {kickedPlayers.length === 0 ? (
-        <p className="text-md-on-surface-variant text-label-small">暂无禁入中的玩家</p>
+        <p className="text-md-on-surface-variant text-label-small">{t("gm.console.noKicked")}</p>
       ) : (
         <div className="flex flex-col gap-2.5">
           {kickedPlayers.map((kicked) => {
@@ -547,7 +560,7 @@ export function OnlineSection() {
                   className="shrink-0"
                   onClick={() => sendSessionCommand("player:unkick", { playerId: kicked.playerId })}
                 >
-                  解除禁入
+                  {t("gm.console.unkick")}
                 </Button>
               </div>
             );
@@ -560,7 +573,7 @@ export function OnlineSection() {
           if (!open) setBanPlayerId(null);
         }}
         playerName={banName}
-        roleLabel={banTarget?.role === "ob" ? "OB" : "玩家"}
+        roleLabel={banTarget?.role === "ob" ? t("common.ob") : t("common.player")}
         defaultPlayerId={banPlayerId ?? ""}
         onBan={(input) => {
           sendSessionCommand("player:ban", {

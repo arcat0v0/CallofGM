@@ -1,14 +1,15 @@
 import { coc7e, type ChatMessageDto, type HistoryItem, type SnapshotCharacter } from "@cogm/shared";
 import type { ChatMessage } from "@/features/chat/types";
 import { formatClock, initialsOf } from "@/lib/format";
+import { t } from "@/i18n";
 
 export function obSpeakerLabel(playerId: string | null | undefined): string {
-  return playerId ? `观战 · ${playerId.slice(0, 6)}` : "观战";
+  return playerId ? t("chat.obWithId", { id: playerId.slice(0, 6) }) : t("common.spectator");
 }
 
 export function speakerNameOf(dto: ChatMessageDto): string {
   if (dto.senderType === "gm") {
-    return "KP";
+    return t("common.gmShort");
   }
   if (dto.characterName) {
     return dto.characterName;
@@ -18,19 +19,19 @@ export function speakerNameOf(dto: ChatMessageDto): string {
 
 export function speakerInitialsOf(dto: ChatMessageDto): string {
   if (dto.senderType === "gm") {
-    return "KP";
+    return t("common.gmShort");
   }
-  return dto.characterName ? initialsOf(dto.characterName) : "观";
+  return dto.characterName ? initialsOf(dto.characterName) : t("chat.obInitial");
 }
 
 export function speakerRoleLabelOf(dto: ChatMessageDto): string {
   if (dto.senderType === "gm") {
-    return "主持人";
+    return t("chat.role.gm");
   }
   if (!dto.characterName) {
-    return "观战";
+    return t("common.spectator");
   }
-  return dto.channel === "ooc" ? "场外" : "PC";
+  return dto.channel === "ooc" ? t("chat.role.ooc") : t("chat.role.pc");
 }
 
 export function mapChatMessage(dto: ChatMessageDto): ChatMessage {
@@ -47,6 +48,7 @@ export function mapChatMessage(dto: ChatMessageDto): ChatMessage {
     time: formatClock(dto.presentedAt ?? dto.createdAt),
     body: dto.content,
     tone: dto.channel === "ooc" ? "ooc" : "ic",
+    isSystem: false,
   };
 }
 
@@ -80,52 +82,59 @@ export function mapActivityEvent(type: string, payload: unknown, eventId: number
       typeof payload.characterName === "string" && payload.characterName
         ? payload.characterName
         : payload.rollerType === "gm"
-          ? "KP"
+          ? t("common.gmShort")
           : obSpeakerLabel(typeof payload.rollerId === "string" ? payload.rollerId : null);
-    const expression = typeof result.expression === "string" ? result.expression : "骰点";
+    const expression = typeof result.expression === "string" ? result.expression : t("message.diceFallback");
     const total = result.total;
     const detail = typeof result.detail === "string" ? result.detail : "";
     const comment = typeof result.comment === "string" ? ` · ${result.comment}` : "";
-    const hidden = payload.hidden === true ? "（暗骰）" : "";
+    const hidden = payload.hidden === true ? t("message.diceHidden") : "";
     return {
       id: `dice-${eventId}`,
       sortKey: eventId,
       speakerName: name,
-      speakerRoleLabel: "骰点",
+      speakerRoleLabel: t("chat.role.dice"),
       avatarInitials: initialsOf(name),
       avatarBg: "bg-default",
       avatarFg: "text-foreground",
       time,
       body: `${expression} = ${String(total)}${detail ? `（${detail}）` : ""}${comment}${hidden}`,
       tone: "ooc",
+      isSystem: true,
     };
   }
   if (type === "check:resolved") {
     const result = isRecord(payload.result) ? payload.result : {};
-    const name = typeof payload.characterName === "string" ? payload.characterName : "角色";
+    const name = typeof payload.characterName === "string" ? payload.characterName : t("chat.role.character");
     const skillKey = typeof payload.skillKey === "string" ? payload.skillKey : "";
-    const skill = skillKey ? coc7e.coc7eSkillLabel(skillKey) : "鉴定";
-    const hidden = payload.hidden === true ? "（暗骰）" : "";
+    const skill = skillKey ? coc7e.coc7eSkillLabel(skillKey) : t("chat.role.check");
+    const hidden = payload.hidden === true ? t("message.diceHidden") : "";
     if (skillKey === "san") {
       const roll = result.roll;
       const loss = result.loss;
       const after = result.sanAfter;
-      const ok = result.success === true ? "成功" : "失败";
+      const ok = result.success === true ? t("message.outcome.success") : t("message.outcome.failure");
       return {
         id: `check-${eventId}`,
         sortKey: eventId,
         speakerName: name,
-        speakerRoleLabel: "SAN",
+        speakerRoleLabel: t("chat.role.san"),
         avatarInitials: initialsOf(name),
         avatarBg: "bg-default",
         avatarFg: "text-foreground",
         time,
-        body: `理智检定 ${String(roll)} · ${ok} · 损失 ${String(loss)} → SAN ${String(after)}${hidden}`,
+        body: t("message.sanCheck", {
+          roll: String(roll),
+          outcome: ok,
+          loss: String(loss),
+          after: String(after),
+        }) + hidden,
         tone: "ooc",
+        isSystem: true,
       };
     }
     const outcome = typeof result.outcome === "string" ? result.outcome : "";
-    const label = (coc7e.CheckOutcomeLabel as Record<string, string>)[outcome] ?? (result.success === true ? "成功" : "失败");
+    const label = (coc7e.CheckOutcomeLabel as Record<string, string>)[outcome] ?? (result.success === true ? t("message.outcome.success") : t("message.outcome.failure"));
     const roll = result.roll;
     const target = result.targetValue;
     const parsedDifficulty = coc7e.CheckDifficulty.safeParse(result.difficulty);
@@ -133,20 +142,25 @@ export function mapActivityEvent(type: string, payload: unknown, eventId: number
     const context =
       typeof target === "number"
         ? difficulty === "regular"
-          ? `目标值 ${target}`
-          : `目标值 ${target} · ${coc7e.CheckDifficultyLabel[difficulty]}阈值 ${coc7e.coc7eDifficultyThreshold(target, difficulty)}`
+          ? t("message.checkTarget", { target })
+          : t("message.checkThreshold", {
+              target,
+              label: coc7e.CheckDifficultyLabel[difficulty],
+              threshold: coc7e.coc7eDifficultyThreshold(target, difficulty),
+            })
         : null;
     return {
       id: `check-${eventId}`,
       sortKey: eventId,
       speakerName: name,
-      speakerRoleLabel: "鉴定",
+      speakerRoleLabel: t("chat.role.check"),
       avatarInitials: initialsOf(name),
       avatarBg: "bg-default",
       avatarFg: "text-foreground",
       time,
       body: `${skill} ${String(roll)}/${String(target)} · ${label}${context ? `（${context}）` : ""}${hidden}`,
       tone: "ooc",
+      isSystem: true,
     };
   }
   return null;

@@ -211,6 +211,9 @@ Expressive 更新涉及 15 个组件（App bars、Button groups🆕、Common but
 - **字阶落 token**：`text-{display|headline|title|body|label}-{large|medium|small}[-emph]` 携带 size/line-height/weight，禁止再叠加 `leading-*`/`font-medium` 等重复定义；标题/演绎者名等表达性文本用 `font-serif`（brand 字族），正文用 `font-sans`（plain 字族）。
 - 全站统一深色主题；玩家沉浸视图与 GM 后台共用同一套语义 token。
 - 新增动效一律引用上表曲线 token，不自创缓动。
+- **站点文案一律走 i18n**：新增 UI 文案必须加入 `apps/client/src/i18n/messages/zh-CN.ts` 并在组件中通过 `t("域.键")` 读取，禁止在 JSX 中硬编码中文；这样运行时主题才能按 key 覆盖文案。基础语言为 `zh-CN`，缺失键逐级回退。
+- **运行时主题是 token 约束的文档化例外**：自部署者可通过主题包覆盖插槽、`--color-md-*` token 与文案，详见 `docs/theme-system.md`。主题 CSS 与 `manifest.tokens` 不得写回核心 `theme.css`；核心代码仍只使用本文档规定的 token。
+- **主题化边界**：核心拥有的路由、状态与 GM 主题浮钮不可被主题替换；主题只实现 `packages/theme-sdk` 声明的页面级插槽，未覆盖部分回退内置 `default` 主题。
 
 ## Dart 源码迁移组件库（2026-09-20）
 

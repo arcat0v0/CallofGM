@@ -58,7 +58,7 @@ describe("speak queue readability", () => {
 
   test("queue rows identify observers and keep the full message body untruncated", () => {
     const html = renderToStaticMarkup(
-      <QueueRow item={rows[0]} index={0} total={2} onReorder={() => {}} />,
+      <QueueRow item={rows[0]!} index={0} total={2} onReorder={() => {}} />,
     );
     expect(html).toContain("观战 · b4e0d0");
     expect(html).toContain("（把手电筒举高，照向楼梯井）我上去看看。");
@@ -68,7 +68,7 @@ describe("speak queue readability", () => {
 
   test("PC names stay intact in the queue", () => {
     const html = renderToStaticMarkup(
-      <QueueRow item={rows[1]} index={1} total={2} onReorder={() => {}} />,
+      <QueueRow item={rows[1]!} index={1} total={2} onReorder={() => {}} />,
     );
     expect(html).toContain("陈默");
     expect(html).toContain("第二句话测试");

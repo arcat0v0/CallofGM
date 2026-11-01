@@ -73,7 +73,7 @@ export interface SessionsRepository {
   findCharactersByIds(ids: string[]): Promise<CharacterItem[]>;
   findLinkedCharacterIds(moduleId: string, ids: string[]): Promise<string[]>;
   moduleExists(moduleId: string): Promise<boolean>;
-  findModuleById(moduleId: string): Promise<{ id: string; name: string; ruleId: string } | null>;
+  findModuleById(moduleId: string): Promise<{ id: string; name: string; ruleId: string; themeId: string | null } | null>;
   findSessionCharacterKind(sessionId: string, characterId: string): Promise<string | null>;
   isCharacterInSession(sessionId: string, characterId: string): Promise<boolean>;
   findActiveClaimByCharacterId(

@@ -16,3 +16,4 @@ export * from "./snapshot";
 export * from "./characters";
 export * from "./media";
 export * from "./policy";
+export * from "./themes";

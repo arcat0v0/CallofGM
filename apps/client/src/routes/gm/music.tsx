@@ -12,7 +12,9 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { api, fetchAllPages, isApiError, mediaUrl } from "@/lib/api";
+import { errorText } from "@/lib/errors";
 import { formatDurationMmSs } from "@/lib/format";
+import { t, useI18nVersion } from "@/i18n";
 import { requireGmAuth } from "@/lib/identity";
 import { cn } from "@/lib/utils";
 
@@ -81,7 +83,7 @@ function TrackRow({
       setRenaming(false);
       await onReload();
     } catch (error) {
-      toast.error(isApiError(error) ? error.message : "重命名失败");
+      toast.error(isApiError(error) ? error.message : t("gm.music.renameFailed"));
     }
   }
 
@@ -92,7 +94,7 @@ function TrackRow({
         variant={previewing ? "accentSoft" : "tertiary"}
         size="icon-sm"
         className="size-8 shrink-0"
-        aria-label={previewing ? `停止试听 ${track.name}` : `试听 ${track.name}`}
+        aria-label={previewing ? t("gm.music.previewStopAria", { name: track.name }) : t("gm.music.previewAria", { name: track.name })}
         onClick={onTogglePreview}
       >
         {previewing ? <Pause className="size-4" /> : <Play className="size-4" />}
@@ -102,7 +104,7 @@ function TrackRow({
           <Input
             value={name}
             autoFocus
-            aria-label={`重命名 ${track.name}`}
+            aria-label={t("gm.music.renameAria", { name: track.name })}
             onChange={(event) => setName(event.target.value)}
             onBlur={() => void saveName()}
             onKeyDown={(event) => {
@@ -120,14 +122,14 @@ function TrackRow({
           <span className="truncate text-body-medium-emph">{track.name}</span>
         )}
         <span className="text-foreground-tertiary text-label-small">
-          {formatDurationMmSs(track.duration)} · {formatBytes(track.audioSize)} · 上传 {formatStamp(track.audioUploadedAt)}
+          {formatDurationMmSs(track.duration)} · {formatBytes(track.audioSize)} · {t("gm.music.uploaded", { time: formatStamp(track.audioUploadedAt) })}
         </span>
       </div>
       <Button
         type="button"
         variant="ghost"
         size="icon-sm"
-        aria-label={`重命名 ${track.name}`}
+        aria-label={t("gm.music.renameAria", { name: track.name })}
         className="size-7 shrink-0 text-foreground-tertiary"
         onClick={() => setRenaming(true)}
       >
@@ -137,7 +139,7 @@ function TrackRow({
         type="button"
         variant="ghost"
         size="icon-sm"
-        aria-label={`删除 ${track.name}`}
+        aria-label={t("gm.music.deleteAria", { name: track.name })}
         className="size-7 shrink-0 text-danger-soft-foreground"
         onClick={onDelete}
       >
@@ -148,6 +150,7 @@ function TrackRow({
 }
 
 function MusicResourcesPage() {
+  useI18nVersion();
   const [modules, setModules] = useState<ModuleDto[]>([]);
   const [moduleId, setModuleId] = useState("");
   const [tracks, setTracks] = useState<TrackDto[]>([]);
@@ -169,7 +172,7 @@ function MusicResourcesPage() {
     stopPreview();
     const src = mediaUrl(track.audioAssetId);
     if (!src) {
-      toast.error("音频文件不可用");
+      toast.error(t("gm.music.audioUnavailable"));
       return;
     }
     const howl = new Howl({ src: [src], html5: true, xhr: { withCredentials: true }, volume: 0.8 });
@@ -194,7 +197,7 @@ function MusicResourcesPage() {
         setModules(next);
         setModuleId((current) => current || next[0]?.id || "");
       } catch (error) {
-        toast.error(isApiError(error) ? error.message : "无法加载模组");
+        toast.error(errorText(error, "gm.music.loadModulesFailed"));
       }
     })();
   }, []);
@@ -205,7 +208,7 @@ function MusicResourcesPage() {
     }
     void fetchAllPages<TrackDto>(`/gm/modules/${encodeURIComponent(moduleId)}/tracks`)
       .then(setTracks)
-      .catch((error) => toast.error(isApiError(error) ? error.message : "无法加载曲目"));
+      .catch((error) => toast.error(errorText(error, "gm.music.loadTracksFailed")));
   }, [moduleId]);
 
   async function reloadTracks() {
@@ -215,7 +218,7 @@ function MusicResourcesPage() {
     try {
       setTracks(await fetchAllPages<TrackDto>(`/gm/modules/${encodeURIComponent(moduleId)}/tracks`));
     } catch (error) {
-      toast.error(isApiError(error) ? error.message : "无法加载曲目");
+      toast.error(isApiError(error) ? error.message : t("gm.music.loadTracksFailed"));
     }
   }
 
@@ -226,14 +229,14 @@ function MusicResourcesPage() {
     <AdminLayout>
       <div className="flex h-full min-h-0 flex-col gap-5">
         <PageHeader
-          title="音乐资源"
-          description="音频归属模组 · 在模组页上传，团内由 GM 控制播放"
+          title={t("gm.music.title")}
+          description={t("gm.music.description")}
           actions={
             moduleId ? (
               <Button asChild variant="primary" className="h-12 px-6">
                 <Link to="/gm/module/$moduleId" params={{ moduleId }}>
                   <Upload />
-                  去模组上传
+                  {t("gm.music.goUpload")}
                 </Link>
               </Button>
             ) : null
@@ -250,8 +253,8 @@ function MusicResourcesPage() {
           <section className="animate-in fade-in slide-in-from-bottom-4 flex min-h-0 flex-1 flex-col gap-3 duration-500 ease-standard-default-spatial">
             <div className="flex items-center gap-2">
               <Disc3 className="text-accent-hover size-4" />
-              <span className="text-foreground text-body-medium-emph">BGM</span>
-              <Badge variant="soft" size="sm">{bgmTracks.length} 首</Badge>
+              <span className="text-foreground text-body-medium-emph">{t("gm.music.bgm")}</span>
+              <Badge variant="soft" size="sm">{t("gm.music.bgmCount", { count: bgmTracks.length })}</Badge>
             </div>
             <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
               {bgmTracks.map((track) => (
@@ -265,15 +268,15 @@ function MusicResourcesPage() {
                 />
               ))}
               {bgmTracks.length === 0 ? (
-                <p className="text-foreground-tertiary text-label-small">暂无 BGM 曲目</p>
+                <p className="text-foreground-tertiary text-label-small">{t("gm.music.noBgm")}</p>
               ) : null}
             </div>
           </section>
           <section className="animate-in fade-in slide-in-from-bottom-4 flex min-h-0 w-full shrink-0 flex-col gap-3 delay-75 duration-500 ease-standard-default-spatial xl:w-[400px]">
             <div className="flex items-center gap-2">
               <Zap className="text-warning size-4" />
-              <span className="text-foreground text-body-medium-emph">SE</span>
-              <Badge variant="soft" size="sm">{soundEffects.length} 个</Badge>
+              <span className="text-foreground text-body-medium-emph">{t("gm.music.se")}</span>
+              <Badge variant="soft" size="sm">{t("gm.music.seCount", { count: soundEffects.length })}</Badge>
             </div>
             <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
               {soundEffects.map((track) => (
@@ -287,7 +290,7 @@ function MusicResourcesPage() {
                 />
               ))}
               {soundEffects.length === 0 ? (
-                <p className="text-foreground-tertiary text-label-small">暂无 SE 音效</p>
+                <p className="text-foreground-tertiary text-label-small">{t("gm.music.noSe")}</p>
               ) : null}
             </div>
           </section>
@@ -298,9 +301,9 @@ function MusicResourcesPage() {
         onOpenChange={(open) => !open && setDeleteTarget(null)}
         icon={Trash2}
         confirmIcon={Trash2}
-        title="删除曲目"
-        description={`确认删除「${deleteTarget?.name ?? ""}」？正在使用该曲目的团会停止播放。`}
-        confirmLabel="删除"
+        title={t("gm.music.deleteTitle")}
+        description={t("gm.music.deleteDescription", { name: deleteTarget?.name ?? "" })}
+        confirmLabel={t("common.delete")}
         onConfirm={() => {
           const target = deleteTarget;
           setDeleteTarget(null);
@@ -312,7 +315,7 @@ function MusicResourcesPage() {
           }
           void api(`/gm/modules/tracks/${encodeURIComponent(target.id)}`, { method: "DELETE" })
             .then(() => reloadTracks())
-            .catch((error) => toast.error(isApiError(error) ? error.message : "删除失败"));
+            .catch((error) => toast.error(isApiError(error) ? error.message : t("gm.music.deleteFailed")));
         }}
       />
     </AdminLayout>

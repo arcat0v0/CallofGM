@@ -1,4 +1,5 @@
 import type { BgmState } from "@cogm/shared";
+import { t } from "@/i18n";
 
 export type BgmPlaybackState = "idle" | "playing" | "paused" | "faded";
 
@@ -13,16 +14,16 @@ export function bgmPlaybackState(bgm: BgmState | null): BgmPlaybackState {
 }
 
 export function bgmStatusLabel(bgm: BgmState | null): string {
-  const name = bgm?.name ?? "BGM";
+  const name = bgm?.name ?? t("stage.bgm");
   switch (bgmPlaybackState(bgm)) {
     case "idle":
-      return "未播放";
+      return t("stage.bgmNone");
     case "paused":
-      return `已暂停 · ${name}`;
+      return t("stage.bgmPaused", { name });
     case "faded":
-      return `已淡出 · ${name}`;
+      return t("stage.bgmFaded", { name });
     default:
-      return bgm?.name ?? "BGM 播放中";
+      return bgm?.name ?? t("stage.bgmPlaying");
   }
 }
 

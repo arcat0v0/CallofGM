@@ -1,13 +1,14 @@
 import type * as React from "react";
 
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 import { ChevronLeftIcon, ChevronRightIcon, MoreHorizontalIcon } from "lucide-react";
 
 function Pagination({ className, ...props }: React.ComponentProps<"nav">) {
   return (
     <nav
       role="navigation"
-      aria-label="pagination"
+      aria-label={t("pagination.aria")}
       data-slot="pagination"
       className={cn("mx-auto flex w-full justify-center", className)}
       {...props}
@@ -48,12 +49,12 @@ function PaginationLink({ className, isActive, ...props }: PaginationLinkProps) 
 function PaginationPrevious({ className, ...props }: React.ComponentProps<typeof PaginationLink>) {
   return (
     <PaginationLink
-      aria-label="Go to previous page"
+      aria-label={t("pagination.previous")}
       className={cn("h-10 w-fit gap-1.5 rounded-full px-3 text-foreground hover:bg-surface-hover", className)}
       {...props}
     >
       <ChevronLeftIcon className="size-4" />
-      <span>上一页</span>
+      <span>{t("pagination.previousLabel")}</span>
     </PaginationLink>
   );
 }
@@ -61,11 +62,11 @@ function PaginationPrevious({ className, ...props }: React.ComponentProps<typeof
 function PaginationNext({ className, ...props }: React.ComponentProps<typeof PaginationLink>) {
   return (
     <PaginationLink
-      aria-label="Go to next page"
+      aria-label={t("pagination.next")}
       className={cn("h-10 w-fit gap-1.5 rounded-full px-3 text-foreground hover:bg-surface-hover", className)}
       {...props}
     >
-      <span>下一页</span>
+      <span>{t("pagination.nextLabel")}</span>
       <ChevronRightIcon className="size-4" />
     </PaginationLink>
   );
@@ -80,7 +81,7 @@ function PaginationEllipsis({ className, ...props }: React.ComponentProps<"span"
       {...props}
     >
       <MoreHorizontalIcon className="size-4" />
-      <span className="sr-only">More pages</span>
+      <span className="sr-only">{t("pagination.morePages")}</span>
     </span>
   );
 }

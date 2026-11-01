@@ -1,24 +1,27 @@
 import { Drama, Image as ImageIcon, LayoutDashboard, Link as LinkIcon, ListVideo, SquarePower, Trash2 } from "lucide-react";
 import { Link, useParams } from "@tanstack/react-router";
 import { useState } from "react";
-import { SessionPhaseLabel, SessionStatusLabel, type ChatMessageDto, type SessionPhase, type SessionStatus } from "@cogm/shared";
+import type { ChatMessageDto, SessionPhase, SessionStatus } from "@cogm/shared";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { api, isApiError, mediaUrl } from "@/lib/api";
+import { api, mediaUrl } from "@/lib/api";
 import { speakerInitialsOf, speakerNameOf, speakerRoleLabelOf } from "@/lib/chat-map";
+import { errorText } from "@/lib/errors";
+import { sessionPhaseLabel, sessionStatusLabel } from "@/i18n/labels";
+import { t } from "@/i18n";
 import { nextSessionStatus, nextStatusActionLabel, statusTone } from "@/lib/format";
 import { sendSessionCommand } from "@/lib/session-socket";
 import { cn } from "@/lib/utils";
 import { usePlayStore } from "@/stores/play-store";
 
-const SESSION_PHASES: Array<{ key: SessionPhase; desc: string }> = [
-  { key: "free_discussion", desc: "全员可发言 · 即时呈现 · 记为场外" },
-  { key: "performance_time", desc: "演绎发言 · 放行后呈现" },
-  { key: "forced_cg", desc: "全员禁言 · GM 演出" },
-  { key: "free_performance", desc: "自由发言 · 角色扮演经放行" },
+const SESSION_PHASES: Array<{ key: SessionPhase; descKey: string }> = [
+  { key: "free_discussion", descKey: "gm.console.phase.free_discussion" },
+  { key: "performance_time", descKey: "gm.console.phase.performance_time" },
+  { key: "forced_cg", descKey: "gm.console.phase.forced_cg" },
+  { key: "free_performance", descKey: "gm.console.phase.free_performance" },
 ];
 
 export function SectionTitle({
@@ -52,16 +55,16 @@ export function GmHead() {
         body: JSON.stringify({ status: next }),
       });
     } catch (error) {
-      toast.error(isApiError(error) ? error.message : "无法更新团状态");
+      toast.error(errorText(error, "play.statusUpdateFailed"));
     }
   }
 
   return (
     <div className="flex flex-col gap-2 px-4 pt-4 pb-3">
       <div className="flex items-center justify-between">
-        <span className="text-md-on-surface-variant font-sans text-label-small-emph">GM 控制台</span>
+        <span className="text-md-on-surface-variant font-sans text-label-small-emph">{t("play.gmConsole")}</span>
         <div className="flex items-center gap-1">
-          <Button asChild variant="ghost" size="icon-sm" aria-label="返回后台">
+          <Button asChild variant="ghost" size="icon-sm" aria-label={t("play.backstage")}>
             <Link to="/gm">
               <LayoutDashboard />
             </Link>
@@ -69,11 +72,11 @@ export function GmHead() {
           <Button
             variant="ghost"
             size="icon-sm"
-            aria-label="复制团链接"
+            aria-label={t("play.copyLink")}
             onClick={() => {
               void navigator.clipboard.writeText(`${location.origin}/join/${encodeURIComponent(sessionId)}`).then(
-                () => toast.success("已复制团链接"),
-                () => toast.error("复制失败"),
+                () => toast.success(t("play.copied")),
+                () => toast.error(t("play.copyFailed")),
               );
             }}
           >
@@ -85,20 +88,20 @@ export function GmHead() {
       <div className="flex items-center gap-1.5">
         {status ? (
           <Badge variant="soft" tone={statusTone(status)} size="sm">
-            {SessionStatusLabel[status]}
+            {sessionStatusLabel(status)}
           </Badge>
         ) : null}
-        <Badge variant="soft" tone="default" size="sm">{sessionName ?? moduleName ?? "模组"}</Badge>
+        <Badge variant="soft" tone="default" size="sm">{sessionName ?? moduleName ?? t("play.moduleFallback")}</Badge>
         <span className="flex-1" />
         {nextStatus && nextStatus !== "ended" && status ? (
           <Button variant="tertiary" size="sm" className="h-[26px] px-2.5" onClick={() => void patchStatus(nextStatus)}>
-            {nextStatusActionLabel(status) ?? "推进"}
+            {nextStatusActionLabel(status) ?? t("play.advance")}
           </Button>
         ) : null}
         {status === "active" ? (
           <Button variant="dangerSoft" size="sm" className="h-[26px] px-2.5" onClick={() => setEndConfirmOpen(true)}>
             <SquarePower className="size-3.5" />
-            结团
+            {t("play.endSession")}
           </Button>
         ) : null}
       </div>
@@ -106,9 +109,9 @@ export function GmHead() {
         open={endConfirmOpen}
         onOpenChange={setEndConfirmOpen}
         icon={SquarePower}
-        title="确认结团？"
-        description="结团不可撤销：玩家只能回看聊天记录与情报，控场、阶段、掷骰与情报发放将全部停止，仅保留踢出与拉黑。"
-        confirmLabel="确认结团"
+        title={t("gm.console.endConfirmTitle")}
+        description={t("gm.console.endConfirmDescription")}
+        confirmLabel={t("gm.console.endConfirmAction")}
         variant="danger"
         onConfirm={() => {
           setEndConfirmOpen(false);
@@ -125,7 +128,7 @@ export function PhaseSection() {
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 ease-standard-default-spatial flex flex-col gap-2.5 px-4 py-3 duration-500">
-      <SectionTitle icon={Drama}>团内阶段</SectionTitle>
+      <SectionTitle icon={Drama}>{t("gm.console.phaseTitle")}</SectionTitle>
       <div className="flex flex-col gap-1">
         {SESSION_PHASES.map((phase, index) => {
           const isActive = phase.key === active;
@@ -137,7 +140,7 @@ export function PhaseSection() {
                 void api(`/gm/sessions/${encodeURIComponent(sessionId)}/phase`, {
                   method: "POST",
                   body: JSON.stringify({ phase: phase.key }),
-                }).catch((error) => toast.error(isApiError(error) ? error.message : "无法切换阶段"));
+                }).catch((error) => toast.error(errorText(error, "play.phaseUpdateFailed")));
               }}
               className={cn(
                 "animate-in fade-in slide-in-from-bottom-4 ease-standard-default-spatial animation-duration-500 flex flex-col items-start gap-0.5 rounded-xl px-3 py-2.5 text-left transition-colors duration-200 ease-standard-default-effects",
@@ -147,8 +150,8 @@ export function PhaseSection() {
                   : "text-md-on-surface hover:bg-md-on-surface/8 active:bg-md-on-surface/12",
               )}
             >
-              <span className="font-sans text-label-large-emph">{SessionPhaseLabel[phase.key]}</span>
-              <span className={cn("font-sans text-label-small", isActive ? "text-md-on-secondary-container/80" : "text-md-on-surface-variant")}>{phase.desc}</span>
+              <span className="font-sans text-label-large-emph">{sessionPhaseLabel(phase.key)}</span>
+              <span className={cn("font-sans text-label-small", isActive ? "text-md-on-secondary-container/80" : "text-md-on-surface-variant")}>{t(phase.descKey)}</span>
             </button>
           );
         })}
@@ -184,24 +187,24 @@ export function QueueRow({
           variant="ghost"
           size="xs"
           className="text-md-on-surface-variant h-3 min-h-6 px-2 text-label-small"
-          aria-label={`上移「${name}」的发言`}
-          title="上移"
+          aria-label={t("gm.console.queueMoveUpAria", { name })}
+          title={t("gm.console.queueUp")}
           disabled={index === 0}
           onClick={() => onReorder(-1)}
         >
-          上移
+          {t("gm.console.queueUp")}
         </Button>
         <Button
           type="button"
           variant="ghost"
           size="xs"
           className="text-md-on-surface-variant h-3 min-h-6 px-2 text-label-small"
-          aria-label={`下移「${name}」的发言`}
-          title="下移"
+          aria-label={t("gm.console.queueMoveDownAria", { name })}
+          title={t("gm.console.queueDown")}
           disabled={index === total - 1}
           onClick={() => onReorder(1)}
         >
-          下移
+          {t("gm.console.queueDown")}
         </Button>
       </div>
       <p className="text-md-on-surface font-sans text-body-small whitespace-pre-wrap break-words">{item.content}</p>
@@ -211,23 +214,23 @@ export function QueueRow({
           variant="ghost"
           size="xs"
           className="text-md-on-surface-variant h-3 min-h-6 px-2 text-label-small"
-          aria-label={`丢弃「${name}」的发言`}
-          title="丢弃"
+          aria-label={t("gm.console.queueDiscardAria", { name })}
+          title={t("gm.console.discardShort")}
           onClick={() => sendSessionCommand("chat:discard", { messageId: item.id })}
         >
           <Trash2 className="size-3.5" />
-          丢弃
+          {t("gm.console.discardShort")}
         </Button>
         <Button
           type="button"
           variant="primary"
           size="xs"
           className="h-3 min-h-6 px-2.5 text-label-small"
-          aria-label={`放行「${name}」的发言`}
-          title="放行"
+          aria-label={t("gm.console.queueReleaseAria", { name })}
+          title={t("gm.console.release")}
           onClick={() => sendSessionCommand("chat:release", { messageId: item.id })}
         >
-          放行
+          {t("gm.console.release")}
         </Button>
       </div>
     </div>
@@ -256,10 +259,10 @@ export function SpeakQueueSection() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5">
             <ListVideo className="text-md-on-surface-variant size-3.5" />
-            <span className="text-foreground font-sans text-label-large-emph">演绎待呈现队列</span>
+            <span className="text-foreground font-sans text-label-large-emph">{t("gm.console.queueTitle")}</span>
           </div>
           <Badge variant="soft" tone="warning" size="sm">
-            {pendingQueue.length} 待放行
+            {t("gm.console.queuePending", { count: pendingQueue.length })}
           </Badge>
         </div>
         <div className="flex max-h-[45vh] flex-col gap-2 overflow-y-auto pr-0.5">
@@ -274,16 +277,18 @@ export function SpeakQueueSection() {
           ))}
         </div>
         {pendingQueue.length === 0 ? (
-          <p className="text-md-on-surface-variant text-label-small">队列为空</p>
+          <p className="text-md-on-surface-variant text-label-small">{t("gm.console.queueEmpty")}</p>
         ) : null}
         <div className="flex items-center justify-between border-t border-separator-secondary pt-2">
-          <span className="text-md-on-surface-variant font-sans text-label-small-emph">已丢弃 · {discardedQueue.length}</span>
+          <span className="text-md-on-surface-variant font-sans text-label-small-emph">
+            {t("gm.console.discardedCount", { count: discardedQueue.length })}
+          </span>
         </div>
         {discardedQueue.length === 0 ? (
-          <p className="text-md-on-surface-variant text-label-small">暂无已丢弃消息</p>
+          <p className="text-md-on-surface-variant text-label-small">{t("gm.console.discardedEmpty")}</p>
         ) : (
           discardedQueue.map((item) => {
-            const name = item.characterName ?? "玩家";
+            const name = item.characterName ?? t("chat.playerFallback");
             return (
               <div key={item.id} className="flex items-center gap-1.5">
                 <span className="text-md-on-surface-variant size-3.5 shrink-0 text-center text-label-small">×</span>
@@ -295,7 +300,7 @@ export function SpeakQueueSection() {
                   className="h-6 px-2.5"
                   onClick={() => sendSessionCommand("chat:restore", { messageId: item.id })}
                 >
-                  恢复
+                  {t("gm.console.restore")}
                 </Button>
               </div>
             );
@@ -311,7 +316,7 @@ export function SceneSection() {
   const current = usePlayStore((state) => state.scene);
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 ease-standard-default-spatial flex flex-col gap-2.5 px-4 py-3 duration-500 delay-75">
-      <SectionTitle icon={ImageIcon}>场景切换</SectionTitle>
+      <SectionTitle icon={ImageIcon}>{t("gm.console.sceneSwitch")}</SectionTitle>
       <div className="grid grid-cols-3 gap-2">
         {scenes.map((scene) => {
           const active = scene.id === current?.id;

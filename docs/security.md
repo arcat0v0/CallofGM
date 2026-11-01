@@ -19,6 +19,14 @@ registry = "https://registry.npmjs.org/"   # pin the registry to defeat mirror/r
 
 CI must always install via `bun install --frozen-lockfile`. The flag is redundant with the bunfig setting for plain `install`, but explicit-in-CI is auditable.
 
+## Theme packages
+
+Theme bundles are **full-privilege browser code**, not declarative data. Installing a `.cogmtheme` is equivalent to installing a plugin: only GM-authenticated users may upload, and only trusted packages should be installed. `signature` is reserved and not verified in v1.
+
+Install-time defenses (see `docs/theme-system.md`): archive ≤ 50 MB, ≤ 2000 entries, ≤ 20 MB per file, ≤ 200 MB expanded; strict path allowlist (root `theme.json`/`bundle.js`/CSS, `assets/` images (including `.ico`) and fonts only); reject `..`, absolute paths and backslashes; validate `ThemeManifest`; verify `bundleHash` equals the SHA-256 of `bundle.js`; atomic write under `THEMES_DIR`; keep only the latest two versions.
+
+`THEMES_DIR` is runtime data and must live on a persistent volume, never inside the image or Git. A compromised or malicious theme can read the GM's DOM and make same-origin requests; the escape hatch is `?theme=default` plus the core-owned GM theme control, not a sandbox.
+
 ## Audit
 
 `bun audit` is wired into the typecheck gate (see `package.json` `scripts.audit` and `typecheck`). CI fails the build on any `high` or `critical` advisory.

@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { mediaUrl } from "@/lib/api";
+import { t } from "@/i18n";
 import { sendSessionCommand } from "@/lib/session-socket";
 import { useBlockingDialog } from "@/stores/modal-store";
 import { usePlayStore } from "@/stores/play-store";
@@ -45,16 +46,14 @@ export function HandoutPrompt({ handouts }: { handouts: GrantedHandoutDto[] }) {
       <DialogContent className="flex max-h-[calc(100dvh-2rem)] max-w-lg flex-col">
         <DialogHeader>
           <DialogTitle>{newest.handout.title}</DialogTitle>
-          <DialogDescription>
-            {newest.isPublic ? "公开情报" : "秘密情报"}
-          </DialogDescription>
+          <DialogDescription>{newest.isPublic ? t("handout.public") : t("handout.secret")}</DialogDescription>
         </DialogHeader>
         <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
           {image ? (
             <div className="bg-md-surface-container-high aspect-video w-full overflow-hidden rounded-lg">
               <img
                 src={image}
-                alt={`${newest.handout.title} 配图`}
+                alt={t("handout.imageAlt", { title: newest.handout.title })}
                 className="size-full object-contain"
               />
             </div>
@@ -64,7 +63,7 @@ export function HandoutPrompt({ handouts }: { handouts: GrantedHandoutDto[] }) {
           </p>
         </div>
         <Button type="button" variant="primary" onClick={dismiss}>
-          收下
+          {t("handout.accept")}
         </Button>
       </DialogContent>
     </Dialog>

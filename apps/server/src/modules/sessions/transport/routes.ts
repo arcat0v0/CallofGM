@@ -37,6 +37,14 @@ import {
   RenameSessionUseCase,
 } from "../application/use-cases";
 
+async function effectiveThemeId(container: Container, themeId: string | null | undefined): Promise<string | null> {
+  if (!themeId) {
+    return null;
+  }
+  await container.themeRegistry.ready();
+  return container.themeRegistry.has(themeId) ? themeId : null;
+}
+
 export function createSessionsRoutes(container: Container) {
   const repo = new DrizzleSessionsRepository(container.db);
   const identityRepo = new DrizzleIdentityRepository(container.db);
@@ -165,9 +173,18 @@ export function createSessionsRoutes(container: Container) {
           phase: snapshot.session.phase,
           moduleId: snapshot.session.moduleId,
           moduleName: moduleRecord?.name ?? "",
+          themeId: await effectiveThemeId(container, moduleRecord?.themeId),
         },
         characters,
       });
+    })
+    .get("/api/v1/public/sessions/:id/theme", async ({ params: { id } }) => {
+      const session = await repo.findSessionById(id);
+      if (!session) {
+        throw new SessionNotFoundError();
+      }
+      const moduleRecord = await repo.findModuleById(session.moduleId);
+      return { themeId: await effectiveThemeId(container, moduleRecord?.themeId) };
     })
     .get("/api/v1/sessions/:id/handouts", async ({ actor, params: { id } }) => {
       if (!actor) {

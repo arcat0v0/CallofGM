@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 import { usePlayStore } from "@/stores/play-store";
+import { t } from "@/i18n";
 import { AudioSection, CharactersSection, HandoutSection, OnlineSection, RulesSection, SessionSettingsSection } from "./gm-panel-controls";
 import { GmHead, PhaseSection, SceneSection, SpeakQueueSection } from "./gm-panel-stage";
 
@@ -11,7 +12,7 @@ function GmPanel({ className }: { className?: string }) {
       <GmHead />
       {ended ? (
         <p className="text-warning px-4 pb-2 text-label-small">
-          已结团 · 仅「在线玩家」的踢出与拉黑仍可用，其余控场操作已停用
+          {t("gm.console.endedLockout")}
         </p>
       ) : null}
       <OnlineSection />

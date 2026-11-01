@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 type ConfirmDialogProps = {
   open: boolean;
@@ -28,7 +29,7 @@ function ConfirmDialog({
   icon: Icon,
   title,
   description,
-  cancelLabel = "取消",
+  cancelLabel = t("common.cancel"),
   confirmLabel,
   confirmIcon: ConfirmIcon,
   variant = "danger",

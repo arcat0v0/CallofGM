@@ -16,6 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { t } from "@/i18n";
 import { parseCocSheet, parseCocState, skillKeysFor, skillValue } from "@/lib/coc-live";
 import { sendSessionCommand } from "@/lib/session-socket";
 import { useIdentityStore } from "@/stores/identity-store";
@@ -57,26 +58,24 @@ export function CharacterSheetPanel({
       penaltyDice: 0,
     });
     if (!sent) {
-      toast.error("尚未连接到团");
+      toast.error(t("chat.notConnected"));
       return;
     }
-    toast.success(`已提交「${coc7e.coc7eSkillLabel(skillKey)}」鉴定`);
+    toast.success(t("check.submitted", { skill: coc7e.coc7eSkillLabel(skillKey) }));
   }
 
   return (
     <Dialog open={dialog.open} onOpenChange={dialog.onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>{target?.name ?? "人物卡"}</DialogTitle>
+          <DialogTitle>{target?.name ?? t("sheet.titleFallback")}</DialogTitle>
           <DialogDescription>
-            {canPerform
-              ? "点击技能或属性即可发起鉴定；目标值由服务端从人物卡读取。"
-              : "队友人物卡仅供查阅。"}
+            {canPerform ? t("sheet.description") : t("sheet.descriptionTeammate")}
           </DialogDescription>
         </DialogHeader>
         {options.length > 1 ? (
           <Select value={target?.characterId ?? ""} onValueChange={setSelectedId}>
-            <SelectTrigger className="h-8 text-label-medium"><SelectValue placeholder="选择人物" /></SelectTrigger>
+            <SelectTrigger className="h-8 text-label-medium"><SelectValue placeholder={t("sheet.selectCharacter")} /></SelectTrigger>
             <SelectContent>
               {options.map((character) => (
                 <SelectItem key={character.characterId} value={character.characterId}>
@@ -87,7 +86,7 @@ export function CharacterSheetPanel({
           </Select>
         ) : null}
         {!target || !sheet ? (
-          <p className="text-foreground-tertiary text-body-medium">没有可见的人物卡，或人物卡尚未同步。</p>
+          <p className="text-foreground-tertiary text-body-medium">{t("sheet.empty")}</p>
         ) : (
           <div className="flex flex-col gap-3">
             {state ? (
@@ -125,12 +124,14 @@ export function CharacterSheetPanel({
             </div>
             {state && state.growthMarks.length > 0 ? (
               <p className="text-foreground-tertiary text-label-small">
-                成长标记：{state.growthMarks.map((key) => coc7e.coc7eSkillLabel(key)).join("、")}
+                {t("sheet.growthMarks", {
+                  marks: state.growthMarks.map((key) => coc7e.coc7eSkillLabel(key)).join(t("common.listSeparator")),
+                })}
               </p>
             ) : null}
             {state && state.statuses.length > 0 ? (
               <p className="text-warning text-label-small">
-                {state.statuses.map((flag) => coc7e.CharacterStatusFlagLabel[flag]).join("、")}
+                {state.statuses.map((flag) => coc7e.CharacterStatusFlagLabel[flag]).join(t("common.listSeparator"))}
               </p>
             ) : null}
           </div>

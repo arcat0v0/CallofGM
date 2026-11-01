@@ -6,15 +6,28 @@
 CallofGM/
 ├── package.json          # workspaces: ["apps/*", "packages/*"]
 ├── packages/
-│   └── shared/           # zod schema：WS 消息协议、团状态枚举、通用骰点；规则专属 schema 在 src/rules/{ruleId}/
+│   ├── shared/           # zod schema：WS 消息协议、团状态枚举、通用骰点；规则专属 schema 在 src/rules/{ruleId}/
+│   ├── theme-sdk/        # 主题插槽契约、上下文类型、defineTheme 与运行时 API 声明
+│   └── theme-cli/        # cogm-theme：主题脚手架、esbuild 构建、.cogmtheme 打包
 ├── apps/
 │   ├── client/           # React 19 + Vite + TanStack Router + Zustand + Tailwind v4 + shadcn/ui
 │   └── server/           # Elysia + Drizzle + bun:sqlite
-├── data/                 # SQLite 文件 + 上传媒体（立绘/背景/音乐/情报图片），不入库存磁盘
+├── data/                 # 运行时数据（SQLite、上传媒体、已安装主题），本地默认位于 apps/server/data/，不入库存磁盘
 └── docs/                 # 本目录
 ```
 
 `packages/shared` 是协议的单一事实来源：服务端用 zod 做运行时校验，客户端用 `z.infer` 拿类型。改协议 → 两端编译期报错。
+
+## 主题系统（UI 自定义）
+
+自部署者可通过运行时 React 主题插件替换页面布局、视觉与站点文案，核心代码不参与构建。完整格式、SDK、安全与验证流程见 `docs/theme-system.md`；本节只记录架构约束。
+
+- **主题 = 编译产物插件**：`.cogmtheme`（zip）内为 `theme.json` + `bundle.js` + `bundle.css` + 静态资源；服务端不接收/不执行 TSX。作者用 `packages/theme-cli`（esbuild）本地构建，CLI 将 `react`/`react-dom`/`@cogm/theme-sdk` 替换为 `globalThis.__COGM_THEME_SDK__` 代理，主题与核心共享同一份 React。
+- **页面级插槽**：核心拥有路由、状态、WS 与服务端权威判定；主题只覆盖 `packages/theme-sdk` 声明的 13 个插槽（进团/玩家视图/GM 控制台/GM 后台）。未覆盖插槽、加载失败或插槽抛错均回退内置 `default` 主题；`?theme=default` 为强制逃生开关。
+- **作用域与服务端权威**：玩家进团/沉浸视图使用模组 `themeId`（由快照与进团信息下发，客户端不可自选）；GM 控制台与后台使用实例级 `ui_settings.gmThemeId`，由 GM 主题浮钮写入。入口与 GM 登录固定默认主题。
+- **严格版本**：`apiVersion` 必须等于核心 `THEME_API_VERSION`（当前 1）；同一 id 只能安装更高 semver 版本，保留最近 2 个版本，静态文件按 `/themes/:id/versions/:version/*` 长期缓存。
+- **文案单一来源**：核心 UI 文案集中在 `apps/client/src/i18n/messages/zh-CN.ts`，主题可通过 `messages` 按 key 覆盖；系统消息使用稳定 `ChatMessage.isSystem` 字段，禁止文案匹配。
+- **安全边界**：主题 bundle 是完整权限的浏览器代码，仅 GM 可上传且需同源校验；安装时校验哈希、路径白名单、大小/条目限制并原子落盘。不引入签名校验，GM 上传等同安装可信插件。
 
 ## 服务端权威原则
 
@@ -120,7 +133,7 @@ BgmState = { trackId, playing, volume, loop, seekOffset, startedAt(服务器时�
 | `/join/$sessionId` | 玩家进团：选 PC 或 OB 位（标题优先显示团名，未命名时回退模组名） |
 | `/play/$sessionId` | 玩家沉浸视图 |
 | `/gm/login` | GM 登录 |
-| `/gm` | GM 后台：模组/人物/场景/音乐/情报/团管理 |
+| `/gm` | GM 后台：模组/人物/场景/音乐/情报/团管理/主题管理 |
 | `/gm/session/$sessionId` | GM 控制台：控场、切场景/立绘/音乐、发放情报、演绎队列放行、在线管理 |
 
 选 TanStack Router 而非 React Router：路由参数与 search params 全类型安全，`$sessionId` 这类参数不会出现手写字符串取参的运行时错误，与 Eden Treaty / Drizzle / zod 的端到端类型安全路线一致。
@@ -133,3 +146,4 @@ GM 后台上传 `.xlsx` → 服务端 SheetJS 解析 → 按 `packages/shared` �
 
 - 场景画面用 DOM + CSS 实现（绝对定位立绘 + transition 切换表情/转场），不引入 Canvas/PixiJS；需要更复杂动画时再加 GSAP。
 - 生产部署：`vite build` 产物由 Elysia 静态托管，单 Bun 进程提供 HTTP + WS，Docker 镜像基于 `oven/bun`。
+- 已安装主题属于运行时数据，位于 `THEMES_DIR`（默认 `data/themes`），与数据库、上传媒资一并挂载持久卷；不进入镜像。

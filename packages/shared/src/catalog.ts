@@ -1,17 +1,20 @@
 import { z } from "zod";
 import { RuleId } from "./rules/rule-id";
 import { HandoutDto } from "./handouts";
+import { ThemeId } from "./themes";
 
 export const CreateModuleRequest = z.object({
   name: z.string().min(1),
   description: z.string(),
   ruleId: RuleId,
+  themeId: ThemeId.nullable().optional(),
 });
 export type CreateModuleRequest = z.infer<typeof CreateModuleRequest>;
 
 export const UpdateModuleRequest = z.object({
   name: z.string().min(1).optional(),
   description: z.string().optional(),
+  themeId: ThemeId.nullable().optional(),
 });
 export type UpdateModuleRequest = z.infer<typeof UpdateModuleRequest>;
 
@@ -69,6 +72,7 @@ export const ModuleDto = z.object({
   name: z.string(),
   description: z.string(),
   ruleId: RuleId,
+  themeId: ThemeId.nullable(),
   createdAt: z.number().int(),
 });
 export type ModuleDto = z.infer<typeof ModuleDto>;

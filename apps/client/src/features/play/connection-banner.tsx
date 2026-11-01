@@ -1,4 +1,5 @@
 import { usePlayStore } from "@/stores/play-store";
+import { t } from "@/i18n";
 
 function ConnectionBanner() {
   const connected = usePlayStore((state) => state.connected);
@@ -10,7 +11,7 @@ function ConnectionBanner() {
   }
   return (
     <div className="bg-md-warning-container text-md-on-warning-container absolute inset-x-0 top-0 z-30 px-3 py-1.5 text-center text-label-medium">
-      {sessionId ? "连接中断，正在重连…" : "正在连接团…"}
+      {sessionId ? t("play.reconnecting") : t("play.connecting")}
     </div>
   );
 }

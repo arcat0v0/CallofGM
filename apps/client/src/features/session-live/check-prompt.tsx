@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useBlockingDialog } from "@/stores/modal-store";
+import { t } from "@/i18n";
 
 const ROLL_TIMEOUT_MS = 8_000;
 
@@ -44,19 +45,19 @@ export function CheckPrompt({
     <Dialog open={dialog.open} onOpenChange={(next) => !next && onDismiss()}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
-          <DialogTitle>鉴定请求</DialogTitle>
+          <DialogTitle>{t("check.title")}</DialogTitle>
           <DialogDescription>
             {skill} · {difficulty}
-            {request.hidden ? " · 暗骰（结果仅主持可见）" : ""}
+            {request.hidden ? t("check.hiddenSuffix") : ""}
           </DialogDescription>
         </DialogHeader>
         <p className="text-foreground-secondary text-body-medium">
-          目标值由服务端从人物卡读取。点击后立即掷骰，不受当前阶段限制。
-          {request.hidden ? "暗骰仅确认已掷出。" : ""}
+          {t("check.description")}
+          {request.hidden ? t("check.hiddenNote") : ""}
         </p>
         <div className="flex items-center gap-2">
           <Button type="button" variant="outline" onClick={onDismiss} className="flex-1">
-            稍后处理
+            {t("check.later")}
           </Button>
           <Button
             type="button"
@@ -71,7 +72,7 @@ export function CheckPrompt({
               onRespond();
             }}
           >
-            {rolling ? "掷骰中…" : "一键掷骰"}
+            {rolling ? t("check.rolling") : t("check.roll")}
           </Button>
         </div>
       </DialogContent>

@@ -18,6 +18,7 @@ import { expressionLabel, initialsOf, phaseChatHint } from "@/lib/format";
 import { mediaUrl } from "@/lib/api";
 import { sendSessionCommand } from "@/lib/session-socket";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 import { useIdentityStore } from "@/stores/identity-store";
 import { useBlockingModalOpen } from "@/stores/modal-store";
 import { usePlayStore } from "@/stores/play-store";
@@ -35,7 +36,7 @@ function Composer({ compact = false, className }: { compact?: boolean; className
   const blockingModalOpen = useBlockingModalOpen();
   const claimed = characters.find((character) => character.claim?.playerId === playerId && character.claim.role === "pc");
   const isOb = seatRole === "ob";
-  const speakerName = claimed?.name ?? (isOb ? "观战" : "玩家");
+  const speakerName = claimed?.name ?? (isOb ? t("chat.spectatorFallback") : t("chat.playerFallback"));
   const expressionOptions =
     claimed?.portraits?.map((portrait) => ({
       key: portrait.expressionKey,
@@ -87,7 +88,7 @@ function Composer({ compact = false, className }: { compact?: boolean; className
       ...(effectiveMode === "roleplay" && canExpress && expression ? { expressionKey: expression } : {}),
     });
     if (!sent) {
-      toast.error("尚未连接到团");
+      toast.error(t("chat.notConnected"));
       return;
     }
     const pending = pendingSendsRef.current;
@@ -103,11 +104,11 @@ function Composer({ compact = false, className }: { compact?: boolean; className
   }
 
   const hint = ended
-    ? "本团已结束 · 记录仅供回看"
+    ? t("chat.hint.ended")
     : discussion
-      ? "自由讨论阶段所有发言记为场外"
+      ? t("chat.hint.discussion")
       : isOb
-        ? "观战席位 · 发言经主持人放行，不可自主掷骰"
+        ? t("chat.hint.spectator")
         : phaseChatHint(phase);
 
   return (
@@ -133,7 +134,7 @@ function Composer({ compact = false, className }: { compact?: boolean; className
                   type="button"
                   variant="tertiary"
                   size="icon-sm"
-                  aria-label="掷骰与鉴定"
+                  aria-label={t("chat.diceAria")}
                   disabled={diceDisabled}
                 >
                   <Dices />
@@ -155,9 +156,9 @@ function Composer({ compact = false, className }: { compact?: boolean; className
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5">
               <VenetianMask className="text-accent-hover size-[13px]" />
-              <span className="text-foreground-secondary font-sans text-label-small">立绘表情</span>
+              <span className="text-foreground-secondary font-sans text-label-small">{t("chat.expression")}</span>
             </div>
-            <Button type="button" variant="tertiary" size="icon-sm" aria-label="预览立绘" onClick={() => setPreviewOpen(true)}>
+            <Button type="button" variant="tertiary" size="icon-sm" aria-label={t("chat.previewPortrait")} onClick={() => setPreviewOpen(true)}>
               <Eye />
             </Button>
           </div>
@@ -189,7 +190,13 @@ function Composer({ compact = false, className }: { compact?: boolean; className
 
       <MessageInput
         compact={compact}
-        placeholder={ended ? "本团已结束 · 记录仅供回看" : chatDisabled ? "当前阶段不可发言" : "输入消息…"}
+        placeholder={
+          ended
+            ? t("chat.endedPlaceholder")
+            : chatDisabled
+              ? t("chat.disabledPlaceholder")
+              : t("chat.placeholder")
+        }
         value={draft}
         onChange={setDraft}
         onSubmit={handleSend}
@@ -203,7 +210,7 @@ function Composer({ compact = false, className }: { compact?: boolean; className
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>立绘预览 · {speakerName}</DialogTitle>
+            <DialogTitle>{t("chat.portraitPreviewTitle", { name: speakerName })}</DialogTitle>
           </DialogHeader>
           <div className="grid grid-cols-2 gap-3">
             {expressionOptions.map((tile) => (

@@ -13,7 +13,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SegmentedControl } from "@/components/shared/segmented-control";
-import { api, isApiError } from "@/lib/api";
+import { api } from "@/lib/api";
+import { errorText } from "@/lib/errors";
+import { t } from "@/i18n";
 
 const DEFAULT_SHEET: coc7e.Coc7eCharacterSheet = {
   schemaVersion: 1,
@@ -37,7 +39,7 @@ export function CreateCharacterDialog({
   async function submit() {
     const trimmed = name.trim();
     if (!trimmed) {
-      toast.error("请填写姓名");
+      toast.error(t("gm.createCharacter.nameRequired"));
       return;
     }
     setPending(true);
@@ -55,7 +57,7 @@ export function CreateCharacterDialog({
       setName("");
       onCreated?.();
     } catch (error) {
-      toast.error(isApiError(error) ? error.message : "创建人物失败");
+      toast.error(errorText(error, "gm.createCharacter.createFailed"));
     } finally {
       setPending(false);
     }
@@ -65,27 +67,27 @@ export function CreateCharacterDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>新建人物</DialogTitle>
-          <DialogDescription>先建立空白 CoC 卡，再用 Excel 导入覆盖数值，或稍后补立绘。</DialogDescription>
+          <DialogTitle>{t("gm.createCharacter.title")}</DialogTitle>
+          <DialogDescription>{t("gm.createCharacter.description")}</DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-3">
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="character-name">姓名</Label>
+            <Label htmlFor="character-name">{t("gm.createCharacter.name")}</Label>
             <Input id="character-name" value={name} onChange={(event) => setName(event.target.value)} />
           </div>
           <SegmentedControl
             value={kind}
             options={[
-              { value: "pc", label: "PC" },
-              { value: "npc", label: "NPC" },
+                             { value: "pc", label: t("common.pc") },
+              { value: "npc", label: t("common.npc") },
             ]}
             onValueChange={(value) => setKind(value as "pc" | "npc")}
           />
         </div>
         <DialogFooter>
-          <Button type="button" variant="tertiary" onClick={() => onOpenChange(false)}>取消</Button>
+          <Button type="button" variant="tertiary" onClick={() => onOpenChange(false)}>{t("common.cancel")}</Button>
           <Button type="button" variant="primary" disabled={pending} onClick={() => void submit()}>
-            创建
+            {t("gm.createCharacter.create")}
           </Button>
         </DialogFooter>
       </DialogContent>

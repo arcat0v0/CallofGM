@@ -16,17 +16,22 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
+import { t } from "@/i18n";
 
-const durations = ["1 小时", "24 小时", "7 天", "30 天", "永久", "自定义"] as const;
+const DURATIONS = [
+  { key: "gm.ban.duration1h", seconds: 3600 },
+  { key: "gm.ban.duration24h", seconds: 86_400 },
+  { key: "gm.ban.duration7d", seconds: 7 * 86_400 },
+  { key: "gm.ban.duration30d", seconds: 30 * 86_400 },
+  { key: "{{SECRET_ixphk3bf}}", seconds: undefined },
+  { key: "{{SECRET_9t43oiwb}}", seconds: undefined },
+] as const;
 
-const durationSeconds: Record<(typeof durations)[number], number | undefined> = {
-  "1 小时": 3600,
-  "24 小时": 86400,
-  "7 天": 7 * 86400,
-  "30 天": 30 * 86400,
-  永久: undefined,
-  自定义: undefined,
-};
+type DurationKey = (typeof DURATIONS)[number]["key"];
+
+function durationSecondsOf(key: DurationKey): number | undefined {
+  return DURATIONS.find((item) => item.key === key)?.seconds;
+}
 
 function shortHash(hash: string): string {
   return hash.length <= 16 ? hash : `${hash.slice(0, 10)}…${hash.slice(-6)}`;
@@ -35,8 +40,8 @@ function shortHash(hash: string): string {
 function BanPlayerDialog({
   open,
   onOpenChange,
-  playerName = "匿名访客",
-  roleLabel = "玩家",
+  playerName = t("gm.ban.anonymous"),
+  roleLabel = t("common.player"),
   fingerprint = "",
   defaultPlayerId = "",
   defaultFingerprintHash = "",
@@ -56,7 +61,7 @@ function BanPlayerDialog({
     durationSeconds?: number;
   }) => void | Promise<void>;
 }) {
-  const [duration, setDuration] = useState<(typeof durations)[number]>("7 天");
+  const [duration, setDuration] = useState<DurationKey>("gm.ban.duration7d");
   const [playerId, setPlayerId] = useState(defaultPlayerId);
   const [fingerprintHash, setFingerprintHash] = useState(defaultFingerprintHash);
   const [reason, setReason] = useState("");
@@ -69,7 +74,7 @@ function BanPlayerDialog({
     setPlayerId(defaultPlayerId);
     setFingerprintHash(defaultFingerprintHash);
     setReason("");
-    setDuration("7 天");
+    setDuration("gm.ban.duration7d");
   }, [open, defaultPlayerId, defaultFingerprintHash]);
 
   const hashOnly = defaultFingerprintHash.trim().length > 0;
@@ -88,7 +93,7 @@ function BanPlayerDialog({
           ? { playerId: trimmedPlayerId, fingerprintHash: undefined }
           : { fingerprintHash: trimmedHash, playerId: undefined }),
         reason,
-        durationSeconds: durationSeconds[duration],
+        durationSeconds: durationSecondsOf(duration),
       });
       onOpenChange(false);
     } finally {
@@ -105,11 +110,11 @@ function BanPlayerDialog({
               <ShieldBan className="text-danger-soft-foreground size-[18px]" />
             </span>
             <div className="flex flex-col gap-0.5">
-              <DialogTitle>拉黑玩家</DialogTitle>
-              <DialogDescription>将该浏览器指纹加入黑名单，握手时拦截</DialogDescription>
+              <DialogTitle>{t("gm.ban.title")}</DialogTitle>
+              <DialogDescription>{t("gm.ban.description")}</DialogDescription>
             </div>
           </div>
-          <Button variant="ghost" size="icon-sm" aria-label="关闭拉黑玩家弹窗" onClick={() => onOpenChange(false)}>
+          <Button variant="ghost" size="icon-sm" aria-label={t("gm.ban.close")} onClick={() => onOpenChange(false)}>
             <X />
           </Button>
         </DialogHeader>
@@ -127,13 +132,13 @@ function BanPlayerDialog({
                 </Badge>
               </div>
               <span className="text-foreground-tertiary font-mono text-label-small">
-                {fingerprint || (hashOnly ? shortHash(defaultFingerprintHash) : "输入玩家 ID 封禁")}
+                {fingerprint || (hashOnly ? shortHash(defaultFingerprintHash) : t("gm.ban.inputHint"))}
               </span>
             </div>
           </div>
 
           {hashOnly ? (
-            <FormField label="指纹哈希" htmlFor="ban-fingerprint-hash">
+            <FormField label={t("gm.ban.fingerprintHash")} htmlFor="ban-fingerprint-hash">
               <Input
                 id="ban-fingerprint-hash"
                 value={fingerprintHash}
@@ -142,7 +147,7 @@ function BanPlayerDialog({
               />
             </FormField>
           ) : (
-            <FormField label="玩家 ID" htmlFor="ban-player-id">
+            <FormField label={t("gm.ban.playerId")} htmlFor="ban-player-id">
               <Input
                 id="ban-player-id"
                 value={playerId}
@@ -153,32 +158,32 @@ function BanPlayerDialog({
             </FormField>
           )}
 
-          <FormField label="封禁时长">
-            <RadioGroup value={duration} onValueChange={(value) => setDuration(value as (typeof durations)[number])} className="grid-cols-3">
-              {durations.map((option) => {
-                const selected = option === duration;
+          <FormField label={t("gm.ban.duration")}>
+            <RadioGroup value={duration} onValueChange={(value) => setDuration(value as DurationKey)} className="grid-cols-3">
+              {DURATIONS.map((option) => {
+                const selected = option.key === duration;
                 return (
                   <Label
-                    key={option}
+                    key={option.key}
                     className={selected
                       ? "bg-danger-soft text-danger-soft-foreground h-[38px] cursor-pointer justify-center rounded-md text-label-large-emph"
                       : "bg-surface-tertiary text-foreground-secondary h-[38px] cursor-pointer justify-center rounded-md text-label-large"
                     }
                   >
-                    <RadioGroupItem value={option} className="data-checked:border-danger-soft-foreground data-checked:bg-danger-soft-foreground" />
-                    {option}
+                    <RadioGroupItem value={option.key} className="data-checked:border-danger-soft-foreground data-checked:bg-danger-soft-foreground" />
+                    {t(option.key)}
                   </Label>
                 );
               })}
             </RadioGroup>
           </FormField>
 
-          <FormField label="封禁备注（可选）" htmlFor="ban-note">
+          <FormField label={t("gm.ban.reason")} htmlFor="ban-note">
             <Textarea
               id="ban-note"
               value={reason}
               onChange={(event) => setReason(event.target.value)}
-              placeholder="例如：多次恶意刷屏、剧透、人身攻击…"
+              placeholder={t("gm.ban.reasonPlaceholder")}
               className="h-16 min-h-16 resize-none border-separator-secondary text-body-medium"
             />
           </FormField>
@@ -188,18 +193,18 @@ function BanPlayerDialog({
               <Info />
             </AlertIcon>
             <AlertDescription className="text-foreground-secondary text-body-small">
-              指纹为尽力而为的标识，更换浏览器或清除数据后可能失效；拉黑同时会立即断开该连接。
+              {t("gm.ban.note")}
             </AlertDescription>
           </Alert>
         </div>
 
         <div className="bg-md-surface-container-low flex items-center justify-end gap-2.5 rounded-b-xl px-5 py-4">
           <Button variant="tertiary" size="sm" onClick={() => onOpenChange(false)}>
-            取消
+            {t("common.cancel")}
           </Button>
           <Button variant="danger" size="sm" disabled={!ready || pending} onClick={() => void handleBan()}>
             <ShieldBan className="size-[15px]" />
-            确认拉黑 {duration}
+            {t("gm.ban.confirm", { duration: t(duration) })}
           </Button>
         </div>
       </DialogContent>

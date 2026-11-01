@@ -1,5 +1,5 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
-import { SessionPhaseLabel, SessionStatusLabel, type CharacterDto, type ModuleDto, type ModuleSummaryDto, type SessionDto, type SessionStatus } from "@cogm/shared";
+import type { CharacterDto, ModuleDto, ModuleSummaryDto, SessionDto, SessionStatus } from "@cogm/shared";
 import { ArrowRight, Ellipsis, FileSpreadsheet, Link as LinkIcon, Package, Pencil, Play, Plus, SquarePower, Users, VenetianMask } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -36,6 +36,9 @@ import { AdminLayout } from "@/features/gm-admin/admin-layout";
 import { CreateSessionDialog } from "@/features/gm-admin/dialogs/create-session-dialog";
 import { ImportCharacterSheetDialog } from "@/features/gm-admin/dialogs/import-character-sheet-dialog";
 import { api, fetchAllPages, isApiError, mediaUrl } from "@/lib/api";
+import { errorText } from "@/lib/errors";
+import { sessionPhaseLabel, sessionStatusLabel } from "@/i18n/labels";
+import { t, useI18nVersion } from "@/i18n";
 import { formatClock, statusTone } from "@/lib/format";
 import { requireGmAuth } from "@/lib/identity";
 
@@ -45,6 +48,7 @@ export const Route = createFileRoute("/gm/")({
 });
 
 function GmDashboardPage() {
+  useI18nVersion();
   const [createOpen, setCreateOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [sessions, setSessions] = useState<SessionDto[]>([]);
@@ -68,7 +72,7 @@ function GmDashboardPage() {
       setCharacterCount(nextCharacters.length);
       setSummaries(nextSummaries);
     } catch (error) {
-      toast.error(isApiError(error) ? error.message : "无法加载后台数据");
+      toast.error(errorText(error, "gm.dashboard.loadFailed"));
     }
   }
 
@@ -87,10 +91,10 @@ function GmDashboardPage() {
         body: JSON.stringify({ name: renameName.trim() || null }),
       });
       setRenameTarget(null);
-      toast.success("已更新团名");
+      toast.success(t("gm.dashboard.renamed"));
       await reload();
     } catch (error) {
-      toast.error(isApiError(error) ? error.message : "无法重命名");
+      toast.error(isApiError(error) ? error.message : t("gm.dashboard.renameFailed"));
     }
   }
 
@@ -102,7 +106,7 @@ function GmDashboardPage() {
       });
       await reload();
     } catch (error) {
-      toast.error(isApiError(error) ? error.message : "无法更新状态");
+      toast.error(errorText(error, "gm.dashboard.statusUpdateFailed"));
     }
   }
 
@@ -110,56 +114,56 @@ function GmDashboardPage() {
     <AdminLayout>
       <div className="flex flex-col gap-5">
         <PageHeader
-          title="团管理"
-          description="创建团、指定参与 PC，并控制团状态的流转"
+          title={t("gm.dashboard.title")}
+          description={t("gm.dashboard.description")}
           actions={
             <>
             <Button variant="outline" size="md" className="h-12" onClick={() => setImportOpen(true)}>
               <FileSpreadsheet />
-              导入人物卡 Excel
+              {t("gm.dashboard.importExcel")}
             </Button>
             <Button variant="primary" size="md" className="h-12" onClick={() => setCreateOpen(true)}>
               <Plus />
-              新建团
+              {t("gm.dashboard.createSession")}
             </Button>
             </>
           }
         />
 
         <div className="animate-in fade-in slide-in-from-bottom-4 flex gap-3.5 duration-500 ease-standard-default-spatial">
-          <MetricCard icon={Play} value={String(liveCount)} label="进行中的团" tone="primary" />
-          <MetricCard icon={Package} value={String(modules.length)} label="模组" tone="secondary" />
-          <MetricCard icon={VenetianMask} value={String(characterCount)} label="人物卡" tone="tertiary" />
-          <MetricCard icon={Users} value={String(sessions.length)} label="全部团" tone="error" />
+          <MetricCard icon={Play} value={String(liveCount)} label={t("gm.dashboard.liveSessions")} tone="primary" />
+          <MetricCard icon={Package} value={String(modules.length)} label={t("gm.dashboard.modules")} tone="secondary" />
+          <MetricCard icon={VenetianMask} value={String(characterCount)} label={t("gm.dashboard.characters")} tone="tertiary" />
+          <MetricCard icon={Users} value={String(sessions.length)} label={t("gm.dashboard.allSessions")} tone="error" />
         </div>
 
         <div className="animate-in fade-in slide-in-from-bottom-4 overflow-hidden rounded-2xl bg-md-surface-container delay-75 duration-500 ease-standard-default-spatial">
         <Table className="table-fixed">
           <TableHeader>
             <TableRow>
-              <TableHead>团名</TableHead>
-              <TableHead className="w-42">模组</TableHead>
-              <TableHead className="w-24">状态</TableHead>
-              <TableHead className="w-26">团内阶段</TableHead>
-              <TableHead className="w-35">编号</TableHead>
-              <TableHead className="w-25">更新</TableHead>
-              <TableHead className="w-45">操作</TableHead>
+              <TableHead>{t("gm.dashboard.sessionName")}</TableHead>
+              <TableHead className="w-42">{t("gm.dashboard.module")}</TableHead>
+              <TableHead className="w-24">{t("gm.dashboard.status")}</TableHead>
+              <TableHead className="w-26">{t("gm.dashboard.phase")}</TableHead>
+              <TableHead className="w-35">{t("gm.dashboard.code")}</TableHead>
+              <TableHead className="w-25">{t("gm.dashboard.updated")}</TableHead>
+              <TableHead className="w-45">{t("gm.dashboard.actions")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {sessions.map((session) => (
               <TableRow key={session.id}>
-                <TableCell className="truncate text-label-large-emph">{session.name ?? "未命名团"}</TableCell>
+                <TableCell className="truncate text-label-large-emph">{session.name ?? t("gm.dashboard.unnamedSession")}</TableCell>
                 <TableCell className="text-foreground-secondary text-body-medium">{moduleName(session.moduleId)}</TableCell>
                 <TableCell>
                   <Badge variant="soft" tone={statusTone(session.status)} size="sm">
-                    {SessionStatusLabel[session.status]}
+                    {sessionStatusLabel(session.status)}
                   </Badge>
                 </TableCell>
                 <TableCell>
                   {session.phase ? (
                   <Badge variant="soft" tone="accent" size="sm">
-                    {SessionPhaseLabel[session.phase]}
+                    {sessionPhaseLabel(session.phase)}
                   </Badge>
                 ) : (
                   <span className="text-foreground-tertiary text-label-large">—</span>
@@ -180,7 +184,7 @@ function GmDashboardPage() {
                           void patchStatus(session.id, next);
                         }}
                       >
-                        {session.status === "waiting" ? "进入准备" : "开始进行"}
+                        {session.status === "waiting" ? t("gm.dashboard.startPreparing") : t("gm.dashboard.startActive")}
                       </Button>
                     ) : null}
                     <Button
@@ -191,12 +195,12 @@ function GmDashboardPage() {
                       className="h-7 px-3"
                     >
                       <Link to="/gm/session/$sessionId" params={{ sessionId: session.id }}>
-                        {session.status === "ended" ? "查看" : "进入控制台"}
+                        {session.status === "ended" ? t("gm.dashboard.view") : t("gm.dashboard.enterConsole")}
                       </Link>
                     </Button>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button type="button" variant="ghost" size="icon-sm" aria-label={`${session.id} 更多操作`} className="size-7 text-foreground-tertiary">
+                        <Button type="button" variant="ghost" size="icon-sm" aria-label={t("gm.dashboard.moreActions", { id: session.id })} className="size-7 text-foreground-tertiary">
                           <Ellipsis />
                         </Button>
                       </DropdownMenuTrigger>
@@ -208,23 +212,23 @@ function GmDashboardPage() {
                           }}
                         >
                           <Pencil />
-                          重命名
+                          {t("gm.dashboard.rename")}
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={() => {
                             void navigator.clipboard.writeText(`${location.origin}/join/${encodeURIComponent(session.id)}`).then(
-                              () => toast.success("已复制团链接"),
-                              () => toast.error("复制失败"),
+                              () => toast.success(t("play.copied")),
+                              () => toast.error(t("play.copyFailed")),
                             );
                           }}
                         >
                           <LinkIcon />
-                          复制入团链接
+                          {t("gm.dashboard.copyLink")}
                         </DropdownMenuItem>
                         {session.status === "active" ? (
                           <DropdownMenuItem variant="destructive" onClick={() => setEndTarget(session)}>
                             <SquarePower />
-                            结束此团
+                            {t("gm.dashboard.endSession")}
                           </DropdownMenuItem>
                         ) : null}
                       </DropdownMenuContent>
@@ -238,10 +242,10 @@ function GmDashboardPage() {
         </div>
 
         <div className="animate-in fade-in slide-in-from-bottom-4 flex items-center justify-between pt-1.5 delay-150 duration-500 ease-standard-default-spatial">
-          <h2 className="text-foreground font-serif text-headline-small-emph">模组资源</h2>
+          <h2 className="text-foreground font-serif text-headline-small-emph">{t("gm.dashboard.moduleResources")}</h2>
           <Button asChild variant="ghost" size="sm" className="text-foreground-secondary">
             <Link to="/gm/modules">
-              全部模组
+              {t("gm.dashboard.allModules")}
               <ArrowRight />
             </Link>
           </Button>
@@ -257,7 +261,7 @@ function GmDashboardPage() {
                 const summary = summaryFor(module.id);
                 const cover = summary?.coverAssetId ? mediaUrl(summary.coverAssetId) : null;
                 return cover ? (
-                  <img src={cover} alt={`${module.name} 封面`} className="h-[118px] w-full object-cover" />
+                  <img src={cover} alt={t("gm.dashboard.coverAlt", { name: module.name })} className="h-[118px] w-full object-cover" />
                 ) : (
                   <div className="bg-md-surface-container-highest flex h-[118px] w-full items-center justify-center">
                     <Package className="text-foreground-tertiary size-7" />
@@ -270,13 +274,25 @@ function GmDashboardPage() {
                 </div>
                 {summaryFor(module.id) ? (
                   <span className="text-foreground-secondary text-label-small">
-                    场景 {summaryFor(module.id)!.sceneCount} · 情报 {summaryFor(module.id)!.handoutCount} · 曲目 {summaryFor(module.id)!.trackCount} · 人物 {summaryFor(module.id)!.characterCount}
+                    {t("gm.dashboard.moduleStats", {
+                      scenes: summaryFor(module.id)!.sceneCount,
+                      handouts: summaryFor(module.id)!.handoutCount,
+                      tracks: summaryFor(module.id)!.trackCount,
+                      characters: summaryFor(module.id)!.characterCount,
+                    })}
                   </span>
                 ) : null}
                 <div className="flex items-center justify-between">
                   <span className="text-foreground-tertiary truncate text-label-small">
                     {summaryFor(module.id)
-                      ? `更新 ${new Date(summaryFor(module.id)!.updatedAt).toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })}`
+                      ? t("gm.dashboard.moduleUpdated", {
+                          time: new Date(summaryFor(module.id)!.updatedAt).toLocaleString("zh-CN", {
+                            month: "2-digit",
+                            day: "2-digit",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          }),
+                        })
                       : module.description || module.ruleId}
                   </span>
                   <Button
@@ -287,7 +303,7 @@ function GmDashboardPage() {
                     className="h-[26px] px-3"
                   >
                     <Link to="/gm/module/$moduleId" params={{ moduleId: module.id }}>
-                      管理
+                      {t("gm.dashboard.manage")}
                     </Link>
                   </Button>
                 </div>
@@ -313,20 +329,22 @@ function GmDashboardPage() {
       >
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>重命名团</DialogTitle>
-            <DialogDescription>留空则回退显示模组名。当前编号 {renameTarget?.id.slice(0, 8) ?? ""}</DialogDescription>
+            <DialogTitle>{t("gm.dashboard.renameTitle")}</DialogTitle>
+            <DialogDescription>
+              {t("gm.dashboard.renameDescription", { id: renameTarget?.id.slice(0, 8) ?? "" })}
+            </DialogDescription>
           </DialogHeader>
           <Input
             value={renameName}
             onChange={(event) => setRenameName(event.target.value)}
-            placeholder="例如：灯塔之夜 · 第二场"
+            placeholder={t("gm.dashboard.renamePlaceholder")}
             maxLength={60}
-            aria-label="团名"
+            aria-label={t("gm.dashboard.sessionName")}
             autoFocus
           />
           <DialogFooter>
             <Button variant="tertiary" size="sm" onClick={() => setRenameTarget(null)}>
-              取消
+              {t("common.cancel")}
             </Button>
             <Button
               variant="primary"
@@ -336,7 +354,7 @@ function GmDashboardPage() {
                 if (id) void renameSession(id);
               }}
             >
-              保存
+              {t("common.save")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -348,9 +366,9 @@ function GmDashboardPage() {
         }}
         icon={SquarePower}
         confirmIcon={SquarePower}
-        title="结束此团"
-        description={`结团后玩家将无法发言与掷骰，仅可回看记录。团 ${endTarget?.id.slice(0, 8) ?? ""} 确认结团？`}
-        confirmLabel="结团"
+        title={t("gm.dashboard.endTitle")}
+        description={t("gm.dashboard.endDescription", { id: endTarget?.id.slice(0, 8) ?? "" })}
+        confirmLabel={t("gm.dashboard.endConfirm")}
         onConfirm={() => {
           const id = endTarget?.id;
           setEndTarget(null);

@@ -1,5 +1,6 @@
 import type { ClientCommand, ClientCommandType, ServerMessage } from "@cogm/shared";
 import { getFingerprint } from "./fingerprint";
+import { t } from "@/i18n";
 
 export type SessionSocket = {
   sendCommand: (type: ClientCommandType, payload: unknown) => string;
@@ -21,7 +22,7 @@ let active: SessionSocket | null = null;
 export async function connectSession(options: ConnectSessionOptions): Promise<SessionSocket> {
   const fingerprint = await getFingerprint();
   if (options.signal?.aborted) {
-    throw new DOMException("连接已取消", "AbortError");
+    throw new DOMException(t("play.connectAborted"), "AbortError");
   }
   const protocol = location.protocol === "https:" ? "wss:" : "ws:";
   const params = new URLSearchParams({ fingerprint });
@@ -70,7 +71,7 @@ export async function connectSession(options: ConnectSessionOptions): Promise<Se
 
   const abortConnection = () => {
     socket.close();
-    rejectOpen?.(new DOMException("连接已取消", "AbortError"));
+    rejectOpen?.(new DOMException(t("play.connectAborted"), "AbortError"));
     rejectOpen = null;
   };
 
@@ -123,7 +124,7 @@ export async function connectSession(options: ConnectSessionOptions): Promise<Se
     const onError = () => {
       ws.removeEventListener("open", onOpen);
       rejectOpen = null;
-      reject(new Error("无法连接团内实时通道"));
+      reject(new Error(t("play.connectFailed")));
     };
     ws.addEventListener("open", onOpen, { once: true });
     ws.addEventListener("error", onError, { once: true });
@@ -131,7 +132,7 @@ export async function connectSession(options: ConnectSessionOptions): Promise<Se
 
   if (options.signal?.aborted) {
     abortConnection();
-    throw new DOMException("连接已取消", "AbortError");
+    throw new DOMException(t("play.connectAborted"), "AbortError");
   }
 
   previous?.close();

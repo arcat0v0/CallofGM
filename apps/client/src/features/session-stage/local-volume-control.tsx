@@ -1,6 +1,7 @@
 import { Slider } from "@/components/ui/slider";
 import { normalizeLocalVolume } from "@/lib/local-volume";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 function LocalVolumeControl({
   value,
@@ -20,7 +21,7 @@ function LocalVolumeControl({
         min={0}
         max={100}
         step={1}
-        thumbLabels={["本地音量"]}
+        thumbLabels={[t("stage.localVolume")]}
         className={compact ? "w-14" : "w-16"}
         onValueChange={(next) => onChange(normalizeLocalVolume(next[0] ?? value))}
       />

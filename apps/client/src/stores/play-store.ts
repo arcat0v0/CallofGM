@@ -31,6 +31,7 @@ import { formatClock, initialsOf } from "@/lib/format";
 import { LOCAL_VOLUME_DEFAULT, normalizeLocalVolume } from "@/lib/local-volume";
 import { sendSessionCommand } from "@/lib/session-socket";
 import { readLocalMuted, readLocalVolume, writeLocalMuted, writeLocalVolume } from "@/lib/storage";
+import { t } from "@/i18n";
 
 export type ConnectionTerminal = "kicked" | "unavailable" | "replaced";
 
@@ -39,6 +40,7 @@ type PlayState = {
   moduleId: string | null;
   moduleName: string | null;
   sessionName: string | null;
+  themeId: string | null;
   status: SessionStatus | null;
   phase: SessionPhase | null;
   lastEventId: number;
@@ -78,6 +80,7 @@ type PlayState = {
   setCatalog: (input: { scenes?: SceneDto[]; tracks?: TrackDto[]; handouts?: CatalogHandoutDto[] }) => void;
   setConnected: (connected: boolean) => void;
   setTerminal: (terminal: ConnectionTerminal | null) => void;
+  setThemeId: (themeId: string | null) => void;
   markEnded: () => void;
   markHandoutRead: (grantId: string) => void;
   dismissCheck: (requestId: string) => void;
@@ -94,6 +97,7 @@ const empty = {
   moduleId: null as string | null,
   moduleName: null as string | null,
   sessionName: null as string | null,
+  themeId: null as string | null,
   status: null as SessionStatus | null,
   phase: null as SessionPhase | null,
   lastEventId: 0,
@@ -297,7 +301,7 @@ function applyEvent(state: PlayState, type: string, payload: unknown, eventId?: 
     }
     case "state:hint": {
       const characterId = typeof payload.characterId === "string" ? payload.characterId : null;
-      const name = state.characters.find((character) => character.characterId === characterId)?.name ?? "角色";
+      const name = state.characters.find((character) => character.characterId === characterId)?.name ?? t("chat.role.character");
       const hints = Array.isArray(payload.hints) ? payload.hints.filter((item): item is string => typeof item === "string") : [];
       for (const hint of hints) {
         toast.warning(`${name}：${hint}`);
@@ -320,6 +324,7 @@ export const usePlayStore = create<PlayState>((set, get) => ({
       moduleId: payload.session.moduleId,
       moduleName: payload.session.moduleName,
       sessionName: payload.session.name,
+      themeId: payload.session.themeId,
       status: payload.session.status,
       phase: payload.session.phase,
       lastEventId: watermark,
@@ -384,10 +389,10 @@ export const usePlayStore = create<PlayState>((set, get) => ({
       }
       const requestId = typeof payload.requestId === "string" ? payload.requestId : null;
       const pending = requestId ? get().pendingChecks.find((item) => item.id === requestId) : undefined;
-      const skillKey = pending ? coc7e.coc7eSkillLabel(pending.skillKey) : "鉴定";
+      const skillKey = pending ? coc7e.coc7eSkillLabel(pending.skillKey) : t("chat.role.check");
       const hiddenRolled = payload.rolled === true && payload.hidden === true;
       if (requestId && hiddenRolled) {
-        toast.success("已掷出");
+        toast.success(t("check.rolled"));
       }
       if (requestId) {
         set((state) => {
@@ -400,13 +405,14 @@ export const usePlayStore = create<PlayState>((set, get) => ({
               id: `check-ack-${requestId}`,
               sortKey: state.lastEventId,
               speakerName: skillKey,
-              speakerRoleLabel: "鉴定",
+              speakerRoleLabel: t("chat.role.check"),
               avatarInitials: initialsOf(skillKey),
               avatarBg: "bg-default",
               avatarFg: "text-foreground",
               time: formatClock(Date.now()),
-              body: `${skillKey} 已掷出`,
+              body: t("check.rolledFor", { skill: skillKey }),
               tone: "ooc",
+              isSystem: true,
             });
           }
           return patch;
@@ -442,7 +448,7 @@ export const usePlayStore = create<PlayState>((set, get) => ({
       const payload = isRecord(message.payload) ? message.payload : {};
       const reason = typeof payload.reason === "string" ? payload.reason : null;
       set({ terminal: "kicked", kickedReason: reason, connected: false });
-      toast.error("主持人尚未解除禁入，暂时无法进入本团");
+      toast.error(t("play.kickLocked"));
       return;
     }
     if ("type" in message && message.type === "audio:se") {
@@ -459,7 +465,7 @@ export const usePlayStore = create<PlayState>((set, get) => ({
       limit: HISTORY_DEFAULT_LIMIT,
     });
     if (!commandId) {
-      toast.error("尚未连接到团");
+      toast.error(t("play.notConnected"));
       return;
     }
     set({ historyLoading: true, historyCommandId: commandId });
@@ -473,6 +479,7 @@ export const usePlayStore = create<PlayState>((set, get) => ({
   },
   setConnected: (connected) => set({ connected }),
   setTerminal: (terminal) => set({ terminal }),
+  setThemeId: (themeId) => set({ themeId }),
   markEnded: () => set({ status: "ended" }),
   markHandoutRead: (grantId) =>
     set((state) => ({

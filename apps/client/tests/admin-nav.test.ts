@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { adminNavCurrentKey } from "../src/features/gm-admin/admin-layout";
+import { adminNavCurrentKey, type AdminNavKey } from "../src/features/gm-admin/admin-layout";
 
-const NAV_KEYS = ["sessions", "modules", "characters", "music", "blacklist"];
+const NAV_KEYS: AdminNavKey[] = ["sessions", "modules", "characters", "music", "blacklist", "themes"];
 
 describe("GM admin navigation matching", () => {
   test("the session index is only current on the exact /gm route", () => {
@@ -17,13 +17,14 @@ describe("GM admin navigation matching", () => {
   });
 
   test("every admin route resolves to exactly one current item", () => {
-    const routes: Array<[string, string]> = [
+    const routes: Array<[string, AdminNavKey]> = [
       ["/gm", "sessions"],
       ["/gm/modules", "modules"],
       ["/gm/module/2f4c", "modules"],
       ["/gm/characters", "characters"],
       ["/gm/music", "music"],
       ["/gm/blacklist", "blacklist"],
+      ["/gm/themes", "themes"],
     ];
     for (const [pathname, expected] of routes) {
       const current = adminNavCurrentKey(pathname);

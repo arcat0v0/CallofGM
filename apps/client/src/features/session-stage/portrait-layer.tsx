@@ -2,6 +2,7 @@ import { coc7e } from "@cogm/shared";
 import { mediaUrl } from "@/lib/api";
 import { parseCocState } from "@/lib/coc-live";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 import { usePlayStore } from "@/stores/play-store";
 
 function Bar({
@@ -78,7 +79,7 @@ function PortraitLayer({ className, compact = false }: { className?: string; com
             ) : (
               <div
                 role="img"
-                aria-label={`${character.name} · 立绘待上传`}
+                aria-label={t("stage.portraitPendingAria", { name: character.name })}
                 className={cn(
                   "bg-stage-panel relative flex shrink-0 flex-col items-center justify-end overflow-hidden rounded-t-full rounded-b-xl",
                   compact ? "min-h-0 max-h-full w-20 flex-1" : "h-[48vh] max-h-[520px] w-40",
@@ -101,7 +102,7 @@ function PortraitLayer({ className, compact = false }: { className?: string; com
                   {character.name.slice(0, 1)}
                 </span>
                 <span className={cn("text-md-on-surface relative mb-2 text-label-small", compact && "mb-1")}>
-                  立绘待上传
+                  {t("stage.portraitPending")}
                 </span>
               </div>
             )}

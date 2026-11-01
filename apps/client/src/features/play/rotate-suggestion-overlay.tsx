@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 type LockableOrientation = ScreenOrientation & { lock?: (mode: OrientationLockType) => Promise<void> };
 
@@ -41,7 +42,7 @@ function RotateSuggestionOverlay({ onDismiss, className }: { onDismiss: () => vo
       onDismiss();
       return;
     }
-    toast.message("当前浏览器未能自动旋转，请手动横持设备");
+    toast.message(t("play.rotateFailed"));
   }
 
   return (
@@ -56,13 +57,13 @@ function RotateSuggestionOverlay({ onDismiss, className }: { onDismiss: () => vo
           <Smartphone className="size-8 rotate-90" />
         </div>
         <div className="flex flex-col items-center gap-2 text-center">
-          <span className="text-foreground font-serif text-headline-small-emph">旋转到横屏</span>
+          <span className="text-foreground font-serif text-headline-small-emph">{t("play.rotateTitle")}</span>
           <p className="text-foreground-secondary font-sans text-body-medium">
-            横屏模式下场景立绘更大、对话与掷骰并排显示，跑团体验更沉浸。
+            {t("play.rotateDescription")}
           </p>
           {lockable ? null : (
             <p className="text-foreground-tertiary font-sans text-label-small">
-              当前浏览器不支持自动旋转，请手动横持设备；竖屏布局同样可用。
+              {t("play.rotateUnsupportedNote")}
             </p>
           )}
         </div>
@@ -70,7 +71,7 @@ function RotateSuggestionOverlay({ onDismiss, className }: { onDismiss: () => vo
           {lockable ? (
             <Button type="button" variant="primary" className="h-11 w-full" onClick={() => void handleRotate()}>
               <RotateCw className="size-4" />
-              自动旋转屏幕
+              {t("play.rotateAction")}
             </Button>
           ) : null}
           <Button
@@ -79,7 +80,7 @@ function RotateSuggestionOverlay({ onDismiss, className }: { onDismiss: () => vo
             onClick={onDismiss}
             className={cn("w-full", lockable ? "h-9 text-foreground-secondary" : "h-11")}
           >
-            {lockable ? "仍使用竖屏" : "继续使用竖屏"}
+            {lockable ? t("play.rotateDismiss") : t("play.rotateDismissPortrait")}
           </Button>
         </div>
       </Card>

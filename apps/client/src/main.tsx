@@ -3,8 +3,14 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { routeTree } from "./routeTree.gen";
 import "./styles/globals.css";
+import "./themes/runtime/bootstrap";
+import { installThemeSdk } from "./themes/runtime/sdk";
 
 const router = createRouter({ routeTree });
+
+installThemeSdk((to) => {
+  void router.navigate({ to: to as never });
+});
 
 declare module "@tanstack/react-router" {
   interface Register {

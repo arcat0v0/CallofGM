@@ -1,6 +1,7 @@
 import { coc7e, type CharacterDetailDto } from "@cogm/shared";
 import { mediaUrl } from "@/lib/api";
 import { expressionLabel, initialsOf } from "@/lib/format";
+import { t } from "@/i18n";
 
 export type CharacterKind = "PC" | "NPC";
 
@@ -76,7 +77,7 @@ export function mapCharacterRow(row: CharacterRow): GameCharacter {
     kind: row.kind === "npc" ? "NPC" : "PC",
     meta: row.ruleId,
     portrait: mediaUrl(defaultPortrait?.portraitAssetId) ?? undefined,
-    expressions: portraits.length > 0 ? portraits.map((item) => expressionLabel(item.expressionKey)) : ["默认"],
+    expressions: portraits.length > 0 ? portraits.map((item) => expressionLabel(item.expressionKey)) : [t("expression.default")],
     portraits,
     derived: {
       hp: { current: hpMax, max: hpMax },

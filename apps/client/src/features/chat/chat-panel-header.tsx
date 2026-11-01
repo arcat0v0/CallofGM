@@ -22,6 +22,7 @@ import { CharacterSheetPanel } from "@/features/session-live/character-sheet-pan
 import { HandoutLibrary } from "@/features/session-live/handout-library";
 import { sendSessionCommand } from "@/lib/session-socket";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 import { usePlayStore } from "@/stores/play-store";
 
 function ChatPanelHeader({
@@ -50,7 +51,7 @@ function ChatPanelHeader({
       (character) => character.characterId === banTarget?.characterId,
     )?.name ??
     banTarget?.playerId.slice(0, 8) ??
-    "玩家";
+    t("common.player");
 
   return (
     <Popover>
@@ -66,7 +67,7 @@ function ChatPanelHeader({
             compact ? "text-title-small-emph" : "text-title-medium-emph",
           )}
         >
-          文字频道
+          {t("chat.title")}
         </h2>
         <div
           className={cn(
@@ -77,14 +78,14 @@ function ChatPanelHeader({
           <Button
             variant="tertiary"
             size="icon-sm"
-            aria-label="人物卡"
+            aria-label={t("chat.sheet")}
             onClick={() => setSheetOpen(true)}
           >
             <VenetianMask />
           </Button>
           {presenceAvailable ? (
             <PopoverTrigger asChild>
-              <Button variant="tertiary" size="icon-sm" aria-label="在线玩家">
+              <Button variant="tertiary" size="icon-sm" aria-label={t("chat.presence")}>
                 <Users />
               </Button>
             </PopoverTrigger>
@@ -92,7 +93,7 @@ function ChatPanelHeader({
           <Button
             variant="tertiary"
             size="icon-sm"
-            aria-label="情报"
+            aria-label={t("chat.handouts")}
             onClick={() => setHandoutsOpen(true)}
           >
             <ScrollText />
@@ -101,7 +102,7 @@ function ChatPanelHeader({
             <Button
               variant="tertiary"
               size="icon-sm"
-              aria-label={`待处理鉴定 ${pendingChecks.length}`}
+              aria-label={t("chat.pendingChecks", { count: pendingChecks.length })}
               onClick={resumeChecks}
               className="relative"
             >
@@ -115,7 +116,7 @@ function ChatPanelHeader({
             <Button
               variant="tertiary"
               size="icon-sm"
-              aria-label="离开座位"
+              aria-label={t("chat.leaveSeat")}
               onClick={onLeaveSeat}
             >
               <LogOut />
@@ -127,7 +128,7 @@ function ChatPanelHeader({
               variant="tertiary"
               size="icon-sm"
               onClick={onCollapse}
-              aria-label="收起文字频道"
+              aria-label={t("chat.collapse")}
               className="size-7"
             >
               <PanelRightClose />
@@ -153,12 +154,12 @@ function ChatPanelHeader({
           >
             <div className="flex max-h-[min(60dvh,320px)] flex-col">
               <p className="text-label-medium-emph px-3 pt-3 pb-1.5">
-                在线玩家 · {presence.length}
+                {t("chat.presenceTitle", { count: presence.length })}
               </p>
               <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
             {presence.length === 0 ? (
                   <p className="text-md-on-surface-variant px-1 py-1 text-label-small">
-                    暂无在线玩家
+                    {t("chat.noPresence")}
                   </p>
             ) : (
               presence.map((player) => {
@@ -179,15 +180,15 @@ function ChatPanelHeader({
                           size="sm"
                           className="shrink-0"
                         >
-                          {player.role === "ob" ? "OB" : "PC"}
+                          {player.role === "ob" ? t("common.ob") : t("common.pc")}
                         </Badge>
                         <Button
                           type="button"
                           variant="ghost"
                           size="icon-sm"
                           className="text-danger-soft-foreground size-7 shrink-0"
-                          aria-label={`踢出 ${name}`}
-                          title="踢出"
+                          aria-label={t("chat.kickLabel", { name })}
+                          title={t("chat.kick")}
                           onClick={() =>
                             sendSessionCommand("player:kick", {
                               playerId: player.playerId,
@@ -201,8 +202,8 @@ function ChatPanelHeader({
                           variant="ghost"
                           size="icon-sm"
                           className="text-md-on-surface-variant size-7 shrink-0"
-                          aria-label={`拉黑 ${name}`}
-                          title="拉黑"
+                          aria-label={t("chat.banLabel", { name })}
+                          title={t("chat.ban")}
                           onClick={() => setBanPlayerId(player.playerId)}
                         >
                           <ShieldBan className="size-3.5" />
@@ -220,7 +221,7 @@ function ChatPanelHeader({
               if (!open) setBanPlayerId(null);
             }}
             playerName={banName}
-            roleLabel={banTarget?.role === "ob" ? "OB" : "玩家"}
+            roleLabel={banTarget?.role === "ob" ? t("common.ob") : t("common.player")}
             defaultPlayerId={banPlayerId ?? ""}
             onBan={(input) => {
               sendSessionCommand("player:ban", {
