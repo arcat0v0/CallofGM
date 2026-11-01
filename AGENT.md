@@ -7,7 +7,8 @@
 1. `docs/product.md` — 产品需求与领域规则
 2. `docs/tech-stack.md` — 定稿技术栈（含否决方案清单，不得引入）
 3. `docs/architecture.md` — 架构决策：服务端权威、WS 协议、音频同步、路由
-4. `CLAUDE.md` — 硬性约束汇总
+4. `docs/theme-system.md` — 运行时主题插件、插槽契约与主题包格式
+5. `CLAUDE.md` — 硬性约束汇总
 
 要点速览：Bun + Elysia（Eden Treaty）+ Bun 原生 WS / React 19 + Vite + TanStack Router + Zustand + Tailwind v4 + shadcn/ui / Drizzle + bun:sqlite / zod 协议共享于 `packages/shared`。
 

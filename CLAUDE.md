@@ -9,6 +9,7 @@
 - `docs/product.md` — 产品需求：角色/模组/团模型、团状态与阶段规则、掷骰与鉴定、角色团内状态、音频 GM 控制、情报发放、黑名单
 - `docs/tech-stack.md` — 定稿技术栈（Bun + Elysia + React 19 + TanStack Router + shadcn/ui + Drizzle/bun:sqlite）
 - `docs/architecture.md` — 架构：monorepo 布局、规则系统抽象、WS 协议与断线补发、服务端权威原则、演绎发言队列、音频同步、情报可见性、路由表
+- `docs/theme-system.md` — 运行时主题插件：`.cogmtheme` 格式、插槽与 SDK、主题作用域、安装安全与回退链
 
 ## 硬性约束
 

@@ -17,4 +17,5 @@
 | Excel 解析 | **SheetJS (xlsx)** | 服务端解析 CoC 人物卡 |
 | 音频 | **Howler.js** | 处理自动播放解锁、循环、淡入淡出、seek |
 | 玩家指纹 | **FingerprintJS**（开源版） | 匿名玩家标识与黑名单基础 |
-| 部署 | 单 Bun 进程 + Docker（`oven/bun`） | Elysia 同时托管 API、WS 与前端静态产物 |
+| UI 主题 | **运行时 React 插件 + esbuild + fflate** | 主题以 TSX 编写、CLI 编译为 `.cogmtheme`（zip）；React 经 `globalThis.__COGM_THEME_SDK__` 共享；页面级插槽见 `docs/theme-system.md` |
+| 部署 | 单 Bun 进程 + Docker（`oven/bun`） | Elysia 同时托管 API、WS 与前端静态产物；主题安装于持久卷 `data/themes` |
