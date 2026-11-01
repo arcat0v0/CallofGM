@@ -2,15 +2,46 @@ import { coc7e, type ChatMessageDto, type HistoryItem, type SnapshotCharacter } 
 import type { ChatMessage } from "@/features/chat/types";
 import { formatClock, initialsOf } from "@/lib/format";
 
+export function obSpeakerLabel(playerId: string | null | undefined): string {
+  return playerId ? `观战 · ${playerId.slice(0, 6)}` : "观战";
+}
+
+export function speakerNameOf(dto: ChatMessageDto): string {
+  if (dto.senderType === "gm") {
+    return "KP";
+  }
+  if (dto.characterName) {
+    return dto.characterName;
+  }
+  return obSpeakerLabel(dto.senderId);
+}
+
+export function speakerInitialsOf(dto: ChatMessageDto): string {
+  if (dto.senderType === "gm") {
+    return "KP";
+  }
+  return dto.characterName ? initialsOf(dto.characterName) : "观";
+}
+
+export function speakerRoleLabelOf(dto: ChatMessageDto): string {
+  if (dto.senderType === "gm") {
+    return "主持人";
+  }
+  if (!dto.characterName) {
+    return "观战";
+  }
+  return dto.channel === "ooc" ? "场外" : "PC";
+}
+
 export function mapChatMessage(dto: ChatMessageDto): ChatMessage {
   const isGm = dto.senderType === "gm";
-  const speakerName = isGm ? "KP" : (dto.characterName ?? "玩家");
+  const speakerName = speakerNameOf(dto);
   return {
     id: dto.id,
     sortKey: dto.eventId ?? dto.createdAt,
     speakerName,
-    speakerRoleLabel: isGm ? "主持人" : dto.channel === "ooc" ? "场外" : "PC",
-    avatarInitials: isGm ? "KP" : initialsOf(speakerName),
+    speakerRoleLabel: speakerRoleLabelOf(dto),
+    avatarInitials: speakerInitialsOf(dto),
     avatarBg: isGm ? "bg-accent" : "bg-default",
     avatarFg: isGm ? "text-accent-foreground" : "text-foreground",
     time: formatClock(dto.presentedAt ?? dto.createdAt),
@@ -45,7 +76,12 @@ export function mapActivityEvent(type: string, payload: unknown, eventId: number
   const time = formatClock(occurredAt ?? Date.now());
   if (type === "dice:rolled") {
     const result = isRecord(payload.result) ? payload.result : {};
-    const name = typeof payload.characterName === "string" && payload.characterName ? payload.characterName : payload.rollerType === "gm" ? "KP" : "玩家";
+    const name =
+      typeof payload.characterName === "string" && payload.characterName
+        ? payload.characterName
+        : payload.rollerType === "gm"
+          ? "KP"
+          : obSpeakerLabel(typeof payload.rollerId === "string" ? payload.rollerId : null);
     const expression = typeof result.expression === "string" ? result.expression : "骰点";
     const total = result.total;
     const detail = typeof result.detail === "string" ? result.detail : "";

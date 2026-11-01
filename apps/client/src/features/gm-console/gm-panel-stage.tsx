@@ -1,14 +1,15 @@
-import { Drama, GripVertical, Image as ImageIcon, LayoutDashboard, Link as LinkIcon, ListVideo, SquarePower, Trash2 } from "lucide-react";
+import { Drama, Image as ImageIcon, LayoutDashboard, Link as LinkIcon, ListVideo, SquarePower, Trash2 } from "lucide-react";
 import { Link, useParams } from "@tanstack/react-router";
 import { useState } from "react";
-import { SessionPhaseLabel, SessionStatusLabel, type SessionPhase, type SessionStatus } from "@cogm/shared";
+import { SessionPhaseLabel, SessionStatusLabel, type ChatMessageDto, type SessionPhase, type SessionStatus } from "@cogm/shared";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { api, isApiError, mediaUrl } from "@/lib/api";
-import { initialsOf, nextSessionStatus, nextStatusActionLabel, statusTone } from "@/lib/format";
+import { speakerInitialsOf, speakerNameOf, speakerRoleLabelOf } from "@/lib/chat-map";
+import { nextSessionStatus, nextStatusActionLabel, statusTone } from "@/lib/format";
 import { sendSessionCommand } from "@/lib/session-socket";
 import { cn } from "@/lib/utils";
 import { usePlayStore } from "@/stores/play-store";
@@ -156,9 +157,99 @@ export function PhaseSection() {
   );
 }
 
+export function QueueRow({
+  item,
+  index,
+  total,
+  onReorder,
+}: {
+  item: ChatMessageDto;
+  index: number;
+  total: number;
+  onReorder: (direction: -1 | 1) => void;
+}) {
+  const name = speakerNameOf(item);
+  return (
+    <div className="bg-md-surface-container-high flex flex-col gap-1.5 rounded-lg px-2 py-1.5">
+      <div className="flex items-center gap-1.5">
+        <Avatar size="sm" className="bg-default size-[22px]">
+          <AvatarFallback className="text-label-small">{speakerInitialsOf(item)}</AvatarFallback>
+        </Avatar>
+        <span className="text-foreground min-w-0 flex-1 truncate font-sans text-label-medium">{name}</span>
+        <Badge variant="soft" tone="accent" size="sm" className="shrink-0">
+          {speakerRoleLabelOf(item)}
+        </Badge>
+        <Button
+          type="button"
+          variant="ghost"
+          size="xs"
+          className="text-md-on-surface-variant h-3 min-h-6 px-2 text-label-small"
+          aria-label={`上移「${name}」的发言`}
+          title="上移"
+          disabled={index === 0}
+          onClick={() => onReorder(-1)}
+        >
+          上移
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="xs"
+          className="text-md-on-surface-variant h-3 min-h-6 px-2 text-label-small"
+          aria-label={`下移「${name}」的发言`}
+          title="下移"
+          disabled={index === total - 1}
+          onClick={() => onReorder(1)}
+        >
+          下移
+        </Button>
+      </div>
+      <p className="text-md-on-surface font-sans text-body-small whitespace-pre-wrap break-words">{item.content}</p>
+      <div className="flex items-center justify-end gap-1.5">
+        <Button
+          type="button"
+          variant="ghost"
+          size="xs"
+          className="text-md-on-surface-variant h-3 min-h-6 px-2 text-label-small"
+          aria-label={`丢弃「${name}」的发言`}
+          title="丢弃"
+          onClick={() => sendSessionCommand("chat:discard", { messageId: item.id })}
+        >
+          <Trash2 className="size-3.5" />
+          丢弃
+        </Button>
+        <Button
+          type="button"
+          variant="primary"
+          size="xs"
+          className="h-3 min-h-6 px-2.5 text-label-small"
+          aria-label={`放行「${name}」的发言`}
+          title="放行"
+          onClick={() => sendSessionCommand("chat:release", { messageId: item.id })}
+        >
+          放行
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export function SpeakQueueSection() {
   const pendingQueue = usePlayStore((state) => state.pendingQueue);
   const discardedQueue = usePlayStore((state) => state.discardedQueue);
+
+  function reorder(index: number, direction: -1 | 1) {
+    const ids = pendingQueue.map((entry) => entry.id);
+    const next = index + direction;
+    const currentId = ids[index];
+    const targetId = ids[next];
+    if (!currentId || !targetId) {
+      return;
+    }
+    ids[index] = targetId;
+    ids[next] = currentId;
+    sendSessionCommand("chat:reorder", { messageIds: ids });
+  }
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 ease-standard-default-spatial flex flex-col gap-2 px-4 py-3 duration-500 delay-75">
       <div className="bg-md-surface-container flex flex-col gap-2 rounded-xl px-2.5 py-2.5">
@@ -167,40 +258,24 @@ export function SpeakQueueSection() {
             <ListVideo className="text-md-on-surface-variant size-3.5" />
             <span className="text-foreground font-sans text-label-large-emph">演绎待呈现队列</span>
           </div>
-          <Badge variant="soft" tone="warning" size="sm">{pendingQueue.length} 待放行</Badge>
+          <Badge variant="soft" tone="warning" size="sm">
+            {pendingQueue.length} 待放行
+          </Badge>
+        </div>
+        <div className="flex max-h-[45vh] flex-col gap-2 overflow-y-auto pr-0.5">
+          {pendingQueue.map((item, index) => (
+            <QueueRow
+              key={item.id}
+              item={item}
+              index={index}
+              total={pendingQueue.length}
+              onReorder={(direction) => reorder(index, direction)}
+            />
+          ))}
         </div>
         {pendingQueue.length === 0 ? (
           <p className="text-md-on-surface-variant text-label-small">队列为空</p>
         ) : null}
-        {pendingQueue.map((item, index) => {
-          const name = item.characterName ?? "玩家";
-          function reorder(direction: -1 | 1) {
-            const ids = pendingQueue.map((entry) => entry.id);
-            const next = index + direction;
-            if (next < 0 || next >= ids.length) {
-              return;
-            }
-            const swap = ids[index]!;
-            ids[index] = ids[next]!;
-            ids[next] = swap;
-            sendSessionCommand("chat:reorder", { messageIds: ids });
-          }
-          return (
-            <div key={item.id} className="flex items-center gap-1.5">
-              <GripVertical className="text-md-on-surface-variant size-3.5" />
-              <Avatar size="sm" className="bg-default size-[22px]">
-                <AvatarFallback className="text-label-small">{initialsOf(name)}</AvatarFallback>
-              </Avatar>
-              <span className="min-w-0 flex-1 truncate text-label-medium">{name} · {item.content}</span>
-              <Button type="button" variant="ghost" size="icon-sm" aria-label="上移" onClick={() => reorder(-1)}>↑</Button>
-              <Button type="button" variant="ghost" size="icon-sm" aria-label="下移" onClick={() => reorder(1)}>↓</Button>
-              <Button type="button" variant="primary" size="sm" className="h-6 px-3" onClick={() => sendSessionCommand("chat:release", { messageId: item.id })}>放行</Button>
-              <Button variant="ghost" size="icon-sm" aria-label={`丢弃 ${name}`} onClick={() => sendSessionCommand("chat:discard", { messageId: item.id })}>
-                <Trash2 className="size-[15px]" />
-              </Button>
-            </div>
-          );
-        })}
         <div className="flex items-center justify-between border-t border-separator-secondary pt-2">
           <span className="text-md-on-surface-variant font-sans text-label-small-emph">已丢弃 · {discardedQueue.length}</span>
         </div>

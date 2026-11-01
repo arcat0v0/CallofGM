@@ -136,7 +136,7 @@ function BlacklistPage() {
   const permanentCount = entries.filter((entry) => entry.active && entry.duration === "永久").length;
 
   return (
-    <AdminLayout active="blacklist">
+    <AdminLayout>
       <div className="flex h-full flex-col gap-5">
         <PageHeader
           title="黑名单"

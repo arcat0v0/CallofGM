@@ -1,9 +1,9 @@
 import { DialogueBox } from "@/features/session-stage/dialogue-box";
 import { PortraitLayer } from "@/features/session-stage/portrait-layer";
-import { SceneBackdrop } from "@/features/session-stage/scene-backdrop";
-import { bgmShowsProgress, bgmStatusLabel } from "@/lib/audio-status";
-import { mediaUrl } from "@/lib/api";
 import { SceneAudioStatus } from "@/features/session-stage/scene-audio-status";
+import { SceneBackdrop } from "@/features/session-stage/scene-backdrop";
+import { mediaUrl } from "@/lib/api";
+import { bgmShowsProgress, bgmStatusLabel } from "@/lib/audio-status";
 import { usePlayStore } from "@/stores/play-store";
 
 function MobileLandscapeScene() {
@@ -14,7 +14,9 @@ function MobileLandscapeScene() {
   const localVolume = usePlayStore((state) => state.localVolume);
   const setLocalVolume = usePlayStore((state) => state.setLocalVolume);
   const messages = usePlayStore((state) => state.messages);
-  const latest = [...messages].reverse().find((message) => message.tone !== "ooc");
+  const latest = [...messages]
+    .reverse()
+    .find((message) => message.tone !== "ooc");
   const sceneSrc = mediaUrl(scene?.bgAssetId) ?? undefined;
 
   return (
@@ -22,8 +24,10 @@ function MobileLandscapeScene() {
       <SceneBackdrop src={sceneSrc} alt={scene?.name ?? "当前场景"} />
       <div className="absolute inset-x-0 top-0 h-20 bg-linear-to-b from-stage-scrim to-transparent" />
 
-      <div className="absolute inset-x-0 top-0 flex h-12 items-center justify-between gap-2 px-3.5">
-        <span className="text-foreground min-w-0 flex-1 truncate font-serif text-title-small-emph">{scene?.name ?? "团"}</span>
+      <div className="absolute inset-x-0 top-0 flex h-12 items-center justify-between gap-2 px-3 py-1">
+        <span className="text-foreground line-clamp-2 min-w-0 flex-1 font-serif text-title-small-emph">
+          {scene?.name ?? "团"}
+        </span>
         <SceneAudioStatus
           trackName={bgmStatusLabel(bgm)}
           showProgress={bgmShowsProgress(bgm)}

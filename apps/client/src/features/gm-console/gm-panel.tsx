@@ -14,6 +14,7 @@ function GmPanel({ className }: { className?: string }) {
           已结团 · 仅「在线玩家」的踢出与拉黑仍可用，其余控场操作已停用
         </p>
       ) : null}
+      <OnlineSection />
       <div inert={ended} className={cn(ended && "pointer-events-none opacity-45")}>
         <PhaseSection />
         <SessionSettingsSection />
@@ -24,7 +25,6 @@ function GmPanel({ className }: { className?: string }) {
         <RulesSection />
         <HandoutSection />
       </div>
-      <OnlineSection />
     </div>
   );
 }

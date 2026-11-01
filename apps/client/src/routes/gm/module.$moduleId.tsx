@@ -259,7 +259,7 @@ function ModuleDetailPage() {
   const moduleUnchanged = moduleName.trim() === (module?.name ?? "") && moduleDescription === (module?.description ?? "");
 
   return (
-    <AdminLayout active="modules">
+    <AdminLayout>
       <div className="flex flex-col gap-5">
         <PageHeader
           title={

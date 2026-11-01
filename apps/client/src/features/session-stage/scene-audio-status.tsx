@@ -30,7 +30,7 @@ function SceneAudioStatus({
     <div
       className={cn(
         "bg-stage-panel flex items-center rounded-full backdrop-blur-lg",
-        compact ? "h-10 max-w-72 gap-2 px-2.5" : showLocalVolume ? "h-12 w-[320px] gap-2.5 px-3.5" : "h-10 w-[306px] gap-2.5 px-3.5",
+        compact ? "h-10 max-w-[min(288px,52%)] min-w-0 gap-2 px-2.5" : showLocalVolume ? "h-12 w-[320px] gap-2.5 px-3.5" : "h-10 w-[306px] gap-2.5 px-3.5",
         className,
       )}
     >

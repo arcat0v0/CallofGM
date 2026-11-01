@@ -223,7 +223,7 @@ function MusicResourcesPage() {
   const soundEffects = tracks.filter((track) => track.type === "se");
 
   return (
-    <AdminLayout active="music">
+    <AdminLayout>
       <div className="flex h-full min-h-0 flex-col gap-5">
         <PageHeader
           title="音乐资源"
