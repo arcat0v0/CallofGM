@@ -178,8 +178,17 @@ export function createRealtimeRoutes(container: Container) {
               }
             }
             if (actor.type === "gm") {
-              const queueMessages = await snapshotBuilder.listPendingQueue(sessionId);
-              ws.send(JSON.stringify({ protocolVersion: 1, type: "chat:queue", payload: { messages: queueMessages } }));
+              const [queueMessages, discardedMessages] = await Promise.all([
+                snapshotBuilder.listPendingQueue(sessionId),
+                snapshotBuilder.listDiscardedQueue(sessionId),
+              ]);
+              ws.send(
+                JSON.stringify({
+                  protocolVersion: 1,
+                  type: "chat:queue",
+                  payload: { messages: queueMessages, discarded: discardedMessages },
+                })
+              );
             }
           } else {
             const snapshot = await sessionCommandExecutor.runExclusive(sessionId, () =>

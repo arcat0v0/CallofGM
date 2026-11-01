@@ -25,6 +25,11 @@ export const ReorderChatQueueCommand = z.object({
 });
 export type ReorderChatQueueCommand = z.infer<typeof ReorderChatQueueCommand>;
 
+export const RestoreChatMessageCommand = z.object({
+  messageId: z.string().min(1),
+});
+export type RestoreChatMessageCommand = z.infer<typeof RestoreChatMessageCommand>;
+
 // ---------- events & DTO ----------
 
 export const ChatMessageStatus = z.enum(["pending", "presented", "discarded"]);
@@ -53,8 +58,9 @@ export const ChatMessageEvent = z.object({
 });
 export type ChatMessageEvent = z.infer<typeof ChatMessageEvent>;
 
-/** GM 专用 DirectControlMessage: chat:queue（待呈现队列全量，无 eventId） */
+/** GM 专用 DirectControlMessage: chat:queue（待呈现队列 + 已丢弃历史，无 eventId） */
 export const ChatQueueMessage = z.object({
   messages: z.array(ChatMessageDto),
+  discarded: z.array(ChatMessageDto).optional(),
 });
 export type ChatQueueMessage = z.infer<typeof ChatQueueMessage>;

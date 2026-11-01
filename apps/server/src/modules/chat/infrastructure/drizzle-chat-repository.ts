@@ -35,6 +35,14 @@ export class DrizzleChatRepository implements ChatRepository {
   }
 
   /** 仅当消息仍为 pending 时放行；返回是否成功（防并发重复放行） */
+  async listDiscarded(sessionId: string): Promise<MessageRow[]> {
+    return await this.db
+      .select()
+      .from(sessionMessages)
+      .where(and(eq(sessionMessages.sessionId, sessionId), eq(sessionMessages.status, "discarded")))
+      .orderBy(asc(sessionMessages.createdAt), asc(sessionMessages.id));
+  }
+
   async markPresentedIfPending(id: string, presentedAt: number): Promise<boolean> {
     const updated = await this.db
       .update(sessionMessages)
@@ -50,6 +58,15 @@ export class DrizzleChatRepository implements ChatRepository {
       .update(sessionMessages)
       .set({ status: "discarded" })
       .where(and(eq(sessionMessages.id, id), eq(sessionMessages.status, "pending")))
+      .returning({ id: sessionMessages.id });
+    return updated.length > 0;
+  }
+
+  async markPendingIfDiscarded(id: string, queueOrder: number): Promise<boolean> {
+    const updated = await this.db
+      .update(sessionMessages)
+      .set({ status: "pending", queueOrder })
+      .where(and(eq(sessionMessages.id, id), eq(sessionMessages.status, "discarded")))
       .returning({ id: sessionMessages.id });
     return updated.length > 0;
   }

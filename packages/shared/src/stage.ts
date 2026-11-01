@@ -19,6 +19,8 @@ export const UpdateBgmCommand = z.object({
   seekOffsetMs: z.number().int().min(0).optional(),
   volume: z.number().int().min(0).max(100).optional(),
   loop: z.boolean().optional(),
+  /** 同一曲目重新起播时从头开始（显式重播语义） */
+  restart: z.boolean().optional(),
   /** 客户端应用本次音量/播放状态变化的淡入淡出时长。 */
   transitionMs: z.number().int().min(0).max(60_000).optional(),
   expectedVersion: z.number().int().min(0),

@@ -13,6 +13,7 @@ export {
   SendChatMessageHandler,
   ReleaseChatMessageHandler,
   DiscardChatMessageHandler,
+  RestoreChatMessageHandler,
   ReorderChatQueueHandler,
 } from "./application/commands";
 export * from "./domain/errors";

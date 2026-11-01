@@ -65,6 +65,8 @@ export const SessionSnapshotPayload = z.object({
   pendingCheckRequests: z.array(CheckRequestDto),
   /** GM 专属：待呈现队列 */
   pendingQueue: z.array(ChatMessageDto).optional(),
+  /** GM 专属：已丢弃消息（可恢复） */
+  discardedQueue: z.array(ChatMessageDto).optional(),
   /** GM 专属：在线列表 */
   online: z.array(OnlinePlayerDto).optional(),
   kickedPlayers: z.array(KickedPlayerDto).optional(),
