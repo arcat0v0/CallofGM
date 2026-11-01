@@ -730,21 +730,6 @@
       ]
     },
     {
-      "id": "rule-chat-commands",
-      "category": "dice",
-      "name_zh": "规则命令（.ra/.sc）",
-      "source": "cogm",
-      "planned": true,
-      "weight": 2,
-      "probes": [
-        {
-          "type": "code_regex",
-          "pattern": "\\.ra|\\.sc",
-          "scope": "apps/server/src/rules/coc7e"
-        }
-      ]
-    },
-    {
       "id": "dice-instant-render",
       "category": "dice",
       "name_zh": "骰点结果即时呈现于聊天区",
@@ -797,12 +782,17 @@
       "probes": [
         {
           "type": "path_exists",
-          "glob": "apps/server/src/modules/chat/domain/message-policy.ts"
+          "glob": "packages/shared/src/policy.ts"
         },
         {
           "type": "code_regex",
-          "pattern": "decideChatMessage",
-          "scope": "apps/server/src/modules/chat"
+          "pattern": "export function decideChatMessage",
+          "scope": "packages/shared/src/policy.ts"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "export function canPlayerInitiateDiceRoll",
+          "scope": "packages/shared/src/policy.ts"
         }
       ]
     },

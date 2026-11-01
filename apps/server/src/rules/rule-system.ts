@@ -35,12 +35,6 @@ export interface StateMutationResult<TSessionState> {
   hints: string[];
 }
 
-export interface RuleCommandDefinition {
-  name: string;
-  alias: string[];
-  description: string;
-}
-
 export abstract class RuleSystem<TSheet, TSessionState> {
   abstract readonly id: RuleId;
   abstract readonly characterSheetSchema: z.ZodType<TSheet>;
@@ -72,6 +66,4 @@ export abstract class RuleSystem<TSheet, TSessionState> {
   abstract markSkillGrowth(state: TSessionState, skillKey: string): TSessionState;
 
   abstract markSkillGrowthHidden(state: TSessionState, skillKey: string): TSessionState;
-
-  abstract getChatCommands(): readonly RuleCommandDefinition[];
 }
