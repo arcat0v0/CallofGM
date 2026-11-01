@@ -28,6 +28,16 @@ export const CheckOutcomeLabel: Record<CheckOutcome, string> = {
   fumble: "大失败",
 };
 
+export function coc7eDifficultyThreshold(targetValue: number, difficulty: CheckDifficulty): number {
+  if (difficulty === "extreme") {
+    return Math.floor(targetValue / 5);
+  }
+  if (difficulty === "hard") {
+    return Math.floor(targetValue / 2);
+  }
+  return targetValue;
+}
+
 export const SkillCheckResult = z.object({
   characterId: z.string(),
   skillKey: z.string(),

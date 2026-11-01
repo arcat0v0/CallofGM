@@ -128,6 +128,14 @@ export function mapActivityEvent(type: string, payload: unknown, eventId: number
     const label = (coc7e.CheckOutcomeLabel as Record<string, string>)[outcome] ?? (result.success === true ? "成功" : "失败");
     const roll = result.roll;
     const target = result.targetValue;
+    const parsedDifficulty = coc7e.CheckDifficulty.safeParse(result.difficulty);
+    const difficulty = parsedDifficulty.success ? parsedDifficulty.data : "regular";
+    const context =
+      typeof target === "number"
+        ? difficulty === "regular"
+          ? `目标值 ${target}`
+          : `目标值 ${target} · ${coc7e.CheckDifficultyLabel[difficulty]}阈值 ${coc7e.coc7eDifficultyThreshold(target, difficulty)}`
+        : null;
     return {
       id: `check-${eventId}`,
       sortKey: eventId,
@@ -137,7 +145,7 @@ export function mapActivityEvent(type: string, payload: unknown, eventId: number
       avatarBg: "bg-default",
       avatarFg: "text-foreground",
       time,
-      body: `${skill} ${String(roll)}/${String(target)} · ${label}${hidden}`,
+      body: `${skill} ${String(roll)}/${String(target)} · ${label}${context ? `（${context}）` : ""}${hidden}`,
       tone: "ooc",
     };
   }
