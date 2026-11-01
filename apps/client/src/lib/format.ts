@@ -8,18 +8,6 @@ export const EXPRESSION_LABELS: Record<string, string> = {
   hurt: "受伤",
 };
 
-export const ATTR_LABELS: Record<string, { label: string; abbr: string }> = {
-  str: { label: "力量", abbr: "STR" },
-  con: { label: "体质", abbr: "CON" },
-  siz: { label: "体型", abbr: "SIZ" },
-  dex: { label: "敏捷", abbr: "DEX" },
-  app: { label: "外貌", abbr: "APP" },
-  int: { label: "智力", abbr: "INT" },
-  pow: { label: "意志", abbr: "POW" },
-  edu: { label: "教育", abbr: "EDU" },
-  luck: { label: "幸运", abbr: "LUCK" },
-};
-
 export function initialsOf(name: string): string {
   const trimmed = name.trim();
   if (!trimmed) {

@@ -8,7 +8,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ATTR_LABELS } from "@/lib/format";
 
 const ROLL_TIMEOUT_MS = 8_000;
 
@@ -19,7 +18,7 @@ export function CheckPrompt({
   request: CheckRequestDto;
   onRespond: () => void;
 }) {
-  const skill = ATTR_LABELS[request.skillKey]?.label ?? request.skillKey;
+  const skill = coc7e.coc7eSkillLabel(request.skillKey);
   const difficulty = coc7e.CheckDifficultyLabel[request.difficulty] ?? request.difficulty;
   const [rolling, setRolling] = useState(false);
 

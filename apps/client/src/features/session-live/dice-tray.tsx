@@ -11,7 +11,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ATTR_LABELS } from "@/lib/format";
 import { skillKeysFor, skillValue } from "@/lib/coc-live";
 import { sendSessionCommand } from "@/lib/session-socket";
 import { cn } from "@/lib/utils";
@@ -123,7 +122,7 @@ function DiceTray({
           <SelectContent>
             {skills.map((skill) => (
               <SelectItem key={skill} value={skill}>
-                {ATTR_LABELS[skill]?.label ?? skill}
+                {coc7e.coc7eSkillLabel(skill)}
                 {skillValue(character, skill) !== null ? ` ${skillValue(character, skill)}` : ""}
               </SelectItem>
             ))}

@@ -16,8 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ATTR_LABELS } from "@/lib/format";
-import { parseCocSheet, parseCocState } from "@/lib/coc-live";
+import { parseCocSheet, parseCocState, skillKeysFor, skillValue } from "@/lib/coc-live";
 import { sendSessionCommand } from "@/lib/session-socket";
 import { useIdentityStore } from "@/stores/identity-store";
 import { usePlayStore } from "@/stores/play-store";
@@ -39,7 +38,10 @@ export function CharacterSheetPanel({
   const target = options.find((character) => character.characterId === selectedId) ?? options[0];
   const sheet = parseCocSheet(target?.sheet);
   const state = parseCocState(target?.state);
-  const skills = useMemo(() => Object.entries(sheet?.skills ?? {}), [sheet]);
+  const skillKeys = useMemo(
+    () => skillKeysFor(target).filter((key) => !(key in (sheet?.attributes ?? {}))),
+    [target, sheet],
+  );
 
   function perform(skillKey: string) {
     if (!target?.characterId) {
@@ -56,7 +58,7 @@ export function CharacterSheetPanel({
       toast.error("尚未连接到团");
       return;
     }
-    toast.success(`已提交「${ATTR_LABELS[skillKey]?.label ?? skillKey}」鉴定`);
+    toast.success(`已提交「${coc7e.coc7eSkillLabel(skillKey)}」鉴定`);
   }
 
   return (
@@ -92,21 +94,33 @@ export function CharacterSheetPanel({
             <div className="grid grid-cols-2 gap-x-2 gap-y-1">
               {Object.entries(sheet.attributes).map(([key, value]) => (
                 <Button key={key} type="button" variant="ghost" className="h-7 justify-between px-2 text-body-medium" onClick={() => perform(key)}>
-                  <span>{ATTR_LABELS[key]?.label ?? key}</span>
+                  <span>{coc7e.coc7eSkillLabel(key)}</span>
                   <span>{value}</span>
                 </Button>
               ))}
             </div>
             <div className="flex max-h-48 flex-col gap-1 overflow-y-auto">
-              {skills.map(([key, value]) => (
-                <Button key={key} type="button" variant="ghost" className="h-7 justify-between px-2 text-body-medium" onClick={() => perform(key)}>
-                  <span>{key}</span>
-                  <span>{value}</span>
-                </Button>
-              ))}
+              {skillKeys.map((key) => {
+                const value = skillValue(target, key);
+                return (
+                  <Button
+                    key={key}
+                    type="button"
+                    variant="ghost"
+                    className="h-7 justify-between px-2 text-body-medium"
+                    disabled={value === null}
+                    onClick={() => perform(key)}
+                  >
+                    <span>{coc7e.coc7eSkillLabel(key)}</span>
+                    <span>{value ?? "—"}</span>
+                  </Button>
+                );
+              })}
             </div>
             {state && state.growthMarks.length > 0 ? (
-              <p className="text-foreground-tertiary text-label-small">成长标记：{state.growthMarks.join("、")}</p>
+              <p className="text-foreground-tertiary text-label-small">
+                成长标记：{state.growthMarks.map((key) => coc7e.coc7eSkillLabel(key)).join("、")}
+              </p>
             ) : null}
             {state && state.statuses.length > 0 ? (
               <p className="text-warning text-label-small">

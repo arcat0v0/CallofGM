@@ -50,9 +50,10 @@ export function mapActivityEvent(type: string, payload: unknown, eventId: number
   if (type === "check:resolved") {
     const result = isRecord(payload.result) ? payload.result : {};
     const name = typeof payload.characterName === "string" ? payload.characterName : "角色";
-    const skill = typeof payload.skillKey === "string" ? payload.skillKey : "鉴定";
+    const skillKey = typeof payload.skillKey === "string" ? payload.skillKey : "";
+    const skill = skillKey ? coc7e.coc7eSkillLabel(skillKey) : "鉴定";
     const hidden = payload.hidden === true ? "（暗骰）" : "";
-    if (skill === "san") {
+    if (skillKey === "san") {
       const roll = result.roll;
       const loss = result.loss;
       const after = result.sanAfter;

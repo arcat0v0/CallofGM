@@ -24,12 +24,5 @@ export function skillKeysFor(character: SnapshotCharacter | undefined): string[]
 
 export function skillValue(character: SnapshotCharacter | undefined, skillKey: string): number | null {
   const sheet = parseCocSheet(character?.sheet);
-  if (!sheet) {
-    return null;
-  }
-  if (skillKey in sheet.attributes) {
-    return sheet.attributes[skillKey as keyof typeof sheet.attributes];
-  }
-  const value = sheet.skills[skillKey];
-  return typeof value === "number" ? value : null;
+  return sheet ? coc7e.coc7eSkillTargetValue(sheet, skillKey) : null;
 }

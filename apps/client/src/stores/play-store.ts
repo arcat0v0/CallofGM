@@ -1,20 +1,21 @@
 import { create } from "zustand";
 import { toast } from "sonner";
-import type {
-  BgmState,
-  CatalogHandoutDto,
-  ChatMessageDto,
-  CheckRequestDto,
-  GrantedHandoutDto,
-  OnlinePlayerDto,
-  SceneDto,
-  SePlayedEvent,
-  ServerMessage,
-  SessionPhase,
-  SessionSnapshotPayload,
-  SessionStatus,
-  SnapshotCharacter,
-  TrackDto,
+import {
+  coc7e,
+  type BgmState,
+  type CatalogHandoutDto,
+  type ChatMessageDto,
+  type CheckRequestDto,
+  type GrantedHandoutDto,
+  type OnlinePlayerDto,
+  type SceneDto,
+  type SePlayedEvent,
+  type ServerMessage,
+  type SessionPhase,
+  type SessionSnapshotPayload,
+  type SessionStatus,
+  type SnapshotCharacter,
+  type TrackDto,
 } from "@cogm/shared";
 import type { ChatMessage } from "@/features/chat/types";
 import { mapActivityEvent, mapChatMessage } from "@/lib/chat-map";
@@ -286,7 +287,7 @@ export const usePlayStore = create<PlayState>((set, get) => ({
       }
       const requestId = typeof payload.requestId === "string" ? payload.requestId : null;
       const pending = requestId ? get().pendingChecks.find((item) => item.id === requestId) : undefined;
-      const skillKey = pending?.skillKey ?? "鉴定";
+      const skillKey = pending ? coc7e.coc7eSkillLabel(pending.skillKey) : "鉴定";
       const hiddenRolled = payload.rolled === true && payload.hidden === true;
       if (requestId && hiddenRolled) {
         toast.success("已掷出");
