@@ -2,15 +2,16 @@ import { useNavigate } from "@tanstack/react-router";
 import { ShieldX, WifiOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { usePlayStore, type ConnectionTerminal } from "@/stores/play-store";
+import { t } from "@/i18n";
 
 const TERMINAL_COPY: Record<ConnectionTerminal, { title: string; description: string }> = {
   kicked: {
-    title: "你已被主持人移出本团",
-    description: "如需继续参与，请与主持人确认后重新进入。",
+    title: "play.kickedTitle",
+    description: "play.kickedDescription",
   },
   unavailable: {
-    title: "无法连接到团",
-    description: "多次连接失败。请检查网络；若刚刚被主持人拉黑，则无法再进入本团。",
+    title: "play.unavailableTitle",
+    description: "play.unavailableDescription",
   },
 };
 
@@ -35,15 +36,15 @@ function SessionTerminalOverlay({ sessionId, onRetry }: { sessionId: string; onR
         {terminal === "kicked" ? <ShieldX className="size-6" /> : <WifiOff className="size-6" />}
       </div>
       <div className="flex flex-col items-center gap-1.5">
-        <h1 className="text-foreground font-serif text-headline-small-emph">{copy.title}</h1>
-        <p className="text-foreground-secondary max-w-72 text-center text-body-medium">{copy.description}</p>
+        <h1 className="text-foreground font-serif text-headline-small-emph">{t(copy.title)}</h1>
+        <p className="text-foreground-secondary max-w-72 text-center text-body-medium">{t(copy.description)}</p>
       </div>
       <div className="flex items-center gap-2.5">
         <Button type="button" variant="outline" onClick={() => void navigate({ to: "/join/$sessionId", params: { sessionId } })}>
-          返回入口
+          {t("play.returnEntry")}
         </Button>
         <Button type="button" variant="primary" onClick={onRetry}>
-          {terminal === "kicked" ? "重新进入" : "重试连接"}
+          {terminal === "kicked" ? t("play.reenter") : t("play.retryConnect")}
         </Button>
       </div>
     </div>

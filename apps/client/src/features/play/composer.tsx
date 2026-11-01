@@ -16,6 +16,7 @@ import { expressionLabel, initialsOf, phaseChatHint } from "@/lib/format";
 import { mediaUrl } from "@/lib/api";
 import { sendSessionCommand } from "@/lib/session-socket";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 import { useIdentityStore } from "@/stores/identity-store";
 import { usePlayStore } from "@/stores/play-store";
 
@@ -30,7 +31,7 @@ function Composer({ compact = false, className }: { compact?: boolean; className
   const characters = usePlayStore((state) => state.characters);
   const claimed = characters.find((character) => character.claim?.playerId === playerId && character.claim.role === "pc");
   const isOb = !claimed && characters.some((character) => character.claim?.playerId === playerId && character.claim.role === "ob");
-  const speakerName = claimed?.name ?? (isOb ? "观战" : "玩家");
+  const speakerName = claimed?.name ?? (isOb ? t("chat.spectatorFallback") : t("chat.playerFallback"));
   const canExpress = Boolean(claimed);
   const expressionOptions =
     claimed?.portraits?.map((portrait) => ({
@@ -63,7 +64,7 @@ function Composer({ compact = false, className }: { compact?: boolean; className
       ...(effectiveMode === "roleplay" && canExpress ? { expressionKey: expression } : {}),
     });
     if (!sent) {
-      toast.error("尚未连接到团");
+      toast.error(t("chat.notConnected"));
       return;
     }
     setDraft("");
@@ -96,14 +97,14 @@ function Composer({ compact = false, className }: { compact?: boolean; className
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5">
               <VenetianMask className="text-accent-hover size-[13px]" />
-              <span className="text-foreground-secondary font-sans text-label-small">立绘表情</span>
+              <span className="text-foreground-secondary font-sans text-label-small">{t("chat.expression")}</span>
             </div>
-            <Button type="button" variant="tertiary" size="icon-sm" aria-label="预览立绘" onClick={() => setPreviewOpen(true)}>
+            <Button type="button" variant="tertiary" size="icon-sm" aria-label={t("chat.previewPortrait")} onClick={() => setPreviewOpen(true)}>
               <Eye />
             </Button>
           </div>
           <div className="bg-md-surface-container-high flex rounded-full p-0.5">
-            {(expressionOptions.length > 0 ? expressionOptions : [{ key: "default", label: "默认", src: null }]).map((tile) => {
+            {(expressionOptions.length > 0 ? expressionOptions : [{ key: "default", label: t("expression.default"), src: null }]).map((tile) => {
               const isActive = tile.key === expression;
               return (
                 <button
@@ -129,7 +130,7 @@ function Composer({ compact = false, className }: { compact?: boolean; className
       <DiceTray characterId={claimed?.characterId} disabled={diceDisabled} />
 
       <MessageInput
-        placeholder={chatDisabled ? "当前阶段不可发言" : "输入消息…"}
+        placeholder={chatDisabled ? t("chat.disabledPlaceholder") : t("chat.placeholder")}
         value={draft}
         onChange={setDraft}
         onSubmit={handleSend}
@@ -141,7 +142,7 @@ function Composer({ compact = false, className }: { compact?: boolean; className
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>立绘预览 · {speakerName}</DialogTitle>
+            <DialogTitle>{t("chat.portraitPreviewTitle", { name: speakerName })}</DialogTitle>
           </DialogHeader>
           <div className="grid grid-cols-2 gap-3">
             {expressionOptions.map((tile) => (

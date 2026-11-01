@@ -64,6 +64,13 @@
       "when": 1787898524291,
       "tag": "0008_natural_pet_avengers",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1793552106299,
+      "tag": "0009_regular_zeigeist",
+      "breakpoints": true
     }
   ]
 }

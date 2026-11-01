@@ -17,6 +17,7 @@ export const modules = sqliteTable("modules", {
   name: text("name").notNull(),
   description: text("description").notNull(),
   ruleId: text("rule_id").notNull(),
+  themeId: text("theme_id"),
   createdAt: integer("created_at").notNull(),
 });
 

@@ -11,7 +11,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ATTR_LABELS } from "@/lib/format";
+import { attrLabel } from "@/lib/format";
+import { t } from "@/i18n";
 import { skillKeysFor, skillValue } from "@/lib/coc-live";
 import { sendSessionCommand } from "@/lib/session-socket";
 import { cn } from "@/lib/utils";
@@ -50,12 +51,12 @@ function DiceTray({
       ...(comment.trim() ? { comment: comment.trim() } : {}),
       ...(gm && hidden ? { hidden: true } : {}),
     });
-    if (!sent) toast.error("尚未连接到团");
+    if (!sent) toast.error(t("chat.notConnected"));
   }
 
   function check() {
     if (!resolvedId) {
-      toast.error("没有可鉴定的角色");
+      toast.error(t("dice.noCharacter"));
       return;
     }
     const sent = sendSessionCommand("check:perform", {
@@ -66,7 +67,7 @@ function DiceTray({
       penaltyDice,
       ...(gm && hidden ? { hidden: true } : {}),
     });
-    if (!sent) toast.error("尚未连接到团");
+    if (!sent) toast.error(t("chat.notConnected"));
   }
 
   return (
@@ -74,7 +75,7 @@ function DiceTray({
       {gm ? (
         <Select value={resolvedId ?? ""} onValueChange={setSelectedId}>
           <SelectTrigger className="h-8 text-label-medium">
-            <SelectValue placeholder="鉴定对象" />
+            <SelectValue placeholder={t("dice.target")} />
           </SelectTrigger>
           <SelectContent>
             {characters.map((item) => (
@@ -108,22 +109,22 @@ function DiceTray({
         })}
       </div>
       <div className="flex items-center gap-1.5">
-        <Input value={expression} onChange={(event) => setExpression(event.target.value)} aria-label="骰点表达式" disabled={disabled} className="h-8 flex-1 text-label-medium" />
-        <Input value={comment} onChange={(event) => setComment(event.target.value)} placeholder="说明" aria-label="骰点说明" disabled={disabled} className="h-8 flex-1 text-label-medium" />
+        <Input value={expression} onChange={(event) => setExpression(event.target.value)} aria-label={t("dice.expression")} disabled={disabled} className="h-8 flex-1 text-label-medium" />
+        <Input value={comment} onChange={(event) => setComment(event.target.value)} placeholder={t("dice.comment")} aria-label={t("dice.comment")} disabled={disabled} className="h-8 flex-1 text-label-medium" />
         <Button type="button" size="sm" variant="tertiary" className="h-8 px-2.5" disabled={disabled} onClick={roll}>
           <Dices className="size-3.5" />
-          掷骰
+          {t("dice.roll")}
         </Button>
       </div>
       <div className="flex items-center gap-1.5">
         <Select value={skillKey} onValueChange={setSkillKey} disabled={disabled}>
           <SelectTrigger className="h-8 flex-1 text-label-medium">
-            <SelectValue placeholder="技能 / 属性" />
+            <SelectValue placeholder={t("dice.skill")} />
           </SelectTrigger>
           <SelectContent>
             {skills.map((skill) => (
               <SelectItem key={skill} value={skill}>
-                {ATTR_LABELS[skill]?.label ?? skill}
+                {attrLabel(skill)}
                 {skillValue(character, skill) !== null ? ` ${skillValue(character, skill)}` : ""}
               </SelectItem>
             ))}
@@ -138,19 +139,19 @@ function DiceTray({
           </SelectContent>
         </Select>
         <Button type="button" size="sm" variant="tertiary" className="h-8 px-2.5" onClick={check} disabled={disabled || !resolvedId}>
-          鉴定{value !== null ? ` ${value}` : ""}
+          {value !== null ? t("dice.checkWithValue", { value }) : t("dice.check")}
         </Button>
       </div>
       <div className="flex items-center gap-1.5">
         <Button type="button" size="sm" variant={bonusDice ? "accentSoft" : "tertiary"} className="h-6 px-2 text-label-small" disabled={disabled} onClick={() => setBonusDice((n) => (n + 1) % 3)}>
-          奖励 {bonusDice}
+          {t("dice.bonus", { count: bonusDice })}
         </Button>
         <Button type="button" size="sm" variant={penaltyDice ? "dangerSoft" : "tertiary"} className="h-6 px-2 text-label-small" disabled={disabled} onClick={() => setPenaltyDice((n) => (n + 1) % 3)}>
-          惩罚 {penaltyDice}
+          {t("dice.penalty", { count: penaltyDice })}
         </Button>
         {gm ? (
           <Button type="button" size="sm" variant={hidden ? "dangerSoft" : "tertiary"} className="h-6 px-2.5 text-label-small" disabled={disabled} onClick={() => setHidden((value) => !value)}>
-            {hidden ? "暗骰" : "公开"}
+            {hidden ? t("dice.hidden") : t("dice.public")}
           </Button>
         ) : null}
       </div>

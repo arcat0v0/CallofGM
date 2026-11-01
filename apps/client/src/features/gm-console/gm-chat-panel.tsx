@@ -11,6 +11,7 @@ import { DiceTray } from "@/features/session-live/dice-tray";
 import { sendSessionCommand } from "@/lib/session-socket";
 import { phaseChatHint } from "@/lib/format";
 import { usePlayStore } from "@/stores/play-store";
+import { t } from "@/i18n";
 
 function GmChatPanel({ className }: { className?: string }) {
   const [channel, setChannel] = useState("all");
@@ -39,7 +40,7 @@ function GmChatPanel({ className }: { className?: string }) {
       content,
     });
     if (!sent) {
-      toast.error("尚未连接到团");
+      toast.error(t("chat.notConnected"));
       return;
     }
     setDraft("");
@@ -52,9 +53,9 @@ function GmChatPanel({ className }: { className?: string }) {
       <div className="px-4 pb-2.5">
         <Tabs value={channel} onValueChange={setChannel}>
           <TabsList>
-            <TabsTrigger value="all">全部</TabsTrigger>
-            <TabsTrigger value="ic">角色</TabsTrigger>
-            <TabsTrigger value="ooc">场外</TabsTrigger>
+            <TabsTrigger value="all">{t("chat.all")}</TabsTrigger>
+            <TabsTrigger value="ic">{t("chat.ic")}</TabsTrigger>
+            <TabsTrigger value="ooc">{t("chat.ooc")}</TabsTrigger>
           </TabsList>
         </Tabs>
       </div>
@@ -65,9 +66,9 @@ function GmChatPanel({ className }: { className?: string }) {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Avatar size="sm" className="bg-md-primary-container">
-              <AvatarFallback className="text-md-on-primary-container text-label-medium">KP</AvatarFallback>
+              <AvatarFallback className="text-md-on-primary-container text-label-medium">{t("common.gmShort")}</AvatarFallback>
             </Avatar>
-            <span className="text-md-on-surface font-sans text-label-large-emph">KP（主持人）</span>
+            <span className="text-md-on-surface font-sans text-label-large-emph">{t("gm.chat.gmName")}</span>
           </div>
           <MessageModeSwitch value={mode} onValueChange={setMode} />
         </div>
@@ -75,7 +76,7 @@ function GmChatPanel({ className }: { className?: string }) {
         <DiceTray gm characterId={firstPcId} />
 
         <MessageInput
-          placeholder="以 KP 身份发言 / 旁白…"
+          placeholder={t("gm.chat.placeholder")}
           value={draft}
           onChange={setDraft}
           onSubmit={handleSend}

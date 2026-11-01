@@ -8,7 +8,9 @@ import { AdminLayout } from "@/features/gm-admin/admin-layout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { fetchAllPages, isApiError } from "@/lib/api";
+import { fetchAllPages } from "@/lib/api";
+import { errorText } from "@/lib/errors";
+import { t, useI18nVersion } from "@/i18n";
 import { requireGmAuth } from "@/lib/identity";
 import { cn } from "@/lib/utils";
 
@@ -18,6 +20,7 @@ export const Route = createFileRoute("/gm/music")({
 });
 
 function MusicResourcesPage() {
+  useI18nVersion();
   const [modules, setModules] = useState<ModuleDto[]>([]);
   const [moduleId, setModuleId] = useState("");
   const [tracks, setTracks] = useState<TrackDto[]>([]);
@@ -29,7 +32,7 @@ function MusicResourcesPage() {
         setModules(next);
         setModuleId((current) => current || next[0]?.id || "");
       } catch (error) {
-        toast.error(isApiError(error) ? error.message : "无法加载模组");
+        toast.error(errorText(error, "gm.music.loadModulesFailed"));
       }
     })();
   }, []);
@@ -40,7 +43,7 @@ function MusicResourcesPage() {
     }
     void fetchAllPages<TrackDto>(`/gm/modules/${encodeURIComponent(moduleId)}/tracks`)
       .then(setTracks)
-      .catch((error) => toast.error(isApiError(error) ? error.message : "无法加载曲目"));
+      .catch((error) => toast.error(errorText(error, "gm.music.loadTracksFailed")));
   }, [moduleId]);
 
   const bgmTracks = tracks.filter((track) => track.type === "bgm");
@@ -50,14 +53,14 @@ function MusicResourcesPage() {
     <AdminLayout active="music">
       <div className="flex h-full min-h-0 flex-col gap-5">
         <PageHeader
-          title="音乐资源"
-          description="音频归属模组 · 在模组页上传，团内由 GM 控制播放"
+          title={t("gm.music.title")}
+          description={t("gm.music.description")}
           actions={
             moduleId ? (
               <Button asChild variant="primary" className="h-12 px-6">
                 <Link to="/gm/module/$moduleId" params={{ moduleId }}>
                   <Upload />
-                  去模组上传
+                  {t("gm.music.goUpload")}
                 </Link>
               </Button>
             ) : null
@@ -74,8 +77,8 @@ function MusicResourcesPage() {
           <section className="animate-in fade-in slide-in-from-bottom-4 flex min-h-0 flex-1 flex-col gap-3 duration-500 ease-standard-default-spatial">
             <div className="flex items-center gap-2">
               <Disc3 className="text-accent-hover size-4" />
-              <span className="text-foreground text-body-medium-emph">BGM</span>
-              <Badge variant="soft" size="sm">{bgmTracks.length} 首</Badge>
+              <span className="text-foreground text-body-medium-emph">{t("gm.music.bgm")}</span>
+              <Badge variant="soft" size="sm">{t("gm.music.bgmCount", { count: bgmTracks.length })}</Badge>
             </div>
             <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
               {bgmTracks.map((track, index) => (
@@ -95,8 +98,8 @@ function MusicResourcesPage() {
           <section className="animate-in fade-in slide-in-from-bottom-4 flex w-[400px] shrink-0 flex-col gap-3 delay-75 duration-500 ease-standard-default-spatial">
             <div className="flex items-center gap-2">
               <Zap className="text-warning size-4" />
-              <span className="text-foreground text-body-medium-emph">SE</span>
-              <Badge variant="soft" size="sm">{soundEffects.length} 个</Badge>
+              <span className="text-foreground text-body-medium-emph">{t("gm.music.se")}</span>
+              <Badge variant="soft" size="sm">{t("gm.music.seCount", { count: soundEffects.length })}</Badge>
             </div>
             {soundEffects.map((track, index) => (
               <Card

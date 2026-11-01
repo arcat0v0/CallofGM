@@ -20,8 +20,10 @@ import { AdminLayout } from "@/features/gm-admin/admin-layout";
 import { mapCharacterRow, type CharacterRow, type GameCharacter } from "@/lib/character-sheet";
 import { CreateCharacterDialog } from "@/features/gm-admin/dialogs/create-character-dialog";
 import { ImportCharacterSheetDialog } from "@/features/gm-admin/dialogs/import-character-sheet-dialog";
-import { api, fetchAllPages, isApiError, mediaUrl } from "@/lib/api";
-import { EXPRESSION_LABELS, expressionLabel } from "@/lib/format";
+import { api, fetchAllPages, mediaUrl } from "@/lib/api";
+import { errorText } from "@/lib/errors";
+import { t, useI18nVersion } from "@/i18n";
+import { EXPRESSION_KEYS, expressionLabel } from "@/lib/format";
 import { requireGmAuth } from "@/lib/identity";
 import { cn } from "@/lib/utils";
 
@@ -33,6 +35,7 @@ export const Route = createFileRoute("/gm/characters")({
 type Filter = "all" | "PC" | "NPC";
 
 function GmCharactersPage() {
+  useI18nVersion();
   const [list, setList] = useState<GameCharacter[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
@@ -48,7 +51,7 @@ function GmCharactersPage() {
       setList(mapped);
       setSelectedId((current) => (current && mapped.some((item) => item.id === current) ? current : mapped[0]?.id ?? null));
     } catch (error) {
-      toast.error(isApiError(error) ? error.message : "无法加载人物");
+      toast.error(errorText(error, "gm.characters.loadFailed"));
     }
   }
 
@@ -88,26 +91,26 @@ function GmCharactersPage() {
         <aside className="bg-background flex w-80 flex-col">
           <div className="flex flex-col gap-3 px-4 pt-5 pb-3">
             <div className="flex items-center justify-between">
-              <h1 className="font-serif text-headline-small-emph">人物</h1>
+              <h1 className="font-serif text-headline-small-emph">{t("gm.characters.title")}</h1>
               <div className="flex gap-1.5">
                 <Button type="button" onClick={() => setCreateOpen(true)} variant="primary" size="sm" className="h-[30px] px-3">
-                  <Plus /> 新建
+                  <Plus /> {t("gm.characters.create")}
                 </Button>
                 <Button type="button" onClick={() => setImportOpen(true)} variant="outline" size="sm" className="h-[30px] px-3">
-                  导入
+                  {t("gm.characters.import")}
                 </Button>
               </div>
             </div>
             <InputGroup className="h-9">
               <InputGroupAddon><Search /></InputGroupAddon>
-              <InputGroupInput value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索人物…" aria-label="搜索人物" />
+              <InputGroupInput value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("gm.characters.searchPlaceholder")} aria-label={t("gm.characters.searchPlaceholder")} />
             </InputGroup>
             <SegmentedControl
               value={filter}
               options={([
-                ["all", `全部 ${counts.all}`],
-                ["PC", `PC ${counts.PC}`],
-                ["NPC", `NPC ${counts.NPC}`],
+                ["all", t("gm.characters.filterAll", { count: counts.all })],
+                ["PC", t("gm.characters.filterPc", { count: counts.PC })],
+                ["NPC", t("gm.characters.filterNpc", { count: counts.NPC })],
               ] as const).map(([value, label]) => ({ value, label }))}
               onValueChange={setFilter}
             />
@@ -142,14 +145,14 @@ function GmCharactersPage() {
                 <h2 className="font-serif text-headline-small-emph">{selected.name}</h2>
                 <p className="text-foreground-secondary text-body-medium">{selected.meta}</p>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>导入 Excel</Button>
+                  <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>{t("gm.characters.importExcel")}</Button>
                   <Select value={portraitKey} onValueChange={setPortraitKey}>
                     <SelectTrigger className="h-8 w-28">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {Object.entries(EXPRESSION_LABELS).map(([key, label]) => (
-                        <SelectItem key={key} value={key}>{label}</SelectItem>
+                      {EXPRESSION_KEYS.map((key) => (
+                        <SelectItem key={key} value={key}>{expressionLabel(key)}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -180,16 +183,16 @@ function GmCharactersPage() {
                             });
                             await reload();
                           } catch (error) {
-                            toast.error(isApiError(error) ? error.message : "立绘上传失败");
+                            toast.error(errorText(error, "gm.characters.uploadFailed"));
                           }
                         })();
                       }}
                     />
                     <Button type="button" variant="outline" size="sm" asChild>
-                      <span><Upload /> 立绘</span>
+                      <span><Upload /> {t("gm.characters.uploadPortrait")}</span>
                     </Button>
                   </label>
-                  <Button variant="dangerSoft" size="sm" onClick={() => setDeleteOpen(true)}><Trash2 /> 删除</Button>
+                  <Button variant="dangerSoft" size="sm" onClick={() => setDeleteOpen(true)}><Trash2 /> {t("common.delete")}</Button>
                 </div>
                 {selected.portraits.length > 0 ? (
                   <div className="mt-3 flex flex-wrap gap-2">
@@ -210,10 +213,10 @@ function GmCharactersPage() {
                               if (!portraitId) return;
                               void api(`/gm/characters/portraits/${encodeURIComponent(portraitId)}`, { method: "DELETE" })
                                 .then(() => reload())
-                                .catch((error) => toast.error(isApiError(error) ? error.message : "删除立绘失败"));
+                                .catch((error) => toast.error(errorText(error, "gm.characters.deletePortraitFailed")));
                             }}
                           >
-                            删除
+                            {t("common.delete")}
                           </Button>
                         ) : null}
                       </div>
@@ -246,7 +249,7 @@ function GmCharactersPage() {
             </div>
           </div>
         ) : (
-          <div className="text-foreground-tertiary flex flex-1 items-center justify-center">暂无人物</div>
+          <div className="text-foreground-tertiary flex flex-1 items-center justify-center">{t("gm.characters.empty")}</div>
         )}
       </div>
       <CreateCharacterDialog open={createOpen} onOpenChange={setCreateOpen} onCreated={() => void reload()} />
@@ -256,14 +259,14 @@ function GmCharactersPage() {
         onOpenChange={setDeleteOpen}
         icon={Trash2}
         confirmIcon={Trash2}
-        title="删除人物"
-        description={`确定要删除「${selected?.name ?? ""}」吗？`}
-        confirmLabel="删除"
+        title={t("gm.characters.deleteTitle")}
+        description={t("gm.characters.deleteDescription", { name: selected?.name ?? "" })}
+        confirmLabel={t("common.delete")}
         onConfirm={() => {
           const id = selected?.id;
           setDeleteOpen(false);
           if (!id) return;
-          void api(`/gm/characters/${encodeURIComponent(id)}`, { method: "DELETE" }).then(() => reload()).catch((error) => toast.error(isApiError(error) ? error.message : "删除失败"));
+          void api(`/gm/characters/${encodeURIComponent(id)}`, { method: "DELETE" }).then(() => reload()).catch((error) => toast.error(errorText(error, "gm.characters.deleteFailed")));
         }}
       />
     </AdminLayout>

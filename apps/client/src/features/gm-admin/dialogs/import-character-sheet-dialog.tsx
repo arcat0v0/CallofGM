@@ -20,7 +20,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { api, isApiError } from "@/lib/api";
+import { api } from "@/lib/api";
+import { errorText } from "@/lib/errors";
+import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 
 import { parseCocSheet } from "@/lib/coc-live";
@@ -49,7 +51,7 @@ function ImportCharacterSheetDialog({
       setFile(next);
       setPreview(result);
     } catch (error) {
-      toast.error(isApiError(error) ? error.message : "解析失败");
+      toast.error(errorText(error, "gm.importSheet.parseFailed"));
     } finally {
       setPending(false);
     }
@@ -60,7 +62,7 @@ function ImportCharacterSheetDialog({
       return;
     }
     if (preview.preview.errors.length > 0) {
-      toast.error("存在解析错误，无法入库");
+      toast.error(t("gm.importSheet.errors"));
       return;
     }
     setPending(true);
@@ -69,13 +71,13 @@ function ImportCharacterSheetDialog({
         method: "POST",
         body: JSON.stringify({ importToken: preview.importToken, kind }),
       });
-      toast.success("人物卡已入库");
+      toast.success(t("gm.importSheet.imported"));
       onOpenChange(false);
       setPreview(null);
       setFile(null);
       onImported?.();
     } catch (error) {
-      toast.error(isApiError(error) ? error.message : "入库失败");
+      toast.error(errorText(error, "gm.importSheet.importFailed"));
     } finally {
       setPending(false);
     }
@@ -90,10 +92,10 @@ function ImportCharacterSheetDialog({
       <DialogContent className="max-w-160 gap-0 p-0" showCloseButton={false}>
         <DialogHeader className="flex-row items-center justify-between px-5 py-[18px]">
           <div className="flex flex-col gap-0.5">
-            <DialogTitle>导入人物卡 Excel</DialogTitle>
-            <DialogDescription>按 CoC 7e 模板解析 · 确认无误后入库</DialogDescription>
+            <DialogTitle>{t("gm.importSheet.title")}</DialogTitle>
+            <DialogDescription>{t("gm.importSheet.description")}</DialogDescription>
           </div>
-          <Button variant="ghost" size="icon-sm" aria-label="关闭导入弹窗" onClick={() => onOpenChange(false)}>
+          <Button variant="ghost" size="icon-sm" aria-label={t("gm.importSheet.close")} onClick={() => onOpenChange(false)}>
             <X />
           </Button>
         </DialogHeader>
@@ -101,7 +103,7 @@ function ImportCharacterSheetDialog({
           <Input
             type="file"
             accept=".xlsx,.xls"
-            aria-label="选择人物卡 Excel"
+            aria-label={t("gm.importSheet.chooseFile")}
             onChange={(event) => {
               const next = event.target.files?.[0];
               if (next) {
@@ -123,7 +125,7 @@ function ImportCharacterSheetDialog({
                   {kind.toUpperCase()}
                 </Badge>
                 <Button type="button" size="sm" variant="tertiary" className="h-7" onClick={() => setKind(kind === "pc" ? "npc" : "pc")}>
-                  切换为 {kind === "pc" ? "NPC" : "PC"}
+                  {t("gm.importSheet.switchKind", { kind: kind === "pc" ? "NPC" : "PC" })}
                 </Button>
               </div>
               <p className="text-foreground-secondary text-body-small">
@@ -146,7 +148,7 @@ function ImportCharacterSheetDialog({
                   <AlertIcon>
                     <CircleCheck />
                   </AlertIcon>
-                  <AlertDescription>映射无错误，可以入库。</AlertDescription>
+                  <AlertDescription>{t("gm.importSheet.noErrors")}</AlertDescription>
                 </Alert>
               )}
             </>
@@ -155,11 +157,11 @@ function ImportCharacterSheetDialog({
         <div className="bg-md-surface-container-low flex items-center justify-between rounded-b-xl px-5 py-4">
           <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>
             <ArrowLeft />
-            取消
+            {t("common.cancel")}
           </Button>
           <Button variant="primary" size="sm" disabled={!preview || pending} onClick={() => void confirm()}>
             <Check className={cn("size-4", pending && "opacity-50")} />
-            确认入库
+            {t("gm.importSheet.confirm")}
           </Button>
         </div>
       </DialogContent>

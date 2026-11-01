@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { mediaUrl } from "@/lib/api";
+import { t } from "@/i18n";
 
 export function HandoutLibrary({
   handouts,
@@ -27,11 +28,11 @@ export function HandoutLibrary({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>已获得的情报</DialogTitle>
-          <DialogDescription>公开与秘密线索均可在此回看，无法撤回。</DialogDescription>
+          <DialogTitle>{t("handout.libraryTitle")}</DialogTitle>
+          <DialogDescription>{t("handout.libraryDescription")}</DialogDescription>
         </DialogHeader>
         {handouts.length === 0 ? (
-          <p className="text-foreground-tertiary text-body-medium">还没有收到情报。</p>
+          <p className="text-foreground-tertiary text-body-medium">{t("handout.empty")}</p>
         ) : (
           <div className="grid grid-cols-[180px_1fr] gap-3">
             <div className="flex max-h-80 flex-col gap-1 overflow-y-auto">
@@ -49,7 +50,7 @@ export function HandoutLibrary({
             </div>
             {active ? (
               <div className="flex min-h-0 flex-col gap-2 overflow-y-auto">
-                <div className="text-foreground-tertiary text-label-small">{active.isPublic ? "公开情报" : "秘密情报"}</div>
+                <div className="text-foreground-tertiary text-label-small">{active.isPublic ? t("handout.public") : t("handout.secret")}</div>
                 {image ? <img src={image} alt="" className="max-h-56 w-full rounded-lg object-contain" /> : null}
                 <p className="text-md-on-surface text-body-large whitespace-pre-wrap">{active.handout.content}</p>
               </div>

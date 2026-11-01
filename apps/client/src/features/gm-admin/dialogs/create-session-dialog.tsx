@@ -24,14 +24,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { api, fetchAllPages, isApiError } from "@/lib/api";
+import { api, fetchAllPages } from "@/lib/api";
+import { errorText } from "@/lib/errors";
+import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 
-const statusOptions = ["等待开始", "准备中", "进行中"] as const;
-const statusSegments = statusOptions.map((option) => ({ value: option, label: option }));
+const statusOptions = ["waiting", "preparing", "active"] as const;
 
-function kindLabel(kind: string): "PC" | "NPC" {
-  return kind.toLowerCase() === "npc" ? "NPC" : "PC";
+function kindLabel(kind: string): string {
+  return kind.toLowerCase() === "npc" ? t("common.npc") : t("common.pc");
 }
 
 function CreateSessionDialog({
@@ -47,8 +48,9 @@ function CreateSessionDialog({
   const [characters, setCharacters] = useState<CharacterDto[]>([]);
   const [moduleId, setModuleId] = useState<string>("");
   const [selectedIds, setSelectedIds] = useState(new Set<string>());
-  const [status, setStatus] = useState<(typeof statusOptions)[number]>("等待开始");
+  const [status, setStatus] = useState<(typeof statusOptions)[number]>("waiting");
   const [pending, setPending] = useState(false);
+  const statusSegments = statusOptions.map((option) => ({ value: option, label: t(`status.${option}`) }));
 
   useEffect(() => {
     if (!open) {
@@ -60,7 +62,7 @@ function CreateSessionDialog({
         setModules(nextModules);
         setModuleId((current) => current || nextModules[0]?.id || "");
       } catch (error) {
-        toast.error(isApiError(error) ? error.message : "无法加载模组");
+        toast.error(errorText(error, "gm.createSession.loadModulesFailed"));
       }
     })();
   }, [open]);
@@ -73,7 +75,7 @@ function CreateSessionDialog({
     setSelectedIds(new Set());
     void fetchAllPages<CharacterDto>(`/gm/modules/${encodeURIComponent(moduleId)}/characters`)
       .then(setCharacters)
-      .catch((error) => toast.error(isApiError(error) ? error.message : "无法加载模组人物"));
+      .catch((error) => toast.error(errorText(error, "gm.createSession.loadCharactersFailed")));
   }, [open, moduleId]);
 
   function toggleCharacter(id: string) {
@@ -98,13 +100,13 @@ function CreateSessionDialog({
           characterIds: [...selectedIds],
         }),
       });
-      if (status === "准备中") {
+      if (status === "preparing") {
         await api(`/gm/sessions/${encodeURIComponent(created.session.id)}/status`, {
           method: "POST",
           body: JSON.stringify({ status: "preparing" }),
         });
       }
-      if (status === "进行中") {
+      if (status === "active") {
         await api(`/gm/sessions/${encodeURIComponent(created.session.id)}/status`, {
           method: "POST",
           body: JSON.stringify({ status: "preparing" }),
@@ -117,7 +119,7 @@ function CreateSessionDialog({
       onOpenChange(false);
       onCreated?.();
     } catch (error) {
-      toast.error(isApiError(error) ? error.message : "创建失败");
+      toast.error(errorText(error, "gm.createSession.createFailed"));
     } finally {
       setPending(false);
     }
@@ -128,20 +130,20 @@ function CreateSessionDialog({
       <DialogContent className="max-w-140 gap-0 p-0" showCloseButton={false}>
         <DialogHeader className="flex-row items-center justify-between px-5 py-[18px]">
           <div className="flex flex-col gap-0.5">
-            <DialogTitle>新建团</DialogTitle>
-            <DialogDescription>从当前模组已关联的人物中选择 PC / NPC。</DialogDescription>
+            <DialogTitle>{t("gm.createSession.title")}</DialogTitle>
+            <DialogDescription>{t("gm.createSession.description")}</DialogDescription>
           </div>
-          <Button variant="ghost" size="icon-sm" aria-label="关闭新建团弹窗" onClick={() => onOpenChange(false)}>
+          <Button variant="ghost" size="icon-sm" aria-label={t("gm.createSession.close")} onClick={() => onOpenChange(false)}>
             <X />
           </Button>
         </DialogHeader>
 
         <div className="flex flex-col gap-4 px-5 py-5">
-          <FormField label="选择模组">
+          <FormField label={t("gm.createSession.selectModule")}>
             <Select value={moduleId} onValueChange={setModuleId}>
               <SelectTrigger className="h-10 border-separator-secondary">
                 <Package className="text-accent-hover" />
-                <SelectValue placeholder="选择模组" />
+                <SelectValue placeholder={t("gm.createSession.selectModule")} />
               </SelectTrigger>
               <SelectContent>
                 {modules.map((module) => (
@@ -153,16 +155,16 @@ function CreateSessionDialog({
             </Select>
           </FormField>
 
-          <FormField label="指定参与人物">
+          <FormField label={t("gm.createSession.participants")}>
             <div className="flex flex-col gap-1.5">
               {characters.length === 0 ? (
                 <p className="text-foreground-tertiary text-body-small">
-                  当前模组尚未关联人物。可在模组页关联 PC / NPC 后再选，也可以先创建空团。
+                  {t("gm.createSession.noCharacters")}
                   {moduleId ? (
                     <>
                       {" "}
                       <Link to="/gm/module/$moduleId" params={{ moduleId }} className="text-accent">
-                        去模组页关联
+                        {t("gm.createSession.goLink")}
                       </Link>
                     </>
                   ) : null}
@@ -186,7 +188,7 @@ function CreateSessionDialog({
                         {kind}
                       </Badge>
                       <Badge variant="soft" tone={selected ? "accent" : "default"} size="sm">
-                        {selected ? "已选" : "未选"}
+                        {selected ? t("gm.createSession.selected") : t("gm.createSession.unselected")}
                       </Badge>
                     </Label>
                   );
@@ -195,7 +197,7 @@ function CreateSessionDialog({
             </div>
           </FormField>
 
-          <FormField label="初始状态">
+          <FormField label={t("gm.createSession.initialStatus")}>
             <SegmentedControl
               value={status}
               options={statusSegments}
@@ -207,14 +209,14 @@ function CreateSessionDialog({
         </div>
 
         <DialogFooter className="bg-md-surface-container-low flex-row items-center justify-between rounded-b-xl px-5 py-4 sm:justify-between">
-          <span className="text-foreground-tertiary font-sans text-label-small">创建后可在团管理中继续调整</span>
+          <span className="text-foreground-tertiary font-sans text-label-small">{t("gm.createSession.footerHint")}</span>
           <div className="flex items-center gap-2.5">
             <Button variant="tertiary" size="sm" onClick={() => onOpenChange(false)}>
-              取消
+              {t("common.cancel")}
             </Button>
             <Button variant="primary" size="sm" disabled={!moduleId || pending} onClick={() => void handleCreate()}>
               <Check className="size-4" />
-              创建团
+              {t("gm.createSession.create")}
             </Button>
           </div>
         </DialogFooter>

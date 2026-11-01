@@ -16,7 +16,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ATTR_LABELS } from "@/lib/format";
+import { attrLabel } from "@/lib/format";
+import { t } from "@/i18n";
 import { parseCocSheet, parseCocState } from "@/lib/coc-live";
 import { sendSessionCommand } from "@/lib/session-socket";
 import { useIdentityStore } from "@/stores/identity-store";
@@ -53,22 +54,22 @@ export function CharacterSheetPanel({
       penaltyDice: 0,
     });
     if (!sent) {
-      toast.error("尚未连接到团");
+      toast.error(t("chat.notConnected"));
       return;
     }
-    toast.success(`已提交「${ATTR_LABELS[skillKey]?.label ?? skillKey}」鉴定`);
+    toast.success(t("check.submitted", { skill: attrLabel(skillKey) }));
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>{target?.name ?? "人物卡"}</DialogTitle>
-          <DialogDescription>点击技能或属性即可发起鉴定；目标值由服务端从人物卡读取。</DialogDescription>
+          <DialogTitle>{target?.name ?? t("sheet.titleFallback")}</DialogTitle>
+          <DialogDescription>{t("sheet.description")}</DialogDescription>
         </DialogHeader>
         {browseAll && options.length > 1 ? (
           <Select value={target?.characterId ?? ""} onValueChange={setSelectedId}>
-            <SelectTrigger className="h-8 text-label-medium"><SelectValue placeholder="选择人物" /></SelectTrigger>
+            <SelectTrigger className="h-8 text-label-medium"><SelectValue placeholder={t("sheet.selectCharacter")} /></SelectTrigger>
             <SelectContent>
               {options.map((character) => (
                 <SelectItem key={character.characterId} value={character.characterId}>
@@ -79,7 +80,7 @@ export function CharacterSheetPanel({
           </Select>
         ) : null}
         {!target || !sheet ? (
-          <p className="text-foreground-tertiary text-body-medium">未认领 PC，或人物卡尚未同步。</p>
+          <p className="text-foreground-tertiary text-body-medium">{t("sheet.empty")}</p>
         ) : (
           <div className="flex flex-col gap-3">
             {state ? (
@@ -92,7 +93,7 @@ export function CharacterSheetPanel({
             <div className="grid grid-cols-2 gap-x-2 gap-y-1">
               {Object.entries(sheet.attributes).map(([key, value]) => (
                 <Button key={key} type="button" variant="ghost" className="h-7 justify-between px-2 text-body-medium" onClick={() => perform(key)}>
-                  <span>{ATTR_LABELS[key]?.label ?? key}</span>
+                  <span>{attrLabel(key)}</span>
                   <span>{value}</span>
                 </Button>
               ))}
@@ -106,11 +107,11 @@ export function CharacterSheetPanel({
               ))}
             </div>
             {state && state.growthMarks.length > 0 ? (
-              <p className="text-foreground-tertiary text-label-small">成长标记：{state.growthMarks.join("、")}</p>
+              <p className="text-foreground-tertiary text-label-small">{t("sheet.growthMarks", { marks: state.growthMarks.join(t("common.listSeparator")) })}</p>
             ) : null}
             {state && state.statuses.length > 0 ? (
               <p className="text-warning text-label-small">
-                {state.statuses.map((flag) => coc7e.CharacterStatusFlagLabel[flag]).join("、")}
+                {state.statuses.map((flag) => coc7e.CharacterStatusFlagLabel[flag]).join(t("common.listSeparator"))}
               </p>
             ) : null}
           </div>

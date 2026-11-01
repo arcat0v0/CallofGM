@@ -1,25 +1,50 @@
+import { Fragment, type ReactNode } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { ChatMessage } from "./types";
 
-const SYSTEM_ROLE_LABELS: Record<string, true> = { 骰点: true, SAN: true, 鉴定: true };
+type MessageMeta = {
+  self: boolean;
+  continued: boolean;
+  isSystem: boolean;
+};
+
+function isSystemMessage(message: ChatMessage): boolean {
+  return message.isSystem === true;
+}
 
 function MessageList({
   messages,
   className,
   showRoleBadge = true,
   selfName,
+  renderMessage,
 }: {
   messages: ChatMessage[];
   className?: string;
   showRoleBadge?: boolean;
   selfName?: string;
+  renderMessage?: (message: ChatMessage, meta: MessageMeta) => ReactNode;
 }) {
   return (
     <div className={cn("flex flex-col gap-3", className)}>
       {messages.map((message, index) => {
-        if (SYSTEM_ROLE_LABELS[message.speakerRoleLabel] === true) {
+        const system = isSystemMessage(message);
+        const self = Boolean(selfName) && message.speakerName === selfName;
+        const previous = messages[index - 1];
+        const continued =
+          !system &&
+          previous !== undefined &&
+          !isSystemMessage(previous) &&
+          previous.speakerName === message.speakerName;
+        const meta: MessageMeta = { self, continued, isSystem: system };
+
+        if (renderMessage) {
+          return <Fragment key={message.id}>{renderMessage(message, meta)}</Fragment>;
+        }
+
+        if (system) {
           return (
             <div
               key={message.id}
@@ -32,12 +57,6 @@ function MessageList({
             </div>
           );
         }
-        const self = Boolean(selfName) && message.speakerName === selfName;
-        const previous = messages[index - 1];
-        const continued =
-          Boolean(previous) &&
-          SYSTEM_ROLE_LABELS[previous?.speakerRoleLabel ?? ""] !== true &&
-          previous?.speakerName === message.speakerName;
         return (
           <div
             key={message.id}
@@ -89,4 +108,5 @@ function MessageList({
   );
 }
 
-export { MessageList };
+export { MessageList, isSystemMessage };
+export type { MessageMeta };

@@ -1,5 +1,6 @@
 import type { ClientCommand, ClientCommandType, ServerMessage } from "@cogm/shared";
 import { getFingerprint } from "./fingerprint";
+import { t } from "@/i18n";
 
 export type SessionSocket = {
   sendCommand: (type: ClientCommandType, payload: unknown) => string;
@@ -102,7 +103,7 @@ export async function connectSession(options: ConnectSessionOptions): Promise<Se
     };
     const onError = () => {
       ws.removeEventListener("open", onOpen);
-      reject(new Error("无法连接团内实时通道"));
+      reject(new Error(t("play.reconnecting")));
     };
     ws.addEventListener("open", onOpen, { once: true });
     ws.addEventListener("error", onError, { once: true });

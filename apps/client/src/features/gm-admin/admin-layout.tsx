@@ -1,20 +1,22 @@
-import { Link, useNavigate } from "@tanstack/react-router";
-import { AudioLines, LogOut, Package, ShieldBan, Swords, VenetianMask } from "lucide-react";
-import type { ReactNode } from "react";
-import { Logo } from "@/components/brand/logo";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
+import { useNavigate } from "@tanstack/react-router";
+import { AudioLines, Package, Palette, ShieldBan, Swords, VenetianMask } from "lucide-react";
+import type { ComponentType, ReactNode } from "react";
 import { logoutGm } from "@/lib/identity";
 import { cn } from "@/lib/utils";
+import { GmThemeControl } from "@/themes/runtime/gm-theme-control";
+import { GmThemeScope } from "@/themes/runtime/gm-theme-scope";
+import { ThemeSlot } from "@/themes/runtime/theme-slot";
+import { t } from "@/i18n";
 
-type AdminNavKey = "sessions" | "modules" | "characters" | "music" | "blacklist";
+type AdminNavKey = "sessions" | "modules" | "characters" | "music" | "blacklist" | "themes";
 
-const NAV_ITEMS: { key: AdminNavKey; label: string; icon: typeof Swords; to: string }[] = [
-  { key: "sessions", label: "团", icon: Swords, to: "/gm" },
-  { key: "modules", label: "模组", icon: Package, to: "/gm/modules" },
-  { key: "characters", label: "人物", icon: VenetianMask, to: "/gm/characters" },
-  { key: "music", label: "音乐", icon: AudioLines, to: "/gm/music" },
-  { key: "blacklist", label: "黑名单", icon: ShieldBan, to: "/gm/blacklist" },
+const NAV_ITEMS: { key: AdminNavKey; labelKey: string; icon: ComponentType<{ className?: string }>; to: string }[] = [
+  { key: "sessions", labelKey: "gm.nav.sessions", icon: Swords, to: "/gm" },
+  { key: "modules", labelKey: "gm.nav.modules", icon: Package, to: "/gm/modules" },
+  { key: "characters", labelKey: "gm.nav.characters", icon: VenetianMask, to: "/gm/characters" },
+  { key: "music", labelKey: "gm.nav.music", icon: AudioLines, to: "/gm/music" },
+  { key: "blacklist", labelKey: "gm.nav.blacklist", icon: ShieldBan, to: "/gm/blacklist" },
+  { key: "themes", labelKey: "gm.nav.themes", icon: Palette, to: "/gm/themes" },
 ];
 
 function AdminLayout({ active, children }: { active: AdminNavKey; children: ReactNode }) {
@@ -25,68 +27,36 @@ function AdminLayout({ active, children }: { active: AdminNavKey; children: Reac
     await navigate({ to: "/gm/login" });
   }
 
+  const items = NAV_ITEMS.map((item) => ({
+    key: item.key,
+    label: t(item.labelKey),
+    to: item.to,
+    active: item.key === active,
+    icon: item.icon,
+  }));
+
+  const nav = (
+    <ThemeSlot
+      name="gm-admin.nav"
+      ctx={{
+        items,
+        onNavigate: (to) => void navigate({ to: to as never }),
+        onLogout: () => void handleLogout(),
+      }}
+    />
+  );
+
+  const content = (
+    <main className={cn("bg-md-surface-container-low min-w-0 flex-1 overflow-y-auto rounded-tl-2xl px-10 py-9")}>
+      {children}
+    </main>
+  );
+
   return (
-    <div className="bg-background flex h-screen">
-      <nav className="flex w-24 shrink-0 flex-col items-center py-5">
-        <Link to="/gm" aria-label="CoGM 后台" className="mb-5">
-          <Logo className="size-10" />
-        </Link>
-
-        <div className="flex flex-col items-center gap-3">
-          {NAV_ITEMS.map((item) => {
-            const isActive = item.key === active;
-            const Icon = item.icon;
-            return (
-              <Link
-                key={item.key}
-                to={item.to}
-                aria-current={isActive ? "page" : undefined}
-                className="group flex w-16 flex-col items-center gap-1 py-0.5"
-              >
-                <span
-                  className={cn(
-                    "flex h-8 w-16 items-center justify-center rounded-full transition-colors duration-200 ease-standard-default-effects",
-                    isActive
-                      ? "bg-md-secondary-container text-md-on-secondary-container"
-                      : "text-md-on-surface-variant group-hover:bg-md-on-surface/8 group-active:bg-md-on-surface/12",
-                  )}
-                >
-                  <Icon className="size-5" />
-                </span>
-                <span
-                  className={cn(
-                    isActive ? "text-label-medium-emph text-md-on-surface" : "text-label-medium text-md-on-surface-variant",
-                  )}
-                >
-                  {item.label}
-                </span>
-              </Link>
-            );
-          })}
-        </div>
-
-        <div className="flex-1" />
-
-        <div className="flex flex-col items-center gap-3">
-          <Avatar size="md" className="bg-md-primary-container">
-            <AvatarFallback className="text-md-on-primary-container text-label-large-emph">KP</AvatarFallback>
-          </Avatar>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label="退出登录"
-            className="text-md-on-surface-variant"
-            onClick={() => void handleLogout()}
-          >
-            <LogOut />
-          </Button>
-        </div>
-      </nav>
-
-      <main className="bg-md-surface-container-low min-w-0 flex-1 overflow-y-auto rounded-tl-2xl px-10 py-9">
-        {children}
-      </main>
-    </div>
+    <GmThemeScope>
+      <ThemeSlot name="gm-admin.shell" ctx={{ nodes: { nav, content }, view: { active } }} />
+      <GmThemeControl />
+    </GmThemeScope>
   );
 }
 

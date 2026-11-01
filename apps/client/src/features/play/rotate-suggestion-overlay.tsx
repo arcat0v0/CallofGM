@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 async function lockLandscape(): Promise<boolean> {
   const orientation = screen.orientation as ScreenOrientation & { lock?: (mode: OrientationLockType) => Promise<void> };
@@ -30,7 +31,7 @@ function RotateSuggestionOverlay({ onDismiss, className }: { onDismiss: () => vo
       onDismiss();
       return;
     }
-    toast.message("当前浏览器不支持自动旋转，请手动横持设备");
+    toast.message(t("play.rotateUnsupported"));
   }
 
   return (
@@ -45,9 +46,9 @@ function RotateSuggestionOverlay({ onDismiss, className }: { onDismiss: () => vo
           <Smartphone className="size-8 rotate-90" />
         </div>
         <div className="flex flex-col items-center gap-2 text-center">
-          <span className="text-foreground font-serif text-headline-small-emph">旋转到横屏</span>
+          <span className="text-foreground font-serif text-headline-small-emph">{t("play.rotateTitle")}</span>
           <p className="text-foreground-secondary font-sans text-body-medium">
-            横屏模式下场景立绘更大、对话与掷骰并排显示，跑团体验更沉浸。
+            {t("play.rotateDescription")}
           </p>
         </div>
         <div className="flex w-full flex-col gap-2">
@@ -58,7 +59,7 @@ function RotateSuggestionOverlay({ onDismiss, className }: { onDismiss: () => vo
             onClick={() => void handleRotate()}
           >
             <RotateCw className="size-4" />
-            自动旋转屏幕
+            {t("play.rotateAction")}
           </Button>
           <Button
             type="button"
@@ -66,7 +67,7 @@ function RotateSuggestionOverlay({ onDismiss, className }: { onDismiss: () => vo
             variant="ghost"
             className="h-9 w-full text-foreground-secondary"
           >
-            仍使用竖屏
+            {t("play.rotateDismiss")}
           </Button>
         </div>
       </Card>

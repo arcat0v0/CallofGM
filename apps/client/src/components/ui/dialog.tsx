@@ -2,6 +2,7 @@ import { Dialog as DialogPrimitive } from "radix-ui";
 import type * as React from "react";
 
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 import { XIcon } from "lucide-react";
 
 function Dialog({ ...props }: React.ComponentProps<typeof DialogPrimitive.Root>) {
@@ -59,7 +60,7 @@ function DialogContent({
             className="bg-default text-muted hover:bg-default-hover hover:text-foreground absolute top-4 right-4 flex size-8 items-center justify-center rounded-full outline-none transition-all duration-150 ease-expressive-fast-effects"
           >
             <XIcon className="size-4" />
-            <span className="sr-only">Close</span>
+            <span className="sr-only">{t("common.close")}</span>
           </DialogPrimitive.Close>
         )}
       </DialogPrimitive.Content>

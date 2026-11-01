@@ -59,6 +59,7 @@ export type UpdateSessionPhaseRequest = z.infer<typeof UpdateSessionPhaseRequest
 export const SessionDto = z.object({
   id: z.string(),
   moduleId: z.string(),
+  themeId: z.string().nullable().optional(),
   status: SessionStatus,
   phase: SessionPhase,
   currentSceneId: z.string().nullable(),
@@ -125,6 +126,7 @@ export const JoinInfoResponse = z.object({
     phase: SessionPhase,
     moduleId: z.string(),
     moduleName: z.string(),
+    themeId: z.string().nullable(),
   }),
   characters: z.array(
     z.object({

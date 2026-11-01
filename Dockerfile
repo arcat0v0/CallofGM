@@ -4,13 +4,15 @@ COPY package.json bun.lock ./
 COPY apps/client/package.json apps/client/package.json
 COPY apps/server/package.json apps/server/package.json
 COPY packages/shared/package.json packages/shared/package.json
+COPY packages/theme-sdk/package.json packages/theme-sdk/package.json
+COPY packages/theme-cli/package.json packages/theme-cli/package.json
 RUN bun install --frozen-lockfile
 COPY . .
 RUN bun run typecheck && bun run build:client
 
 FROM oven/bun:1.3.14-slim AS runtime
 WORKDIR /app
-ENV NODE_ENV=production PORT=15632 DATABASE_URL=/app/data/db.sqlite MEDIA_DIR=/app/data/media
+ENV NODE_ENV=production PORT=15632 DATABASE_URL=/app/data/db.sqlite MEDIA_DIR=/app/data/media THEMES_DIR=/app/data/themes
 COPY --from=build /app/package.json /app/bun.lock ./
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/apps/server ./apps/server

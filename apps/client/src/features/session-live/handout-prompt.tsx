@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { mediaUrl } from "@/lib/api";
+import { t } from "@/i18n";
 
 export function HandoutPrompt({ handouts }: { handouts: GrantedHandoutDto[] }) {
   const [seen, setSeen] = useState<Set<string>>(new Set());
@@ -39,12 +40,12 @@ export function HandoutPrompt({ handouts }: { handouts: GrantedHandoutDto[] }) {
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>{newest.handout.title}</DialogTitle>
-          <DialogDescription>{newest.isPublic ? "公开情报" : "秘密情报"}</DialogDescription>
+          <DialogDescription>{newest.isPublic ? t("handout.public") : t("handout.secret")}</DialogDescription>
         </DialogHeader>
         {image ? <img src={image} alt="" className="max-h-64 w-full rounded-lg object-contain" /> : null}
         <p className="text-md-on-surface text-body-large whitespace-pre-wrap">{newest.handout.content}</p>
         <Button type="button" variant="primary" onClick={dismiss}>
-          收下
+          {t("handout.accept")}
         </Button>
       </DialogContent>
     </Dialog>

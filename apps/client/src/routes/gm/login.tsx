@@ -11,14 +11,16 @@ import {
   InputGroupButton,
   InputGroupInput,
 } from "@/components/ui/input-group";
-import { isApiError } from "@/lib/api";
+import { errorText } from "@/lib/errors";
 import { loginGm } from "@/lib/identity";
+import { t, useI18nVersion } from "@/i18n";
 
 export const Route = createFileRoute("/gm/login")({
   component: GmLoginPage,
 });
 
 function GmLoginPage() {
+  useI18nVersion();
   const [showPassword, setShowPassword] = useState(false);
   const [password, setPassword] = useState("");
   const [pending, setPending] = useState(false);
@@ -34,7 +36,7 @@ function GmLoginPage() {
       await loginGm(password);
       await navigate({ to: "/gm" });
     } catch (error) {
-      toast.error(isApiError(error) ? error.message : "登录失败");
+      toast.error(errorText(error, "login.failed"));
     } finally {
       setPending(false);
     }
@@ -53,8 +55,8 @@ function GmLoginPage() {
 
       <div className="animate-in fade-in slide-in-from-bottom-4 ease-expressive-default-spatial flex flex-col items-center gap-4 duration-500">
         <Logo className="size-16" />
-        <h1 className="text-foreground font-serif text-display-small-emph">主持人登录</h1>
-        <p className="text-md-on-surface-variant text-title-medium">回到你的舞台</p>
+        <h1 className="text-foreground font-serif text-display-small-emph">{t("login.title")}</h1>
+        <p className="text-md-on-surface-variant text-title-medium">{t("login.subtitle")}</p>
       </div>
 
       <form
@@ -69,14 +71,14 @@ function GmLoginPage() {
             type={showPassword ? "text" : "password"}
             value={password}
             onChange={(event) => setPassword(event.target.value)}
-            placeholder="主持人密码"
-            aria-label="主持人密码"
+            placeholder={t("login.passwordPlaceholder")}
+            aria-label={t("login.passwordLabel")}
             autoComplete="current-password"
           />
           <InputGroupButton
             type="button"
             onClick={() => setShowPassword((value) => !value)}
-            aria-label={showPassword ? "隐藏密码" : "显示密码"}
+            aria-label={showPassword ? t("login.hidePassword") : t("login.showPassword")}
           >
             {showPassword ? <Eye /> : <EyeOff />}
           </InputGroupButton>
@@ -88,7 +90,7 @@ function GmLoginPage() {
           disabled={pending || !password}
           className="h-14 w-full"
         >
-          {pending ? "登录中…" : "登录"}
+          {pending ? t("login.pending") : t("login.submit")}
         </Button>
       </form>
 
@@ -96,11 +98,11 @@ function GmLoginPage() {
         <Button asChild variant="ghost" size="sm" className="text-foreground-secondary">
           <Link to="/">
             <ArrowLeft className="text-foreground-tertiary" />
-            返回入口
+            {t("login.back")}
           </Link>
         </Button>
         <p className="text-foreground-tertiary font-sans text-label-small">
-          仅主持人需要登录 · 玩家通过团链接直接进入
+          {t("login.hint")}
         </p>
       </div>
     </main>

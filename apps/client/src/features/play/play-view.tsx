@@ -1,39 +1,76 @@
-import { PanelLeftOpen } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useParams } from "@tanstack/react-router";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { CheckPrompt } from "@/features/session-live/check-prompt";
-import { HandoutPrompt } from "@/features/session-live/handout-prompt";
+import type { ChatMessageView } from "@cogm/theme-sdk";
+import { ConnectionBanner } from "@/features/play/connection-banner";
+import { PlayOverlays } from "@/features/play/play-overlays";
+import { usePlayViewport } from "@/features/play/use-play-viewport";
+import { useSessionTheme } from "@/features/play/use-session-theme";
+import { isSystemMessage } from "@/features/chat/message-list";
+import { PortraitLayer } from "@/features/session-stage/portrait-layer";
+import { SceneAudioControl } from "@/features/session-stage/scene-audio-control";
+import { Composer } from "@/features/play/composer";
 import { usePlayAudio } from "@/lib/bgm";
-import { sendSessionCommand } from "@/lib/session-socket";
+import { mediaUrl } from "@/lib/api";
 import { useSessionConnection } from "@/lib/use-session-connection";
+import { useIdentityStore } from "@/stores/identity-store";
 import { usePlayStore } from "@/stores/play-store";
-import { ChatArea } from "./chat-area";
-import { ConnectionBanner } from "./connection-banner";
-import { DesktopScene } from "./desktop-scene";
-import { MobileLandscapeScene } from "./mobile-landscape-scene";
-import { MobilePortraitScene } from "./mobile-portrait-scene";
-import { RotateSuggestionOverlay } from "./rotate-suggestion-overlay";
-import { SessionTerminalOverlay } from "./session-terminal-overlay";
+import { ThemeScope } from "@/themes/runtime/theme-scope";
+import { t, useI18nVersion } from "@/i18n";
+import { ThemeSlot } from "@/themes/runtime/theme-slot";
+
+function buildChatMessages(
+  messages: ReturnType<typeof usePlayStore.getState>["messages"],
+  selfName: string,
+): ChatMessageView[] {
+  return messages.map((message, index) => {
+    const system = isSystemMessage(message);
+    const previous = messages[index - 1];
+    return {
+      id: message.id,
+      speakerName: message.speakerName,
+      speakerRoleLabel: message.speakerRoleLabel,
+      avatarInitials: message.avatarInitials,
+      avatarBg: message.avatarBg,
+      avatarFg: message.avatarFg,
+      time: message.time,
+      body: message.body,
+      tone: message.tone ?? "ic",
+      isSystem: system,
+      self: message.speakerName === selfName,
+      continued:
+        !system &&
+        previous !== undefined &&
+        !isSystemMessage(previous) &&
+        previous.speakerName === message.speakerName,
+      showRoleBadge: true,
+    };
+  });
+}
 
 function PlayView() {
+  useI18nVersion();
   const { sessionId } = useParams({ from: "/play/$sessionId" });
   const { retry } = useSessionConnection(sessionId);
+  useSessionTheme(sessionId);
   usePlayAudio();
-  const pendingChecks = usePlayStore((state) => state.pendingChecks);
-  const handouts = usePlayStore((state) => state.handouts);
+  const viewport = usePlayViewport();
+  const themeId = usePlayStore((state) => state.themeId);
   const status = usePlayStore((state) => state.status);
-  const check = pendingChecks[0] ?? null;
+  const phase = usePlayStore((state) => state.phase);
+  const scene = usePlayStore((state) => state.scene);
+  const messages = usePlayStore((state) => state.messages);
+  const characters = usePlayStore((state) => state.characters);
+  const playerId = useIdentityStore((state) => state.playerId);
   const [showRotateSuggestion, setShowRotateSuggestion] = useState(true);
   const [landscapeChatOpen, setLandscapeChatOpen] = useState(true);
   const [endDialogOpen, setEndDialogOpen] = useState(false);
+
+  const claimed = characters.find((character) => character.claim?.playerId === playerId && character.claim.role === "pc");
+  const isOb =
+    !claimed &&
+    characters.some((character) => character.claim?.playerId === playerId && character.claim.role === "ob");
+  const selfName = claimed?.name ?? (isOb ? t("chat.spectatorFallback") : t("chat.playerFallback"));
+  const latest = [...messages].reverse().find((message) => message.tone !== "ooc");
 
   useEffect(() => {
     if (status === "ended") {
@@ -41,66 +78,94 @@ function PlayView() {
     }
   }, [status]);
 
+  const sceneInfo = <ThemeSlot name="play.scene-info" ctx={{ variant: viewport }} />;
+  const portrait = (
+    <PortraitLayer
+      compact={viewport !== "desktop"}
+      className={viewport === "portrait" ? "bottom-[72px]" : undefined}
+    />
+  );
+  const audio = <SceneAudioControl variant={viewport} />;
+  const dialogue = latest ? (
+    <ThemeSlot
+      name="play.dialogue"
+      ctx={{
+        messageId: latest.id,
+        speaker: latest.speakerName,
+        roleLabel: latest.speakerRoleLabel || undefined,
+        text: latest.body,
+        size: viewport === "desktop" ? "md" : "sm",
+      }}
+    />
+  ) : null;
+
+  const stage = (
+    <ThemeSlot
+      name="play.stage"
+      ctx={{
+        viewport,
+        view: {
+          sceneName: scene?.name ?? t("play.sceneFallback"),
+          sceneBgUrl: mediaUrl(scene?.bgAssetId),
+          status,
+          phase,
+          hasDialogue: Boolean(latest),
+        },
+        nodes: { sceneInfo, portrait, dialogue, audio },
+      }}
+    />
+  );
+
+  const chat = (
+    <ThemeSlot
+      name="play.chat-panel"
+      ctx={{
+        sessionId,
+        variant: viewport,
+        compact: viewport !== "desktop",
+        messages: buildChatMessages(messages, selfName),
+        selfName,
+        onCollapse: viewport === "landscape" ? () => setLandscapeChatOpen(false) : undefined,
+      }}
+    />
+  );
+
   return (
-    <div className="bg-background relative h-dvh w-full overflow-hidden">
-      <ConnectionBanner />
-      <div className="hidden h-full lg:flex">
-        <div className="min-w-0 flex-1">
-          <DesktopScene />
-        </div>
-        <ChatArea variant="desktop" className="w-[392px] shrink-0" />
-      </div>
-
-      <div className="hidden h-full max-lg:landscape:flex">
-        <MobileLandscapeScene />
-        {landscapeChatOpen ? (
-          <ChatArea
-            variant="landscape"
-            onCollapse={() => setLandscapeChatOpen(false)}
-            className="w-[284px] shrink-0"
-          />
-        ) : (
-          <Button
-            type="button"
-            variant="tertiary"
-            size="icon-sm"
-            onClick={() => setLandscapeChatOpen(true)}
-            aria-label="展开文字频道"
-            className="bg-md-surface-container-high text-md-on-surface-variant absolute top-1/2 right-0 h-16 w-6 -translate-y-1/2 rounded-l-full rounded-r-none"
-          >
-            <PanelLeftOpen className="size-4" />
-          </Button>
-        )}
-      </div>
-
-      <div className="relative flex h-full flex-col max-lg:landscape:hidden lg:hidden">
-        <MobilePortraitScene />
-        <ChatArea variant="portrait" className="min-h-0 flex-1" />
-        {showRotateSuggestion && (
-          <RotateSuggestionOverlay onDismiss={() => setShowRotateSuggestion(false)} />
-        )}
-      </div>
-
-      {check ? (
-        <CheckPrompt
-          request={check}
-          onRespond={() => sendSessionCommand("check:respond", { requestId: check.id })}
+    <ThemeScope themeId={themeId}>
+      <div className="bg-background relative h-dvh w-full overflow-hidden">
+        <ThemeSlot
+          name="play.layout"
+          ctx={{
+            viewport,
+            nodes: {
+              stage,
+              chat,
+              composer: <Composer compact={viewport !== "desktop"} />,
+              overlays: (
+                <PlayOverlays
+                  sessionId={sessionId}
+                  retry={retry}
+                  showRotateSuggestion={viewport === "portrait" && showRotateSuggestion}
+                  onDismissRotate={() => setShowRotateSuggestion(false)}
+                  endDialogOpen={endDialogOpen}
+                  onEndDialogChange={setEndDialogOpen}
+                />
+              ),
+              connection: <ConnectionBanner />,
+            },
+            view: {
+              sessionId,
+              status,
+              phase,
+              landscapeChatOpen,
+            },
+            actions: {
+              setLandscapeChatOpen,
+            },
+          }}
         />
-      ) : null}
-      <HandoutPrompt handouts={handouts} />
-      <Dialog open={endDialogOpen} onOpenChange={setEndDialogOpen}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>本团已结束</DialogTitle>
-            <DialogDescription>主持人已结团。聊天记录与情报仍可回看。</DialogDescription>
-          </DialogHeader>
-          <Button type="button" variant="primary" onClick={() => setEndDialogOpen(false)}>
-            查看记录
-          </Button>
-        </DialogContent>
-      </Dialog>
-      <SessionTerminalOverlay sessionId={sessionId} onRetry={retry} />
-    </div>
+      </div>
+    </ThemeScope>
   );
 }
 

@@ -11,7 +11,9 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { api, fetchAllPages, isApiError, mediaUrl } from "@/lib/api";
+import { api, fetchAllPages, mediaUrl } from "@/lib/api";
+import { errorText } from "@/lib/errors";
+import { t, useI18nVersion } from "@/i18n";
 import { requireGmAuth } from "@/lib/identity";
 import { audioDurationMs } from "@/lib/audio-duration";
 
@@ -49,7 +51,7 @@ function SceneCard({ scene, onReload }: { scene: SceneDto; onReload: () => Promi
         <Input
           value={name}
           onChange={(event) => setName(event.target.value)}
-          aria-label={`场景名 ${scene.name}`}
+          aria-label={t("gm.module.sceneAria", { name: scene.name })}
           className="h-8 flex-1"
         />
         <Button
@@ -64,19 +66,19 @@ function SceneCard({ scene, onReload }: { scene: SceneDto; onReload: () => Promi
               body: JSON.stringify({ name: name.trim() }),
             })
               .then(() => onReload())
-              .catch((error) => toast.error(isApiError(error) ? error.message : "保存失败"));
+              .catch((error) => toast.error(errorText(error, "gm.module.saveFailed")));
           }}
         >
-          保存
+          {t("gm.module.save")}
         </Button>
         <Button
           variant="ghost"
           size="icon-sm"
-          aria-label={`删除场景 ${scene.name}`}
+          aria-label={t("gm.module.deleteScene", { name: scene.name })}
           onClick={() => {
             void api(`/gm/modules/scenes/${encodeURIComponent(scene.id)}`, { method: "DELETE" })
               .then(() => onReload())
-              .catch((error) => toast.error(isApiError(error) ? error.message : "删除失败"));
+              .catch((error) => toast.error(errorText(error, "gm.module.deleteFailed")));
           }}
         >
           <Trash2 />
@@ -98,7 +100,7 @@ function TrackRowItem({ track, onReload }: { track: TrackDto; onReload: () => Pr
       <Input
         value={name}
         onChange={(event) => setName(event.target.value)}
-        aria-label={`曲目名 ${track.name}`}
+        aria-label={t("gm.module.trackAria", { name: track.name })}
         className="h-8 flex-1"
       />
       <Badge variant="soft" size="sm">
@@ -116,19 +118,19 @@ function TrackRowItem({ track, onReload }: { track: TrackDto; onReload: () => Pr
             body: JSON.stringify({ name: name.trim() }),
           })
             .then(() => onReload())
-            .catch((error) => toast.error(isApiError(error) ? error.message : "保存失败"));
+            .catch((error) => toast.error(errorText(error, "gm.module.saveFailed")));
         }}
       >
-        保存
+        {t("gm.module.save")}
       </Button>
       <Button
         variant="ghost"
         size="icon-sm"
-        aria-label={`删除 ${track.name}`}
+        aria-label={t("gm.module.deleteTrack", { name: track.name })}
         onClick={() => {
           void api(`/gm/modules/tracks/${encodeURIComponent(track.id)}`, { method: "DELETE" })
             .then(() => onReload())
-            .catch((error) => toast.error(isApiError(error) ? error.message : "删除失败"));
+            .catch((error) => toast.error(errorText(error, "gm.module.deleteFailed")));
         }}
       >
         <Trash2 />
@@ -154,7 +156,7 @@ function HandoutCard({ handout, onReload }: { handout: CatalogHandoutDto; onRelo
         <Input
           value={title}
           onChange={(event) => setTitle(event.target.value)}
-          aria-label={`情报标题 ${handout.title}`}
+          aria-label={t("gm.module.handoutTitleAria", { title: handout.title })}
           className="h-8 flex-1"
         />
         <Button
@@ -169,19 +171,19 @@ function HandoutCard({ handout, onReload }: { handout: CatalogHandoutDto; onRelo
               body: JSON.stringify({ title: title.trim(), content }),
             })
               .then(() => onReload())
-              .catch((error) => toast.error(isApiError(error) ? error.message : "保存失败"));
+              .catch((error) => toast.error(errorText(error, "gm.module.saveFailed")));
           }}
         >
-          保存
+          {t("gm.module.save")}
         </Button>
         <Button
           variant="ghost"
           size="icon-sm"
-          aria-label={`删除 ${handout.title}`}
+          aria-label={t("gm.module.deleteHandout", { title: handout.title })}
           onClick={() => {
             void api(`/gm/modules/handouts/${encodeURIComponent(handout.id)}`, { method: "DELETE" })
               .then(() => onReload())
-              .catch((error) => toast.error(isApiError(error) ? error.message : "删除失败"));
+              .catch((error) => toast.error(errorText(error, "gm.module.deleteFailed")));
           }}
         >
           <Trash2 />
@@ -190,13 +192,14 @@ function HandoutCard({ handout, onReload }: { handout: CatalogHandoutDto; onRelo
       <Textarea
         value={content}
         onChange={(event) => setContent(event.target.value)}
-        aria-label={`情报内容 ${handout.title}`}
+        aria-label={t("gm.module.handoutContentAria", { title: handout.title })}
       />
     </Card>
   );
 }
 
 function ModuleDetailPage() {
+  useI18nVersion();
   const { moduleId } = Route.useParams();
   const [module, setModule] = useState<ModuleDto | null>(null);
   const [moduleName, setModuleName] = useState("");
@@ -231,7 +234,7 @@ function ModuleDetailPage() {
       setLinked(nextLinked);
       setAllCharacters(nextCharacters);
     } catch (error) {
-      toast.error(isApiError(error) ? error.message : "无法加载模组");
+      toast.error(errorText(error, "gm.module.loadFailed"));
     }
   }
 
@@ -242,7 +245,7 @@ function ModuleDetailPage() {
   async function saveModule() {
     const name = moduleName.trim();
     if (!name) {
-      toast.error("请填写模组名称");
+      toast.error(t("gm.module.nameRequired"));
       return;
     }
     try {
@@ -252,7 +255,7 @@ function ModuleDetailPage() {
       });
       await reload();
     } catch (error) {
-      toast.error(isApiError(error) ? error.message : "保存失败");
+      toast.error(errorText(error, "gm.module.saveFailed"));
     }
   }
 
@@ -264,7 +267,7 @@ function ModuleDetailPage() {
         <PageHeader
           title={
             <span className="flex items-center gap-1.5">
-              <span>{module?.name ?? "模组"}</span>
+              <span>{module?.name ?? t("gm.module.moduleFallback")}</span>
               <Badge tone="success" variant="soft" size="sm">
                 {module?.ruleId ?? "coc7e"}
               </Badge>
@@ -273,7 +276,7 @@ function ModuleDetailPage() {
           eyebrow={
             <div className="flex items-center gap-1.5">
               <Link to="/gm/modules" className="text-foreground-tertiary text-body-small">
-                模组管理
+                {t("gm.module.breadcrumbModules")}
               </Link>
               <ChevronRight className="text-foreground-tertiary size-[13px]" />
               <span className="text-foreground-secondary text-body-small-emph">{module?.name ?? ""}</span>
@@ -286,14 +289,14 @@ function ModuleDetailPage() {
           <Input
             value={moduleName}
             onChange={(event) => setModuleName(event.target.value)}
-            placeholder="模组名称"
-            aria-label="模组名称"
+            placeholder={t("gm.module.moduleNamePlaceholder")}
+            aria-label={t("gm.module.moduleNamePlaceholder")}
           />
           <Textarea
             value={moduleDescription}
             onChange={(event) => setModuleDescription(event.target.value)}
-            placeholder="简介"
-            aria-label="模组简介"
+            placeholder={t("gm.module.moduleDescriptionPlaceholder")}
+            aria-label={t("gm.module.moduleDescriptionPlaceholder")}
           />
           <Button
             type="button"
@@ -302,16 +305,16 @@ function ModuleDetailPage() {
             disabled={!moduleName.trim() || moduleUnchanged}
             onClick={() => void saveModule()}
           >
-            保存模组
+            {t("gm.module.saveModule")}
           </Button>
         </Card>
 
         <Tabs defaultValue="scene" className="gap-5">
           <TabsList>
-            <TabsTrigger value="scene">场景 · {scenes.length}</TabsTrigger>
-            <TabsTrigger value="npc">人物 · {linked.length}</TabsTrigger>
-            <TabsTrigger value="music">音乐 · {tracks.length}</TabsTrigger>
-            <TabsTrigger value="handout">情报 · {handouts.length}</TabsTrigger>
+            <TabsTrigger value="scene">{t("gm.module.tabScene", { count: scenes.length })}</TabsTrigger>
+            <TabsTrigger value="npc">{t("gm.module.tabCharacters", { count: linked.length })}</TabsTrigger>
+            <TabsTrigger value="music">{t("gm.module.tabMusic", { count: tracks.length })}</TabsTrigger>
+            <TabsTrigger value="handout">{t("gm.module.tabHandout", { count: handouts.length })}</TabsTrigger>
           </TabsList>
 
           <TabsContent value="scene">
@@ -326,21 +329,21 @@ function ModuleDetailPage() {
                     const bgAssetId = file ? await uploadAsset(file, "scene") : null;
                     await api(`/gm/modules/${encodeURIComponent(moduleId)}/scenes`, {
                       method: "POST",
-                      body: JSON.stringify({ name: sceneName || "未命名场景", sortOrder: scenes.length, bgAssetId }),
+                      body: JSON.stringify({ name: sceneName || t("gm.module.unnamedScene"), sortOrder: scenes.length, bgAssetId }),
                     });
                     setSceneName("");
                     await reload();
                   } catch (error) {
-                    toast.error(isApiError(error) ? error.message : "创建场景失败");
+                    toast.error(errorText(error, "gm.module.createSceneFailed"));
                   }
                 })();
               }}
             >
-              <Input value={sceneName} onChange={(event) => setSceneName(event.target.value)} placeholder="场景名" className="max-w-60" />
-              <Input name="bg" type="file" accept="image/*" aria-label="场景背景图" className="max-w-60" />
+              <Input value={sceneName} onChange={(event) => setSceneName(event.target.value)} placeholder={t("gm.module.sceneNamePlaceholder")} className="max-w-60" />
+              <Input name="bg" type="file" accept="image/*" aria-label={t("gm.module.sceneBgAria")} className="max-w-60" />
               <Button type="submit" variant="primary">
                 <ImagePlus />
-                新建场景
+                {t("gm.module.createScene")}
               </Button>
             </form>
             <div className="animate-in fade-in slide-in-from-bottom-4 grid grid-cols-3 gap-4 duration-500 ease-standard-default-spatial">
@@ -372,10 +375,10 @@ function ModuleDetailPage() {
                               body: JSON.stringify({ characterId: character.id }),
                             }))
                           .then(() => reload())
-                          .catch((error) => toast.error(isApiError(error) ? error.message : "操作失败"));
+                          .catch((error) => toast.error(errorText(error, "gm.module.operationFailed")));
                       }}
                     >
-                      {isLinked ? "取消关联" : "关联"}
+                      {isLinked ? t("gm.module.unlink") : t("gm.module.link")}
                     </Button>
                   </div>
                 );
@@ -390,7 +393,7 @@ function ModuleDetailPage() {
                 event.preventDefault();
                 const file = (event.currentTarget.elements.namedItem("audio") as HTMLInputElement).files?.[0];
                 if (!file) {
-                  toast.error("请选择音频文件");
+                  toast.error(t("gm.module.chooseAudio"));
                   return;
                 }
                 void (async () => {
@@ -409,25 +412,25 @@ function ModuleDetailPage() {
                     setTrackName("");
                     await reload();
                   } catch (error) {
-                    toast.error(isApiError(error) ? error.message : "上传失败");
+                    toast.error(errorText(error, "gm.module.uploadFailed"));
                   }
                 })();
               }}
             >
-              <Input value={trackName} onChange={(event) => setTrackName(event.target.value)} placeholder="曲目名" className="max-w-48" />
+              <Input value={trackName} onChange={(event) => setTrackName(event.target.value)} placeholder={t("gm.module.trackNamePlaceholder")} className="max-w-48" />
               <select
                 value={trackType}
                 onChange={(event) => setTrackType(event.target.value as "bgm" | "se")}
                 className="border-separator bg-background h-9 rounded-md border px-3 text-label-large"
-                aria-label="音频类型"
+                aria-label={t("gm.module.audioTypeAria")}
               >
                 <option value="bgm">BGM</option>
                 <option value="se">SE</option>
               </select>
-              <Input name="audio" type="file" accept="audio/*" aria-label="音频文件" className="max-w-60" />
+              <Input name="audio" type="file" accept="audio/*" aria-label={t("gm.module.audioFileAria")} className="max-w-60" />
               <Button type="submit" variant="primary">
                 <Upload />
-                上传
+                {t("gm.module.upload")}
               </Button>
             </form>
             <div className="animate-in fade-in slide-in-from-bottom-4 flex flex-col gap-2 duration-500 ease-standard-default-spatial">
@@ -454,17 +457,17 @@ function ModuleDetailPage() {
                     setHandoutContent("");
                     await reload();
                   } catch (error) {
-                    toast.error(isApiError(error) ? error.message : "创建情报失败");
+                    toast.error(errorText(error, "gm.module.createHandoutFailed"));
                   }
                 })();
               }}
             >
-              <Input value={handoutTitle} onChange={(event) => setHandoutTitle(event.target.value)} placeholder="情报标题" required />
-              <Textarea value={handoutContent} onChange={(event) => setHandoutContent(event.target.value)} placeholder="情报内容" />
-              <Input name="image" type="file" accept="image/*" aria-label="情报图片" className="max-w-60" />
+              <Input value={handoutTitle} onChange={(event) => setHandoutTitle(event.target.value)} placeholder={t("gm.module.handoutTitlePlaceholder")} required />
+              <Textarea value={handoutContent} onChange={(event) => setHandoutContent(event.target.value)} placeholder={t("gm.module.handoutContentPlaceholder")} />
+              <Input name="image" type="file" accept="image/*" aria-label={t("gm.module.handoutImageAria")} className="max-w-60" />
               <Button type="submit" variant="primary" className="w-fit">
                 <Plus />
-                新建情报
+                {t("gm.module.createHandout")}
               </Button>
             </form>
             <div className="animate-in fade-in slide-in-from-bottom-4 flex flex-col gap-2 duration-500 ease-standard-default-spatial">

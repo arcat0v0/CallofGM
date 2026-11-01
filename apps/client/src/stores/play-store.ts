@@ -19,6 +19,7 @@ import type {
 import type { ChatMessage } from "@/features/chat/types";
 import { mapActivityEvent, mapChatMessage } from "@/lib/chat-map";
 import { formatClock, initialsOf } from "@/lib/format";
+import { t, translateOr } from "@/i18n";
 
 export type ConnectionTerminal = "kicked" | "unavailable";
 
@@ -26,6 +27,7 @@ type PlayState = {
   sessionId: string | null;
   moduleId: string | null;
   moduleName: string | null;
+  themeId: string | null;
   status: SessionStatus | null;
   phase: SessionPhase | null;
   lastEventId: number;
@@ -50,6 +52,7 @@ type PlayState = {
   setCatalog: (input: { scenes?: SceneDto[]; tracks?: TrackDto[]; handouts?: CatalogHandoutDto[] }) => void;
   setConnected: (connected: boolean) => void;
   setTerminal: (terminal: ConnectionTerminal | null) => void;
+  setThemeId: (themeId: string | null) => void;
   markEnded: () => void;
   setMuted: (muted: boolean) => void;
   clearSeCue: () => void;
@@ -60,6 +63,7 @@ const empty = {
   sessionId: null as string | null,
   moduleId: null as string | null,
   moduleName: null as string | null,
+  themeId: null as string | null,
   status: null as SessionStatus | null,
   phase: null as SessionPhase | null,
   lastEventId: 0,
@@ -220,7 +224,7 @@ function applyEvent(state: PlayState, type: string, payload: unknown, eventId?: 
     }
     case "state:hint": {
       const characterId = typeof payload.characterId === "string" ? payload.characterId : null;
-      const name = state.characters.find((character) => character.characterId === characterId)?.name ?? "角色";
+      const name = state.characters.find((character) => character.characterId === characterId)?.name ?? t("chat.role.character");
       const hints = Array.isArray(payload.hints) ? payload.hints.filter((item): item is string => typeof item === "string") : [];
       for (const hint of hints) {
         toast.warning(`${name}：${hint}`);
@@ -249,6 +253,7 @@ export const usePlayStore = create<PlayState>((set, get) => ({
       sessionId: payload.session.id,
       moduleId: payload.session.moduleId,
       moduleName: payload.session.moduleName,
+      themeId: payload.session.themeId,
       status: payload.session.status,
       phase: payload.session.phase,
       lastEventId: watermark,
@@ -272,15 +277,16 @@ export const usePlayStore = create<PlayState>((set, get) => ({
     if ("type" in message && (message.type === "command:accepted" || message.type === "command:rejected")) {
       const payload = isRecord(message.payload) ? message.payload : {};
       if (message.type === "command:rejected") {
-        toast.error(typeof payload.message === "string" ? payload.message : "指令被拒绝");
+        const messageText = typeof payload.message === "string" ? payload.message : t("error.commandRejected");
+        toast.error(typeof payload.code === "string" ? translateOr(`error.${payload.code}`, messageText) : messageText);
         return;
       }
       const requestId = typeof payload.requestId === "string" ? payload.requestId : null;
       const pending = requestId ? get().pendingChecks.find((item) => item.id === requestId) : undefined;
-      const skillKey = pending?.skillKey ?? "鉴定";
+      const skillKey = pending?.skillKey ?? t("chat.role.check");
       const hiddenRolled = payload.rolled === true && payload.hidden === true;
       if (requestId && hiddenRolled) {
-        toast.success("已掷出");
+        toast.success(t("check.rolled"));
       }
       if (requestId) {
         set((state) => {
@@ -291,13 +297,14 @@ export const usePlayStore = create<PlayState>((set, get) => ({
             patch.messages = appendMessage(state.messages, {
               id: `check-ack-${requestId}`,
               speakerName: skillKey,
-              speakerRoleLabel: "鉴定",
+              speakerRoleLabel: t("chat.role.check"),
               avatarInitials: initialsOf(skillKey),
               avatarBg: "bg-default",
               avatarFg: "text-foreground",
               time: formatClock(Date.now()),
-              body: `${skillKey} 已掷出`,
+              body: t("check.rolledFor", { skill: skillKey }),
               tone: "ooc",
+              isSystem: true,
             });
           }
           return patch;
@@ -335,6 +342,7 @@ export const usePlayStore = create<PlayState>((set, get) => ({
   },
   setConnected: (connected) => set({ connected }),
   setTerminal: (terminal) => set({ terminal }),
+  setThemeId: (themeId) => set({ themeId }),
   markEnded: () => set({ status: "ended" }),
   setMuted: (muted) => set({ muted }),
   clearSeCue: () => set({ seCue: null }),

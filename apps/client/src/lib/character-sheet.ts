@@ -1,6 +1,7 @@
 import { coc7e, type CharacterDetailDto } from "@cogm/shared";
 import { mediaUrl } from "@/lib/api";
-import { ATTR_LABELS, expressionLabel, initialsOf } from "@/lib/format";
+import { t } from "@/i18n";
+import { ATTR_KEYS, attrAbbr, attrLabel, expressionLabel, initialsOf } from "@/lib/format";
 
 export type CharacterKind = "PC" | "NPC";
 
@@ -43,8 +44,6 @@ export type CharacterRow = Pick<CharacterDetailDto, "id" | "name" | "kind" | "ru
   portraits?: CharacterDetailDto["portraits"];
 };
 
-const ATTR_ORDER = ["str", "con", "siz", "dex", "app", "int", "pow", "edu"] as const;
-
 function movement(str: number, dex: number, siz: number): number {
   if (str >= siz && dex >= siz) return 9;
   if (str >= siz || dex >= siz) return 8;
@@ -76,7 +75,7 @@ export function mapCharacterRow(row: CharacterRow): GameCharacter {
     kind: row.kind === "npc" ? "NPC" : "PC",
     meta: row.ruleId,
     portrait: mediaUrl(defaultPortrait?.portraitAssetId) ?? undefined,
-    expressions: portraits.length > 0 ? portraits.map((item) => expressionLabel(item.expressionKey)) : ["默认"],
+    expressions: portraits.length > 0 ? portraits.map((item) => expressionLabel(item.expressionKey)) : [t("expression.default")],
     portraits,
     derived: {
       hp: { current: hpMax, max: hpMax },
@@ -85,9 +84,9 @@ export function mapCharacterRow(row: CharacterRow): GameCharacter {
       luck: attributes?.luck ?? 0,
       mov: attributes ? movement(attributes.str, attributes.dex, attributes.siz) : 8,
     },
-    attributes: ATTR_ORDER.map((key) => ({
-      label: ATTR_LABELS[key]!.label,
-      abbr: ATTR_LABELS[key]!.abbr,
+    attributes: ATTR_KEYS.slice(0, 8).map((key) => ({
+      label: attrLabel(key),
+      abbr: attrAbbr(key),
       value: attributes?.[key] ?? 0,
     })),
     skills,

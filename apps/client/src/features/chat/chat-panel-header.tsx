@@ -5,6 +5,7 @@ import { CharacterSheetPanel } from "@/features/session-live/character-sheet-pan
 import { HandoutLibrary } from "@/features/session-live/handout-library";
 import { cn } from "@/lib/utils";
 import { usePlayStore } from "@/stores/play-store";
+import { t } from "@/i18n";
 
 function ChatPanelHeader({
   compact = false,
@@ -31,19 +32,19 @@ function ChatPanelHeader({
         compact ? "h-10 px-3" : "h-[52px] px-4",
       )}
     >
-      <h2 className={cn("text-foreground font-serif", compact ? "text-title-small-emph" : "text-title-medium-emph")}>文字频道</h2>
+      <h2 className={cn("text-foreground font-serif", compact ? "text-title-small-emph" : "text-title-medium-emph")}>{t("chat.title")}</h2>
       <div className="flex items-center gap-1">
-        <Button variant="tertiary" size="icon-sm" aria-label="人物卡" onClick={() => setSheetOpen(true)}>
+        <Button variant="tertiary" size="icon-sm" aria-label={t("chat.sheet")} onClick={() => setSheetOpen(true)}>
           <VenetianMask />
         </Button>
-        <Button variant="tertiary" size="icon-sm" aria-label="在线玩家" onClick={() => setPresenceOpen((value) => !value)}>
+        <Button variant="tertiary" size="icon-sm" aria-label={t("chat.presence")} onClick={() => setPresenceOpen((value) => !value)}>
           <Users />
         </Button>
-        <Button variant="tertiary" size="icon-sm" aria-label="情报" onClick={() => setHandoutsOpen(true)}>
+        <Button variant="tertiary" size="icon-sm" aria-label={t("chat.handouts")} onClick={() => setHandoutsOpen(true)}>
           <ScrollText />
         </Button>
         {onLeaveSeat ? (
-          <Button variant="tertiary" size="icon-sm" aria-label="离开座位" onClick={onLeaveSeat}>
+          <Button variant="tertiary" size="icon-sm" aria-label={t("chat.leaveSeat")} onClick={onLeaveSeat}>
             <LogOut />
           </Button>
         ) : null}
@@ -53,7 +54,7 @@ function ChatPanelHeader({
             variant="tertiary"
             size="icon-sm"
             onClick={onCollapse}
-            aria-label="收起文字频道"
+            aria-label={t("play.expandChat")}
             className="size-7"
           >
             <PanelRightClose />
@@ -62,12 +63,12 @@ function ChatPanelHeader({
       </div>
       {presenceOpen ? (
         <div className="bg-md-surface-container-high shadow-dropdown absolute top-full right-3 z-20 mt-1 w-56 rounded-xl p-3 text-body-small">
-          {presence.length === 0 ? "暂无在线列表" : presence.map((player) => {
+          {presence.length === 0 ? t("chat.noPresence") : presence.map((player) => {
             const claimed = characters.find((character) => character.characterId === player.characterId);
             return (
               <div key={player.playerId} className="flex justify-between py-1">
                 <span>{claimed?.name ?? player.playerId.slice(0, 8)}</span>
-                <span>{player.role === "ob" ? "OB" : "PC"}</span>
+                <span>{player.role === "ob" ? t("common.ob") : t("common.pc")}</span>
               </div>
             );
           })}

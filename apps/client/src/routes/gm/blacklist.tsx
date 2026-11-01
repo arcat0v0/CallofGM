@@ -19,7 +19,9 @@ import {
 } from "@/components/ui/table";
 import { AdminLayout } from "@/features/gm-admin/admin-layout";
 import { BanPlayerDialog } from "@/features/gm-admin/dialogs/ban-player-dialog";
-import { api, isApiError, unwrapItems } from "@/lib/api";
+import { api, unwrapItems } from "@/lib/api";
+import { errorText } from "@/lib/errors";
+import { t, useI18nVersion } from "@/i18n";
 import { requireGmAuth } from "@/lib/identity";
 import { cn } from "@/lib/utils";
 
@@ -40,6 +42,7 @@ type BlacklistEntry = {
   remainingMuted?: boolean;
   bannedAt: string;
   active: boolean;
+  permanent: boolean;
 };
 
 function formatStamp(epochMs: number): string {
@@ -53,20 +56,20 @@ function shortHash(hash: string): string {
 
 function mapEntry(row: BlacklistEntryDto, now: number): BlacklistEntry {
   const active = row.expiresAt === null || row.expiresAt > now;
-  let duration = "永久";
+  let duration = t("gm.blacklist.permanentLabel");
   let durationTone: DurationTone = "danger";
   let remaining = "—";
   if (row.expiresAt !== null) {
     durationTone = "warning";
     const ms = row.expiresAt - row.createdAt;
     const hours = Math.round(ms / 3600_000);
-    duration = hours >= 24 ? `${Math.round(hours / 24)} 天` : `${Math.max(1, hours)} 小时`;
+    duration = hours >= 24 ? t("gm.blacklist.days", { count: Math.round(hours / 24) }) : t("gm.blacklist.hours", { count: Math.max(1, hours) });
     if (!active) {
-      remaining = "已解封";
+      remaining = t("gm.blacklist.unbanned");
     } else {
       const left = row.expiresAt - now;
       const leftHours = Math.max(1, Math.round(left / 3600_000));
-      remaining = leftHours >= 24 ? `剩 ${Math.round(leftHours / 24)} 天` : `剩 ${leftHours} 小时`;
+      remaining = leftHours >= 24 ? t("gm.blacklist.remainingDays", { count: Math.round(leftHours / 24) }) : t("gm.blacklist.remainingHours", { count: leftHours });
     }
   }
   return {
@@ -75,14 +78,16 @@ function mapEntry(row: BlacklistEntryDto, now: number): BlacklistEntry {
     note: row.reason || "—",
     duration,
     durationTone: active ? durationTone : "default",
-    remaining: active ? remaining : "已解封",
+    remaining: active ? remaining : t("gm.blacklist.unbanned"),
     remainingMuted: !active,
     bannedAt: formatStamp(row.createdAt),
     active,
+    permanent: row.expiresAt === null,
   };
 }
 
 function BlacklistPage() {
+  useI18nVersion();
   const [banOpen, setBanOpen] = useState(false);
   const [unbanTarget, setUnbanTarget] = useState<BlacklistEntry | null>(null);
   const [rows, setRows] = useState<BlacklistEntryDto[]>([]);
@@ -93,7 +98,7 @@ function BlacklistPage() {
       const data = await api<unknown>("/gm/blacklist");
       setRows(unwrapItems<BlacklistEntryDto>(data));
     } catch (error) {
-      toast.error(isApiError(error) ? error.message : "无法加载黑名单");
+      toast.error(errorText(error, "gm.blacklist.loadFailed"));
     }
   }
 
@@ -112,14 +117,14 @@ function BlacklistPage() {
   }, [rows, query]);
 
   const activeCount = entries.filter((entry) => entry.active).length;
-  const permanentCount = entries.filter((entry) => entry.active && entry.duration === "永久").length;
+  const permanentCount = entries.filter((entry) => entry.active && entry.permanent).length;
 
   return (
     <AdminLayout active="blacklist">
       <div className="flex h-full flex-col gap-5">
         <PageHeader
-          title="黑名单"
-          description="基于浏览器指纹的尽力封禁 · HTTP 与 WS 握手时校验 · 指纹不保证绝对可靠"
+          title={t("gm.blacklist.title")}
+          description={t("gm.blacklist.description")}
           actions={
             <>
               <InputGroup className="h-9 w-[220px] rounded-md border-separator-secondary">
@@ -129,35 +134,35 @@ function BlacklistPage() {
                 <InputGroupInput
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
-                  placeholder="搜索指纹 / 备注…"
-                  aria-label="搜索黑名单"
+                  placeholder={t("gm.blacklist.searchPlaceholder")}
+                  aria-label={t("gm.blacklist.searchAria")}
                   className="text-label-large"
                 />
               </InputGroup>
               <Button variant="dangerSoft" className="h-12 px-6" onClick={() => setBanOpen(true)}>
                 <UserX />
-                手动拉黑
+                {t("gm.blacklist.manualBan")}
               </Button>
             </>
           }
         />
 
         <div className="animate-in fade-in slide-in-from-bottom-4 flex gap-3.5 duration-500 ease-standard-default-spatial">
-          <MetricCard icon={ShieldBan} value={String(activeCount)} label="生效中封禁" tone="error" />
-          <MetricCard icon={ShieldX} value={String(permanentCount)} label="永久封禁" tone="tertiary" />
-          <MetricCard icon={Timer} value={String(rows.length)} label="全部记录" tone="secondary" />
+          <MetricCard icon={ShieldBan} value={String(activeCount)} label={t("gm.blacklist.active")} tone="error" />
+          <MetricCard icon={ShieldX} value={String(permanentCount)} label={t("gm.blacklist.permanent")} tone="tertiary" />
+          <MetricCard icon={Timer} value={String(rows.length)} label={t("gm.blacklist.all")} tone="secondary" />
         </div>
 
         <div className="animate-in fade-in slide-in-from-bottom-4 overflow-hidden rounded-2xl bg-md-surface-container delay-75 duration-500 ease-standard-default-spatial">
         <Table className="table-fixed">
           <TableHeader>
             <TableRow>
-              <TableHead className="w-58">指纹</TableHead>
-              <TableHead>备注 / 曾用名</TableHead>
-              <TableHead className="w-30">封禁时长</TableHead>
-              <TableHead className="w-32">剩余</TableHead>
-              <TableHead className="w-30">封禁时间</TableHead>
-              <TableHead className="w-28">操作</TableHead>
+              <TableHead className="w-58">{t("gm.blacklist.fingerprint")}</TableHead>
+              <TableHead>{t("gm.blacklist.note")}</TableHead>
+              <TableHead className="w-30">{t("gm.blacklist.duration")}</TableHead>
+              <TableHead className="w-32">{t("gm.blacklist.remaining")}</TableHead>
+              <TableHead className="w-30">{t("gm.blacklist.bannedAt")}</TableHead>
+              <TableHead className="w-28">{t("gm.blacklist.actions")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -189,7 +194,7 @@ function BlacklistPage() {
                     className="h-7 px-3"
                     onClick={() => setUnbanTarget(entry)}
                   >
-                    解封
+                    {t("gm.blacklist.unban")}
                   </Button>
                 ) : (
                   <Button
@@ -198,7 +203,7 @@ function BlacklistPage() {
                     className="h-7 px-3"
                     onClick={() => setBanOpen(true)}
                   >
-                    再次封禁
+                    {t("gm.blacklist.reban")}
                   </Button>
                 )}
                 </TableCell>
@@ -224,7 +229,7 @@ function BlacklistPage() {
             });
             await reload();
           } catch (error) {
-            toast.error(isApiError(error) ? error.message : "拉黑失败");
+            toast.error(errorText(error, "gm.blacklist.banFailed"));
             throw error;
           }
         }}
@@ -233,9 +238,9 @@ function BlacklistPage() {
         open={unbanTarget !== null}
         onOpenChange={(open) => !open && setUnbanTarget(null)}
         icon={ShieldOff}
-        title="解除封禁"
-        description={`确认将指纹 ${unbanTarget?.fingerprint ?? ""} 从黑名单移除？该指纹将可重新加入团。`}
-        confirmLabel="解封"
+        title={t("gm.blacklist.unbanTitle")}
+        description={t("gm.blacklist.unbanDescription", { fingerprint: unbanTarget?.fingerprint ?? "" })}
+        confirmLabel={t("gm.blacklist.unbanConfirm")}
         confirmIcon={ShieldOff}
         variant="warning"
         onConfirm={() => {
@@ -249,7 +254,7 @@ function BlacklistPage() {
             body: JSON.stringify({ fingerprintHash: target.fingerprintHash }),
           })
             .then(() => reload())
-            .catch((error) => toast.error(isApiError(error) ? error.message : "解封失败"));
+            .catch((error) => toast.error(errorText(error, "gm.blacklist.unbanFailed")));
         }}
       />
     </AdminLayout>

@@ -47,6 +47,7 @@ export const SessionSnapshotPayload = z.object({
     id: z.string(),
     moduleId: z.string(),
     moduleName: z.string(),
+    themeId: z.string().nullable(),
     status: SessionStatus,
     phase: SessionPhase,
     currentSceneId: z.string().nullable(),

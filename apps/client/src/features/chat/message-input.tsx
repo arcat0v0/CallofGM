@@ -2,6 +2,7 @@ import { Send } from "lucide-react";
 import type * as React from "react";
 import { Button } from "@/components/ui/button";
 import { InputGroup, InputGroupInput } from "@/components/ui/input-group";
+import { t } from "@/i18n";
 
 function MessageInput({
   placeholder,
@@ -37,7 +38,7 @@ function MessageInput({
         type="submit"
         variant="primary"
         size="icon-md"
-        aria-label="发送消息"
+        aria-label={t("chat.send")}
         disabled={disabled}
       >
         <Send />

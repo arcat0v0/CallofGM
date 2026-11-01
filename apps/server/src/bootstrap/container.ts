@@ -4,6 +4,7 @@ import { DrizzleTransactionRunner, type TransactionRunner } from "@/platform/db/
 import { SystemClock, UuidGenerator, SecureRandomSource, type Clock, type IdGenerator, type RandomSource } from "@/platform/ports";
 import { StartupService } from "./startup";
 import { RuleRegistry } from "@/rules/registry";
+import { ThemeRegistry } from "@/modules/themes";
 import { Coc7eRuleSystem } from "@/rules/coc7e";
 import {
   ConnectionRegistry,
@@ -25,6 +26,7 @@ export class Container {
   readonly randomSource: RandomSource;
   readonly startupService: StartupService;
   readonly ruleRegistry: RuleRegistry;
+  readonly themeRegistry: ThemeRegistry;
 
   readonly connectionRegistry: ConnectionRegistry;
   readonly eventRingBuffer: EventRingBuffer;
@@ -48,6 +50,7 @@ export class Container {
 
     this.ruleRegistry = new RuleRegistry();
     this.ruleRegistry.register(new Coc7eRuleSystem());
+    this.themeRegistry = new ThemeRegistry(this.env.THEMES_DIR, this.clock);
 
     this.connectionRegistry = new ConnectionRegistry(this.db);
     this.eventRingBuffer = new EventRingBuffer();

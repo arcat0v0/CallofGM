@@ -8,6 +8,7 @@ type ChatMessage = {
   time: string;
   body: string;
   tone?: "ic" | "ooc";
+  isSystem?: boolean;
 };
 
 export type { ChatMessage };

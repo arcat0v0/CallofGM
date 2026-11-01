@@ -81,7 +81,7 @@ export class BuildSessionSnapshotUseCase {
     }
 
     const moduleRows = await this.db
-      .select({ ruleId: modules.ruleId, name: modules.name })
+      .select({ ruleId: modules.ruleId, name: modules.name, themeId: modules.themeId })
       .from(modules)
       .where(eq(modules.id, session.moduleId));
     const ruleId = (moduleRows[0]?.ruleId ?? "coc7e") as RuleId;
@@ -114,6 +114,7 @@ export class BuildSessionSnapshotUseCase {
         id: session.id,
         moduleId: session.moduleId,
         moduleName,
+        themeId: moduleRows[0]?.themeId ?? null,
         status: session.status as SessionSnapshotPayload["session"]["status"],
         phase: session.phase as SessionSnapshotPayload["session"]["phase"],
         currentSceneId: session.currentSceneId ?? null,

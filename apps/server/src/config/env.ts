@@ -7,6 +7,7 @@ const EnvSchema = z.object({
   DATABASE_URL: z.string().default("data/db.sqlite"),
   /** 上传媒体根目录 */
   MEDIA_DIR: z.string().default("data/media"),
+  THEMES_DIR: z.string().default("data/themes"),
   /** 逗号分隔的 CORS 来源；生产未配置时仅允许同源 */
   CORS_ORIGINS: z.string().optional(),
   /** 为 true 时才信任 X-Forwarded-For */

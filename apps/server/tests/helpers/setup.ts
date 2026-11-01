@@ -1,9 +1,15 @@
 import { Elysia } from "elysia";
+import { mkdtemp } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { Container } from "@/bootstrap/container";
 import { createIdentityRoutes } from "@/modules/identity/transport/routes";
 import { createSessionsRoutes } from "@/modules/sessions/transport/routes";
 import { createCharactersRoutes } from "@/modules/characters/transport/routes";
 import { createMediaRoutes } from "@/modules/media";
+import { createCatalogRoutes } from "@/modules/catalog/transport/routes";
+import { createThemeRoutes } from "@/modules/themes";
+import { createUiSettingsRoutes } from "@/modules/ui-settings";
 import { routes as realtimeRoutes } from "@/modules/realtime";
 import type { CommandHandler } from "@/modules/realtime";
 import { buildCommandHandlers } from "@/bootstrap/handlers";
@@ -147,6 +153,7 @@ export interface TestContext {
   sessionId: string;
   playerTokens: Map<string, string>;
   playerIds: Map<string, string>;
+  themesDir: string;
 }
 
 export interface TestSetupOptions {
@@ -162,6 +169,7 @@ export interface TestSetupOptions {
   }>;
   claims?: Array<{ player: string; role: "pc" | "ob"; characterId?: string }>;
   players?: string[];
+  themesDir?: string;
 }
 
 /** 脚本化随机源：按队列吐出值，队列空后循环最后一个值（适合长流程测试） */
@@ -193,6 +201,8 @@ export async function setupTestApp(options: TestSetupOptions = {}): Promise<Test
   resetHttpLimits();
   const gmPassword = options.gmPassword ?? "test-gm-password";
   process.env.DATABASE_URL = ":memory:";
+  const themesDir = options.themesDir ?? (await mkdtemp(join(tmpdir(), "cogm-themes-")));
+  process.env.THEMES_DIR = themesDir;
 
   const container = new Container([], { randomSource: options.randomSource });
   await container.startupService.startup();
@@ -206,7 +216,7 @@ export async function setupTestApp(options: TestSetupOptions = {}): Promise<Test
     .onError(({ error, code, set }) => {
       if (error instanceof AppError) {
         set.status = error.statusCode;
-        return { code: error.code, message: error.message };
+        return { code: error.code, message: error.message, metadata: error.metadata };
       }
       if (code === "VALIDATION") {
         set.status = 400;
@@ -219,6 +229,9 @@ export async function setupTestApp(options: TestSetupOptions = {}): Promise<Test
     .use(createSessionsRoutes(container))
     .use(createCharactersRoutes(container))
     .use(createMediaRoutes(container))
+    .use(createCatalogRoutes(container))
+    .use(createThemeRoutes(container))
+    .use(createUiSettingsRoutes(container))
     .use(realtimeRoutes(container));
 
   const loginRes = await app.handle(
@@ -322,7 +335,7 @@ export async function setupTestApp(options: TestSetupOptions = {}): Promise<Test
     });
   }
 
-  return { container, app, gmToken, sessionId, playerTokens, playerIds };
+  return { container, app, gmToken, sessionId, playerTokens, playerIds, themesDir };
 }
 
 /** 将团推进到 active 并切换到指定阶段 */

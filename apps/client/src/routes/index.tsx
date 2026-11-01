@@ -4,12 +4,14 @@ import { useState } from "react";
 import { Logo } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
+import { t, useI18nVersion } from "@/i18n";
 
 export const Route = createFileRoute("/")({
   component: HomePage,
 });
 
 function HomePage() {
+  useI18nVersion();
   const [code, setCode] = useState("");
   const navigate = useNavigate();
 
@@ -37,8 +39,8 @@ function HomePage() {
 
       <div className="animate-in fade-in slide-in-from-bottom-4 ease-expressive-default-spatial flex flex-col items-center gap-4 duration-500">
         <Logo className="size-16" />
-        <h1 className="text-foreground font-serif text-display-large-emph">CoGM</h1>
-        <p className="text-md-on-surface-variant text-title-medium tracking-[2px]">主持人的呼唤</p>
+        <h1 className="text-foreground font-serif text-display-large-emph">{t("app.name")}</h1>
+        <p className="text-md-on-surface-variant text-title-medium tracking-[2px]">{t("app.subtitle")}</p>
       </div>
 
       <form
@@ -52,12 +54,12 @@ function HomePage() {
           <InputGroupInput
             value={code}
             onChange={(event) => setCode(event.target.value)}
-            aria-label="团链接或编号"
-            placeholder="输入团链接或编号…"
+            aria-label={t("home.codeLabel")}
+            placeholder={t("home.codePlaceholder")}
           />
         </InputGroup>
         <Button type="submit" variant="primary" className="h-14 shrink-0 px-8">
-          进入
+          {t("home.enter")}
         </Button>
       </form>
 
@@ -69,7 +71,7 @@ function HomePage() {
       >
         <Link to="/gm/login">
           <KeyRound className="text-foreground-tertiary" />
-          主持人入口
+          {t("home.gmEntry")}
         </Link>
       </Button>
     </main>

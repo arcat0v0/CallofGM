@@ -46,12 +46,14 @@ export class CreateModuleUseCase {
     name: string;
     description: string;
     ruleId: string;
+    themeId?: string | null;
   }): Promise<CatalogModule> {
     const module: CatalogModule = {
       id: this.idGenerator.nextId(),
       name: input.name,
       description: input.description,
       ruleId: input.ruleId,
+      themeId: input.themeId ?? null,
       createdAt: this.clock.nowEpochMs()
     };
     await this.repo.saveModule(module);

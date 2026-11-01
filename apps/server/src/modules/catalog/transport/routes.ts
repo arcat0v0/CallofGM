@@ -3,6 +3,7 @@ import { type Container } from "@/bootstrap/container";
 import { DrizzleCatalogRepository } from "../infrastructure/drizzle-catalog-repository";
 import { DrizzleIdentityRepository, createAuthPlugin, AuthRequiredError } from "@/modules/identity";
 import { validationFailed } from "@/platform/errors/validation";
+import { ThemeNotFoundError } from "@/modules/themes";
 import {
   CreateModuleRequest,
   UpdateModuleRequest,
@@ -55,6 +56,16 @@ function parseBody<T>(schema: { safeParse: (data: unknown) => { success: true; d
   return parsed.data;
 }
 
+async function requireTheme(container: Container, themeId: string | null | undefined): Promise<void> {
+  if (!themeId) {
+    return;
+  }
+  await container.themeRegistry.ready();
+  if (!container.themeRegistry.has(themeId)) {
+    throw new ThemeNotFoundError();
+  }
+}
+
 export function createCatalogRoutes(container: Container) {
   const repo = new DrizzleCatalogRepository(container.db);
   const identityRepo = new DrizzleIdentityRepository(container.db);
@@ -89,7 +100,9 @@ export function createCatalogRoutes(container: Container) {
       }
     })
     .post("/", async ({ body }) => {
-      return ModuleDto.parse(await createModule.execute(parseBody(CreateModuleRequest, body)));
+      const parsed = parseBody(CreateModuleRequest, body);
+      await requireTheme(container, parsed.themeId);
+      return ModuleDto.parse(await createModule.execute(parsed));
     })
     .get("/", async ({ query }) => {
       return CursorPageResponse(ModuleDto).parse(await listModules.execute(parsePageQuery(query)));
@@ -98,7 +111,9 @@ export function createCatalogRoutes(container: Container) {
       return ModuleDto.parse(await getModule.execute(params.id));
     })
     .patch("/:id", async ({ params, body }) => {
-      return ModuleDto.parse(await updateModule.execute(params.id, parseBody(UpdateModuleRequest, body)));
+      const parsed = parseBody(UpdateModuleRequest, body);
+      await requireTheme(container, parsed.themeId);
+      return ModuleDto.parse(await updateModule.execute(params.id, parsed));
     })
     .delete("/:id", async ({ params }) => {
       await deleteModule.execute(params.id);
