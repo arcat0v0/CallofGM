@@ -18,17 +18,38 @@ function MobilePortraitScene() {
   const localVolume = usePlayStore((state) => state.localVolume);
   const setLocalVolume = usePlayStore((state) => state.setLocalVolume);
   const messages = usePlayStore((state) => state.messages);
-  const latest = [...messages].reverse().find((message) => message.tone !== "ooc");
+  const latest = [...messages]
+    .reverse()
+    .find((message) => message.tone !== "ooc");
   const sceneSrc = mediaUrl(scene?.bgAssetId) ?? undefined;
 
   return (
-    <div className="relative h-[clamp(320px,46dvh,420px)] w-full shrink-0 overflow-hidden bg-background">
+    <div className="relative h-[clamp(340px,48dvh,440px)] w-full shrink-0 overflow-hidden bg-background">
       <SceneBackdrop src={sceneSrc} alt={scene?.name ?? "当前场景"} />
       <div className="absolute inset-x-0 top-0 h-24 bg-linear-to-b from-stage-scrim-strong to-transparent" />
 
-      <div className="absolute inset-x-0 top-0 flex h-[52px] items-center justify-between gap-2 px-3.5">
-        <div className="flex min-w-0 flex-1 items-center gap-1.5">
-          <span className="text-foreground truncate font-serif text-title-large-emph">{scene?.name ?? "团"}</span>
+      <div className="absolute inset-x-0 top-0 flex flex-col gap-1 px-3.5 pt-2">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-foreground min-w-0 flex-1 truncate font-serif text-title-large-emph">
+            {scene?.name ?? "团"}
+          </span>
+          <Button
+            type="button"
+            variant="tertiary"
+            size="icon-sm"
+            aria-label={muted ? "取消静音" : "本地静音"}
+            className="bg-md-surface-container-high/80 shrink-0 backdrop-blur"
+            onClick={() => setMuted(!muted)}
+          >
+            {muted ? (
+              <VolumeX className="size-4" />
+            ) : (
+              <Volume2 className="size-4" />
+            )}
+          </Button>
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-1.5 overflow-hidden">
           {status ? (
             <Badge variant="soft" tone="success" size="sm">
               {SessionStatusLabel[status]}
@@ -40,20 +61,15 @@ function MobilePortraitScene() {
             </Badge>
           ) : null}
         </div>
-        <LocalVolumeControl value={localVolume} onChange={setLocalVolume} compact />
-        <Button
-          type="button"
-          variant="tertiary"
-          size="icon-sm"
-          aria-label={muted ? "取消静音" : "本地静音"}
-          className="bg-md-surface-container-high/80 backdrop-blur"
-          onClick={() => setMuted(!muted)}
-        >
-          {muted ? <VolumeX className="size-4" /> : <Volume2 className="size-4" />}
-        </Button>
+          <LocalVolumeControl
+            value={localVolume}
+            onChange={setLocalVolume}
+            compact
+          />
+        </div>
       </div>
 
-      <PortraitLayer compact className="top-[52px] bottom-[88px]" />
+      <PortraitLayer compact className="top-[78px] bottom-[88px]" />
 
       {latest ? (
         <DialogueBox

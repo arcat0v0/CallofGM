@@ -77,12 +77,32 @@ function PortraitLayer({ className, compact = false }: { className?: string; com
               />
             ) : (
               <div
+                role="img"
+                aria-label={`${character.name} · 立绘待上传`}
                 className={cn(
-                  "bg-stage-panel text-foreground flex shrink-0 items-center justify-center rounded-t-full rounded-b-xl",
-                  compact ? "min-h-0 max-h-full w-14 flex-1 text-body-medium" : "h-40 w-28 text-title-medium",
+                  "bg-stage-panel relative flex shrink-0 flex-col items-center justify-end overflow-hidden rounded-t-full rounded-b-xl",
+                  compact ? "min-h-0 max-h-full w-20 flex-1" : "h-[48vh] max-h-[520px] w-40",
                 )}
               >
-                {character.name.slice(-1)}
+                <span
+                  aria-hidden
+                  className="bg-md-on-surface/15 absolute bottom-0 left-1/2 h-[52%] w-[64%] -translate-x-1/2 rounded-t-full"
+                />
+                <span
+                  aria-hidden
+                  className="bg-md-on-surface/15 absolute bottom-[44%] left-1/2 size-[28%] -translate-x-1/2 rounded-full"
+                />
+                <span
+                  className={cn(
+                    "text-md-on-surface/85 relative font-serif",
+                    compact ? "mb-1 text-title-medium-emph" : "mb-2 text-headline-small-emph",
+                  )}
+                >
+                  {character.name.slice(0, 1)}
+                </span>
+                <span className={cn("text-md-on-surface-variant relative mb-2 text-label-small", compact && "mb-1")}>
+                  立绘待上传
+                </span>
               </div>
             )}
             <div

@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
 import type { GrantedHandoutDto } from "@cogm/shared";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -42,13 +42,27 @@ export function HandoutPrompt({ handouts }: { handouts: GrantedHandoutDto[] }) {
 
   return (
     <Dialog open={dialog.open} onOpenChange={(next) => !next && dismiss()}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="flex max-h-[calc(100dvh-2rem)] max-w-lg flex-col">
         <DialogHeader>
           <DialogTitle>{newest.handout.title}</DialogTitle>
-          <DialogDescription>{newest.isPublic ? "公开情报" : "秘密情报"}</DialogDescription>
+          <DialogDescription>
+            {newest.isPublic ? "公开情报" : "秘密情报"}
+          </DialogDescription>
         </DialogHeader>
-        {image ? <img src={image} alt="" className="max-h-64 w-full rounded-lg object-contain" /> : null}
-        <p className="text-md-on-surface text-body-large whitespace-pre-wrap">{newest.handout.content}</p>
+        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
+          {image ? (
+            <div className="bg-md-surface-container-high aspect-video w-full overflow-hidden rounded-lg">
+              <img
+                src={image}
+                alt={`${newest.handout.title} 配图`}
+                className="size-full object-contain"
+              />
+            </div>
+          ) : null}
+          <p className="text-md-on-surface text-body-large whitespace-pre-wrap">
+            {newest.handout.content}
+          </p>
+        </div>
         <Button type="button" variant="primary" onClick={dismiss}>
           收下
         </Button>
