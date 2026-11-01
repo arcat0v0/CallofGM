@@ -2,11 +2,14 @@ import { create } from "zustand";
 import { toast } from "sonner";
 import {
   coc7e,
+  HISTORY_DEFAULT_LIMIT,
+  HistoryPageReply,
   type BgmState,
   type CatalogHandoutDto,
   type ChatMessageDto,
   type CheckRequestDto,
   type GrantedHandoutDto,
+  type HistoryPage,
   type OnlinePlayerDto,
   type SceneDto,
   type SePlayedEvent,
@@ -19,9 +22,10 @@ import {
   type TrackDto,
 } from "@cogm/shared";
 import type { ChatMessage } from "@/features/chat/types";
-import { mapActivityEvent, mapChatMessage } from "@/lib/chat-map";
+import { mapActivityEvent, mapChatMessage, mapHistoryItem, resolveActivityPayload } from "@/lib/chat-map";
 import { errorCopy } from "@/lib/error-copy";
 import { formatClock, initialsOf } from "@/lib/format";
+import { sendSessionCommand } from "@/lib/session-socket";
 
 export type ConnectionTerminal = "kicked" | "unavailable";
 
@@ -51,6 +55,11 @@ type PlayState = {
   connected: boolean;
   terminal: ConnectionTerminal | null;
   lastRejection: { commandId: string; message: string } | null;
+  historyBeforeEventId: number | null;
+  historyHasMore: boolean;
+  historyLoading: boolean;
+  historyCommandId: string | null;
+  historyPagesLoaded: number;
   applySnapshot: (payload: SessionSnapshotPayload, watermark: number) => void;
   applyMessage: (message: ServerMessage) => void;
   setCatalog: (input: { scenes?: SceneDto[]; tracks?: TrackDto[]; handouts?: CatalogHandoutDto[] }) => void;
@@ -59,6 +68,7 @@ type PlayState = {
   markEnded: () => void;
   setMuted: (muted: boolean) => void;
   clearSeCue: () => void;
+  loadOlderHistory: () => void;
   reset: () => void;
 };
 
@@ -88,6 +98,11 @@ const empty = {
   connected: false,
   terminal: null as ConnectionTerminal | null,
   lastRejection: null as { commandId: string; message: string } | null,
+  historyBeforeEventId: null as number | null,
+  historyHasMore: false,
+  historyLoading: false,
+  historyCommandId: null as string | null,
+  historyPagesLoaded: 0,
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -99,6 +114,28 @@ function appendMessage(messages: ChatMessage[], next: ChatMessage | null): ChatM
     return messages;
   }
   return [...messages, next];
+}
+
+function mergeMessages(current: ChatMessage[], incoming: ChatMessage[]): ChatMessage[] {
+  if (incoming.length === 0) {
+    return current;
+  }
+  const byId = new Map<string, ChatMessage>();
+  for (const message of current) {
+    byId.set(message.id, message);
+  }
+  for (const message of incoming) {
+    if (!byId.has(message.id)) {
+      byId.set(message.id, message);
+    }
+  }
+  return [...byId.values()].sort((a, b) => a.sortKey - b.sortKey);
+}
+
+function mapHistoryItems(items: HistoryPage["items"], characters: SnapshotCharacter[]): ChatMessage[] {
+  return items
+    .map((item) => mapHistoryItem(item, characters))
+    .filter((message): message is ChatMessage => message !== null);
 }
 
 function applyEvent(state: PlayState, type: string, payload: unknown, eventId?: number, occurredAt?: number): Partial<PlayState> {
@@ -124,13 +161,7 @@ function applyEvent(state: PlayState, type: string, payload: unknown, eventId?: 
     }
     case "dice:rolled":
     case "check:resolved": {
-      let activityPayload: Record<string, unknown> = payload;
-      if (type === "dice:rolled" && payload.rollerType === "player" && typeof payload.rollerId === "string" && !payload.characterName) {
-        const roller = state.characters.find((character) => character.claim?.playerId === payload.rollerId);
-        if (roller) {
-          activityPayload = { ...payload, characterName: roller.name };
-        }
-      }
+      const activityPayload = resolveActivityPayload(type, payload, state.characters);
       const next = mapActivityEvent(type, activityPayload, eventId ?? Date.now(), occurredAt);
       const patch: Partial<PlayState> = { messages: appendMessage(state.messages, next) };
       if (type === "check:resolved") {
@@ -244,16 +275,7 @@ function applyEvent(state: PlayState, type: string, payload: unknown, eventId?: 
 export const usePlayStore = create<PlayState>((set, get) => ({
   ...empty,
   applySnapshot: (payload, watermark) => {
-    const fromEvents = payload.recentEvents
-      .map((event) => mapActivityEvent(event.type, event.payload, event.eventId, event.occurredAt))
-      .filter((message): message is ChatMessage => message !== null);
-    const fromChat = payload.recentMessages.map(mapChatMessage);
-    const merged: ChatMessage[] = [];
-    for (const message of [...fromChat, ...fromEvents]) {
-      if (!merged.some((item) => item.id === message.id)) {
-        merged.push(message);
-      }
-    }
+    const merged = mergeMessages([], mapHistoryItems(payload.recentHistory, payload.characters));
     set({
       sessionId: payload.session.id,
       moduleId: payload.session.moduleId,
@@ -273,6 +295,11 @@ export const usePlayStore = create<PlayState>((set, get) => ({
       pendingChecks: payload.pendingCheckRequests,
       connected: true,
       terminal: null,
+      historyBeforeEventId: payload.history.beforeEventId,
+      historyHasMore: payload.history.hasMore,
+      historyLoading: false,
+      historyCommandId: null,
+      historyPagesLoaded: 0,
     });
   },
   applyMessage: (message) => {
@@ -282,11 +309,32 @@ export const usePlayStore = create<PlayState>((set, get) => ({
     }
     if ("type" in message && (message.type === "command:accepted" || message.type === "command:rejected")) {
       const payload = isRecord(message.payload) ? message.payload : {};
+      const commandId = "commandId" in message && typeof message.commandId === "string" ? message.commandId : "";
       if (message.type === "command:rejected") {
         const errorMsg = errorCopy({ code: typeof payload.code === "string" ? payload.code : null });
         toast.error(errorMsg);
-        const cmdId = "commandId" in message && typeof message.commandId === "string" ? message.commandId : "";
-        set({ lastRejection: { commandId: cmdId, message: errorMsg } });
+        set({
+          lastRejection: { commandId, message: errorMsg },
+          ...(commandId === get().historyCommandId ? { historyLoading: false, historyCommandId: null } : {}),
+        });
+        return;
+      }
+      const historyReply = HistoryPageReply.safeParse(message.payload);
+      if (historyReply.success) {
+        set((state) => {
+          if (commandId !== state.historyCommandId) {
+            return {};
+          }
+          const page = historyReply.data.history;
+          return {
+            messages: mergeMessages(state.messages, mapHistoryItems(page.items, state.characters)),
+            historyBeforeEventId: page.beforeEventId,
+            historyHasMore: page.hasMore,
+            historyLoading: false,
+            historyCommandId: null,
+            historyPagesLoaded: state.historyPagesLoaded + 1,
+          };
+        });
         return;
       }
       const requestId = typeof payload.requestId === "string" ? payload.requestId : null;
@@ -304,6 +352,7 @@ export const usePlayStore = create<PlayState>((set, get) => ({
           if (hiddenRolled) {
             patch.messages = appendMessage(state.messages, {
               id: `check-ack-${requestId}`,
+              sortKey: state.lastEventId,
               speakerName: skillKey,
               speakerRoleLabel: "鉴定",
               avatarInitials: initialsOf(skillKey),
@@ -339,6 +388,21 @@ export const usePlayStore = create<PlayState>((set, get) => ({
     if ("type" in message && message.type === "audio:se") {
       set((state) => applyEvent(state, "audio:se", message.payload));
     }
+  },
+  loadOlderHistory: () => {
+    const state = get();
+    if (state.historyLoading || !state.historyHasMore) {
+      return;
+    }
+    const commandId = sendSessionCommand("history:page", {
+      beforeEventId: state.historyBeforeEventId ?? undefined,
+      limit: HISTORY_DEFAULT_LIMIT,
+    });
+    if (!commandId) {
+      toast.error("尚未连接到团");
+      return;
+    }
+    set({ historyLoading: true, historyCommandId: commandId });
   },
   setCatalog: (input) => {
     set((state) => ({

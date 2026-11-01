@@ -29,6 +29,10 @@ function ChatArea({ variant, onCollapse, className }: ChatAreaProps) {
   const characters = usePlayStore((state) => state.characters);
   const playerId = useIdentityStore((state) => state.playerId);
   const seatRole = usePlayStore((state) => state.viewer.seatRole);
+  const historyHasMore = usePlayStore((state) => state.historyHasMore);
+  const historyLoading = usePlayStore((state) => state.historyLoading);
+  const historyPagesLoaded = usePlayStore((state) => state.historyPagesLoaded);
+  const loadOlderHistory = usePlayStore((state) => state.loadOlderHistory);
   const claimed = characters.find((character) => character.claim?.playerId === playerId && character.claim.role === "pc");
   const isOb = seatRole === "ob";
   const selfName = claimed?.name ?? (isOb ? "观战" : "玩家");
@@ -77,6 +81,10 @@ function ChatArea({ variant, onCollapse, className }: ChatAreaProps) {
       <MessageList
         messages={visible}
         selfName={selfName}
+        onLoadOlder={loadOlderHistory}
+        hasOlderHistory={historyHasMore}
+        loadingOlder={historyLoading}
+        olderLoads={historyPagesLoaded}
         className={cn("min-h-0 flex-1 overflow-y-auto", variant === "desktop" ? "px-4 py-1.5" : "px-3 py-2")}
       />
 

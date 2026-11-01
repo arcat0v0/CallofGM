@@ -62,10 +62,12 @@ export class SessionCommandExecutor {
       }
 
       const reply = await this.processCommand(sessionId, actor, command, connectionId);
-      if (reply.type === "command:accepted") {
-        this.cacheReply(sessionId, command.commandId, reply);
-      } else if ((reply.payload as { code?: string })?.code !== "INTERNAL_SERVER_ERROR") {
-        this.cacheReply(sessionId, command.commandId, reply);
+      if (this.handlers.get(command.type)?.transientReply !== true) {
+        if (reply.type === "command:accepted") {
+          this.cacheReply(sessionId, command.commandId, reply);
+        } else if ((reply.payload as { code?: string })?.code !== "INTERNAL_SERVER_ERROR") {
+          this.cacheReply(sessionId, command.commandId, reply);
+        }
       }
       return reply;
     });

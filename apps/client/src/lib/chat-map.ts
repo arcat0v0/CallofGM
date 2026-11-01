@@ -1,4 +1,4 @@
-import { coc7e, type ChatMessageDto } from "@cogm/shared";
+import { coc7e, type ChatMessageDto, type HistoryItem, type SnapshotCharacter } from "@cogm/shared";
 import type { ChatMessage } from "@/features/chat/types";
 import { formatClock, initialsOf } from "@/lib/format";
 
@@ -7,6 +7,7 @@ export function mapChatMessage(dto: ChatMessageDto): ChatMessage {
   const speakerName = isGm ? "KP" : (dto.characterName ?? "玩家");
   return {
     id: dto.id,
+    sortKey: dto.eventId ?? dto.createdAt,
     speakerName,
     speakerRoleLabel: isGm ? "主持人" : dto.channel === "ooc" ? "场外" : "PC",
     avatarInitials: isGm ? "KP" : initialsOf(speakerName),
@@ -20,6 +21,21 @@ export function mapChatMessage(dto: ChatMessageDto): ChatMessage {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+export function resolveActivityPayload(
+  type: string,
+  payload: Record<string, unknown>,
+  characters: SnapshotCharacter[],
+): Record<string, unknown> {
+  if (type !== "dice:rolled" || payload.rollerType !== "player") {
+    return payload;
+  }
+  if (typeof payload.rollerId !== "string" || payload.characterName) {
+    return payload;
+  }
+  const roller = characters.find((character) => character.claim?.playerId === payload.rollerId);
+  return roller ? { ...payload, characterName: roller.name } : payload;
 }
 
 export function mapActivityEvent(type: string, payload: unknown, eventId: number, occurredAt?: number): ChatMessage | null {
@@ -37,6 +53,7 @@ export function mapActivityEvent(type: string, payload: unknown, eventId: number
     const hidden = payload.hidden === true ? "（暗骰）" : "";
     return {
       id: `dice-${eventId}`,
+      sortKey: eventId,
       speakerName: name,
       speakerRoleLabel: "骰点",
       avatarInitials: initialsOf(name),
@@ -60,6 +77,7 @@ export function mapActivityEvent(type: string, payload: unknown, eventId: number
       const ok = result.success === true ? "成功" : "失败";
       return {
         id: `check-${eventId}`,
+        sortKey: eventId,
         speakerName: name,
         speakerRoleLabel: "SAN",
         avatarInitials: initialsOf(name),
@@ -76,6 +94,7 @@ export function mapActivityEvent(type: string, payload: unknown, eventId: number
     const target = result.targetValue;
     return {
       id: `check-${eventId}`,
+      sortKey: eventId,
       speakerName: name,
       speakerRoleLabel: "鉴定",
       avatarInitials: initialsOf(name),
@@ -87,4 +106,12 @@ export function mapActivityEvent(type: string, payload: unknown, eventId: number
     };
   }
   return null;
+}
+
+export function mapHistoryItem(item: HistoryItem, characters: SnapshotCharacter[]): ChatMessage | null {
+  if (item.kind === "chat") {
+    return mapChatMessage(item.message);
+  }
+  const payload = isRecord(item.payload) ? resolveActivityPayload(item.type, item.payload, characters) : item.payload;
+  return mapActivityEvent(item.type, payload, item.eventId, item.occurredAt);
 }

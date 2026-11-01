@@ -34,8 +34,10 @@ CallofGM/
 - 每个团一个 topic：`session:{id}`。连接加入团即 `ws.subscribe`，广播用 `server.publish`。
 - **定向消息**（如秘密情报）不走 topic，服务端按连接注册表向可见者逐连接推送。
 - 消息信封：`{ eventId: number, type: string, payload: T }`，eventId 为团内单调递增序号。
-- **断线补发**：服务端为每个进行中的团在内存维护一个环形事件日志（近 N 条），日志条目带可见范围（全体 / 指定 PC 集合）。客户端（partysocket 自动重连）重连时携带 `lastEventId`，服务端按请求者身份过滤后补发缺失事件；缺口超出日志范围则下发全量快照（请求者身份 `viewer`（是否 GM、席位 PC/OB）、当前场景、在场立绘及表情、阶段、音频状态、对该玩家可见的情报列表、对该玩家可见的各角色团内状态、待其响应的鉴定请求、最近聊天记录）。
+- **断线补发**：服务端为每个进行中的团在内存维护一个环形事件日志（近 N 条），日志条目带可见范围（全体 / 指定 PC 集合）。客户端（partysocket 自动重连）重连时携带 `lastEventId`，服务端按请求者身份过滤后补发缺失事件；缺口超出日志范围则下发全量快照（请求者身份 `viewer`（是否 GM、席位 PC/OB）、当前场景、在场立绘及表情、阶段、音频状态、对该玩家可见的情报列表、对该玩家可见的各角色团内状态、待其响应的鉴定请求、最近聊天区时间线）。
 - 新加入者直接走全量快照路径。
+- **聊天区时间线**：快照与回看共用同一条时间线——已呈现的聊天消息与骰点/鉴定记录按 `eventId` 升序合并（`packages/shared` 的 `HistoryItem`）。快照下发最近 50 条，并附游标 `history: { beforeEventId, hasMore }`。
+- **历史回看分页**：客户端以命令 `history:page`（`HistoryPageQuery { beforeEventId?, limit? }`，limit 默认 50、上限 100）请求更早的记录，回执在 `command:accepted` 的 `payload.history` 中返回 `{ items, hasMore, beforeEventId }`。`beforeEventId` 为排他上界，`hasMore=false` 时为 null。分页与实时事件共用同一套按请求者身份的可见性过滤（秘密/暗骰事件永不外泄，待呈现与已丢弃消息不进入时间线），因此 OB/GM/PC 各自看到同一位置的不同切片；结团后该命令仍可用（只读回看）。
 
 ## 演绎发言队列（隐式审核）
 

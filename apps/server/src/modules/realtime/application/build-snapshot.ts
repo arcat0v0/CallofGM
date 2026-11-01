@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import type { DbClient } from "@/platform/db/client";
 import {
   sessions,
@@ -13,7 +13,6 @@ import {
   handoutGrants,
   handoutGrantRecipients,
   handouts,
-  sessionOutbox,
   tracks,
   characterPortraits,
 } from "@/platform/db/schema";
@@ -30,23 +29,25 @@ import { SessionNotFoundError } from "@/modules/sessions";
 import type { RuleRegistry } from "@/rules/registry";
 import type { RuleId } from "@cogm/shared";
 import type { PresenceService } from "../presence-service";
-import { checkVisibility, type VisibilityScope } from "../domain/visibility";
+import { SessionHistoryPager } from "./session-history";
+import { collectCharacterIds, loadCharacterNames, toMessageDto } from "./chat-message-mapper";
 
-const RECENT_MESSAGES_LIMIT = 50;
-const RECENT_EVENTS_LIMIT = 50;
-/** 快照“近期活动”包含的事件类型（聊天消息走 recentMessages，其余由状态字段承载） */
-const RECENT_EVENT_TYPES = ["dice:rolled", "check:resolved", "state:hint"] as const;
+const RECENT_HISTORY_LIMIT = 50;
 
 /**
  * 构建按请求者可见性过滤的全量快照。
  * 所有秘密数据（秘密情报、暗骰、NPC 状态、GM 队列）在此完成服务端裁剪。
  */
 export class BuildSessionSnapshotUseCase {
+  private readonly historyPager: SessionHistoryPager;
+
   constructor(
     private readonly db: DbClient,
     private readonly ruleRegistry: RuleRegistry,
     private readonly presenceService: PresenceService
-  ) {}
+  ) {
+    this.historyPager = new SessionHistoryPager(db);
+  }
 
   async findSessionOrNull(sessionId: string): Promise<typeof sessions.$inferSelect | null> {
     const rows = await this.db.select().from(sessions).where(eq(sessions.id, sessionId));
@@ -93,8 +94,7 @@ export class BuildSessionSnapshotUseCase {
       charactersSnapshot,
       currentScene,
       bgm,
-      recentMessages,
-      recentEvents,
+      recentHistory,
       visibleHandouts,
       pendingCheckRequests,
       pendingQueue,
@@ -103,8 +103,13 @@ export class BuildSessionSnapshotUseCase {
       this.buildCharacters(sessionId, ruleId, actor),
       this.buildCurrentScene(session.currentSceneId),
       this.buildBgm(sessionId),
-      this.buildRecentMessages(sessionId),
-      this.buildRecentEvents(sessionId, actor, claimedCharacterId, input.connectionId),
+      this.historyPager.page({
+        sessionId,
+        actor,
+        claimedCharacterId,
+        connectionId: input.connectionId ?? "",
+        limit: RECENT_HISTORY_LIMIT,
+      }),
       this.buildVisibleHandouts(sessionId, isGm, claimedCharacterId),
       this.buildPendingCheckRequests(sessionId, isGm, claimedCharacterId),
       isGm ? this.buildPendingQueue(sessionId) : Promise.resolve(undefined),
@@ -125,8 +130,8 @@ export class BuildSessionSnapshotUseCase {
       currentScene,
       characters: charactersSnapshot,
       bgm,
-      recentMessages,
-      recentEvents,
+      recentHistory: recentHistory.items,
+      history: { beforeEventId: recentHistory.beforeEventId, hasMore: recentHistory.hasMore },
       visibleHandouts,
       pendingCheckRequests,
       pendingQueue,
@@ -309,21 +314,6 @@ export class BuildSessionSnapshotUseCase {
     };
   }
 
-  /** 最近已呈现消息（pending/discarded 永不进入玩家可见历史） */
-  private async buildRecentMessages(sessionId: string): Promise<ChatMessageDto[]> {
-    const rows = await this.db
-      .select()
-      .from(sessionMessages)
-      .where(and(eq(sessionMessages.sessionId, sessionId), eq(sessionMessages.status, "presented")))
-      .orderBy(desc(sessionMessages.eventId))
-      .limit(RECENT_MESSAGES_LIMIT);
-
-    const charIds = [...new Set(rows.map((r) => r.characterId).filter((id): id is string => !!id))];
-    const nameMap = await this.loadCharacterNames(charIds);
-
-    return rows.reverse().map((row) => this.toMessageDto(row, nameMap));
-  }
-
   /** GM 待呈现队列 */
   private async buildPendingQueue(sessionId: string): Promise<ChatMessageDto[]> {
     const rows = await this.db
@@ -332,70 +322,11 @@ export class BuildSessionSnapshotUseCase {
       .where(and(eq(sessionMessages.sessionId, sessionId), eq(sessionMessages.status, "pending")))
       .orderBy(sessionMessages.queueOrder);
 
-    const charIds = [...new Set(rows.map((r) => r.characterId).filter((id): id is string => !!id))];
-    const nameMap = await this.loadCharacterNames(charIds);
+    const nameMap = await loadCharacterNames(this.db, collectCharacterIds(rows));
 
-    return rows.map((row) => this.toMessageDto(row, nameMap));
+    return rows.map((row) => toMessageDto(row, nameMap));
   }
 
-  /** 近期活动事件：从持久 outbox 按请求者可见性过滤重建 */
-  private async buildRecentEvents(
-    sessionId: string,
-    actor: ActorContext,
-    claimedCharacterId: string | null,
-    connectionId?: string
-  ): Promise<SessionSnapshotPayload["recentEvents"]> {
-    let offset = 0;
-    const batchSize = RECENT_EVENTS_LIMIT;
-    const maxScan = 500;
-    const visible: SessionSnapshotPayload["recentEvents"] = [];
-
-    while (visible.length < RECENT_EVENTS_LIMIT && offset < maxScan) {
-      const rows = await this.db
-        .select()
-        .from(sessionOutbox)
-        .where(
-          and(
-            eq(sessionOutbox.sessionId, sessionId),
-            inArray(sessionOutbox.type, [...RECENT_EVENT_TYPES])
-          )
-        )
-        .orderBy(desc(sessionOutbox.eventId))
-        .limit(batchSize)
-        .offset(offset);
-
-      if (rows.length === 0) {
-        break;
-      }
-
-      for (const row of rows) {
-        let visibility: VisibilityScope;
-        try {
-          visibility = JSON.parse(row.visibilityJson) as VisibilityScope;
-        } catch {
-          continue;
-        }
-        if (!checkVisibility(actor, claimedCharacterId, visibility, connectionId ?? "")) {
-          continue;
-        }
-        visible.push({
-          eventId: row.eventId,
-          type: row.type,
-          occurredAt: row.createdAt,
-          payload: JSON.parse(row.payloadJson),
-        });
-        if (visible.length >= RECENT_EVENTS_LIMIT) {
-          break;
-        }
-      }
-
-      offset += rows.length;
-      if (rows.length < batchSize) {
-        break;
-      }
-    }
-    return visible.reverse();
-  }
   /** 可见情报：公开 + 目标含请求者认领 PC 的秘密情报；GM 全量 */
   private async buildVisibleHandouts(
     sessionId: string,
@@ -496,37 +427,5 @@ export class BuildSessionSnapshotUseCase {
       status: "pending" as const,
       createdAt: row.createdAt,
     }));
-  }
-
-  private async loadCharacterNames(charIds: string[]): Promise<Map<string, string>> {
-    if (charIds.length === 0) {
-      return new Map();
-    }
-    const rows = await this.db
-      .select({ id: characters.id, name: characters.name })
-      .from(characters)
-      .where(inArray(characters.id, charIds));
-    return new Map(rows.map((c) => [c.id, c.name]));
-  }
-
-  private toMessageDto(
-    row: typeof sessionMessages.$inferSelect,
-    nameMap: Map<string, string>
-  ): ChatMessageDto {
-    return {
-      id: row.id,
-      sessionId: row.sessionId,
-      senderId: row.senderId ?? null,
-      senderType: row.senderType === "gm" ? "gm" : "player",
-      characterId: row.characterId ?? null,
-      characterName: row.characterId ? (nameMap.get(row.characterId) ?? null) : null,
-      channel: row.channel === "roleplay" ? "roleplay" : "ooc",
-      content: row.content,
-      expressionKey: row.expressionKey ?? null,
-      queueOrder: row.queueOrder,
-      eventId: row.eventId ?? null,
-      presentedAt: row.presentedAt ?? null,
-      createdAt: row.createdAt,
-    };
   }
 }

@@ -18,6 +18,10 @@ function GmChatPanel({ className }: { className?: string }) {
   const [draft, setDraft] = useState("");
   const messages = usePlayStore((state) => state.messages);
   const phase = usePlayStore((state) => state.phase);
+  const historyHasMore = usePlayStore((state) => state.historyHasMore);
+  const historyLoading = usePlayStore((state) => state.historyLoading);
+  const historyPagesLoaded = usePlayStore((state) => state.historyPagesLoaded);
+  const loadOlderHistory = usePlayStore((state) => state.loadOlderHistory);
   const firstPcId = usePlayStore((state) => state.characters.find((character) => character.kind === "pc")?.characterId);
   const visible = useMemo(() => {
     if (channel === "ic") {
@@ -59,7 +63,15 @@ function GmChatPanel({ className }: { className?: string }) {
         </div>
       </ChatPanelHeader>
 
-      <MessageList messages={visible} showRoleBadge={false} className="min-h-0 flex-1 overflow-y-auto px-4 py-1.5" />
+      <MessageList
+        messages={visible}
+        showRoleBadge={false}
+        onLoadOlder={loadOlderHistory}
+        hasOlderHistory={historyHasMore}
+        loadingOlder={historyLoading}
+        olderLoads={historyPagesLoaded}
+        className="min-h-0 flex-1 overflow-y-auto px-4 py-1.5"
+      />
 
       <div className="bg-md-surface-container mx-3 mb-3 flex flex-col gap-2.5 rounded-xl px-4 pt-3 pb-3.5">
         <div className="flex items-center justify-between">

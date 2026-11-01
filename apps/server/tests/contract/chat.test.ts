@@ -237,7 +237,9 @@ describe("Chat contract tests", () => {
     const pc2 = await connectWs(wsUrl(), ctx.playerTokens.get("pc1")!);
     const pcSnapshot = await pc2.waitFor((m) => m.type === "snapshot");
     expect(pcSnapshot.payload.pendingQueue).toBeUndefined();
-    expect(pcSnapshot.payload.recentMessages.some((msg: any) => msg.content === "快照中的pending")).toBe(false);
+    expect(
+      pcSnapshot.payload.recentHistory.some((item: any) => item.kind === "chat" && item.message.content === "快照中的pending")
+    ).toBe(false);
 
     await closeAll(gm2, pc2);
   });

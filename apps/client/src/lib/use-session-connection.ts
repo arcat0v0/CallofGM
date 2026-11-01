@@ -27,6 +27,7 @@ export function useSessionConnection(
     let retry: ReturnType<typeof setTimeout> | null = null;
     let attempt = 0;
     let handshakeFailures = 0;
+    let reopenedAfterEnd = false;
     reset();
 
     function scheduleReconnect() {
@@ -61,6 +62,10 @@ export function useSessionConnection(
             }
             if (code === 1001 && reason === SESSION_ENDED_REASON) {
               markEnded();
+              if (!reopenedAfterEnd) {
+                reopenedAfterEnd = true;
+                scheduleReconnect();
+              }
               return;
             }
             scheduleReconnect();

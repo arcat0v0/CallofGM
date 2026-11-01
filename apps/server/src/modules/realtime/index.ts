@@ -5,6 +5,8 @@ export { SessionEventBus, type StagedEvents } from "./session-event-bus";
 export { EventRingBuffer, type BufferedEvent } from "./event-ring-buffer";
 export { PresenceService } from "./presence-service";
 export { BuildSessionSnapshotUseCase } from "./application/build-snapshot";
+export { SessionHistoryPager } from "./application/session-history";
+export { createHistoryCommandHandlers, HistoryPageHandler } from "./application/history-command-handler";
 export { checkVisibility, type VisibilityScope } from "./domain/visibility";
 export {
   type CommandHandler,
