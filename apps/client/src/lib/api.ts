@@ -1,12 +1,13 @@
+import { errorCopy } from "./error-copy";
 import { getFingerprint } from "./fingerprint";
 
 export class ApiError extends Error {
   constructor(
     readonly status: number,
     readonly code: string,
-    message: string,
+    readonly serverMessage: string,
   ) {
-    super(message);
+    super(errorCopy({ code, status }));
     this.name = "ApiError";
   }
 }

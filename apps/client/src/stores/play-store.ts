@@ -18,6 +18,7 @@ import type {
 } from "@cogm/shared";
 import type { ChatMessage } from "@/features/chat/types";
 import { mapActivityEvent, mapChatMessage } from "@/lib/chat-map";
+import { errorCopy } from "@/lib/error-copy";
 import { formatClock, initialsOf } from "@/lib/format";
 
 export type ConnectionTerminal = "kicked" | "unavailable";
@@ -277,7 +278,7 @@ export const usePlayStore = create<PlayState>((set, get) => ({
     if ("type" in message && (message.type === "command:accepted" || message.type === "command:rejected")) {
       const payload = isRecord(message.payload) ? message.payload : {};
       if (message.type === "command:rejected") {
-        const errorMsg = typeof payload.message === "string" ? payload.message : "指令被拒绝";
+        const errorMsg = errorCopy({ code: typeof payload.code === "string" ? payload.code : null });
         toast.error(errorMsg);
         const cmdId = "commandId" in message && typeof message.commandId === "string" ? message.commandId : "";
         set({ lastRejection: { commandId: cmdId, message: errorMsg } });

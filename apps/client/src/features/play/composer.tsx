@@ -1,3 +1,4 @@
+import { canPlayerInitiateDiceRoll, decideChatMessage, type SeatRole } from "@cogm/shared";
 import { Eye, VenetianMask } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -58,12 +59,14 @@ function Composer({ compact = false, className }: { compact?: boolean; className
   }, [lastRejection]);
 
   const ended = status === "ended";
-  const forcedCg = phase === "forced_cg";
   const discussion = phase === "free_discussion";
   const performance = phase === "performance_time";
-  const chatDisabled = ended || forcedCg;
-  const diceDisabled = ended || forcedCg || performance;
   const effectiveMode: MessageMode = discussion ? "ooc" : performance ? "roleplay" : mode;
+  const seatRole: SeatRole | null = claimed ? "pc" : isOb ? "ob" : null;
+  const messageForbidden =
+    phase !== null && decideChatMessage(phase, "player", seatRole, effectiveMode === "ooc" ? "ooc" : "roleplay").kind === "forbidden";
+  const chatDisabled = ended || messageForbidden;
+  const diceDisabled = ended || phase === null || !canPlayerInitiateDiceRoll(phase, "player", seatRole);
 
   useEffect(() => {
     if (discussion) setMode("ooc");
@@ -96,7 +99,11 @@ function Composer({ compact = false, className }: { compact?: boolean; className
     setDraft("");
   }
 
-  const hint = ended ? "本团已结束 · 记录仅供回看" : phaseChatHint(phase);
+  const hint = ended
+    ? "本团已结束 · 记录仅供回看"
+    : isOb
+      ? "观战席位 · 发言经主持人放行，不可自主掷骰"
+      : phaseChatHint(phase);
 
   return (
     <div
@@ -156,7 +163,7 @@ function Composer({ compact = false, className }: { compact?: boolean; className
       <DiceTray characterId={claimed?.characterId} disabled={diceDisabled} />
 
       <MessageInput
-        placeholder={ended ? "本团已结束 · 记录仅供回看" : forcedCg ? "当前阶段不可发言" : "输入消息…"}
+        placeholder={ended ? "本团已结束 · 记录仅供回看" : chatDisabled ? "当前阶段不可发言" : "输入消息…"}
         value={draft}
         onChange={setDraft}
         onSubmit={handleSend}
