@@ -6,11 +6,14 @@ import { characters } from "./characters";
 
 export const sessions = sqliteTable("sessions", {
   id: text("id").primaryKey(),
+  name: text("name"),
   moduleId: text("module_id").notNull().references(() => modules.id),
   status: text("status").notNull(),
   phase: text("phase").notNull(),
   currentSceneId: text("current_scene_id").references(() => scenes.id, { onDelete: "set null" }),
   lastEventId: integer("last_event_id").notNull().default(0),
+  sharePcSheets: integer("share_pc_sheets").notNull().default(1),
+  obSeePcState: integer("ob_see_pc_state").notNull().default(1),
   createdAt: integer("created_at").notNull(),
 });
 

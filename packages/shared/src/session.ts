@@ -34,11 +34,34 @@ export type SeatRole = z.infer<typeof SeatRole>;
 export const MessageChannel = z.enum(["ooc", "roleplay"]);
 export type MessageChannel = z.infer<typeof MessageChannel>;
 
+export const SessionSettings = z.object({
+  sharePcSheets: z.boolean(),
+  obSeePcState: z.boolean(),
+});
+export type SessionSettings = z.infer<typeof SessionSettings>;
+
+export const SessionSettingsDefaults: SessionSettings = {
+  sharePcSheets: true,
+  obSeePcState: true,
+};
+
 export const CreateSessionRequest = z.object({
   moduleId: z.string().min(1),
   characterIds: z.array(z.string()),
+  name: z.string().trim().max(60).optional(),
 });
 export type CreateSessionRequest = z.infer<typeof CreateSessionRequest>;
+
+export const RenameSessionRequest = z.object({
+  name: z.string().trim().max(60).nullable(),
+});
+export type RenameSessionRequest = z.infer<typeof RenameSessionRequest>;
+
+export const UpdateSessionSettingsCommand = SessionSettings;
+export type UpdateSessionSettingsCommand = z.infer<typeof UpdateSessionSettingsCommand>;
+
+export const SessionSettingsChangedEvent = SessionSettings;
+export type SessionSettingsChangedEvent = z.infer<typeof SessionSettingsChangedEvent>;
 
 export const ClaimSeatRequest = z.object({
   role: SeatRole,
@@ -58,6 +81,7 @@ export type UpdateSessionPhaseRequest = z.infer<typeof UpdateSessionPhaseRequest
 
 export const SessionDto = z.object({
   id: z.string(),
+  name: z.string().nullable(),
   moduleId: z.string(),
   status: SessionStatus,
   phase: SessionPhase,
@@ -121,6 +145,7 @@ export type ClaimDto = z.infer<typeof ClaimDto>;
 export const JoinInfoResponse = z.object({
   session: z.object({
     id: z.string(),
+    name: z.string().nullable(),
     status: SessionStatus,
     phase: SessionPhase,
     moduleId: z.string(),
