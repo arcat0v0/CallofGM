@@ -29,6 +29,7 @@ export function useSessionConnection(
     let attempt = 0;
     let handshakeFailures = 0;
     let refreshingSnapshot = false;
+    let reopenedAfterEnd = false;
     reset();
 
     function scheduleReconnect() {
@@ -90,6 +91,10 @@ export function useSessionConnection(
             }
             if (code === 1001 && reason === SESSION_ENDED_REASON) {
               markEnded();
+              if (!reopenedAfterEnd) {
+                reopenedAfterEnd = true;
+                scheduleReconnect();
+              }
               return;
             }
             scheduleReconnect();

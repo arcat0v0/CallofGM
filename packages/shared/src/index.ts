@@ -7,6 +7,7 @@ export * from "./catalog";
 export * from "./pagination";
 export * from "./websocket";
 export * from "./chat";
+export * from "./history";
 export * from "./gameplay";
 export * from "./stage";
 export * from "./handouts";

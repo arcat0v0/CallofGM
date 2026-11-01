@@ -615,9 +615,13 @@ describe("Realtime contract tests", () => {
       claimedCharacterId: "char-rt-1",
     });
 
-    const hasTargetRoll = playerSnapshot.recentEvents.some((e) => {
-      if (e.payload && typeof e.payload === "object" && "result" in e.payload) {
-        const res = e.payload.result;
+    const hasTargetRoll = playerSnapshot.recentHistory.some((item) => {
+      if (item.kind !== "activity") {
+        return false;
+      }
+      const payload = item.payload;
+      if (payload && typeof payload === "object" && "result" in payload) {
+        const res = payload.result;
         if (res && typeof res === "object" && "total" in res) {
           return res.total === 42;
         }

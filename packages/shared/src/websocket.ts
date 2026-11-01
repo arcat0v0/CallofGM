@@ -9,6 +9,7 @@ export const ClientCommandType = z.enum([
   "chat:release",
   "chat:discard",
   "chat:reorder",
+  "history:page",
   "dice:roll",
   "check:perform",
   "check:request",

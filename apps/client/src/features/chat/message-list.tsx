@@ -1,5 +1,7 @@
+import { useLayoutEffect, useRef } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { ChatMessage } from "./types";
 
@@ -10,14 +12,73 @@ function MessageList({
   className,
   showRoleBadge = true,
   selfName,
+  onLoadOlder,
+  hasOlderHistory = false,
+  loadingOlder = false,
+  olderLoads = 0,
 }: {
   messages: ChatMessage[];
   className?: string;
   showRoleBadge?: boolean;
   selfName?: string;
+  onLoadOlder?: () => void;
+  hasOlderHistory?: boolean;
+  loadingOlder?: boolean;
+  olderLoads?: number;
 }) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const anchor = useRef<{ firstId: string | undefined; height: number; top: number } | null>(null);
+
+  const rememberPosition = () => {
+    const container = containerRef.current;
+    if (!container) {
+      return;
+    }
+    anchor.current = { firstId: messages[0]?.id, height: container.scrollHeight, top: container.scrollTop };
+  };
+
+  useLayoutEffect(() => {
+    const container = containerRef.current;
+    if (!container) {
+      return;
+    }
+    const previous = anchor.current;
+    const firstId = messages[0]?.id;
+    if (previous && previous.firstId !== undefined && firstId !== previous.firstId) {
+      const grown = container.scrollHeight - previous.height;
+      if (grown > 0) {
+        container.scrollTop = previous.top + grown;
+      }
+    }
+    rememberPosition();
+  }, [messages]);
+
+  const showOlderControl = Boolean(onLoadOlder) && (hasOlderHistory || olderLoads > 0);
+
   return (
-    <div className={cn("flex flex-col gap-3", className)}>
+    <div
+      data-slot="message-list"
+      ref={containerRef}
+      onScroll={rememberPosition}
+      className={cn("flex flex-col gap-3", className)}
+    >
+      {showOlderControl ? (
+        <div className="flex shrink-0 justify-center">
+          {hasOlderHistory ? (
+            <Button
+              variant="tonal"
+              size="xs"
+              className="h-8 px-3.5 text-label-medium"
+              disabled={loadingOlder}
+              onClick={onLoadOlder}
+            >
+              {loadingOlder ? "加载中…" : "加载更多"}
+            </Button>
+          ) : (
+            <span className="text-label-small text-md-outline font-sans">已到最早记录</span>
+          )}
+        </div>
+      ) : null}
       {messages.map((message, index) => {
         if (SYSTEM_ROLE_LABELS[message.speakerRoleLabel] === true) {
           return (

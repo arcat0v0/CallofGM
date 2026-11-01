@@ -1,5 +1,6 @@
 type ChatMessage = {
   id: string;
+  sortKey: number;
   speakerName: string;
   speakerRoleLabel: string;
   avatarInitials: string;

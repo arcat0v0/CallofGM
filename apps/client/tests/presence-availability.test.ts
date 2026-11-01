@@ -16,8 +16,8 @@ const snapshotBase = {
   currentScene: null,
   characters: [],
   bgm: null,
-  recentMessages: [],
-  recentEvents: [],
+  recentHistory: [],
+  history: { beforeEventId: null, hasMore: false },
   visibleHandouts: [],
   pendingCheckRequests: [],
 };
