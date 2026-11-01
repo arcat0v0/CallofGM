@@ -1,5 +1,6 @@
 import { expect, test, describe } from "bun:test";
 import { Coc7eRuleSystem } from "@/rules/coc7e";
+import { AppError } from "@/platform/errors/app-error";
 import type { RandomSource } from "@/platform/ports";
 import type { coc7e } from "@cogm/shared";
 
@@ -192,6 +193,40 @@ describe("CoC 7e 状态变更", () => {
     const edited = rule.applyGmStateEdit(baseState, { sanDelta: -5 });
     expect(edited.state.san).toBe(55);
     expect(edited.hints.some((h) => h.includes("临时疯狂"))).toBe(true);
+  });
+
+  test("超出 0–99 的上限写入被稳定拒绝", () => {
+    for (const edit of [{ maxHp: 999 }, { maxMp: 999 }, { maxSan: 999 }]) {
+      let caught: unknown;
+      try {
+        rule.applyGmStateEdit(baseState, edit);
+      } catch (error) {
+        caught = error;
+      }
+      expect(caught).toBeInstanceOf(AppError);
+      expect((caught as AppError).code).toBe("STATE_EDIT_OUT_OF_RANGE");
+      expect((caught as AppError).statusCode).toBe(400);
+    }
+  });
+
+  test("上限 99 被接受，当前值钳制到上限之内", () => {
+    const accepted = rule.applyGmStateEdit(baseState, { maxHp: 99, maxMp: 99, maxSan: 99 });
+    expect(accepted.state.maxHp).toBe(99);
+    expect(accepted.state.maxMp).toBe(99);
+    expect(accepted.state.maxSan).toBe(99);
+
+    const clamped = rule.applyGmStateEdit(baseState, { maxSan: 40, san: 999 });
+    expect(clamped.state.maxSan).toBe(40);
+    expect(clamped.state.san).toBe(40);
+
+    const legacy = rule.applyGmStateEdit(
+      { ...baseState, hp: 150, maxHp: 150, san: 120, maxSan: 120 },
+      {}
+    );
+    expect(legacy.state.maxHp).toBe(99);
+    expect(legacy.state.hp).toBe(99);
+    expect(legacy.state.maxSan).toBe(99);
+    expect(legacy.state.san).toBe(99);
   });
 
   test("状态标记与自定义标签增删", () => {

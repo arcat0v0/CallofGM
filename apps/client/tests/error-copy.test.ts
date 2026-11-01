@@ -6,6 +6,7 @@ describe("errorCopy", () => {
     expect(errorCopy({ code: "SESSION_PHASE_FORBIDS_ACTION" })).toBe("当前阶段或席位不允许自主掷骰");
     expect(errorCopy({ code: "EXPRESSION_NOT_FOUND" })).toBe("这个角色没有对应的立绘，请换一个表情");
     expect(errorCopy({ code: "SKILL_NOT_FOUND" })).toBe("人物卡上没有这个技能或属性");
+    expect(errorCopy({ code: "STATE_EDIT_OUT_OF_RANGE" })).toBe("数值超出规则范围（HP/MP/SAN 上限为 0–99）");
     expect(errorCopy({ code: "SESSION_NOT_FOUND" })).toBe("找不到这个团，链接可能已失效");
     expect(errorCopy({ code: "INVALID_CREDENTIALS", status: 401 })).toBe("密码不正确，请重新输入");
     expect(errorCopy({ code: "SESSION_KICKED", status: 403 })).toBe(

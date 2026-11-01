@@ -49,6 +49,7 @@ const CODE_COPY: Record<string, string> = {
   STAGING_HAS_ERRORS: "导入预览存在解析错误，请修正后重新上传",
   STAGING_OWNER_MISMATCH: "这份导入预览不属于当前登录的主持人",
   STAGING_RECORD_NOT_FOUND: "找不到导入预览，请重新上传",
+  STATE_EDIT_OUT_OF_RANGE: "数值超出规则范围（HP/MP/SAN 上限为 0–99）",
   TRACK_NOT_FOUND: "找不到该曲目",
   UNAUTHORIZED_MEDIA_ACCESS: "无权查看该媒体文件",
   UNSUPPORTED_MIME_TYPE: "不支持的文件类型",
