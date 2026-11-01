@@ -10,6 +10,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { mediaUrl } from "@/lib/api";
+import { useBlockingDialog } from "@/stores/modal-store";
 
 export function HandoutLibrary({
   handouts,
@@ -21,11 +22,12 @@ export function HandoutLibrary({
   onOpenChange: (open: boolean) => void;
 }) {
   const [activeId, setActiveId] = useState<string | null>(null);
+  const dialog = useBlockingDialog("library", open, onOpenChange);
   const active = handouts.find((item) => item.grantId === activeId) ?? handouts[0] ?? null;
   const image = mediaUrl(active?.handout.imageAssetId);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={dialog.open} onOpenChange={dialog.onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>已获得的情报</DialogTitle>

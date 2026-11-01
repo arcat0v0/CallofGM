@@ -19,6 +19,7 @@ import { mediaUrl } from "@/lib/api";
 import { sendSessionCommand } from "@/lib/session-socket";
 import { cn } from "@/lib/utils";
 import { useIdentityStore } from "@/stores/identity-store";
+import { useBlockingModalOpen } from "@/stores/modal-store";
 import { usePlayStore } from "@/stores/play-store";
 
 function Composer({ compact = false, className }: { compact?: boolean; className?: string }) {
@@ -31,6 +32,7 @@ function Composer({ compact = false, className }: { compact?: boolean; className
   const characters = usePlayStore((state) => state.characters);
   const lastRejection = usePlayStore((state) => state.lastRejection);
   const seatRole = usePlayStore((state) => state.viewer.seatRole);
+  const blockingModalOpen = useBlockingModalOpen();
   const claimed = characters.find((character) => character.claim?.playerId === playerId && character.claim.role === "pc");
   const isOb = seatRole === "ob";
   const speakerName = claimed?.name ?? (isOb ? "观战" : "玩家");
@@ -76,7 +78,7 @@ function Composer({ compact = false, className }: { compact?: boolean; className
 
   function handleSend() {
     const content = draft.trim();
-    if (!content || chatDisabled) {
+    if (!content || chatDisabled || blockingModalOpen) {
       return;
     }
     const sent = sendSessionCommand("chat:send", {

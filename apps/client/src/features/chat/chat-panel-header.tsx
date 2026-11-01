@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { LogOut, PanelRightClose, ScrollText, Users, VenetianMask } from "lucide-react";
+import { Dices, LogOut, PanelRightClose, ScrollText, Users, VenetianMask } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CharacterSheetPanel } from "@/features/session-live/character-sheet-panel";
@@ -24,6 +24,8 @@ function ChatPanelHeader({
   const presence = usePlayStore((state) => state.presence);
   const presenceAvailable = usePlayStore((state) => state.presenceAvailable);
   const characters = usePlayStore((state) => state.characters);
+  const pendingChecks = usePlayStore((state) => state.pendingChecks);
+  const resumeChecks = usePlayStore((state) => state.resumeChecks);
 
   return (
     <Popover>
@@ -55,6 +57,20 @@ function ChatPanelHeader({
           <Button variant="tertiary" size="icon-sm" aria-label="情报" onClick={() => setHandoutsOpen(true)}>
             <ScrollText />
           </Button>
+          {pendingChecks.length > 0 ? (
+            <Button
+              variant="tertiary"
+              size="icon-sm"
+              aria-label={`待处理鉴定 ${pendingChecks.length}`}
+              onClick={resumeChecks}
+              className="relative"
+            >
+              <Dices />
+              <span className="bg-accent text-accent-foreground absolute -top-0.5 -right-0.5 grid size-4 place-items-center rounded-full text-[10px] leading-none tabular-nums">
+                {pendingChecks.length}
+              </span>
+            </Button>
+          ) : null}
           {onLeaveSeat ? (
             <Button variant="tertiary" size="icon-sm" aria-label="离开座位" onClick={onLeaveSeat}>
               <LogOut />

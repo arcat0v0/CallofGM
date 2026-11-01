@@ -19,6 +19,7 @@ import {
 import { parseCocSheet, parseCocState, skillKeysFor, skillValue } from "@/lib/coc-live";
 import { sendSessionCommand } from "@/lib/session-socket";
 import { useIdentityStore } from "@/stores/identity-store";
+import { useBlockingDialog } from "@/stores/modal-store";
 import { usePlayStore } from "@/stores/play-store";
 
 export function CharacterSheetPanel({
@@ -34,6 +35,7 @@ export function CharacterSheetPanel({
   const claimed = characters.find((character) => character.claim?.playerId === playerId && character.claim.role === "pc");
   const options = characters.filter((character) => character.sheet != null);
   const [selectedId, setSelectedId] = useState("");
+  const dialog = useBlockingDialog("sheet", open, onOpenChange);
   const target = options.find((character) => character.characterId === selectedId) ?? options[0];
   const sheet = parseCocSheet(target?.sheet);
   const state = parseCocState(target?.state);
@@ -62,7 +64,7 @@ export function CharacterSheetPanel({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={dialog.open} onOpenChange={dialog.onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>{target?.name ?? "人物卡"}</DialogTitle>

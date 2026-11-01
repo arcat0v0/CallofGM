@@ -8,19 +8,23 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useBlockingDialog } from "@/stores/modal-store";
 
 const ROLL_TIMEOUT_MS = 8_000;
 
 export function CheckPrompt({
   request,
   onRespond,
+  onDismiss,
 }: {
   request: CheckRequestDto;
   onRespond: () => void;
+  onDismiss: () => void;
 }) {
   const skill = coc7e.coc7eSkillLabel(request.skillKey);
   const difficulty = coc7e.CheckDifficultyLabel[request.difficulty] ?? request.difficulty;
   const [rolling, setRolling] = useState(false);
+  const dialog = useBlockingDialog("check", true, () => onDismiss());
 
   useEffect(() => {
     setRolling(false);
@@ -37,7 +41,7 @@ export function CheckPrompt({
   }, [rolling]);
 
   return (
-    <Dialog open onOpenChange={() => undefined}>
+    <Dialog open={dialog.open} onOpenChange={(next) => !next && onDismiss()}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle>鉴定请求</DialogTitle>
@@ -50,20 +54,26 @@ export function CheckPrompt({
           目标值由服务端从人物卡读取。点击后立即掷骰，不受当前阶段限制。
           {request.hidden ? "暗骰仅确认已掷出。" : ""}
         </p>
-        <Button
-          type="button"
-          variant="primary"
-          disabled={rolling}
-          onClick={() => {
-            if (rolling) {
-              return;
-            }
-            setRolling(true);
-            onRespond();
-          }}
-        >
-          {rolling ? "掷骰中…" : "一键掷骰"}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button type="button" variant="outline" onClick={onDismiss} className="flex-1">
+            稍后处理
+          </Button>
+          <Button
+            type="button"
+            variant="primary"
+            className="flex-1"
+            disabled={rolling}
+            onClick={() => {
+              if (rolling) {
+                return;
+              }
+              setRolling(true);
+              onRespond();
+            }}
+          >
+            {rolling ? "掷骰中…" : "一键掷骰"}
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   );
