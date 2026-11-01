@@ -730,21 +730,6 @@
       ]
     },
     {
-      "id": "rule-chat-commands",
-      "category": "dice",
-      "name_zh": "规则命令（.ra/.sc）",
-      "source": "cogm",
-      "planned": true,
-      "weight": 2,
-      "probes": [
-        {
-          "type": "code_regex",
-          "pattern": "\\.ra|\\.sc",
-          "scope": "apps/server/src/rules/coc7e"
-        }
-      ]
-    },
-    {
       "id": "dice-instant-render",
       "category": "dice",
       "name_zh": "骰点结果即时呈现于聊天区",

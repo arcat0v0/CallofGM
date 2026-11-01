@@ -6,7 +6,6 @@ import {
   type SkillCheckInput,
   type SanCheckInput,
   type StateMutationResult,
-  type RuleCommandDefinition,
 } from "@/rules/rule-system";
 import { evaluateLossExpression } from "@/rules/dice-engine";
 import { coc7e } from "@cogm/shared";
@@ -285,20 +284,5 @@ export class Coc7eRuleSystem extends RuleSystem<coc7e.Coc7eCharacterSheet, coc7e
 
   private clamp(value: number, min: number, max: number): number {
     return Math.min(max, Math.max(min, value));
-  }
-
-  getChatCommands(): readonly RuleCommandDefinition[] {
-    return [
-      {
-        name: ".ra",
-        alias: ["ra"],
-        description: "Skill check (e.g. .ra 侦查)",
-      },
-      {
-        name: ".sc",
-        alias: ["sc"],
-        description: "Sanity check (e.g. .sc 1d3/1d6)",
-      },
-    ];
   }
 }
