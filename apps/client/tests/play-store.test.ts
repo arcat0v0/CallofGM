@@ -20,6 +20,32 @@ describe("play-store draft-loss and command rejection tracking", () => {
     expect(rejection?.message).toBe("提交的内容不符合要求，请检查后重试");
   });
 
+  test("snapshot viewer carries the server-provided seat role", () => {
+    usePlayStore.getState().applySnapshot(
+      {
+        viewer: { isGm: false, seatRole: "ob" },
+        session: {
+          id: "s1",
+          moduleId: "m1",
+          moduleName: "模组",
+          status: "active",
+          phase: "free_discussion",
+          currentSceneId: null,
+          lastEventId: 0,
+        },
+        currentScene: null,
+        characters: [],
+        bgm: null,
+        recentMessages: [],
+        recentEvents: [],
+        visibleHandouts: [],
+        pendingCheckRequests: [],
+      },
+      0,
+    );
+    expect(usePlayStore.getState().viewer).toEqual({ isGm: false, seatRole: "ob" });
+  });
+
   test("reset clears lastRejection", () => {
     usePlayStore.getState().applyMessage({
       protocolVersion: 1,

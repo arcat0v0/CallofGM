@@ -1,5 +1,5 @@
-import { canPlayerInitiateDiceRoll, decideChatMessage, type SeatRole } from "@cogm/shared";
-import { Eye, VenetianMask } from "lucide-react";
+import { canPlayerInitiateDiceRoll, decideChatMessage } from "@cogm/shared";
+import { Dices, Eye, VenetianMask } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -10,6 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { MessageInput } from "@/features/chat/message-input";
 import { type MessageMode, MessageModeSwitch } from "@/features/chat/message-mode-switch";
 import { DiceTray } from "@/features/session-live/dice-tray";
@@ -29,8 +30,9 @@ function Composer({ compact = false, className }: { compact?: boolean; className
   const status = usePlayStore((state) => state.status);
   const characters = usePlayStore((state) => state.characters);
   const lastRejection = usePlayStore((state) => state.lastRejection);
+  const seatRole = usePlayStore((state) => state.viewer.seatRole);
   const claimed = characters.find((character) => character.claim?.playerId === playerId && character.claim.role === "pc");
-  const isOb = !claimed && characters.some((character) => character.claim?.playerId === playerId && character.claim.role === "ob");
+  const isOb = seatRole === "ob";
   const speakerName = claimed?.name ?? (isOb ? "观战" : "玩家");
   const expressionOptions =
     claimed?.portraits?.map((portrait) => ({
@@ -62,7 +64,6 @@ function Composer({ compact = false, className }: { compact?: boolean; className
   const discussion = phase === "free_discussion";
   const performance = phase === "performance_time";
   const effectiveMode: MessageMode = discussion ? "ooc" : performance ? "roleplay" : mode;
-  const seatRole: SeatRole | null = claimed ? "pc" : isOb ? "ob" : null;
   const messageForbidden =
     phase !== null && decideChatMessage(phase, "player", seatRole, effectiveMode === "ooc" ? "ooc" : "roleplay").kind === "forbidden";
   const chatDisabled = ended || messageForbidden;
@@ -109,20 +110,40 @@ function Composer({ compact = false, className }: { compact?: boolean; className
     <div
       className={cn(
         "bg-md-surface-container flex flex-col",
-        compact ? "gap-2 px-3 pt-2.5 pb-3" : "gap-2.5 px-4 pt-3 pb-3.5",
+        compact ? "gap-1.5 px-3 pt-2 pb-2.5" : "gap-2.5 px-4 pt-3 pb-3.5",
         className,
       )}
     >
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 px-1">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2 px-1">
           <Avatar size="sm" className="bg-default">
             <AvatarFallback className="text-foreground font-sans text-label-medium">{initialsOf(speakerName)}</AvatarFallback>
           </Avatar>
-          <span className="text-foreground font-sans text-label-large">{speakerName}</span>
+          <span className="text-foreground truncate font-sans text-label-large">{speakerName}</span>
         </div>
-        {discussion || performance ? null : (
-          <MessageModeSwitch value={mode} onValueChange={setMode} />
-        )}
+        <div className="flex shrink-0 items-center gap-1">
+          {compact ? (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  type="button"
+                  variant="tertiary"
+                  size="icon-sm"
+                  aria-label="掷骰与鉴定"
+                  disabled={diceDisabled}
+                >
+                  <Dices />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent side="top" align="end" className="w-[min(316px,calc(100vw-24px))] p-3">
+                <DiceTray characterId={claimed?.characterId} disabled={diceDisabled} />
+              </PopoverContent>
+            </Popover>
+          ) : null}
+          {discussion || performance ? null : (
+            <MessageModeSwitch value={mode} onValueChange={setMode} />
+          )}
+        </div>
       </div>
 
       {effectiveMode === "roleplay" && canExpress && (
@@ -160,9 +181,10 @@ function Composer({ compact = false, className }: { compact?: boolean; className
         </div>
       )}
 
-      <DiceTray characterId={claimed?.characterId} disabled={diceDisabled} />
+      {compact ? null : <DiceTray characterId={claimed?.characterId} disabled={diceDisabled} />}
 
       <MessageInput
+        compact={compact}
         placeholder={ended ? "本团已结束 · 记录仅供回看" : chatDisabled ? "当前阶段不可发言" : "输入消息…"}
         value={draft}
         onChange={setDraft}

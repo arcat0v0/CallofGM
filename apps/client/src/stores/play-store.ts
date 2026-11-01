@@ -14,6 +14,7 @@ import {
   type SessionPhase,
   type SessionSnapshotPayload,
   type SessionStatus,
+  type SeatRole,
   type SnapshotCharacter,
   type TrackDto,
 } from "@cogm/shared";
@@ -31,6 +32,7 @@ type PlayState = {
   status: SessionStatus | null;
   phase: SessionPhase | null;
   lastEventId: number;
+  viewer: { isGm: boolean; seatRole: SeatRole | null };
   characters: SnapshotCharacter[];
   messages: ChatMessage[];
   pendingQueue: ChatMessageDto[];
@@ -67,6 +69,7 @@ const empty = {
   status: null as SessionStatus | null,
   phase: null as SessionPhase | null,
   lastEventId: 0,
+  viewer: { isGm: false, seatRole: null } as PlayState["viewer"],
   characters: [] as SnapshotCharacter[],
   messages: [] as ChatMessage[],
   pendingQueue: [] as ChatMessageDto[],
@@ -258,6 +261,7 @@ export const usePlayStore = create<PlayState>((set, get) => ({
       status: payload.session.status,
       phase: payload.session.phase,
       lastEventId: watermark,
+      viewer: payload.viewer,
       characters: payload.characters,
       messages: merged,
       pendingQueue: payload.pendingQueue ?? [],

@@ -627,4 +627,33 @@ describe("Realtime contract tests", () => {
     });
     expect(hasTargetRoll).toBe(true);
   });
+
+  test("Snapshot viewer carries the authoritative seat role for input gating", async () => {
+    const pcSnapshot = await container.snapshotBuilder.execute({
+      sessionId,
+      actor: { type: "player", playerId: player1Id },
+      claimedCharacterId: "char-rt-1",
+    });
+    expect(pcSnapshot.viewer).toEqual({ isGm: false, seatRole: "pc" });
+
+    const gmSnapshot = await container.snapshotBuilder.execute({
+      sessionId,
+      actor: { type: "gm" },
+      claimedCharacterId: null,
+    });
+    expect(gmSnapshot.viewer).toEqual({ isGm: true, seatRole: null });
+
+    const claimSeat = new ClaimSeatUseCase(
+      new DrizzleSessionsRepository(container.db),
+      container.idGenerator,
+      container.clock
+    );
+    await claimSeat.execute({ sessionId, playerId: player3Id, role: "ob" });
+    const obSnapshot = await container.snapshotBuilder.execute({
+      sessionId,
+      actor: { type: "player", playerId: player3Id },
+      claimedCharacterId: null,
+    });
+    expect(obSnapshot.viewer).toEqual({ isGm: false, seatRole: "ob" });
+  });
 });

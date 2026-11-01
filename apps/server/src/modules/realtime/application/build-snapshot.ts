@@ -80,6 +80,8 @@ export class BuildSessionSnapshotUseCase {
       throw new SessionNotFoundError();
     }
 
+    const seatRole = await this.resolveSeatRole(sessionId, actor);
+
     const moduleRows = await this.db
       .select({ ruleId: modules.ruleId, name: modules.name })
       .from(modules)
@@ -110,6 +112,7 @@ export class BuildSessionSnapshotUseCase {
     ]);
 
     return {
+      viewer: { isGm, seatRole },
       session: {
         id: session.id,
         moduleId: session.moduleId,
@@ -129,6 +132,27 @@ export class BuildSessionSnapshotUseCase {
       pendingQueue,
       online,
     };
+  }
+
+  private async resolveSeatRole(sessionId: string, actor: ActorContext): Promise<"pc" | "ob" | null> {
+    if (actor.type !== "player") {
+      return null;
+    }
+    const rows = await this.db
+      .select({ role: sessionClaims.role })
+      .from(sessionClaims)
+      .where(
+        and(
+          eq(sessionClaims.sessionId, sessionId),
+          eq(sessionClaims.playerId, actor.playerId),
+          isNull(sessionClaims.releasedAt)
+        )
+      );
+    const role = rows[0]?.role;
+    if (!role) {
+      return null;
+    }
+    return role === "pc" ? "pc" : "ob";
   }
 
   /** 人物列表：NPC 团内状态仅 GM 可见，玩家/OB 收到 state=null */
