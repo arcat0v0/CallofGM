@@ -1,4 +1,5 @@
 import { Elysia } from "elysia";
+import { z } from "zod";
 import { type Container } from "@/bootstrap/container";
 import { DrizzleCatalogRepository } from "../infrastructure/drizzle-catalog-repository";
 import { DrizzleIdentityRepository, createAuthPlugin, AuthRequiredError } from "@/modules/identity";
@@ -17,6 +18,7 @@ import {
   CursorPageQuery,
   CursorPageResponse,
   ModuleDto,
+  ModuleSummaryDto,
   SceneDto,
   TrackDto,
   CatalogHandoutDto
@@ -27,6 +29,7 @@ import {
   DeleteModuleUseCase,
   GetModuleUseCase,
   ListModulesUseCase,
+  ListModuleSummariesUseCase,
   CreateSceneUseCase,
   UpdateSceneUseCase,
   DeleteSceneUseCase,
@@ -67,6 +70,7 @@ export function createCatalogRoutes(container: Container) {
   const deleteModule = new DeleteModuleUseCase(repo);
   const getModule = new GetModuleUseCase(repo);
   const listModules = new ListModulesUseCase(repo);
+  const listModuleSummaries = new ListModuleSummariesUseCase(repo);
 
   const createScene = new CreateSceneUseCase(repo, container.idGenerator, container.clock);
   const updateScene = new UpdateSceneUseCase(repo);
@@ -100,6 +104,9 @@ export function createCatalogRoutes(container: Container) {
     })
     .get("/", async ({ query }) => {
       return CursorPageResponse(ModuleDto).parse(await listModules.execute(parsePageQuery(query)));
+    })
+    .get("/summaries", async () => {
+      return z.array(ModuleSummaryDto).parse(await listModuleSummaries.execute());
     })
     .get("/:id", async ({ params }) => {
       return ModuleDto.parse(await getModule.execute(params.id));

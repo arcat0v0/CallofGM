@@ -17,6 +17,10 @@ import { logger } from "@/platform/logging/logger";
 
 const MAX_CACHED_REPLIES_PER_SESSION = 500;
 
+function actorKey(actor: ActorContext): string {
+  return actor.type === "player" ? `player:${actor.playerId}` : `gm:${actor.loginSessionId ?? ""}`;
+}
+
 /**
  * 团命令串行执行器：
  * 同一 sessionId 的命令按进入顺序串行执行（不同团并发），
@@ -55,8 +59,9 @@ export class SessionCommandExecutor {
     connectionId: string
   ): Promise<CommandReply> {
     return this.enqueue(sessionId, async () => {
+      const replyKey = `${actorKey(actor)}:${command.commandId}`;
       // 去重检查必须位于团级串行队列内，否则两个同时到达的同 commandId 都会穿透。
-      const cached = this.cachedReplies.get(sessionId)?.get(command.commandId);
+      const cached = this.cachedReplies.get(sessionId)?.get(replyKey);
       if (cached) {
         return cached;
       }
@@ -64,9 +69,9 @@ export class SessionCommandExecutor {
       const reply = await this.processCommand(sessionId, actor, command, connectionId);
       if (this.handlers.get(command.type)?.transientReply !== true) {
         if (reply.type === "command:accepted") {
-          this.cacheReply(sessionId, command.commandId, reply);
+          this.cacheReply(sessionId, replyKey, reply);
         } else if ((reply.payload as { code?: string })?.code !== "INTERNAL_SERVER_ERROR") {
-          this.cacheReply(sessionId, command.commandId, reply);
+          this.cacheReply(sessionId, replyKey, reply);
         }
       }
       return reply;

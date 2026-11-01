@@ -103,7 +103,7 @@ function GmModulesPage() {
         icon={Trash2}
         confirmIcon={Trash2}
         title="删除模组"
-        description="将同时删除其场景、曲目与情报元数据。"
+        description="删除空模组会同时移除其场景、曲目与情报元数据；若模组已被团引用则无法删除，请先处理相关团。"
         confirmLabel="删除"
         onConfirm={() => {
           const id = deleteId;

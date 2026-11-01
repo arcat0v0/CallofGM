@@ -158,6 +158,7 @@ export function PhaseSection() {
 
 export function SpeakQueueSection() {
   const pendingQueue = usePlayStore((state) => state.pendingQueue);
+  const discardedQueue = usePlayStore((state) => state.discardedQueue);
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 ease-standard-default-spatial flex flex-col gap-2 px-4 py-3 duration-500 delay-75">
       <div className="bg-md-surface-container flex flex-col gap-2 rounded-xl px-2.5 py-2.5">
@@ -168,6 +169,9 @@ export function SpeakQueueSection() {
           </div>
           <Badge variant="soft" tone="warning" size="sm">{pendingQueue.length} 待放行</Badge>
         </div>
+        {pendingQueue.length === 0 ? (
+          <p className="text-md-on-surface-variant text-label-small">队列为空</p>
+        ) : null}
         {pendingQueue.map((item, index) => {
           const name = item.characterName ?? "玩家";
           function reorder(direction: -1 | 1) {
@@ -197,6 +201,31 @@ export function SpeakQueueSection() {
             </div>
           );
         })}
+        <div className="flex items-center justify-between border-t border-separator-secondary pt-2">
+          <span className="text-md-on-surface-variant font-sans text-label-small-emph">已丢弃 · {discardedQueue.length}</span>
+        </div>
+        {discardedQueue.length === 0 ? (
+          <p className="text-md-on-surface-variant text-label-small">暂无已丢弃消息</p>
+        ) : (
+          discardedQueue.map((item) => {
+            const name = item.characterName ?? "玩家";
+            return (
+              <div key={item.id} className="flex items-center gap-1.5">
+                <span className="text-md-on-surface-variant size-3.5 shrink-0 text-center text-label-small">×</span>
+                <span className="text-md-on-surface-variant min-w-0 flex-1 truncate text-label-medium">{name} · {item.content}</span>
+                <Button
+                  type="button"
+                  variant="accentSoft"
+                  size="sm"
+                  className="h-6 px-2.5"
+                  onClick={() => sendSessionCommand("chat:restore", { messageId: item.id })}
+                >
+                  恢复
+                </Button>
+              </div>
+            );
+          })
+        )}
       </div>
     </div>
   );

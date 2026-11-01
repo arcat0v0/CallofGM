@@ -1,5 +1,5 @@
 import { Info, ShieldBan, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { FormField } from "@/components/shared/form-field";
 import { Alert, AlertDescription, AlertIcon } from "@/components/ui/alert";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -28,6 +28,10 @@ const durationSeconds: Record<(typeof durations)[number], number | undefined> = 
   自定义: undefined,
 };
 
+function shortHash(hash: string): string {
+  return hash.length <= 16 ? hash : `${hash.slice(0, 10)}…${hash.slice(-6)}`;
+}
+
 function BanPlayerDialog({
   open,
   onOpenChange,
@@ -35,6 +39,7 @@ function BanPlayerDialog({
   roleLabel = "玩家",
   fingerprint = "",
   defaultPlayerId = "",
+  defaultFingerprintHash = "",
   onBan,
 }: {
   open: boolean;
@@ -43,22 +48,45 @@ function BanPlayerDialog({
   roleLabel?: string;
   fingerprint?: string;
   defaultPlayerId?: string;
-  onBan?: (input: { playerId: string; reason: string; durationSeconds?: number }) => void | Promise<void>;
+  defaultFingerprintHash?: string;
+  onBan?: (input: {
+    playerId?: string;
+    fingerprintHash?: string;
+    reason: string;
+    durationSeconds?: number;
+  }) => void | Promise<void>;
 }) {
   const [duration, setDuration] = useState<(typeof durations)[number]>("7 天");
   const [playerId, setPlayerId] = useState(defaultPlayerId);
+  const [fingerprintHash, setFingerprintHash] = useState(defaultFingerprintHash);
   const [reason, setReason] = useState("");
   const [pending, setPending] = useState(false);
 
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    setPlayerId(defaultPlayerId);
+    setFingerprintHash(defaultFingerprintHash);
+    setReason("");
+    setDuration("7 天");
+  }, [open, defaultPlayerId, defaultFingerprintHash]);
+
+  const hashOnly = defaultFingerprintHash.trim().length > 0;
+  const ready = (playerId.trim() || fingerprintHash.trim()).length > 0;
+
   async function handleBan() {
-    const trimmed = playerId.trim();
-    if (!trimmed || pending) {
+    const trimmedPlayerId = playerId.trim();
+    const trimmedHash = fingerprintHash.trim();
+    if (!ready || pending) {
       return;
     }
     setPending(true);
     try {
       await onBan?.({
-        playerId: trimmed,
+        ...(trimmedPlayerId
+          ? { playerId: trimmedPlayerId, fingerprintHash: undefined }
+          : { fingerprintHash: trimmedHash, playerId: undefined }),
         reason,
         durationSeconds: durationSeconds[duration],
       });
@@ -98,19 +126,32 @@ function BanPlayerDialog({
                   {roleLabel}
                 </Badge>
               </div>
-              <span className="text-foreground-tertiary font-mono text-label-small">{fingerprint || "输入玩家 ID 封禁"}</span>
+              <span className="text-foreground-tertiary font-mono text-label-small">
+                {fingerprint || (hashOnly ? shortHash(defaultFingerprintHash) : "输入玩家 ID 封禁")}
+              </span>
             </div>
           </div>
 
-          <FormField label="玩家 ID" htmlFor="ban-player-id">
-            <Input
-              id="ban-player-id"
-              value={playerId}
-              onChange={(event) => setPlayerId(event.target.value)}
-              placeholder="playerId"
-              className="border-separator-secondary font-mono text-label-large"
-            />
-          </FormField>
+          {hashOnly ? (
+            <FormField label="指纹哈希" htmlFor="ban-fingerprint-hash">
+              <Input
+                id="ban-fingerprint-hash"
+                value={fingerprintHash}
+                readOnly
+                className="border-separator-secondary font-mono text-label-large"
+              />
+            </FormField>
+          ) : (
+            <FormField label="玩家 ID" htmlFor="ban-player-id">
+              <Input
+                id="ban-player-id"
+                value={playerId}
+                onChange={(event) => setPlayerId(event.target.value)}
+                placeholder="playerId"
+                className="border-separator-secondary font-mono text-label-large"
+              />
+            </FormField>
+          )}
 
           <FormField label="封禁时长">
             <RadioGroup value={duration} onValueChange={(value) => setDuration(value as (typeof durations)[number])} className="grid-cols-3">
@@ -156,7 +197,7 @@ function BanPlayerDialog({
           <Button variant="tertiary" size="sm" onClick={() => onOpenChange(false)}>
             取消
           </Button>
-          <Button variant="danger" size="sm" disabled={!playerId.trim() || pending} onClick={() => void handleBan()}>
+          <Button variant="danger" size="sm" disabled={!ready || pending} onClick={() => void handleBan()}>
             <ShieldBan className="size-[15px]" />
             确认拉黑 {duration}
           </Button>

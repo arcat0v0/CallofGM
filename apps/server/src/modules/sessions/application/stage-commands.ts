@@ -231,11 +231,13 @@ export class UpdateBgmHandler implements CommandHandler {
         if (!track || track.moduleId !== ctx.session.moduleId || track.type !== "bgm") {
           throw new TrackNotFoundError("BGM track not found in this module");
         }
-        // 切歌重置进度；同曲继续按指令 seekOffset 起播
+        // 切歌从 0 起播；同曲默认继续，显式 restart 或 seekOffset 时从头/指定位置起播
         const isSameTrack = base.trackId === input.trackId;
         next.trackId = input.trackId;
         next.playing = true;
-        next.seekOffsetMs = input.seekOffsetMs ?? (isSameTrack ? base.seekOffsetMs : 0);
+        next.seekOffsetMs = input.restart
+          ? (input.seekOffsetMs ?? 0)
+          : (input.seekOffsetMs ?? (isSameTrack ? base.seekOffsetMs : 0));
         next.startedAtMs = now;
         next.durationMs = track.duration;
         next.name = track.name;

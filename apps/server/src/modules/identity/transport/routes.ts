@@ -133,22 +133,38 @@ export function createIdentityRoutes(container: Container) {
       if (!parsed.success) {
         throw validationFailed(parsed.error);
       }
-      const fingerprintHash = await moderationRepo.findPlayerFingerprintHash(parsed.data.playerId);
-      if (!fingerprintHash) {
-        throw new PlayerNotFoundError();
+      let fingerprintHash: string;
+      let playerId: string | null = null;
+      let displayName: string | null = null;
+      if (parsed.data.playerId) {
+        const context = await moderationRepo.findPlayerBanContext(parsed.data.playerId);
+        if (!context) {
+          throw new PlayerNotFoundError();
+        }
+        fingerprintHash = context.fingerprintHash;
+        playerId = parsed.data.playerId;
+        displayName = context.displayName;
+      } else if (parsed.data.fingerprintHash) {
+        fingerprintHash = parsed.data.fingerprintHash;
+      } else {
+        throw new AppError("VALIDATION_FAILED", "playerId or fingerprintHash is required", 400);
       }
       const now = container.clock.nowEpochMs();
       const expiresAt = parsed.data.durationSeconds ? now + parsed.data.durationSeconds * 1000 : null;
       await moderationRepo.upsertBlacklistEntry({
         id: container.idGenerator.nextId(),
         fingerprintHash,
+        playerId,
+        displayName,
         reason: parsed.data.reason,
         expiresAt,
         createdAt: now,
       });
-      container.connectionRegistry.closePlayerConnections(parsed.data.playerId);
-      logger.audit("gm.blacklist.ban", { playerId: parsed.data.playerId });
-      return { banned: parsed.data.playerId, permanent: expiresAt === null, fingerprintHash };
+      if (playerId) {
+        container.connectionRegistry.closePlayerConnections(playerId);
+      }
+      logger.audit("gm.blacklist.ban", { playerId, fingerprintHash });
+      return { banned: playerId, permanent: expiresAt === null, fingerprintHash };
     })
     .post("/api/v1/gm/blacklist/unban", async ({ actor, body, request }) => {
       assertTrustedOrigin(request, allowedOrigins);

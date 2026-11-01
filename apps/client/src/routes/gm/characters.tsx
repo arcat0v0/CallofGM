@@ -38,6 +38,7 @@ function GmCharactersPage() {
   const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState("");
   const [importOpen, setImportOpen] = useState(false);
+  const [importTargetId, setImportTargetId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [portraitKey, setPortraitKey] = useState("default");
@@ -93,7 +94,7 @@ function GmCharactersPage() {
                 <Button type="button" onClick={() => setCreateOpen(true)} variant="primary" size="sm" className="h-[30px] px-3">
                   <Plus /> 新建
                 </Button>
-                <Button type="button" onClick={() => setImportOpen(true)} variant="outline" size="sm" className="h-[30px] px-3">
+                <Button type="button" onClick={() => { setImportTargetId(null); setImportOpen(true); }} variant="outline" size="sm" className="h-[30px] px-3">
                   导入
                 </Button>
               </div>
@@ -142,7 +143,7 @@ function GmCharactersPage() {
                 <h2 className="font-serif text-headline-small-emph">{selected.name}</h2>
                 <p className="text-foreground-secondary text-body-medium">{selected.meta}</p>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>导入 Excel</Button>
+                  <Button variant="outline" size="sm" onClick={() => { setImportTargetId(selected.id); setImportOpen(true); }}>导入 Excel</Button>
                   <Select value={portraitKey} onValueChange={setPortraitKey}>
                     <SelectTrigger className="h-8 w-28">
                       <SelectValue />
@@ -250,7 +251,17 @@ function GmCharactersPage() {
         )}
       </div>
       <CreateCharacterDialog open={createOpen} onOpenChange={setCreateOpen} onCreated={() => void reload()} />
-      <ImportCharacterSheetDialog open={importOpen} onOpenChange={setImportOpen} onImported={() => void reload()} />
+      <ImportCharacterSheetDialog
+        open={importOpen}
+        onOpenChange={(open) => {
+          setImportOpen(open);
+          if (!open) {
+            setImportTargetId(null);
+          }
+        }}
+        onImported={() => void reload()}
+        updateCharacterId={importTargetId}
+      />
       <ConfirmDialog
         open={deleteOpen}
         onOpenChange={setDeleteOpen}

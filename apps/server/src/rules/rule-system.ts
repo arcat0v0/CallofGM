@@ -9,6 +9,10 @@ export interface CharacterSheetPreview<T> {
     cell: string;
     message: string;
   }>;
+  warnings?: Array<{
+    cell: string;
+    message: string;
+  }>;
 }
 
 export interface SkillCheckInput {

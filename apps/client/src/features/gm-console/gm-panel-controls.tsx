@@ -1,4 +1,4 @@
-import { AudioLines, ChevronDown, FileText, Pause, Play, Repeat, Settings2, ShieldBan, SkipForward, UserX, Users, VenetianMask, Volume2, Zap } from "lucide-react";
+import { AudioLines, ChevronDown, FileText, Pause, Play, Repeat, RotateCcw, Settings2, ShieldBan, SkipForward, UserX, Users, VenetianMask, Volume2, Zap } from "lucide-react";
 import { useEffect, useState } from "react";
 import { coc7e, type SessionSettings } from "@cogm/shared";
 import { toast } from "sonner";
@@ -101,7 +101,18 @@ export function AudioSection() {
     <div className="animate-in fade-in slide-in-from-bottom-4 ease-standard-default-spatial flex flex-col gap-2.5 px-4 py-3 duration-500 delay-225">
       <SectionTitle icon={AudioLines}>音频 · GM 全局控制</SectionTitle>
       {bgmTracks.map((track) => (
-        <Button key={track.id} type="button" variant={track.id === bgm?.trackId ? "accentSoft" : "ghost"} className="h-7 justify-start px-2" onClick={() => sendBgm("play", { trackId: track.id })}>
+        <Button
+          key={track.id}
+          type="button"
+          variant={track.id === bgm?.trackId ? "accentSoft" : "ghost"}
+          className="h-7 justify-start px-2"
+          onClick={() =>
+            sendBgm("play", {
+              trackId: track.id,
+              ...(track.id === bgm?.trackId ? { restart: true } : {}),
+            })
+          }
+        >
           {track.name}
         </Button>
       ))}
@@ -113,6 +124,19 @@ export function AudioSection() {
           <div className="truncate text-label-medium-emph">{current?.name ?? bgm?.name ?? "未选择曲目"}</div>
           <div className="text-md-on-surface-variant text-label-small">{bgm?.loop ? "循环" : "单曲"} · v{bgm?.version ?? 0}</div>
         </div>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label="从头播放"
+          disabled={!bgm?.trackId}
+          onClick={() => {
+            if (bgm?.trackId) {
+              sendBgm("play", { trackId: bgm.trackId, restart: true });
+            }
+          }}
+        >
+          <RotateCcw />
+        </Button>
         <Button variant="ghost" size="icon-sm" aria-label="循环" onClick={() => sendBgm("loop", { loop: !bgm?.loop })}><Repeat /></Button>
         <Button variant="ghost" size="icon-sm" aria-label="下一首" onClick={() => {
           const index = bgmTracks.findIndex((track) => track.id === bgm?.trackId);

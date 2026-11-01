@@ -257,7 +257,7 @@ describe("CoC 7e 状态变更", () => {
     expect(preview.sheetData.skills["会计"]).toBe(5);
   });
 
-  test("缺属性会记入错误而不是静默当成功", async () => {
+  test("缺关键属性记入错误，外貌/幸运等非关键属性静默补 50", async () => {
     const xlsx = await import("xlsx");
     const workbook = xlsx.utils.book_new();
     const sheet = xlsx.utils.aoa_to_sheet([
@@ -269,9 +269,11 @@ describe("CoC 7e 状态变更", () => {
     xlsx.utils.book_append_sheet(workbook, sheet, "Sheet1");
     const buffer = xlsx.write(workbook, { type: "array", bookType: "xlsx" }) as ArrayBuffer;
     const preview = await rule.parseCharacterSheet(buffer);
-    expect(preview.errors.some((error) => error.cell === "LUCK")).toBe(true);
+    expect(preview.errors.some((error) => error.cell === "LUCK")).toBe(false);
     expect(preview.errors.some((error) => error.cell === "STR")).toBe(true);
+    expect(preview.errors.some((error) => error.cell === "DEX")).toBe(true);
     expect(preview.sheetData.attributes.luck).toBe(50);
+    expect(preview.sheetData.attributes.app).toBe(50);
   });
 });
 

@@ -90,9 +90,22 @@ export const TrackDto = z.object({
   audioAssetId: z.string(),
   type: z.enum(["bgm", "se"]),
   duration: z.number().int(),
+  audioSize: z.number().int().nullable(),
+  audioUploadedAt: z.number().int().nullable(),
   createdAt: z.number().int(),
 });
 export type TrackDto = z.infer<typeof TrackDto>;
+
+export const ModuleSummaryDto = z.object({
+  moduleId: z.string(),
+  sceneCount: z.number().int(),
+  handoutCount: z.number().int(),
+  trackCount: z.number().int(),
+  characterCount: z.number().int(),
+  coverAssetId: z.string().nullable(),
+  updatedAt: z.number().int(),
+});
+export type ModuleSummaryDto = z.infer<typeof ModuleSummaryDto>;
 
 export const CatalogHandoutDto = HandoutDto.extend({
   moduleId: z.string(),

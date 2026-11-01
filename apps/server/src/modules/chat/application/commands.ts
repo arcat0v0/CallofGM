@@ -2,6 +2,7 @@ import {
   SendChatMessageCommand,
   ReleaseChatMessageCommand,
   DiscardChatMessageCommand,
+  RestoreChatMessageCommand,
   ReorderChatQueueCommand,
   type ChatMessageDto,
   type SessionPhase,
@@ -68,15 +69,19 @@ async function persistPresentedEventId(
   }
 }
 
-/** 向 GM 推送最新待呈现队列（DirectControlMessage） */
+/** 向 GM 推送最新待呈现队列与已丢弃历史（DirectControlMessage） */
 async function queueUpdate(
   ctx: CommandHandlerContext,
   repo: ChatRepository
 ): Promise<{ type: string; payload: unknown }> {
-  const pending = await repo.listPending(ctx.sessionId);
+  const [pending, discarded] = await Promise.all([
+    repo.listPending(ctx.sessionId),
+    repo.listDiscarded(ctx.sessionId),
+  ]);
   const nameCache = new Map<string, string | null>();
   const messages = await Promise.all(pending.map((row) => toDto(repo, row, nameCache)));
-  return { type: "chat:queue", payload: { messages } };
+  const discardedMessages = await Promise.all(discarded.map((row) => toDto(repo, row, nameCache)));
+  return { type: "chat:queue", payload: { messages, discarded: discardedMessages } };
 }
 
 /**
@@ -282,6 +287,39 @@ export class DiscardChatMessageHandler implements CommandHandler {
   }
 }
 
+export class RestoreChatMessageHandler implements CommandHandler {
+  readonly type = "chat:restore" as const;
+  readonly allowedStatuses = ["waiting", "preparing", "active"] as const;
+
+  constructor(private readonly repoFactory: (tx: DbClient) => ChatRepository) {}
+
+  async execute(ctx: CommandHandlerContext, payload: unknown): Promise<CommandHandlerResult> {
+    if (ctx.actor.type !== "gm") {
+      throw new ForbiddenError("Only the GM can restore discarded messages");
+    }
+    const parsed = RestoreChatMessageCommand.safeParse(payload);
+    if (!parsed.success) {
+      throw new AppError("VALIDATION_FAILED", parsed.error.message, 400);
+    }
+    const repo = this.repoFactory(ctx.tx);
+
+    const row = await repo.findMessageById(parsed.data.messageId);
+    if (!row || row.sessionId !== ctx.sessionId) {
+      throw new MessageNotFoundError();
+    }
+    const queueOrder = (await repo.maxQueueOrder(ctx.sessionId)) + 1;
+    const restored = await repo.markPendingIfDiscarded(row.id, queueOrder);
+    if (!restored) {
+      throw new MessageNotPendingError();
+    }
+
+    return {
+      directToGms: [await queueUpdate(ctx, repo)],
+      replyPayload: { messageId: row.id, queueOrder },
+    };
+  }
+}
+
 /** chat:reorder — GM 调整待呈现队列顺序（全量有序 id 列表，稳定重排） */
 export class ReorderChatQueueHandler implements CommandHandler {
   readonly type = "chat:reorder" as const;
@@ -320,6 +358,7 @@ export function createChatCommandHandlers(
     new SendChatMessageHandler(repoFactory),
     new ReleaseChatMessageHandler(repoFactory),
     new DiscardChatMessageHandler(repoFactory),
+    new RestoreChatMessageHandler(repoFactory),
     new ReorderChatQueueHandler(repoFactory),
   ];
 }

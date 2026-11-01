@@ -27,6 +27,8 @@ export const playerTokens = sqliteTable("player_tokens", {
 export const blacklistEntries = sqliteTable("blacklist_entries", {
   id: text("id").primaryKey(),
   fingerprintHash: text("fingerprint_hash").notNull().unique(),
+  playerId: text("player_id"),
+  displayName: text("display_name"),
   reason: text("reason").notNull(),
   /** null 表示永久封禁 */
   expiresAt: integer("expires_at"),

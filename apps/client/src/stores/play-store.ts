@@ -47,6 +47,7 @@ type PlayState = {
   characters: SnapshotCharacter[];
   messages: ChatMessage[];
   pendingQueue: ChatMessageDto[];
+  discardedQueue: ChatMessageDto[];
   bgm: BgmState | null;
   scene: { id: string; name: string; bgAssetId: string | null } | null;
   handouts: GrantedHandoutDto[];
@@ -101,6 +102,7 @@ const empty = {
   characters: [] as SnapshotCharacter[],
   messages: [] as ChatMessage[],
   pendingQueue: [] as ChatMessageDto[],
+  discardedQueue: [] as ChatMessageDto[],
   bgm: null as BgmState | null,
   scene: null as PlayState["scene"],
   handouts: [] as GrantedHandoutDto[],
@@ -326,6 +328,7 @@ export const usePlayStore = create<PlayState>((set, get) => ({
       characters: payload.characters,
       messages: merged,
       pendingQueue: payload.pendingQueue ?? [],
+      discardedQueue: payload.discardedQueue ?? [],
       bgm: payload.bgm,
       scene: payload.currentScene,
       handouts: payload.visibleHandouts,
@@ -419,8 +422,11 @@ export const usePlayStore = create<PlayState>((set, get) => ({
       return;
     }
     if ("type" in message && message.type === "chat:queue") {
-      const payload = message.payload as { messages?: ChatMessageDto[] };
-      set({ pendingQueue: payload.messages ?? [] });
+      const payload = message.payload as { messages?: ChatMessageDto[]; discarded?: ChatMessageDto[] };
+      set({
+        pendingQueue: payload.messages ?? [],
+        ...(payload.discarded ? { discardedQueue: payload.discarded } : {}),
+      });
       return;
     }
     if ("type" in message && message.type === "presence:updated") {

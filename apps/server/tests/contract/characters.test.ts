@@ -510,4 +510,145 @@ describe("Characters contract tests", () => {
     );
     expect(badRuleRes.status).toBe(400);
   });
+
+  function excelRows(nameLabel: string, nameValue: string, overrides: { omit?: string } = {}): unknown[][] {
+    const rows: unknown[][] = [[nameLabel, nameValue]];
+    const attributes: Array<[string, number, string]> = [
+      ["力量 (STR)", 60, "力量"],
+      ["体质 (CON)", 70, "体质"],
+      ["体型 (SIZ)", 80, "体型"],
+      ["敏捷 (DEX)", 50, "敏捷"],
+      ["外貌 (APP)", 40, "外貌"],
+      ["智力 (INT)", 65, "智力"],
+      ["意志 (POW)", 75, "意志"],
+      ["教育 (EDU)", 85, "教育"],
+      ["幸运 (LUCK)", 90, "幸运"],
+    ];
+    for (const [label, value, key] of attributes) {
+      if (overrides.omit === key) {
+        continue;
+      }
+      rows.push([label, value]);
+    }
+    rows.push(["侦查", 30]);
+    return rows;
+  }
+
+  async function previewRows(rows: unknown[][]): Promise<{
+    importToken: string;
+    preview: {
+      characterName: string;
+      sheetData: { attributes: Record<string, number>; skills: Record<string, number> };
+      errors: Array<{ cell: string; message: string }>;
+      warnings: Array<{ cell: string; message: string }>;
+    };
+  }> {
+    const wb = xlsx.utils.book_new();
+    xlsx.utils.book_append_sheet(wb, xlsx.utils.aoa_to_sheet(rows), "Sheet1");
+    const excelBuffer = xlsx.write(wb, { type: "array", bookType: "xlsx" });
+    const formData = new FormData();
+    formData.append(
+      "file",
+      new Blob([excelBuffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      }),
+      "sheet.xlsx",
+    );
+    formData.append("ruleId", "coc7e");
+    const res = await app.handle(
+      new Request("http://localhost/api/v1/gm/characters/import/preview", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${gmToken}` },
+        body: formData,
+      }),
+    );
+    expect(res.status).toBe(200);
+    return (await res.json()) as {
+      importToken: string;
+      preview: {
+        characterName: string;
+        sheetData: { attributes: Record<string, number>; skills: Record<string, number> };
+        errors: Array<{ cell: string; message: string }>;
+        warnings: Array<{ cell: string; message: string }>;
+      };
+    };
+  }
+
+  async function confirmImport(body: unknown): Promise<Response> {
+    return app.handle(
+      new Request("http://localhost/api/v1/gm/characters/import/confirm", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${gmToken}`,
+        },
+        body: JSON.stringify(body),
+      }),
+    );
+  }
+
+  test("Excel import: missing optional attributes fall back to 50 without blocking", async () => {
+    const rows = excelRows("姓名", "容错角色").filter((row) => row[0] !== "外貌 (APP)" && row[0] !== "幸运 (LUCK)");
+    const preview = await previewRows(rows);
+    expect(preview.preview.errors).toHaveLength(0);
+    expect(preview.preview.sheetData.attributes.app).toBe(50);
+    expect(preview.preview.sheetData.attributes.luck).toBe(50);
+
+    const res = await confirmImport({ importToken: preview.importToken, kind: "pc" });
+    expect(res.status).toBe(200);
+    const created = (await res.json()) as TestCharacterResponse;
+    expect(created.name).toBe("容错角色");
+  });
+
+  test("Excel import: missing core attribute is a hard error and blocks confirm", async () => {
+    const preview = await previewRows(excelRows("姓名", "缺关键属性角色", { omit: "体质" }));
+    expect(preview.preview.errors.some((error) => error.cell === "CON")).toBe(true);
+    const res = await confirmImport({ importToken: preview.importToken, kind: "pc" });
+    expect(res.status).toBe(400);
+  });
+
+  test("Excel import: characterId updates the existing character instead of creating a duplicate", async () => {
+    const createRes = await app.handle(
+      new Request("http://localhost/api/v1/gm/characters", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${gmToken}`,
+        },
+        body: JSON.stringify({
+          name: "旧名字",
+          kind: "pc",
+          ruleId: "coc7e",
+          sheetData: {
+            attributes: { str: 10, con: 10, siz: 10, dex: 10, app: 10, int: 10, pow: 10, edu: 10, luck: 10 },
+            skills: {},
+          },
+        }),
+      }),
+    );
+    expect(createRes.status).toBe(200);
+    const existing = (await createRes.json()) as TestCharacterResponse;
+
+    const preview = await previewRows(excelRows("姓名", "新名字"));
+    const res = await confirmImport({
+      importToken: preview.importToken,
+      kind: "pc",
+      characterId: existing.id,
+    });
+    expect(res.status).toBe(200);
+    const updated = (await res.json()) as TestCharacterResponse;
+    expect(updated.id).toBe(existing.id);
+    expect(updated.name).toBe("新名字");
+    expect((JSON.parse(updated.sheetJson) as { attributes: { str: number } }).attributes.str).toBe(60);
+  });
+
+  test("Excel import: fuzzy name label emits a warning while player-name labels are ignored", async () => {
+    const fuzzy = await previewRows(excelRows("调查员姓名（必填）", "王五"));
+    expect(fuzzy.preview.characterName).toBe("王五");
+    expect(fuzzy.preview.warnings).toHaveLength(1);
+
+    const ignored = await previewRows(excelRows("玩家姓名", "赵六"));
+    expect(ignored.preview.characterName).toBe("无名氏");
+    expect(ignored.preview.warnings).toHaveLength(0);
+  });
 });

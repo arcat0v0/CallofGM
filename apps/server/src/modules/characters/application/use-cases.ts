@@ -230,6 +230,7 @@ export class ImportConfirmUseCase {
     kind: string;
     ruleId?: RuleId;
     moduleId?: string;
+    characterId?: string;
     gmSessionId: string | null;
   }) {
     const staging = await this.repo.findStagingById(input.importToken);
@@ -255,6 +256,32 @@ export class ImportConfirmUseCase {
       if (!exists) {
         throw new ModuleNotFoundError();
       }
+    }
+    if (input.characterId) {
+      const existing = await this.repo.findCharacterById(input.characterId);
+      if (!existing) {
+        throw new CharacterNotFoundError();
+      }
+      if (existing.ruleId !== staging.ruleId) {
+        throw new CharacterRuleMismatchError();
+      }
+      const updated = await this.repo.updateCharacter(existing.id, {
+        name: staging.characterName,
+        sheetJson: staging.sheetJson,
+      });
+      if (input.moduleId) {
+        const link = await this.repo.findModuleCharacterLink(input.moduleId, existing.id);
+        if (!link) {
+          await this.repo.linkCharacterToModule({
+            id: this.idGenerator.nextId(),
+            moduleId: input.moduleId,
+            characterId: existing.id,
+            createdAt: now,
+          });
+        }
+      }
+      await this.repo.consumeStaging(input.importToken, now);
+      return updated;
     }
     const characterId = this.idGenerator.nextId();
     const character = {

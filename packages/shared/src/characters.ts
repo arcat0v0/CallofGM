@@ -22,6 +22,7 @@ export const ImportConfirmRequest = z.object({
   kind: CharacterRole,
   ruleId: RuleId.optional(),
   moduleId: z.string().min(1).optional(),
+  characterId: z.string().min(1).optional(),
 });
 export type ImportConfirmRequest = z.infer<typeof ImportConfirmRequest>;
 
@@ -69,6 +70,7 @@ export const CharacterImportPreviewResponse = z.object({
     characterName: z.string(),
     sheetData: z.unknown(),
     errors: z.array(CharacterImportErrorDto),
+    warnings: z.array(CharacterImportErrorDto).default([]),
   }),
 });
 export type CharacterImportPreviewResponse = z.infer<typeof CharacterImportPreviewResponse>;

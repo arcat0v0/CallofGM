@@ -1,14 +1,18 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import type { ModuleDto, TrackDto } from "@cogm/shared";
-import { Disc3, Play, Upload, Zap } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Howl } from "howler";
+import { Disc3, Pause, Pencil, Play, Trash2, Upload, Zap } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { PageHeader } from "@/components/shared/page-header";
 import { AdminLayout } from "@/features/gm-admin/admin-layout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { fetchAllPages, isApiError } from "@/lib/api";
+import { Input } from "@/components/ui/input";
+import { api, fetchAllPages, isApiError, mediaUrl } from "@/lib/api";
+import { formatDurationMmSs } from "@/lib/format";
 import { requireGmAuth } from "@/lib/identity";
 import { cn } from "@/lib/utils";
 
@@ -17,10 +21,171 @@ export const Route = createFileRoute("/gm/music")({
   component: MusicResourcesPage,
 });
 
+function formatBytes(bytes: number | null): string {
+  if (bytes === null) {
+    return "—";
+  }
+  if (bytes < 1024) {
+    return `${bytes} B`;
+  }
+  if (bytes < 1024 * 1024) {
+    return `${(bytes / 1024).toFixed(1)} KB`;
+  }
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function formatStamp(epochMs: number | null): string {
+  if (epochMs === null) {
+    return "—";
+  }
+  return new Date(epochMs).toLocaleString("zh-CN", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function TrackRow({
+  track,
+  previewing,
+  onTogglePreview,
+  onReload,
+  onDelete,
+}: {
+  track: TrackDto;
+  previewing: boolean;
+  onTogglePreview: () => void;
+  onReload: () => Promise<void>;
+  onDelete: () => void;
+}) {
+  const [renaming, setRenaming] = useState(false);
+  const [name, setName] = useState(track.name);
+
+  useEffect(() => {
+    setName(track.name);
+  }, [track.name]);
+
+  async function saveName() {
+    const trimmed = name.trim();
+    if (!trimmed || trimmed === track.name) {
+      setRenaming(false);
+      setName(track.name);
+      return;
+    }
+    try {
+      await api(`/gm/modules/tracks/${encodeURIComponent(track.id)}`, {
+        method: "PATCH",
+        body: JSON.stringify({ name: trimmed }),
+      });
+      setRenaming(false);
+      await onReload();
+    } catch (error) {
+      toast.error(isApiError(error) ? error.message : "重命名失败");
+    }
+  }
+
+  return (
+    <Card className="animate-in fade-in slide-in-from-bottom-4 flex-row items-center gap-3 rounded-2xl px-3 py-2.5 duration-500 ease-standard-default-spatial">
+      <Button
+        type="button"
+        variant={previewing ? "accentSoft" : "tertiary"}
+        size="icon-sm"
+        className="size-8 shrink-0"
+        aria-label={previewing ? `停止试听 ${track.name}` : `试听 ${track.name}`}
+        onClick={onTogglePreview}
+      >
+        {previewing ? <Pause className="size-4" /> : <Play className="size-4" />}
+      </Button>
+      <div className="flex min-w-0 flex-1 flex-col">
+        {renaming ? (
+          <Input
+            value={name}
+            autoFocus
+            aria-label={`重命名 ${track.name}`}
+            onChange={(event) => setName(event.target.value)}
+            onBlur={() => void saveName()}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                void saveName();
+              }
+              if (event.key === "Escape") {
+                setRenaming(false);
+                setName(track.name);
+              }
+            }}
+            className="h-7 text-label-medium"
+          />
+        ) : (
+          <span className="truncate text-body-medium-emph">{track.name}</span>
+        )}
+        <span className="text-foreground-tertiary text-label-small">
+          {formatDurationMmSs(track.duration)} · {formatBytes(track.audioSize)} · 上传 {formatStamp(track.audioUploadedAt)}
+        </span>
+      </div>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        aria-label={`重命名 ${track.name}`}
+        className="size-7 shrink-0 text-foreground-tertiary"
+        onClick={() => setRenaming(true)}
+      >
+        <Pencil className="size-3.5" />
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        aria-label={`删除 ${track.name}`}
+        className="size-7 shrink-0 text-danger-soft-foreground"
+        onClick={onDelete}
+      >
+        <Trash2 className="size-3.5" />
+      </Button>
+    </Card>
+  );
+}
+
 function MusicResourcesPage() {
   const [modules, setModules] = useState<ModuleDto[]>([]);
   const [moduleId, setModuleId] = useState("");
   const [tracks, setTracks] = useState<TrackDto[]>([]);
+  const [previewId, setPreviewId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<TrackDto | null>(null);
+  const previewRef = useRef<Howl | null>(null);
+
+  function stopPreview() {
+    previewRef.current?.unload();
+    previewRef.current = null;
+    setPreviewId(null);
+  }
+
+  function togglePreview(track: TrackDto) {
+    if (previewId === track.id) {
+      stopPreview();
+      return;
+    }
+    stopPreview();
+    const src = mediaUrl(track.audioAssetId);
+    if (!src) {
+      toast.error("音频文件不可用");
+      return;
+    }
+    const howl = new Howl({ src: [src], html5: true, xhr: { withCredentials: true }, volume: 0.8 });
+    howl.once("end", () => {
+      if (previewRef.current === howl) {
+        previewRef.current = null;
+        setPreviewId(null);
+      }
+      howl.unload();
+    });
+    howl.play();
+    previewRef.current = howl;
+    setPreviewId(track.id);
+  }
+
+  useEffect(() => () => stopPreview(), []);
 
   useEffect(() => {
     void (async () => {
@@ -43,6 +208,17 @@ function MusicResourcesPage() {
       .catch((error) => toast.error(isApiError(error) ? error.message : "无法加载曲目"));
   }, [moduleId]);
 
+  async function reloadTracks() {
+    if (!moduleId) {
+      return;
+    }
+    try {
+      setTracks(await fetchAllPages<TrackDto>(`/gm/modules/${encodeURIComponent(moduleId)}/tracks`));
+    } catch (error) {
+      toast.error(isApiError(error) ? error.message : "无法加载曲目");
+    }
+  }
+
   const bgmTracks = tracks.filter((track) => track.type === "bgm");
   const soundEffects = tracks.filter((track) => track.type === "se");
 
@@ -63,14 +239,14 @@ function MusicResourcesPage() {
             ) : null
           }
         />
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {modules.map((module) => (
-            <Button key={module.id} type="button" variant={module.id === moduleId ? "primary" : "tertiary"} onClick={() => setModuleId(module.id)}>
+            <Button key={module.id} type="button" variant={module.id === moduleId ? "primary" : "tertiary"} onClick={() => { stopPreview(); setModuleId(module.id); }}>
               {module.name}
             </Button>
           ))}
         </div>
-        <div className="flex min-h-0 flex-1 gap-5">
+        <div className="flex min-h-0 flex-1 flex-col gap-5 xl:flex-row">
           <section className="animate-in fade-in slide-in-from-bottom-4 flex min-h-0 flex-1 flex-col gap-3 duration-500 ease-standard-default-spatial">
             <div className="flex items-center gap-2">
               <Disc3 className="text-accent-hover size-4" />
@@ -78,40 +254,67 @@ function MusicResourcesPage() {
               <Badge variant="soft" size="sm">{bgmTracks.length} 首</Badge>
             </div>
             <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
-              {bgmTracks.map((track, index) => (
-                <Card
+              {bgmTracks.map((track) => (
+                <TrackRow
                   key={track.id}
-                  className={cn(
-                    "animate-in fade-in slide-in-from-bottom-4 flex-row items-center gap-3 rounded-2xl px-3 py-2.5 duration-500 ease-standard-default-spatial",
-                    index % 3 === 1 ? "delay-75" : index % 3 === 2 ? "delay-150" : "",
-                  )}
-                >
-                  <Play className="text-foreground-tertiary size-4" />
-                  <span className="flex-1 text-body-medium-emph">{track.name}</span>
-                </Card>
+                  track={track}
+                  previewing={previewId === track.id}
+                  onTogglePreview={() => togglePreview(track)}
+                  onReload={reloadTracks}
+                  onDelete={() => setDeleteTarget(track)}
+                />
               ))}
+              {bgmTracks.length === 0 ? (
+                <p className="text-foreground-tertiary text-label-small">暂无 BGM 曲目</p>
+              ) : null}
             </div>
           </section>
-          <section className="animate-in fade-in slide-in-from-bottom-4 flex w-[400px] shrink-0 flex-col gap-3 delay-75 duration-500 ease-standard-default-spatial">
+          <section className="animate-in fade-in slide-in-from-bottom-4 flex min-h-0 w-full shrink-0 flex-col gap-3 delay-75 duration-500 ease-standard-default-spatial xl:w-[400px]">
             <div className="flex items-center gap-2">
               <Zap className="text-warning size-4" />
               <span className="text-foreground text-body-medium-emph">SE</span>
               <Badge variant="soft" size="sm">{soundEffects.length} 个</Badge>
             </div>
-            {soundEffects.map((track, index) => (
-              <Card
-                key={track.id}
-                className={cn(
-                  "animate-in fade-in slide-in-from-bottom-4 rounded-2xl px-3 py-2.5 text-body-medium duration-500 ease-standard-default-spatial",
-                  index % 3 === 1 ? "delay-75" : index % 3 === 2 ? "delay-150" : "",
-                )}
-              >
-                {track.name}
-              </Card>
-            ))}
+            <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
+              {soundEffects.map((track) => (
+                <TrackRow
+                  key={track.id}
+                  track={track}
+                  previewing={previewId === track.id}
+                  onTogglePreview={() => togglePreview(track)}
+                  onReload={reloadTracks}
+                  onDelete={() => setDeleteTarget(track)}
+                />
+              ))}
+              {soundEffects.length === 0 ? (
+                <p className="text-foreground-tertiary text-label-small">暂无 SE 音效</p>
+              ) : null}
+            </div>
           </section>
         </div>
       </div>
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        icon={Trash2}
+        confirmIcon={Trash2}
+        title="删除曲目"
+        description={`确认删除「${deleteTarget?.name ?? ""}」？正在使用该曲目的团会停止播放。`}
+        confirmLabel="删除"
+        onConfirm={() => {
+          const target = deleteTarget;
+          setDeleteTarget(null);
+          if (!target) {
+            return;
+          }
+          if (previewId === target.id) {
+            stopPreview();
+          }
+          void api(`/gm/modules/tracks/${encodeURIComponent(target.id)}`, { method: "DELETE" })
+            .then(() => reloadTracks())
+            .catch((error) => toast.error(isApiError(error) ? error.message : "删除失败"));
+        }}
+      />
     </AdminLayout>
   );
 }

@@ -22,7 +22,19 @@ export interface CatalogTrack {
   audioAssetId: string;
   type: "bgm" | "se";
   duration: number;
+  audioSize: number | null;
+  audioUploadedAt: number | null;
   createdAt: number;
+}
+
+export interface ModuleSummary {
+  moduleId: string;
+  sceneCount: number;
+  handoutCount: number;
+  trackCount: number;
+  characterCount: number;
+  coverAssetId: string | null;
+  updatedAt: number;
 }
 
 export interface CatalogHandout {
@@ -45,6 +57,7 @@ export interface CatalogRepository {
     offset?: number;
     cursor?: string;
   }): Promise<{ items: CatalogModule[]; nextCursor: string | null }>;
+  listModuleSummaries(): Promise<ModuleSummary[]>;
 
   findSceneById(id: string): Promise<CatalogScene | null>;
   saveScene(scene: CatalogScene): Promise<void>;

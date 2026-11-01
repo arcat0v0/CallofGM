@@ -69,6 +69,10 @@ export class BuildSessionSnapshotUseCase {
     return this.buildPendingQueue(sessionId);
   }
 
+  async listDiscardedQueue(sessionId: string): Promise<ChatMessageDto[]> {
+    return this.buildDiscardedQueue(sessionId);
+  }
+
   async execute(input: {
     sessionId: string;
     actor: ActorContext;
@@ -101,6 +105,7 @@ export class BuildSessionSnapshotUseCase {
       visibleHandouts,
       pendingCheckRequests,
       pendingQueue,
+      discardedQueue,
       online,
       kickedPlayers,
     ] = await Promise.all([
@@ -125,6 +130,7 @@ export class BuildSessionSnapshotUseCase {
       ),
       this.buildPendingCheckRequests(sessionId, isGm, claimedCharacterId),
       isGm ? this.buildPendingQueue(sessionId) : Promise.resolve(undefined),
+      isGm ? this.buildDiscardedQueue(sessionId) : Promise.resolve(undefined),
       isGm ? this.presenceService.listOnline(sessionId) : Promise.resolve(undefined),
       isGm ? loadKickedPlayers(this.db, sessionId) : Promise.resolve(undefined),
     ]);
@@ -153,6 +159,7 @@ export class BuildSessionSnapshotUseCase {
       visibleHandouts,
       pendingCheckRequests,
       pendingQueue,
+      discardedQueue,
       online,
       kickedPlayers,
     };
@@ -344,6 +351,18 @@ export class BuildSessionSnapshotUseCase {
       .from(sessionMessages)
       .where(and(eq(sessionMessages.sessionId, sessionId), eq(sessionMessages.status, "pending")))
       .orderBy(sessionMessages.queueOrder);
+
+    const nameMap = await loadCharacterNames(this.db, collectCharacterIds(rows));
+
+    return rows.map((row) => toMessageDto(row, nameMap));
+  }
+
+  private async buildDiscardedQueue(sessionId: string): Promise<ChatMessageDto[]> {
+    const rows = await this.db
+      .select()
+      .from(sessionMessages)
+      .where(and(eq(sessionMessages.sessionId, sessionId), eq(sessionMessages.status, "discarded")))
+      .orderBy(sessionMessages.createdAt);
 
     const nameMap = await loadCharacterNames(this.db, collectCharacterIds(rows));
 

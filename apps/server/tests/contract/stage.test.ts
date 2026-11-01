@@ -197,4 +197,33 @@ describe("Stage control contract tests", () => {
 
     await closeAll(pc2);
   });
+  test("BGM 同曲重播：默认续播，restart 从头开始", async () => {
+    const { gm, pc } = await openAll();
+    const snapshot = gm.messages.find((m) => m.type === "snapshot");
+    let version: number = snapshot?.payload.bgm?.version ?? 0;
+    const trackId: string = snapshot?.payload.bgm?.trackId ?? "track-bgm-1";
+
+    if (!snapshot?.payload.bgm) {
+      sendCommand(gm, "audio:bgm", { action: "play", trackId, expectedVersion: version }, "replay-init");
+      const initEvent = await gm.waitFor((m) => m.type === "audio:bgm" && m.payload.bgm.trackId === trackId);
+      version = initEvent.payload.bgm.version;
+    }
+
+    sendCommand(gm, "audio:bgm", { action: "seek", seekOffsetMs: 5000, expectedVersion: version }, "replay-seek");
+    const seekEvent = await gm.waitFor((m) => m.type === "audio:bgm" && m.payload.bgm.seekOffsetMs === 5000);
+    version = seekEvent.payload.bgm.version;
+
+    sendCommand(gm, "audio:bgm", { action: "play", trackId, expectedVersion: version }, "replay-continue");
+    const continueEvent = await gm.waitFor((m) => m.type === "audio:bgm" && m.payload.bgm.version === version + 1);
+    expect(continueEvent.payload.bgm.seekOffsetMs).toBe(5000);
+    version = continueEvent.payload.bgm.version;
+
+    sendCommand(gm, "audio:bgm", { action: "play", trackId, restart: true, expectedVersion: version }, "replay-restart");
+    const restartEvent = await pc.waitFor((m) => m.type === "audio:bgm" && m.payload.bgm.version === version + 1);
+    expect(restartEvent.payload.bgm.seekOffsetMs).toBe(0);
+    expect(restartEvent.payload.bgm.playing).toBe(true);
+
+    await closeAll(gm, pc);
+  });
+
 });

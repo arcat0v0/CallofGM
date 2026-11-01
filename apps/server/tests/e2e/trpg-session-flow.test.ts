@@ -140,7 +140,7 @@ describe("End-to-End TRPG Session Flow (GM Hosting & Player TRPG)", () => {
 
     const bgFormData = new FormData();
     bgFormData.append("file", new Blob([pngBytes], { type: "image/png" }), "scene.png");
-    bgFormData.append("purpose", "bg");
+    bgFormData.append("purpose", "scene");
 
     const uploadBgRes = await fetch(`${baseUrl}/api/v1/media/upload`, {
       method: "POST",

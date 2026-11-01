@@ -1,5 +1,5 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
-import { SessionPhaseLabel, SessionStatusLabel, type CharacterDto, type ModuleDto, type SessionDto, type SessionStatus } from "@cogm/shared";
+import { SessionPhaseLabel, SessionStatusLabel, type CharacterDto, type ModuleDto, type ModuleSummaryDto, type SessionDto, type SessionStatus } from "@cogm/shared";
 import { ArrowRight, Ellipsis, FileSpreadsheet, Link as LinkIcon, Package, Pencil, Play, Plus, SquarePower, Users, VenetianMask } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -35,7 +35,7 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { AdminLayout } from "@/features/gm-admin/admin-layout";
 import { CreateSessionDialog } from "@/features/gm-admin/dialogs/create-session-dialog";
 import { ImportCharacterSheetDialog } from "@/features/gm-admin/dialogs/import-character-sheet-dialog";
-import { api, fetchAllPages, isApiError } from "@/lib/api";
+import { api, fetchAllPages, isApiError, mediaUrl } from "@/lib/api";
 import { formatClock, statusTone } from "@/lib/format";
 import { requireGmAuth } from "@/lib/identity";
 
@@ -49,6 +49,7 @@ function GmDashboardPage() {
   const [importOpen, setImportOpen] = useState(false);
   const [sessions, setSessions] = useState<SessionDto[]>([]);
   const [modules, setModules] = useState<ModuleDto[]>([]);
+  const [summaries, setSummaries] = useState<ModuleSummaryDto[]>([]);
   const [characterCount, setCharacterCount] = useState(0);
   const [endTarget, setEndTarget] = useState<SessionDto | null>(null);
   const [renameTarget, setRenameTarget] = useState<SessionDto | null>(null);
@@ -56,14 +57,16 @@ function GmDashboardPage() {
 
   async function reload() {
     try {
-      const [nextSessions, nextModules, nextCharacters] = await Promise.all([
+      const [nextSessions, nextModules, nextCharacters, nextSummaries] = await Promise.all([
         fetchAllPages<SessionDto>("/gm/sessions"),
         fetchAllPages<ModuleDto>("/gm/modules"),
         fetchAllPages<CharacterDto>("/gm/characters"),
+        api<ModuleSummaryDto[]>("/gm/modules/summaries"),
       ]);
       setSessions(nextSessions);
       setModules(nextModules);
       setCharacterCount(nextCharacters.length);
+      setSummaries(nextSummaries);
     } catch (error) {
       toast.error(isApiError(error) ? error.message : "无法加载后台数据");
     }
@@ -74,6 +77,7 @@ function GmDashboardPage() {
   }, []);
 
   const moduleName = (id: string) => modules.find((module) => module.id === id)?.name ?? id;
+  const summaryFor = (id: string) => summaries.find((summary) => summary.moduleId === id);
   const liveCount = sessions.filter((session) => session.status === "active").length;
 
   async function renameSession(sessionId: string) {
@@ -249,13 +253,32 @@ function GmDashboardPage() {
               key={module.id}
               className="flex-1 gap-0 overflow-hidden rounded-2xl p-0"
             >
-              <div className="bg-md-surface-container-highest h-[118px] w-full rounded-t-2xl" />
+              {(() => {
+                const summary = summaryFor(module.id);
+                const cover = summary?.coverAssetId ? mediaUrl(summary.coverAssetId) : null;
+                return cover ? (
+                  <img src={cover} alt={`${module.name} 封面`} className="h-[118px] w-full object-cover" />
+                ) : (
+                  <div className="bg-md-surface-container-highest flex h-[118px] w-full items-center justify-center">
+                    <Package className="text-foreground-tertiary size-7" />
+                  </div>
+                );
+              })()}
               <div className="flex flex-col gap-2 p-3.5">
                 <div className="flex items-center justify-between">
                   <span className="text-foreground font-serif text-title-medium-emph">{module.name}</span>
                 </div>
+                {summaryFor(module.id) ? (
+                  <span className="text-foreground-secondary text-label-small">
+                    场景 {summaryFor(module.id)!.sceneCount} · 情报 {summaryFor(module.id)!.handoutCount} · 曲目 {summaryFor(module.id)!.trackCount} · 人物 {summaryFor(module.id)!.characterCount}
+                  </span>
+                ) : null}
                 <div className="flex items-center justify-between">
-                  <span className="text-foreground-tertiary truncate text-label-small">{module.description || module.ruleId}</span>
+                  <span className="text-foreground-tertiary truncate text-label-small">
+                    {summaryFor(module.id)
+                      ? `更新 ${new Date(summaryFor(module.id)!.updatedAt).toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })}`
+                      : module.description || module.ruleId}
+                  </span>
                   <Button
                     asChild
                     type="button"

@@ -37,8 +37,10 @@ export interface ChatRepository {
   findMessageById(id: string): Promise<MessageRow | null>;
   maxQueueOrder(sessionId: string): Promise<number>;
   listPending(sessionId: string): Promise<MessageRow[]>;
+  listDiscarded(sessionId: string): Promise<MessageRow[]>;
   markPresentedIfPending(id: string, presentedAt: number): Promise<boolean>;
   markDiscardedIfPending(id: string): Promise<boolean>;
+  markPendingIfDiscarded(id: string, queueOrder: number): Promise<boolean>;
   assignEventId(id: string, eventId: number): Promise<void>;
   reorderPending(sessionId: string, orderedIds: string[]): Promise<void>;
   findCharacterName(characterId: string): Promise<string | null>;
