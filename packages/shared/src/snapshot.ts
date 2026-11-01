@@ -33,15 +33,6 @@ export const SnapshotCharacter = z.object({
 });
 export type SnapshotCharacter = z.infer<typeof SnapshotCharacter>;
 
-/** 快照中的近期活动（骰点/鉴定等持久事件），由服务端按请求者可见性过滤。 */
-export const SnapshotRecentEvent = z.object({
-  eventId: z.number().int(),
-  type: z.string(),
-  occurredAt: z.number(),
-  payload: z.unknown(),
-});
-export type SnapshotRecentEvent = z.infer<typeof SnapshotRecentEvent>;
-
 /** WS 全量快照 payload。所有内容均已按请求者身份完成可见性过滤。 */
 export const SessionSnapshotPayload = z.object({
   session: z.object({
