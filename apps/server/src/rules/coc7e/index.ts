@@ -144,26 +144,7 @@ export class Coc7eRuleSystem extends RuleSystem<coc7e.Coc7eCharacterSheet, coc7e
   }
 
   getSkillTargetValue(sheet: coc7e.Coc7eCharacterSheet, skillKey: string): number | null {
-    const normalized = skillKey.trim();
-    const skillValue = sheet.skills[normalized];
-    if (skillValue !== undefined) {
-      return skillValue;
-    }
-    const attributeValue = (sheet.attributes as Record<string, number>)[normalized];
-    if (attributeValue !== undefined) {
-      return attributeValue;
-    }
-    const catalogEntry = coc7e.COC7E_SKILL_CATALOG.find((skill) => skill.key === normalized);
-    if (catalogEntry) {
-      if (catalogEntry.key === "闪避") {
-        return Math.max(1, Math.min(99, Math.floor((sheet.attributes.dex ?? 50) / 2)));
-      }
-      if (catalogEntry.key === "母语") {
-        return Math.max(1, Math.min(99, sheet.attributes.edu ?? 50));
-      }
-      return catalogEntry.base;
-    }
-    return null;
+    return coc7e.coc7eSkillTargetValue(sheet, skillKey);
   }
 
   getSanCurrent(state: coc7e.CharacterSessionState): number {

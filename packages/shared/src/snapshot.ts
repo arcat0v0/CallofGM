@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { SessionStatus, SessionPhase } from "./session";
+import { SeatRole, SessionStatus, SessionPhase } from "./session";
 import { ChatMessageDto } from "./chat";
 import { CheckRequestDto } from "./gameplay";
 import { GrantedHandoutDto } from "./handouts";
@@ -59,6 +59,10 @@ export const SessionSnapshotPayload = z.object({
       bgAssetId: z.string().nullable(),
     })
     .nullable(),
+  viewer: z.object({
+    isGm: z.boolean(),
+    seatRole: SeatRole.nullable(),
+  }),
   characters: z.array(SnapshotCharacter),
   bgm: BgmState.nullable(),
   recentMessages: z.array(ChatMessageDto),

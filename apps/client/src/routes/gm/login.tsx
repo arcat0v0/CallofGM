@@ -2,7 +2,6 @@ import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, Eye, EyeOff, Lock } from "lucide-react";
 import { useState } from "react";
 import type * as React from "react";
-import { toast } from "sonner";
 import { Logo } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,6 +21,7 @@ function GmLoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [password, setPassword] = useState("");
   const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -30,11 +30,12 @@ function GmLoginPage() {
       return;
     }
     setPending(true);
+    setError(null);
     try {
       await loginGm(password);
       await navigate({ to: "/gm" });
-    } catch (error) {
-      toast.error(isApiError(error) ? error.message : "登录失败");
+    } catch (cause) {
+      setError(isApiError(cause) ? cause.message : "登录失败，请稍后重试");
     } finally {
       setPending(false);
     }
@@ -67,11 +68,16 @@ function GmLoginPage() {
           </InputGroupAddon>
           <InputGroupInput
             type={showPassword ? "text" : "password"}
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
             placeholder="主持人密码"
             aria-label="主持人密码"
+            aria-invalid={error !== null}
+            aria-describedby={error ? "gm-login-error" : undefined}
             autoComplete="current-password"
+            onChange={(event) => {
+              setPassword(event.target.value);
+              setError(null);
+            }}
+            value={password}
           />
           <InputGroupButton
             type="button"
@@ -81,6 +87,16 @@ function GmLoginPage() {
             {showPassword ? <Eye /> : <EyeOff />}
           </InputGroupButton>
         </InputGroup>
+
+        <p
+          id="gm-login-error"
+          role="alert"
+          aria-live="assertive"
+          aria-atomic="true"
+          className="text-danger min-h-4 px-1 text-body-small"
+        >
+          {error ?? ""}
+        </p>
 
         <Button
           type="submit"

@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { BanPlayerDialog } from "@/features/gm-admin/dialogs/ban-player-dialog";
-import { ATTR_LABELS, expressionLabel, formatDurationMmSs, initialsOf } from "@/lib/format";
+import { expressionLabel, formatDurationMmSs, initialsOf } from "@/lib/format";
 import { parseCocState, skillKeysFor } from "@/lib/coc-live";
 import { sendSessionCommand } from "@/lib/session-socket";
 import { usePlayStore } from "@/stores/play-store";
@@ -288,7 +288,7 @@ export function RulesSection() {
           <SelectTrigger className="h-8 flex-1 text-label-medium"><SelectValue /></SelectTrigger>
           <SelectContent>
             {skills.map((skill) => (
-              <SelectItem key={skill} value={skill}>{ATTR_LABELS[skill]?.label ?? skill}</SelectItem>
+              <SelectItem key={skill} value={skill}>{coc7e.coc7eSkillLabel(skill)}</SelectItem>
             ))}
           </SelectContent>
         </Select>

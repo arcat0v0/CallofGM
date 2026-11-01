@@ -1,3 +1,5 @@
+import type { Coc7eCharacterSheet } from "./sheet";
+
 /** CoC 7e 标准技能（中文键为人物卡存储键；别名用于 Excel 解析） */
 export const COC7E_SKILL_CATALOG: ReadonlyArray<{
   key: string;
@@ -62,6 +64,45 @@ export const COC7E_ATTRIBUTE_ALIASES: Record<string, readonly string[]> = {
   edu: ["教育", "edu"],
   luck: ["幸运", "luck"],
 };
+
+export const COC7E_ATTRIBUTE_LABELS: Record<string, { label: string; abbr: string }> = Object.fromEntries(
+  Object.entries(COC7E_ATTRIBUTE_ALIASES).map(([key, aliases]) => [key, { label: aliases[0]!, abbr: key.toUpperCase() }]),
+);
+
+/** 技能或属性键 → 展示名：属性用中文名，技能用目录键（本身即中文），未知键原样返回 */
+export function coc7eSkillLabel(rawKey: string): string {
+  const key = rawKey.trim();
+  const attribute = COC7E_ATTRIBUTE_LABELS[key];
+  if (attribute) {
+    return attribute.label;
+  }
+  const catalogEntry = COC7E_SKILL_CATALOG.find((skill) => skill.key === key);
+  return catalogEntry?.key ?? key;
+}
+
+/** 鉴定目标值：人物卡已有数值优先，其次属性，最后回退技能目录基础值 */
+export function coc7eSkillTargetValue(sheet: Coc7eCharacterSheet, rawKey: string): number | null {
+  const key = rawKey.trim();
+  const skillValue = sheet.skills[key];
+  if (skillValue !== undefined) {
+    return skillValue;
+  }
+  const attributeValue = (sheet.attributes as Record<string, number>)[key];
+  if (attributeValue !== undefined) {
+    return attributeValue;
+  }
+  const catalogEntry = COC7E_SKILL_CATALOG.find((skill) => skill.key === key);
+  if (!catalogEntry) {
+    return null;
+  }
+  if (catalogEntry.key === "闪避") {
+    return Math.max(1, Math.min(99, Math.floor(sheet.attributes.dex / 2)));
+  }
+  if (catalogEntry.key === "母语") {
+    return Math.max(1, Math.min(99, sheet.attributes.edu));
+  }
+  return catalogEntry.base;
+}
 
 /** 将 Excel/输入中的技能名规范到人物卡存储键 */
 export function canonicalizeCoc7eSkillKey(raw: string): string | null {

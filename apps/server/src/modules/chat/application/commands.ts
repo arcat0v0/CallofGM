@@ -5,6 +5,7 @@ import {
   ReorderChatQueueCommand,
   type ChatMessageDto,
   type SessionPhase,
+  decideChatMessage,
 } from "@cogm/shared";
 import type {
   CommandHandler,
@@ -15,7 +16,6 @@ import type {
 import { AppError } from "@/platform/errors/app-error";
 import { ForbiddenError } from "@/modules/identity";
 import { SessionPhaseForbidsActionError } from "@/modules/sessions";
-import { decideChatMessage } from "../domain/message-policy";
 import { MessageNotFoundError, MessageNotPendingError, ExpressionNotFoundError } from "../domain/errors";
 import type { DbClient } from "@/platform/db/client";
 import type { ChatRepository, MessageRow } from "./ports";

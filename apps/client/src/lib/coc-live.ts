@@ -14,22 +14,13 @@ export function parseCocState(state: unknown) {
 
 export function skillKeysFor(character: SnapshotCharacter | undefined): string[] {
   const sheet = parseCocSheet(character?.sheet);
-  const skills = sheet ? Object.keys(sheet.skills) : [];
-  const keys = [...ATTR_KEYS, ...skills.filter((key) => !ATTR_KEYS.includes(key as (typeof ATTR_KEYS)[number]))];
-  if (keys.length > ATTR_KEYS.length) {
-    return keys;
-  }
-  return [...ATTR_KEYS, ...coc7e.COC7E_SKILL_CATALOG.map((skill) => skill.key)];
+  const catalogKeys = coc7e.COC7E_SKILL_CATALOG.map((skill) => skill.key);
+  const sheetKeys = sheet ? Object.keys(sheet.skills) : [];
+  const extras = sheetKeys.filter((key) => !catalogKeys.includes(key) && !ATTR_KEYS.includes(key as (typeof ATTR_KEYS)[number]));
+  return [...ATTR_KEYS, ...catalogKeys, ...extras];
 }
 
 export function skillValue(character: SnapshotCharacter | undefined, skillKey: string): number | null {
   const sheet = parseCocSheet(character?.sheet);
-  if (!sheet) {
-    return null;
-  }
-  if (skillKey in sheet.attributes) {
-    return sheet.attributes[skillKey as keyof typeof sheet.attributes];
-  }
-  const value = sheet.skills[skillKey];
-  return typeof value === "number" ? value : null;
+  return sheet ? coc7e.coc7eSkillTargetValue(sheet, skillKey) : null;
 }

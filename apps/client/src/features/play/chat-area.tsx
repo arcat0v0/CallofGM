@@ -28,8 +28,9 @@ function ChatArea({ variant, onCollapse, className }: ChatAreaProps) {
   const messages = usePlayStore((state) => state.messages);
   const characters = usePlayStore((state) => state.characters);
   const playerId = useIdentityStore((state) => state.playerId);
+  const seatRole = usePlayStore((state) => state.viewer.seatRole);
   const claimed = characters.find((character) => character.claim?.playerId === playerId && character.claim.role === "pc");
-  const isOb = !claimed && characters.some((character) => character.claim?.playerId === playerId && character.claim.role === "ob");
+  const isOb = seatRole === "ob";
   const selfName = claimed?.name ?? (isOb ? "观战" : "玩家");
 
   async function leaveSeat() {

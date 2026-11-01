@@ -35,8 +35,15 @@ function ChatPanelHeader({
           compact ? "h-10 px-3" : "h-[52px] px-4",
         )}
       >
-        <h2 className={cn("text-foreground font-serif", compact ? "text-title-small-emph" : "text-title-medium-emph")}>文字频道</h2>
-        <div className="flex items-center gap-1">
+        <h2
+          className={cn(
+            "text-foreground shrink-0 font-serif whitespace-nowrap",
+            compact ? "text-title-small-emph" : "text-title-medium-emph",
+          )}
+        >
+          文字频道
+        </h2>
+        <div className={cn("flex shrink-0 items-center", compact ? "gap-0.5" : "gap-1")}>
           <Button variant="tertiary" size="icon-sm" aria-label="人物卡" onClick={() => setSheetOpen(true)}>
             <VenetianMask />
           </Button>

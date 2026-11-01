@@ -14,6 +14,7 @@ import { HandoutPrompt } from "@/features/session-live/handout-prompt";
 import { usePlayAudio } from "@/lib/bgm";
 import { sendSessionCommand } from "@/lib/session-socket";
 import { useSessionConnection } from "@/lib/use-session-connection";
+import { readRotateSuggestionDismissed, writeRotateSuggestionDismissed } from "@/lib/storage";
 import { usePlayStore } from "@/stores/play-store";
 import { ChatArea } from "./chat-area";
 import { ConnectionBanner } from "./connection-banner";
@@ -31,7 +32,7 @@ function PlayView() {
   const handouts = usePlayStore((state) => state.handouts);
   const status = usePlayStore((state) => state.status);
   const check = pendingChecks[0] ?? null;
-  const [showRotateSuggestion, setShowRotateSuggestion] = useState(true);
+  const [showRotateSuggestion, setShowRotateSuggestion] = useState(() => !readRotateSuggestionDismissed());
   const [landscapeChatOpen, setLandscapeChatOpen] = useState(true);
   const [endDialogOpen, setEndDialogOpen] = useState(false);
 
@@ -77,7 +78,12 @@ function PlayView() {
         <MobilePortraitScene />
         <ChatArea variant="portrait" className="min-h-0 flex-1" />
         {showRotateSuggestion && (
-          <RotateSuggestionOverlay onDismiss={() => setShowRotateSuggestion(false)} />
+          <RotateSuggestionOverlay
+            onDismiss={() => {
+              writeRotateSuggestionDismissed();
+              setShowRotateSuggestion(false);
+            }}
+          />
         )}
       </div>
 

@@ -1,6 +1,6 @@
 import { coc7e, type CharacterDetailDto } from "@cogm/shared";
 import { mediaUrl } from "@/lib/api";
-import { ATTR_LABELS, expressionLabel, initialsOf } from "@/lib/format";
+import { expressionLabel, initialsOf } from "@/lib/format";
 
 export type CharacterKind = "PC" | "NPC";
 
@@ -86,8 +86,8 @@ export function mapCharacterRow(row: CharacterRow): GameCharacter {
       mov: attributes ? movement(attributes.str, attributes.dex, attributes.siz) : 8,
     },
     attributes: ATTR_ORDER.map((key) => ({
-      label: ATTR_LABELS[key]!.label,
-      abbr: ATTR_LABELS[key]!.abbr,
+      label: coc7e.COC7E_ATTRIBUTE_LABELS[key]!.label,
+      abbr: coc7e.COC7E_ATTRIBUTE_LABELS[key]!.abbr,
       value: attributes?.[key] ?? 0,
     })),
     skills,

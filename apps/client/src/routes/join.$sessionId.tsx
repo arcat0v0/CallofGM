@@ -1,8 +1,7 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { SessionStatusLabel, type JoinInfoResponse, type SessionStatus } from "@cogm/shared";
-import { Eye, LogIn } from "lucide-react";
+import { Eye, Link2Off, LogIn, RotateCw } from "lucide-react";
 import { useEffect, useState } from "react";
-import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { api, isApiError } from "@/lib/api";
@@ -173,10 +172,13 @@ function JoinPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [joining, setJoining] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
+    setLoadError(null);
     void (async () => {
       try {
         await ensurePlayer();
@@ -206,7 +208,7 @@ function JoinPage() {
         }
       } catch (error) {
         if (!cancelled) {
-          toast.error(isApiError(error) ? error.message : "无法加载座位信息");
+          setLoadError(isApiError(error) ? error.message : "无法加载这个团的信息");
         }
       } finally {
         if (!cancelled) {
@@ -217,7 +219,7 @@ function JoinPage() {
     return () => {
       cancelled = true;
     };
-  }, [sessionId]);
+  }, [sessionId, reloadToken]);
 
   const selectedSeat = seats.find((seat) => seat.id === selectedId && !seat.claimed);
 
@@ -238,7 +240,7 @@ function JoinPage() {
       });
       await navigate({ to: "/play/$sessionId", params: { sessionId } });
     } catch (error) {
-      toast.error(isApiError(error) ? error.message : "进入失败");
+      setLoadError(isApiError(error) ? error.message : "进入失败，请稍后重试");
     } finally {
       setJoining(false);
     }
@@ -247,64 +249,101 @@ function JoinPage() {
   const pcSeats = seats.filter((seat) => seat.kind === "character");
   const obSeat = seats.find((seat) => seat.kind === "spectator");
 
+  const showSeatPicker = !loading && !loadError && !isEnded;
+
   return (
     <main className="flex min-h-dvh w-full flex-col items-center justify-center gap-10 overflow-hidden bg-background px-4">
       <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 ease-expressive-default-spatial flex flex-col items-center gap-2.5">
         <Badge variant="soft" tone="default" size="sm">
-          {status ? SessionStatusLabel[status] : "加载中"}
+          {status ? SessionStatusLabel[status] : loadError ? "链接无效" : "加载中"}
         </Badge>
-        <h1 className="font-serif text-headline-medium-emph text-foreground">
-          {moduleName ?? "选择你的位置"}
+        <h1 className="text-foreground text-center font-serif text-headline-medium-emph">
+          {moduleName ?? (loadError ? "无法进入这个团" : "选择你的位置")}
         </h1>
-        <p className="text-body-large text-md-on-surface-variant">
-          {isEnded ? "本团已结团 · 可作为观战进入回看聊天记录与情报" : "选择你的位置 · 已认领的角色不可重复选择"}
+        <p className="text-body-large text-md-on-surface-variant text-center">
+          {loadError
+            ? "请确认团链接是否正确，或向主持人索取新的邀请链接"
+            : isEnded
+              ? "本团已结团 · 可作为观战进入回看聊天记录与情报"
+              : "选择你的位置 · 已认领的角色不可重复选择"}
         </p>
       </div>
 
-      <div className="flex flex-wrap justify-center gap-4" role="radiogroup" aria-label="选择玩家位置">
-        {loading ? (
-          <p className="text-foreground-tertiary text-body-medium">正在加载座位…</p>
-        ) : (
-          pcSeats.map((seat, index) => (
-            <SeatCard
-              key={seat.id}
-              seat={seat}
-              selected={selectedId === seat.id}
-              onSelect={() => setSelectedId(seat.id)}
-              className={cn(
-                "animate-in fade-in slide-in-from-bottom-4 duration-500 ease-expressive-default-spatial fill-mode-backwards",
-                STAGGER_DELAYS[index % STAGGER_DELAYS.length],
-              )}
-            />
-          ))
-        )}
-      </div>
-
-      {!loading && obSeat ? (
-        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 ease-expressive-default-spatial fill-mode-backwards delay-225 flex w-full justify-center">
-          <SpectatorRow
-            seat={obSeat}
-            selected={selectedId === obSeat.id}
-            onSelect={() => setSelectedId(obSeat.id)}
-          />
+      {loadError ? (
+        <div className="animate-in fade-in slide-in-from-bottom-4 ease-expressive-default-spatial flex flex-col items-center gap-4 duration-500">
+          <div className="bg-md-error-container text-md-on-error-container flex size-16 items-center justify-center rounded-t-full rounded-b-xl">
+            <Link2Off className="size-7" />
+          </div>
+          <p className="text-danger text-body-medium text-center">{loadError}</p>
+          <div className="flex items-center gap-2">
+            <Button type="button" variant="primary" size="lg" onClick={() => setReloadToken((token) => token + 1)}>
+              <RotateCw className="size-4" />
+              重试
+            </Button>
+            <Button asChild variant="tertiary" size="lg">
+              <Link to="/">返回入口</Link>
+            </Button>
+          </div>
         </div>
-      ) : null}
+      ) : (
+        <>
+          {isEnded ? (
+            <div className="bg-md-surface-container-low animate-in fade-in slide-in-from-bottom-4 ease-expressive-default-spatial flex max-w-md flex-col items-center gap-2 rounded-2xl px-6 py-5 text-center duration-500">
+              <span className="text-body-medium text-foreground-secondary">座位选择已关闭</span>
+              <span className="text-body-small text-foreground-tertiary">
+                本团已经结束，所有座位不再开放；进入后以观战身份只读回看。
+              </span>
+            </div>
+          ) : (
+            <>
+              <div className="flex flex-wrap justify-center gap-4" role="radiogroup" aria-label="选择玩家位置">
+                {loading ? (
+                  <p className="text-foreground-tertiary text-body-medium">正在加载座位…</p>
+                ) : (
+                  pcSeats.map((seat, index) => (
+                    <SeatCard
+                      key={seat.id}
+                      seat={seat}
+                      selected={selectedId === seat.id}
+                      onSelect={() => setSelectedId(seat.id)}
+                      className={cn(
+                        "animate-in fade-in slide-in-from-bottom-4 duration-500 ease-expressive-default-spatial fill-mode-backwards",
+                        STAGGER_DELAYS[index % STAGGER_DELAYS.length],
+                      )}
+                    />
+                  ))
+                )}
+              </div>
 
-      <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 ease-expressive-default-spatial fill-mode-backwards delay-225 flex flex-col items-center gap-3">
-        <Button
-          type="button"
-          disabled={joining || (!isEnded && !selectedSeat)}
-          onClick={() => void handleJoin()}
-          variant="primary"
-          size="lg"
-        >
-          <LogIn className="size-4" />
-          {isEnded ? "进入回看记录" : selectedSeat ? `以「${selectedSeat.name}」进入` : "请选择一个位置"}
-        </Button>
-        <p className="text-label-small text-foreground-tertiary">
-          {isEnded ? "结团回看模式：聊天记录与公开情报完整可查" : "进入后将自动同步 GM 控制的 BGM 播放"}
-        </p>
-      </div>
+              {showSeatPicker && obSeat ? (
+                <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 ease-expressive-default-spatial fill-mode-backwards delay-225 flex w-full justify-center">
+                  <SpectatorRow
+                    seat={obSeat}
+                    selected={selectedId === obSeat.id}
+                    onSelect={() => setSelectedId(obSeat.id)}
+                  />
+                </div>
+              ) : null}
+            </>
+          )}
+
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 ease-expressive-default-spatial fill-mode-backwards delay-225 flex flex-col items-center gap-3">
+            <Button
+              type="button"
+              disabled={joining || (!isEnded && !selectedSeat)}
+              onClick={() => void handleJoin()}
+              variant="primary"
+              size="lg"
+            >
+              <LogIn className="size-4" />
+              {isEnded ? "进入回看记录" : selectedSeat ? `以「${selectedSeat.name}」进入` : "请选择一个位置"}
+            </Button>
+            <p className="text-label-small text-foreground-tertiary">
+              {isEnded ? "结团回看模式：聊天记录与公开情报完整可查" : "进入后将自动同步 GM 控制的 BGM 播放"}
+            </p>
+          </div>
+        </>
+      )}
     </main>
   );
 }

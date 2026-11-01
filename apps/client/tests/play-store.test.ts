@@ -6,7 +6,7 @@ describe("play-store draft-loss and command rejection tracking", () => {
     usePlayStore.getState().reset();
   });
 
-  test("command:rejected records lastRejection with commandId and message", () => {
+  test("command:rejected records lastRejection with commandId and Chinese copy for the code", () => {
     usePlayStore.getState().applyMessage({
       protocolVersion: 1,
       commandId: "cmd-xyz-123",
@@ -17,7 +17,33 @@ describe("play-store draft-loss and command rejection tracking", () => {
     const rejection = usePlayStore.getState().lastRejection;
     expect(rejection).not.toBeNull();
     expect(rejection?.commandId).toBe("cmd-xyz-123");
-    expect(rejection?.message).toBe("Expression portrait not found");
+    expect(rejection?.message).toBe("提交的内容不符合要求，请检查后重试");
+  });
+
+  test("snapshot viewer carries the server-provided seat role", () => {
+    usePlayStore.getState().applySnapshot(
+      {
+        viewer: { isGm: false, seatRole: "ob" },
+        session: {
+          id: "s1",
+          moduleId: "m1",
+          moduleName: "模组",
+          status: "active",
+          phase: "free_discussion",
+          currentSceneId: null,
+          lastEventId: 0,
+        },
+        currentScene: null,
+        characters: [],
+        bgm: null,
+        recentMessages: [],
+        recentEvents: [],
+        visibleHandouts: [],
+        pendingCheckRequests: [],
+      },
+      0,
+    );
+    expect(usePlayStore.getState().viewer).toEqual({ isGm: false, seatRole: "ob" });
   });
 
   test("reset clears lastRejection", () => {
@@ -25,7 +51,7 @@ describe("play-store draft-loss and command rejection tracking", () => {
       protocolVersion: 1,
       commandId: "cmd-xyz-123",
       type: "command:rejected",
-      payload: { message: "error" },
+      payload: { code: "FORBIDDEN", message: "Access forbidden" },
     });
     expect(usePlayStore.getState().lastRejection).not.toBeNull();
     usePlayStore.getState().reset();

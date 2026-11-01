@@ -1,23 +1,26 @@
 import { create } from "zustand";
 import { toast } from "sonner";
-import type {
-  BgmState,
-  CatalogHandoutDto,
-  ChatMessageDto,
-  CheckRequestDto,
-  GrantedHandoutDto,
-  OnlinePlayerDto,
-  SceneDto,
-  SePlayedEvent,
-  ServerMessage,
-  SessionPhase,
-  SessionSnapshotPayload,
-  SessionStatus,
-  SnapshotCharacter,
-  TrackDto,
+import {
+  coc7e,
+  type BgmState,
+  type CatalogHandoutDto,
+  type ChatMessageDto,
+  type CheckRequestDto,
+  type GrantedHandoutDto,
+  type OnlinePlayerDto,
+  type SceneDto,
+  type SePlayedEvent,
+  type ServerMessage,
+  type SessionPhase,
+  type SessionSnapshotPayload,
+  type SessionStatus,
+  type SeatRole,
+  type SnapshotCharacter,
+  type TrackDto,
 } from "@cogm/shared";
 import type { ChatMessage } from "@/features/chat/types";
 import { mapActivityEvent, mapChatMessage } from "@/lib/chat-map";
+import { errorCopy } from "@/lib/error-copy";
 import { formatClock, initialsOf } from "@/lib/format";
 
 export type ConnectionTerminal = "kicked" | "unavailable";
@@ -29,6 +32,7 @@ type PlayState = {
   status: SessionStatus | null;
   phase: SessionPhase | null;
   lastEventId: number;
+  viewer: { isGm: boolean; seatRole: SeatRole | null };
   characters: SnapshotCharacter[];
   messages: ChatMessage[];
   pendingQueue: ChatMessageDto[];
@@ -65,6 +69,7 @@ const empty = {
   status: null as SessionStatus | null,
   phase: null as SessionPhase | null,
   lastEventId: 0,
+  viewer: { isGm: false, seatRole: null } as PlayState["viewer"],
   characters: [] as SnapshotCharacter[],
   messages: [] as ChatMessage[],
   pendingQueue: [] as ChatMessageDto[],
@@ -256,6 +261,7 @@ export const usePlayStore = create<PlayState>((set, get) => ({
       status: payload.session.status,
       phase: payload.session.phase,
       lastEventId: watermark,
+      viewer: payload.viewer,
       characters: payload.characters,
       messages: merged,
       pendingQueue: payload.pendingQueue ?? [],
@@ -277,7 +283,7 @@ export const usePlayStore = create<PlayState>((set, get) => ({
     if ("type" in message && (message.type === "command:accepted" || message.type === "command:rejected")) {
       const payload = isRecord(message.payload) ? message.payload : {};
       if (message.type === "command:rejected") {
-        const errorMsg = typeof payload.message === "string" ? payload.message : "指令被拒绝";
+        const errorMsg = errorCopy({ code: typeof payload.code === "string" ? payload.code : null });
         toast.error(errorMsg);
         const cmdId = "commandId" in message && typeof message.commandId === "string" ? message.commandId : "";
         set({ lastRejection: { commandId: cmdId, message: errorMsg } });
@@ -285,7 +291,7 @@ export const usePlayStore = create<PlayState>((set, get) => ({
       }
       const requestId = typeof payload.requestId === "string" ? payload.requestId : null;
       const pending = requestId ? get().pendingChecks.find((item) => item.id === requestId) : undefined;
-      const skillKey = pending?.skillKey ?? "鉴定";
+      const skillKey = pending ? coc7e.coc7eSkillLabel(pending.skillKey) : "鉴定";
       const hiddenRolled = payload.rolled === true && payload.hidden === true;
       if (requestId && hiddenRolled) {
         toast.success("已掷出");

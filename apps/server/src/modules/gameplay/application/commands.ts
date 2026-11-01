@@ -8,6 +8,7 @@ import {
   type CheckRequestDto,
   type SessionPhase,
   type RuleId,
+  canPlayerInitiateDiceRoll,
 } from "@cogm/shared";
 import type {
   CommandHandler,
@@ -20,7 +21,6 @@ import { validationFailed } from "@/platform/errors/validation";
 import { ForbiddenError } from "@/modules/identity";
 import { SessionPhaseForbidsActionError, SessionStateInvalidError } from "@/modules/sessions";
 import { CharacterNotFoundError } from "@/modules/characters";
-import { canPlayerInitiateDiceRoll } from "@/modules/chat";
 import { parseDiceExpression, rollDice, formatExpression, formatRollDetail } from "@/rules/dice-engine";
 import type { RuleRegistry } from "@/rules/registry";
 import type { RuleSystem } from "@/rules/rule-system";
