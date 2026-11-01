@@ -38,6 +38,7 @@ export function GmHead() {
   const status = usePlayStore((state) => state.status);
   const scene = usePlayStore((state) => state.scene);
   const moduleName = usePlayStore((state) => state.moduleName);
+  const sessionName = usePlayStore((state) => state.sessionName);
   const nextStatus = status ? nextSessionStatus(status) : null;
 
   async function patchStatus(next: SessionStatus) {
@@ -83,7 +84,7 @@ export function GmHead() {
             {SessionStatusLabel[status]}
           </Badge>
         ) : null}
-        <Badge variant="soft" tone="default" size="sm">{moduleName ?? "模组"}</Badge>
+        <Badge variant="soft" tone="default" size="sm">{sessionName ?? moduleName ?? "模组"}</Badge>
         <span className="flex-1" />
         {nextStatus && nextStatus !== "ended" && status ? (
           <Button variant="tertiary" size="sm" className="h-[26px] px-2.5" onClick={() => void patchStatus(nextStatus)}>

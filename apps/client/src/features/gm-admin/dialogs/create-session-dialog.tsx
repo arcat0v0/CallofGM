@@ -8,6 +8,7 @@ import { SegmentedControl } from "@/components/shared/segmented-control";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -46,6 +47,7 @@ function CreateSessionDialog({
   const [modules, setModules] = useState<ModuleDto[]>([]);
   const [characters, setCharacters] = useState<CharacterDto[]>([]);
   const [moduleId, setModuleId] = useState<string>("");
+  const [name, setName] = useState("");
   const [selectedIds, setSelectedIds] = useState(new Set<string>());
   const [status, setStatus] = useState<(typeof statusOptions)[number]>("等待开始");
   const [pending, setPending] = useState(false);
@@ -54,6 +56,7 @@ function CreateSessionDialog({
     if (!open) {
       return;
     }
+    setName("");
     void (async () => {
       try {
         const nextModules = await fetchAllPages<ModuleDto>("/gm/modules");
@@ -95,6 +98,7 @@ function CreateSessionDialog({
         method: "POST",
         body: JSON.stringify({
           moduleId,
+          name: name.trim() || undefined,
           characterIds: [...selectedIds],
         }),
       });
@@ -137,6 +141,17 @@ function CreateSessionDialog({
         </DialogHeader>
 
         <div className="flex flex-col gap-4 px-5 py-5">
+          <FormField label="团名（可选）">
+            <Input
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              placeholder="留空则入团页显示模组名"
+              maxLength={60}
+              aria-label="团名"
+              className="h-10"
+            />
+          </FormField>
+
           <FormField label="选择模组">
             <Select value={moduleId} onValueChange={setModuleId}>
               <SelectTrigger className="h-10 border-separator-secondary">

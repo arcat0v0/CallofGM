@@ -14,6 +14,14 @@ import {
 import type { TransactionRunner } from "@/platform/db/transaction";
 import type { SessionEventBus } from "@/modules/realtime";
 
+function normaliseSessionName(name: string | null | undefined): string | null {
+  if (typeof name !== "string") {
+    return null;
+  }
+  const trimmed = name.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
 export class CreateSessionUseCase {
   constructor(
     private readonly repo: SessionsRepository,
@@ -22,7 +30,7 @@ export class CreateSessionUseCase {
     private readonly clock: Clock
   ) {}
 
-  async execute(input: { moduleId: string; characterIds: string[] }) {
+  async execute(input: { moduleId: string; characterIds: string[]; name?: string }) {
     const moduleRecord = await this.repo.findModuleById(input.moduleId);
     if (!moduleRecord) {
       throw new ModuleNotFoundError();
@@ -51,11 +59,14 @@ export class CreateSessionUseCase {
 
     const session = {
       id: sessionId,
+      name: normaliseSessionName(input.name),
       moduleId: input.moduleId,
       status: "waiting" as const,
       phase: "free_discussion" as const,
       currentSceneId: null,
       lastEventId: 0,
+      sharePcSheets: 1,
+      obSeePcState: 1,
       createdAt: now,
     };
 
@@ -267,6 +278,20 @@ export class GetSessionSnapshotUseCase {
       session,
       characters,
     };
+  }
+}
+
+export class RenameSessionUseCase {
+  constructor(private readonly repo: SessionsRepository) {}
+
+  async execute(input: { sessionId: string; name: string | null }) {
+    const session = await this.repo.findSessionById(input.sessionId);
+    if (!session) {
+      throw new SessionNotFoundError();
+    }
+    const name = normaliseSessionName(input.name);
+    await this.repo.updateSession(input.sessionId, { name });
+    return { ...session, name };
   }
 }
 

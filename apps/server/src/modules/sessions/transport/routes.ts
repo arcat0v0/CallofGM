@@ -13,6 +13,7 @@ import {
   ClaimSeatRequest,
   UpdateSessionStatusRequest,
   UpdateSessionPhaseRequest,
+  RenameSessionRequest,
   CursorPageQuery,
   CursorPageResponse,
   CreateSessionResponse,
@@ -30,6 +31,7 @@ import {
   UpdateSessionPhaseUseCase,
   GetSessionSnapshotUseCase,
   ListSessionsUseCase,
+  RenameSessionUseCase,
 } from "../application/use-cases";
 
 export function createSessionsRoutes(container: Container) {
@@ -61,6 +63,7 @@ export function createSessionsRoutes(container: Container) {
   );
   const getSessionSnapshot = new GetSessionSnapshotUseCase(repo);
   const listSessions = new ListSessionsUseCase(repo);
+  const renameSession = new RenameSessionUseCase(repo);
   const releaseSeat = new ReleaseSeatUseCase(repo, container.clock);
 
   const allowedOrigins = corsOriginsFor(container.env);
@@ -77,6 +80,17 @@ export function createSessionsRoutes(container: Container) {
         throw validationFailed(result.error);
       }
       return CreateSessionResponse.parse(await createSession.execute(result.data));
+    })
+    .post("/api/v1/gm/sessions/:id/name", async ({ actor, params: { id }, body, request }) => {
+      assertTrustedOrigin(request, allowedOrigins);
+      if (!actor || actor.type !== "gm") {
+        throw new AuthRequiredError();
+      }
+      const result = RenameSessionRequest.safeParse(body);
+      if (!result.success) {
+        throw validationFailed(result.error);
+      }
+      return SessionDto.parse(await renameSession.execute({ sessionId: id, name: result.data.name }));
     })
     .get("/api/v1/gm/sessions", async ({ actor, query }) => {
       if (!actor || actor.type !== "gm") {
@@ -136,6 +150,7 @@ export function createSessionsRoutes(container: Container) {
       return JoinInfoResponse.parse({
         session: {
           id: snapshot.session.id,
+          name: snapshot.session.name,
           status: snapshot.session.status,
           phase: snapshot.session.phase,
           moduleId: snapshot.session.moduleId,
@@ -160,7 +175,8 @@ export function createSessionsRoutes(container: Container) {
         items: await container.snapshotBuilder.listVisibleHandouts(
           id,
           actor.type === "gm",
-          claimedCharacterId
+          claimedCharacterId,
+          actor.type === "player" ? actor.playerId : null
         ),
       };
     })

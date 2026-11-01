@@ -169,6 +169,7 @@ function JoinPage() {
   const [seats, setSeats] = useState<Seat[]>([]);
   const [status, setStatus] = useState<SessionStatus | null>(null);
   const [moduleName, setModuleName] = useState<string | null>(null);
+  const [sessionName, setSessionName] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [joining, setJoining] = useState(false);
@@ -200,6 +201,7 @@ function JoinPage() {
         setSeats(nextSeats);
         setStatus(info.session.status);
         setModuleName(info.session.moduleName);
+        setSessionName(info.session.name);
         if (info.session.status === "ended") {
           setSelectedId(OB_SEAT.id);
         } else {
@@ -258,7 +260,7 @@ function JoinPage() {
           {status ? SessionStatusLabel[status] : loadError ? "链接无效" : "加载中"}
         </Badge>
         <h1 className="text-foreground text-center font-serif text-headline-medium-emph">
-          {moduleName ?? (loadError ? "无法进入这个团" : "选择你的位置")}
+          {sessionName ?? moduleName ?? (loadError ? "无法进入这个团" : "选择你的位置")}
         </h1>
         <p className="text-body-large text-md-on-surface-variant text-center">
           {loadError
