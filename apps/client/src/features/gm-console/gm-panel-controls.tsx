@@ -1,6 +1,6 @@
-import { AudioLines, ChevronDown, FileText, Pause, Play, Repeat, ShieldBan, SkipForward, UserX, Users, VenetianMask, Volume2, Zap } from "lucide-react";
+import { AudioLines, ChevronDown, FileText, Pause, Play, Repeat, Settings2, ShieldBan, SkipForward, UserX, Users, VenetianMask, Volume2, Zap } from "lucide-react";
 import { useEffect, useState } from "react";
-import { coc7e } from "@cogm/shared";
+import { coc7e, type SessionSettings } from "@cogm/shared";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
+import { Switch } from "@/components/ui/switch";
 import { BanPlayerDialog } from "@/features/gm-admin/dialogs/ban-player-dialog";
 import { expressionLabel, formatDurationMmSs, initialsOf } from "@/lib/format";
 import { parseCocState, skillKeysFor } from "@/lib/coc-live";
@@ -313,6 +314,44 @@ export function RulesSection() {
       <div className="flex gap-1.5">
         <Input value={sanLoss} onChange={(event) => setSanLoss(event.target.value)} aria-label="SAN 损失" className="h-8 text-label-medium" />
         <Button type="button" size="sm" variant="tertiary" className="h-8 disabled:opacity-50" disabled={!ready} onClick={sendSanCheck}>SAN 检定</Button>
+      </div>
+    </div>
+  );
+}
+
+export function SessionSettingsSection() {
+  const settings = usePlayStore((state) => state.settings);
+
+  function update(patch: Partial<SessionSettings>) {
+    sendSessionCommand("session:settings", { ...settings, ...patch });
+  }
+
+  return (
+    <div className="animate-in fade-in slide-in-from-bottom-4 ease-standard-default-spatial flex flex-col gap-2.5 px-4 py-3 duration-500 delay-75">
+      <SectionTitle icon={Settings2}>团设置 · 可见性</SectionTitle>
+      <div className="bg-md-surface-container flex items-center justify-between gap-2 rounded-xl px-3 py-2.5">
+        <div className="flex min-w-0 flex-col">
+          <span className="text-foreground text-label-large">公开队友人物卡</span>
+          <span className="text-md-on-surface-variant text-label-small">开启后玩家与 OB 都能查看全部 PC 人物卡；NPC 仅 GM 可见</span>
+        </div>
+        <Switch
+          size="sm"
+          aria-label="公开队友人物卡"
+          checked={settings.sharePcSheets}
+          onCheckedChange={(checked) => update({ sharePcSheets: Boolean(checked) })}
+        />
+      </div>
+      <div className="bg-md-surface-container flex items-center justify-between gap-2 rounded-xl px-3 py-2.5">
+        <div className="flex min-w-0 flex-col">
+          <span className="text-foreground text-label-large">OB 可见 PC 数值</span>
+          <span className="text-md-on-surface-variant text-label-small">关闭后观战位看不到任何 PC 的 HP / MP / SAN</span>
+        </div>
+        <Switch
+          size="sm"
+          aria-label="OB 可见 PC 数值"
+          checked={settings.obSeePcState}
+          onCheckedChange={(checked) => update({ obSeePcState: Boolean(checked) })}
+        />
       </div>
     </div>
   );

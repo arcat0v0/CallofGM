@@ -49,3 +49,10 @@ export const handoutGrantRecipients = sqliteTable("handout_grant_recipients", {
   characterId: text("character_id").notNull().references(() => characters.id, { onDelete: "cascade" }),
   createdAt: integer("created_at").notNull(),
 }, (table) => [uniqueIndex("handout_grant_recipients_grant_character_uq").on(table.grantId, table.characterId)]);
+
+export const handoutReads = sqliteTable("handout_reads", {
+  id: text("id").primaryKey(),
+  grantId: text("grant_id").notNull().references(() => handoutGrants.id, { onDelete: "cascade" }),
+  playerId: text("player_id").notNull().references(() => anonymousPlayers.id, { onDelete: "cascade" }),
+  readAt: integer("read_at").notNull(),
+}, (table) => [uniqueIndex("handout_reads_grant_player_uq").on(table.grantId, table.playerId)]);

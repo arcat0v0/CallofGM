@@ -11,6 +11,11 @@ import {
   type TestWebSocket,
 } from "../helpers/setup";
 import { handouts, mediaAssets } from "@/platform/db/schema";
+import {
+  HandoutGrantedEvent,
+  SessionSnapshotPayload,
+  type GrantedHandoutDto,
+} from "@cogm/shared";
 import { mkdir, writeFile, rm } from "fs/promises";
 
 describe("Handouts & moderation contract tests", () => {
@@ -272,5 +277,82 @@ describe("Handouts & moderation contract tests", () => {
     await reconnected.waitFor((m) => m.type === "snapshot");
 
     await closeAll(gm, pc2, reconnected);
+  });
+  test("情报已读：收下后按玩家持久化，重连快照与 REST 均保留已读", async () => {
+    const { gm, pc1, pc2, ob } = await openAll();
+
+    sendCommand(gm, "handout:grant", { handoutId: "handout-secret", recipientCharacterIds: ["char-pc1"] }, "hg-read-1");
+    const granted = await pc1.waitFor(
+      (m) => m.type === "handout:granted" && m.payload.grant.handout.id === "handout-secret"
+    );
+    const grant = HandoutGrantedEvent.parse(granted.payload).grant;
+    const grantId = grant.grantId;
+    expect(grant.read).toBe(false);
+
+    const before = await connectWs(wsUrl(), ctx.playerTokens.get("pc1")!);
+    const beforeSnap = SessionSnapshotPayload.parse((await before.waitFor((m) => m.type === "snapshot")).payload);
+    expect(beforeSnap.visibleHandouts.find((item) => item.grantId === grantId)?.read).toBe(false);
+    await closeWs(before);
+
+    sendCommand(pc1, "handout:read", { grantId }, "read-1");
+    const readReply = await pc1.waitFor((m) => m.commandId === "read-1");
+    expect(readReply.type).toBe("command:accepted");
+
+    const after = await connectWs(wsUrl(), ctx.playerTokens.get("pc1")!);
+    const afterSnap = SessionSnapshotPayload.parse((await after.waitFor((m) => m.type === "snapshot")).payload);
+    expect(afterSnap.visibleHandouts.find((item) => item.grantId === grantId)?.read).toBe(true);
+
+    const restRes = await fetch(`http://localhost:${server.server?.port}/api/v1/sessions/${ctx.sessionId}/handouts`, {
+      headers: { Authorization: `Bearer ${ctx.playerTokens.get("pc1")}` },
+    });
+    expect(restRes.status).toBe(200);
+    const restBody = (await restRes.json()) as { items: GrantedHandoutDto[] };
+    expect(restBody.items.find((item) => item.grantId === grantId)?.read).toBe(true);
+
+    await closeAll(gm, pc1, pc2, ob, after);
+  });
+
+  test("情报已读：公开情报各玩家独立记录，重连不再提示未读", async () => {
+    const { gm, pc1, ob } = await openAll();
+
+    sendCommand(gm, "handout:grant", { handoutId: "handout-pub", recipientCharacterIds: [] }, "hg-read-2");
+    const granted = await ob.waitFor(
+      (m) => m.type === "handout:granted" && m.payload.grant.handout.id === "handout-pub"
+    );
+    const grantId = HandoutGrantedEvent.parse(granted.payload).grant.grantId;
+
+    sendCommand(ob, "handout:read", { grantId }, "read-2");
+    await ob.waitFor((m) => m.commandId === "read-2" && m.type === "command:accepted");
+
+    const obAgain = await connectWs(wsUrl(), ctx.playerTokens.get("ob1")!);
+    const obSnap = SessionSnapshotPayload.parse((await obAgain.waitFor((m) => m.type === "snapshot")).payload);
+    expect(obSnap.visibleHandouts.find((item) => item.grantId === grantId)?.read).toBe(true);
+
+    const pc1Again = await connectWs(wsUrl(), ctx.playerTokens.get("pc1")!);
+    const pc1Snap = SessionSnapshotPayload.parse((await pc1Again.waitFor((m) => m.type === "snapshot")).payload);
+    expect(pc1Snap.visibleHandouts.find((item) => item.grantId === grantId)?.read).toBe(false);
+
+    await closeAll(gm, pc1, ob, obAgain, pc1Again);
+  });
+
+  test("情报已读：非目标玩家与 GM 不能代收", async () => {
+    const { gm, pc1, pc2 } = await openAll();
+
+    sendCommand(gm, "handout:grant", { handoutId: "handout-secret", recipientCharacterIds: ["char-pc1"] }, "hg-read-3");
+    const granted = await pc1.waitFor(
+      (m) => m.type === "handout:granted" && m.payload.grant.handout.id === "handout-secret"
+    );
+    const grantId = HandoutGrantedEvent.parse(granted.payload).grant.grantId;
+
+    sendCommand(pc2, "handout:read", { grantId }, "read-3");
+    const denied = await pc2.waitFor((m) => m.commandId === "read-3");
+    expect(denied.type).toBe("command:rejected");
+    expect(denied.payload.code).toBe("HANDOUT_GRANT_NOT_FOUND");
+
+    sendCommand(gm, "handout:read", { grantId }, "read-4");
+    const gmDenied = await gm.waitFor((m) => m.commandId === "read-4");
+    expect(gmDenied.type).toBe("command:rejected");
+
+    await closeAll(gm, pc1, pc2);
   });
 });

@@ -10,13 +10,11 @@ import { usePlayStore } from "@/stores/play-store";
 function ChatPanelHeader({
   compact = false,
   onCollapse,
-  browseAllSheets = false,
   onLeaveSeat,
   children,
 }: {
   compact?: boolean;
   onCollapse?: () => void;
-  browseAllSheets?: boolean;
   onLeaveSeat?: () => void;
   children?: ReactNode;
 }) {
@@ -76,7 +74,7 @@ function ChatPanelHeader({
           ) : null}
         </div>
         <HandoutLibrary handouts={handouts} open={handoutsOpen} onOpenChange={setHandoutsOpen} />
-        <CharacterSheetPanel open={sheetOpen} onOpenChange={setSheetOpen} browseAll={browseAllSheets} />
+        <CharacterSheetPanel open={sheetOpen} onOpenChange={setSheetOpen} />
       </header>
       {children}
       {presenceAvailable ? (

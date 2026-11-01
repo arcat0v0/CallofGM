@@ -84,11 +84,12 @@ async function persistStateAndBuildEvents(
   newState: unknown,
   hints: string[],
   rule: RuleSystem<unknown, unknown>,
-  hidden: boolean
+  hidden: boolean,
+  obSeePcState: boolean
 ): Promise<ProducedEvent[]> {
   await repo.updateSessionCharacterState(ctx.sessionId, characterId, JSON.stringify(newState));
 
-  const visibility = checkVisibilityScope(hidden, kind);
+  const visibility = stateVisibilityScope(hidden, kind, obSeePcState);
   const events: ProducedEvent[] = [
     {
       type: "state:changed",
@@ -115,6 +116,17 @@ function checkVisibilityScope(hidden: boolean, kind: string): { type: "gmOnly" }
     return { type: "gmOnly" };
   }
   return { type: "public" };
+}
+
+function stateVisibilityScope(
+  hidden: boolean,
+  kind: string,
+  obSeePcState: boolean
+): { type: "gmOnly" } | { type: "public" } | { type: "pcPlayers" } {
+  if (hidden || kind === "npc") {
+    return { type: "gmOnly" };
+  }
+  return obSeePcState ? { type: "public" } : { type: "pcPlayers" };
 }
 
 function assertPlayerCanRoll(ctx: CommandHandlerContext): void {
@@ -292,7 +304,8 @@ export class PerformCheckHandler implements CommandHandler {
           newState,
           [],
           rule,
-          hidden
+          hidden,
+          ctx.session.obSeePcState === 1
         ))
       );
     }
@@ -366,7 +379,8 @@ export class PerformSanCheckHandler implements CommandHandler {
         mutated.state,
         mutated.hints,
         rule,
-        hidden
+        hidden,
+        ctx.session.obSeePcState === 1
       ))
     );
 
@@ -536,7 +550,8 @@ export class RespondCheckRequestHandler implements CommandHandler {
           newState,
           [],
           rule,
-          hidden
+          hidden,
+          ctx.session.obSeePcState === 1
         ))
       );
     }
@@ -588,7 +603,8 @@ export class EditCharacterStateHandler implements CommandHandler {
       mutated.state,
       mutated.hints,
       rule,
-      false
+      false,
+      ctx.session.obSeePcState === 1
     );
 
     return { events, replyPayload: { ok: true } };

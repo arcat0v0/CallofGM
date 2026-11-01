@@ -1,6 +1,6 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { SessionPhaseLabel, SessionStatusLabel, type CharacterDto, type ModuleDto, type SessionDto, type SessionStatus } from "@cogm/shared";
-import { ArrowRight, Ellipsis, FileSpreadsheet, Link as LinkIcon, Package, Play, Plus, SquarePower, Users, VenetianMask } from "lucide-react";
+import { ArrowRight, Ellipsis, FileSpreadsheet, Link as LinkIcon, Package, Pencil, Play, Plus, SquarePower, Users, VenetianMask } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { MetricCard } from "@/components/shared/metric-card";
@@ -14,6 +14,15 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -42,6 +51,8 @@ function GmDashboardPage() {
   const [modules, setModules] = useState<ModuleDto[]>([]);
   const [characterCount, setCharacterCount] = useState(0);
   const [endTarget, setEndTarget] = useState<SessionDto | null>(null);
+  const [renameTarget, setRenameTarget] = useState<SessionDto | null>(null);
+  const [renameName, setRenameName] = useState("");
 
   async function reload() {
     try {
@@ -64,6 +75,20 @@ function GmDashboardPage() {
 
   const moduleName = (id: string) => modules.find((module) => module.id === id)?.name ?? id;
   const liveCount = sessions.filter((session) => session.status === "active").length;
+
+  async function renameSession(sessionId: string) {
+    try {
+      await api(`/gm/sessions/${encodeURIComponent(sessionId)}/name`, {
+        method: "POST",
+        body: JSON.stringify({ name: renameName.trim() || null }),
+      });
+      setRenameTarget(null);
+      toast.success("已更新团名");
+      await reload();
+    } catch (error) {
+      toast.error(isApiError(error) ? error.message : "无法重命名");
+    }
+  }
 
   async function patchStatus(sessionId: string, status: SessionStatus) {
     try {
@@ -120,7 +145,7 @@ function GmDashboardPage() {
           <TableBody>
             {sessions.map((session) => (
               <TableRow key={session.id}>
-                <TableCell className="truncate text-label-large-emph">{session.id}</TableCell>
+                <TableCell className="truncate text-label-large-emph">{session.name ?? "未命名团"}</TableCell>
                 <TableCell className="text-foreground-secondary text-body-medium">{moduleName(session.moduleId)}</TableCell>
                 <TableCell>
                   <Badge variant="soft" tone={statusTone(session.status)} size="sm">
@@ -172,6 +197,15 @@ function GmDashboardPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          onClick={() => {
+                            setRenameTarget(session);
+                            setRenameName(session.name ?? "");
+                          }}
+                        >
+                          <Pencil />
+                          重命名
+                        </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={() => {
                             void navigator.clipboard.writeText(`${location.origin}/join/${encodeURIComponent(session.id)}`).then(
@@ -248,6 +282,42 @@ function GmDashboardPage() {
         }}
       />
       <ImportCharacterSheetDialog open={importOpen} onOpenChange={setImportOpen} />
+      <Dialog
+        open={renameTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setRenameTarget(null);
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>重命名团</DialogTitle>
+            <DialogDescription>留空则回退显示模组名。当前编号 {renameTarget?.id.slice(0, 8) ?? ""}</DialogDescription>
+          </DialogHeader>
+          <Input
+            value={renameName}
+            onChange={(event) => setRenameName(event.target.value)}
+            placeholder="例如：灯塔之夜 · 第二场"
+            maxLength={60}
+            aria-label="团名"
+            autoFocus
+          />
+          <DialogFooter>
+            <Button variant="tertiary" size="sm" onClick={() => setRenameTarget(null)}>
+              取消
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => {
+                const id = renameTarget?.id;
+                if (id) void renameSession(id);
+              }}
+            >
+              保存
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <ConfirmDialog
         open={endTarget !== null}
         onOpenChange={(open) => {

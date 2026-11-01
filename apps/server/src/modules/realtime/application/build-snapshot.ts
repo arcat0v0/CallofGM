@@ -12,6 +12,7 @@ import {
   checkRequests,
   handoutGrants,
   handoutGrantRecipients,
+  handoutReads,
   handouts,
   sessionOutbox,
   tracks,
@@ -56,9 +57,10 @@ export class BuildSessionSnapshotUseCase {
   async listVisibleHandouts(
     sessionId: string,
     isGm: boolean,
-    claimedCharacterId: string | null
+    claimedCharacterId: string | null,
+    playerId: string | null = null
   ): Promise<GrantedHandoutDto[]> {
-    return this.buildVisibleHandouts(sessionId, isGm, claimedCharacterId);
+    return this.buildVisibleHandouts(sessionId, isGm, claimedCharacterId, playerId);
   }
 
   async listPendingQueue(sessionId: string): Promise<ChatMessageDto[]> {
@@ -100,12 +102,20 @@ export class BuildSessionSnapshotUseCase {
       pendingQueue,
       online,
     ] = await Promise.all([
-      this.buildCharacters(sessionId, ruleId, actor),
+      this.buildCharacters(sessionId, ruleId, actor, seatRole, {
+        sharePcSheets: session.sharePcSheets === 1,
+        obSeePcState: session.obSeePcState === 1,
+      }),
       this.buildCurrentScene(session.currentSceneId),
       this.buildBgm(sessionId),
       this.buildRecentMessages(sessionId),
       this.buildRecentEvents(sessionId, actor, claimedCharacterId, input.connectionId),
-      this.buildVisibleHandouts(sessionId, isGm, claimedCharacterId),
+      this.buildVisibleHandouts(
+        sessionId,
+        isGm,
+        claimedCharacterId,
+        actor.type === "player" ? actor.playerId : null
+      ),
       this.buildPendingCheckRequests(sessionId, isGm, claimedCharacterId),
       isGm ? this.buildPendingQueue(sessionId) : Promise.resolve(undefined),
       isGm ? this.presenceService.listOnline(sessionId) : Promise.resolve(undefined),
@@ -115,12 +125,17 @@ export class BuildSessionSnapshotUseCase {
       viewer: { isGm, seatRole },
       session: {
         id: session.id,
+        name: session.name ?? null,
         moduleId: session.moduleId,
         moduleName,
         status: session.status as SessionSnapshotPayload["session"]["status"],
         phase: session.phase as SessionSnapshotPayload["session"]["phase"],
         currentSceneId: session.currentSceneId ?? null,
         lastEventId: session.lastEventId,
+        settings: {
+          sharePcSheets: session.sharePcSheets === 1,
+          obSeePcState: session.obSeePcState === 1,
+        },
       },
       currentScene,
       characters: charactersSnapshot,
@@ -159,7 +174,9 @@ export class BuildSessionSnapshotUseCase {
   private async buildCharacters(
     sessionId: string,
     ruleId: RuleId,
-    actor: ActorContext
+    actor: ActorContext,
+    seatRole: "pc" | "ob" | null,
+    settings: { sharePcSheets: boolean; obSeePcState: boolean }
   ): Promise<SnapshotCharacter[]> {
     const isGm = actor.type === "gm";
     const playerId = actor.type === "player" ? actor.playerId : null;
@@ -211,11 +228,11 @@ export class BuildSessionSnapshotUseCase {
     }
 
     const ruleSystem = this.ruleRegistry.get(ruleId);
+    const obStateHidden = seatRole === "ob" && !settings.obSeePcState;
 
     return sessionChars.map((sc) => {
       const kind = sc.kind === "npc" ? "npc" : "pc";
-      // NPC 状态仅 GM 可见
-      const stateVisible = isGm || kind === "pc";
+      const stateVisible = isGm || (kind === "pc" && !obStateHidden);
       let state: unknown = null;
       if (stateVisible) {
         try {
@@ -237,7 +254,9 @@ export class BuildSessionSnapshotUseCase {
         claim?.playerId === playerId &&
         claim.role === "pc";
       let sheet: unknown = null;
-      if (isGm || ownPc) {
+      const sheetVisible =
+        isGm || ownPc || (kind === "pc" && settings.sharePcSheets && actor.type === "player");
+      if (sheetVisible) {
         const raw = sheetMap.get(sc.characterId);
         if (raw) {
           try {
@@ -400,7 +419,8 @@ export class BuildSessionSnapshotUseCase {
   private async buildVisibleHandouts(
     sessionId: string,
     isGm: boolean,
-    claimedCharacterId: string | null
+    claimedCharacterId: string | null,
+    playerId: string | null
   ): Promise<GrantedHandoutDto[]> {
     const grants = await this.db
       .select()
@@ -412,10 +432,24 @@ export class BuildSessionSnapshotUseCase {
     }
 
     const grantIds = grants.map((g) => g.id);
-    const recipients = await this.db
-      .select()
-      .from(handoutGrantRecipients)
-      .where(inArray(handoutGrantRecipients.grantId, grantIds));
+    const [recipients, readRows] = await Promise.all([
+      this.db
+        .select()
+        .from(handoutGrantRecipients)
+        .where(inArray(handoutGrantRecipients.grantId, grantIds)),
+      playerId
+        ? this.db
+            .select({ grantId: handoutReads.grantId })
+            .from(handoutReads)
+            .where(
+              and(
+                eq(handoutReads.playerId, playerId),
+                inArray(handoutReads.grantId, grantIds)
+              )
+            )
+        : Promise.resolve([] as Array<{ grantId: string }>),
+    ]);
+    const readGrantIds = new Set(readRows.map((row) => row.grantId));
     const recipientMap = new Map<string, Set<string>>();
     for (const r of recipients) {
       if (!recipientMap.has(r.grantId)) {
@@ -456,6 +490,7 @@ export class BuildSessionSnapshotUseCase {
         },
         isPublic,
         grantedAt: grant.createdAt,
+        read: readGrantIds.has(grant.id),
       });
     }
     return visible;

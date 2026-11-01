@@ -15,6 +15,11 @@ export const AppendHandoutRecipientsCommand = z.object({
 });
 export type AppendHandoutRecipientsCommand = z.infer<typeof AppendHandoutRecipientsCommand>;
 
+export const ReadHandoutCommand = z.object({
+  grantId: z.string().min(1),
+});
+export type ReadHandoutCommand = z.infer<typeof ReadHandoutCommand>;
+
 // ---------- events & DTO ----------
 
 export const HandoutDto = z.object({
@@ -30,6 +35,7 @@ export const GrantedHandoutDto = z.object({
   handout: HandoutDto,
   isPublic: z.boolean(),
   grantedAt: z.number().int(),
+  read: z.boolean(),
 });
 export type GrantedHandoutDto = z.infer<typeof GrantedHandoutDto>;
 

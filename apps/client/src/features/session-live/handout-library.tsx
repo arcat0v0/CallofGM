@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { GrantedHandoutDto } from "@cogm/shared";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -43,7 +44,12 @@ export function HandoutLibrary({
                   className="h-auto justify-start px-2 py-2 text-left text-label-medium"
                   onClick={() => setActiveId(item.grantId)}
                 >
-                  {item.handout.title}
+                  <span className="min-w-0 flex-1 truncate">{item.handout.title}</span>
+                  {item.read ? null : (
+                    <Badge variant="solid" tone="accent" size="sm">
+                      未读
+                    </Badge>
+                  )}
                 </Button>
               ))}
             </div>

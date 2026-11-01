@@ -1,4 +1,9 @@
-import { GrantHandoutCommand, AppendHandoutRecipientsCommand, type GrantedHandoutDto } from "@cogm/shared";
+import {
+  GrantHandoutCommand,
+  AppendHandoutRecipientsCommand,
+  ReadHandoutCommand,
+  type GrantedHandoutDto,
+} from "@cogm/shared";
 import type {
   CommandHandler,
   CommandHandlerContext,
@@ -24,6 +29,7 @@ function toGrantedDto(
     },
     isPublic: grant.isPublic === 1,
     grantedAt: grant.createdAt,
+    read: false,
   };
 }
 
@@ -170,8 +176,51 @@ export class AppendHandoutRecipientsHandler implements CommandHandler {
   }
 }
 
+export class ReadHandoutHandler implements CommandHandler {
+  readonly type = "handout:read" as const;
+  readonly allowedStatuses = ["waiting", "preparing", "active"] as const;
+  readonly allowWhenEnded = true;
+
+  constructor(private readonly repoFactory: (tx: DbClient) => HandoutsRepository) {}
+
+  async execute(ctx: CommandHandlerContext, payload: unknown): Promise<CommandHandlerResult> {
+    if (ctx.actor.type !== "player") {
+      throw new ForbiddenError("Only players can acknowledge handouts");
+    }
+    const parsed = ReadHandoutCommand.safeParse(payload);
+    if (!parsed.success) {
+      throw new AppError("VALIDATION_FAILED", parsed.error.message, 400);
+    }
+    const repo = this.repoFactory(ctx.tx);
+    const grant = await repo.findGrantById(parsed.data.grantId);
+    if (!grant || grant.sessionId !== ctx.sessionId) {
+      throw new HandoutGrantNotFoundError();
+    }
+    if (grant.isPublic !== 1) {
+      const recipientIds = await repo.listRecipientCharacterIds(grant.id);
+      const claimedCharacterId = ctx.seat?.characterId ?? null;
+      if (!claimedCharacterId || !recipientIds.includes(claimedCharacterId)) {
+        throw new HandoutGrantNotFoundError();
+      }
+    }
+
+    await repo.markGrantRead({
+      id: ctx.idGenerator.nextId(),
+      grantId: grant.id,
+      playerId: ctx.actor.playerId,
+      readAt: ctx.clock.nowEpochMs(),
+    });
+
+    return { replyPayload: { grantId: grant.id, read: true } };
+  }
+}
+
 export function createHandoutCommandHandlers(
   repoFactory: (tx: DbClient) => HandoutsRepository
 ): CommandHandler[] {
-  return [new GrantHandoutHandler(repoFactory), new AppendHandoutRecipientsHandler(repoFactory)];
+  return [
+    new GrantHandoutHandler(repoFactory),
+    new AppendHandoutRecipientsHandler(repoFactory),
+    new ReadHandoutHandler(repoFactory),
+  ];
 }

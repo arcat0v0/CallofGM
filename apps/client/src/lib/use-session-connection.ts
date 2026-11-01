@@ -1,3 +1,4 @@
+import type { ServerMessage } from "@cogm/shared";
 import { useCallback, useEffect, useRef } from "react";
 import { ensurePlayer } from "./identity";
 import { connectSession, type SessionSocket } from "./session-socket";
@@ -27,6 +28,7 @@ export function useSessionConnection(
     let retry: ReturnType<typeof setTimeout> | null = null;
     let attempt = 0;
     let handshakeFailures = 0;
+    let refreshingSnapshot = false;
     reset();
 
     function scheduleReconnect() {
@@ -36,6 +38,33 @@ export function useSessionConnection(
       retry = setTimeout(() => {
         void open(watermark > 0 ? watermark : undefined);
       }, delay);
+    }
+
+    async function refreshSnapshot(): Promise<void> {
+      if (cancelled || refreshingSnapshot) {
+        return;
+      }
+      refreshingSnapshot = true;
+      try {
+        await open();
+      } finally {
+        refreshingSnapshot = false;
+      }
+    }
+
+    function handleMessage(message: ServerMessage): void {
+      const settingsBefore = usePlayStore.getState().settings;
+      applyMessage(message);
+      if (message.type !== "session:settings-changed") {
+        return;
+      }
+      const settingsAfter = usePlayStore.getState().settings;
+      if (
+        settingsAfter.sharePcSheets !== settingsBefore.sharePcSheets ||
+        settingsAfter.obSeePcState !== settingsBefore.obSeePcState
+      ) {
+        void refreshSnapshot();
+      }
     }
 
     async function open(lastEventId?: number): Promise<void> {
@@ -49,7 +78,7 @@ export function useSessionConnection(
         socket = await connectSession({
           sessionId,
           lastEventId,
-          onMessage: applyMessage,
+          onMessage: handleMessage,
           onClose: ({ code, reason }) => {
             if (cancelled) {
               return;

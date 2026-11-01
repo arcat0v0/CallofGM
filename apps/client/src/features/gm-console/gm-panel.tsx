@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { AudioSection, CharactersSection, HandoutSection, OnlineSection, RulesSection } from "./gm-panel-controls";
+import { AudioSection, CharactersSection, HandoutSection, OnlineSection, RulesSection, SessionSettingsSection } from "./gm-panel-controls";
 import { GmHead, PhaseSection, SceneSection, SpeakQueueSection } from "./gm-panel-stage";
 
 function GmPanel({ className }: { className?: string }) {
@@ -7,6 +7,7 @@ function GmPanel({ className }: { className?: string }) {
     <div className={cn("bg-md-surface-container-low flex h-full flex-col overflow-y-auto", className)}>
       <GmHead />
       <PhaseSection />
+      <SessionSettingsSection />
       <SpeakQueueSection />
       <SceneSection />
       <CharactersSection />

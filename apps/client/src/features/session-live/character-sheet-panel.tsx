@@ -24,20 +24,20 @@ import { usePlayStore } from "@/stores/play-store";
 export function CharacterSheetPanel({
   open,
   onOpenChange,
-  browseAll = false,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  browseAll?: boolean;
 }) {
   const playerId = useIdentityStore((state) => state.playerId);
+  const isGm = usePlayStore((state) => state.viewer.isGm);
   const characters = usePlayStore((state) => state.characters);
   const claimed = characters.find((character) => character.claim?.playerId === playerId && character.claim.role === "pc");
-  const options = browseAll ? characters : claimed ? [claimed] : [];
+  const options = characters.filter((character) => character.sheet != null);
   const [selectedId, setSelectedId] = useState("");
   const target = options.find((character) => character.characterId === selectedId) ?? options[0];
   const sheet = parseCocSheet(target?.sheet);
   const state = parseCocState(target?.state);
+  const canPerform = isGm || (claimed !== undefined && target?.characterId === claimed.characterId);
   const skillKeys = useMemo(
     () => skillKeysFor(target).filter((key) => !(key in (sheet?.attributes ?? {}))),
     [target, sheet],
@@ -66,9 +66,13 @@ export function CharacterSheetPanel({
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>{target?.name ?? "人物卡"}</DialogTitle>
-          <DialogDescription>点击技能或属性即可发起鉴定；目标值由服务端从人物卡读取。</DialogDescription>
+          <DialogDescription>
+            {canPerform
+              ? "点击技能或属性即可发起鉴定；目标值由服务端从人物卡读取。"
+              : "队友人物卡仅供查阅。"}
+          </DialogDescription>
         </DialogHeader>
-        {browseAll && options.length > 1 ? (
+        {options.length > 1 ? (
           <Select value={target?.characterId ?? ""} onValueChange={setSelectedId}>
             <SelectTrigger className="h-8 text-label-medium"><SelectValue placeholder="选择人物" /></SelectTrigger>
             <SelectContent>
@@ -81,7 +85,7 @@ export function CharacterSheetPanel({
           </Select>
         ) : null}
         {!target || !sheet ? (
-          <p className="text-foreground-tertiary text-body-medium">未认领 PC，或人物卡尚未同步。</p>
+          <p className="text-foreground-tertiary text-body-medium">没有可见的人物卡，或人物卡尚未同步。</p>
         ) : (
           <div className="flex flex-col gap-3">
             {state ? (
@@ -93,7 +97,7 @@ export function CharacterSheetPanel({
             ) : null}
             <div className="grid grid-cols-2 gap-x-2 gap-y-1">
               {Object.entries(sheet.attributes).map(([key, value]) => (
-                <Button key={key} type="button" variant="ghost" className="h-7 justify-between px-2 text-body-medium" onClick={() => perform(key)}>
+                <Button key={key} type="button" variant="ghost" className="h-7 justify-between px-2 text-body-medium" disabled={!canPerform} onClick={() => perform(key)}>
                   <span>{coc7e.coc7eSkillLabel(key)}</span>
                   <span>{value}</span>
                 </Button>
@@ -108,7 +112,7 @@ export function CharacterSheetPanel({
                     type="button"
                     variant="ghost"
                     className="h-7 justify-between px-2 text-body-medium"
-                    disabled={value === null}
+                    disabled={!canPerform || value === null}
                     onClick={() => perform(key)}
                   >
                     <span>{coc7e.coc7eSkillLabel(key)}</span>

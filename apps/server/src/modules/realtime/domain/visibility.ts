@@ -3,6 +3,7 @@ import type { ActorContext } from "@/modules/identity";
 export type VisibilityScope =
   | { type: "public" }
   | { type: "gmOnly" }
+  | { type: "pcPlayers" }
   | { type: "selectedPcIds"; pcIds: string[] }
   | { type: "connectionOnly"; connectionId: string };
 
@@ -20,6 +21,8 @@ export function checkVisibility(
       return true;
     case "gmOnly":
       return false;
+    case "pcPlayers":
+      return claimedCharacterId !== null;
     case "selectedPcIds":
       return claimedCharacterId !== null && scope.pcIds.includes(claimedCharacterId);
     case "connectionOnly":

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { SeatRole, SessionStatus, SessionPhase } from "./session";
+import { SeatRole, SessionStatus, SessionPhase, SessionSettings } from "./session";
 import { ChatMessageDto } from "./chat";
 import { CheckRequestDto } from "./gameplay";
 import { GrantedHandoutDto } from "./handouts";
@@ -45,12 +45,14 @@ export type SnapshotRecentEvent = z.infer<typeof SnapshotRecentEvent>;
 export const SessionSnapshotPayload = z.object({
   session: z.object({
     id: z.string(),
+    name: z.string().nullable(),
     moduleId: z.string(),
     moduleName: z.string(),
     status: SessionStatus,
     phase: SessionPhase,
     currentSceneId: z.string().nullable(),
     lastEventId: z.number().int(),
+    settings: SessionSettings,
   }),
   currentScene: z
     .object({

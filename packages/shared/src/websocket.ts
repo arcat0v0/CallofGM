@@ -21,6 +21,8 @@ export const ClientCommandType = z.enum([
   "audio:se",
   "handout:grant",
   "handout:append",
+  "handout:read",
+  "session:settings",
   "player:kick",
   "player:ban",
   "player:unban",

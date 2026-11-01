@@ -2,11 +2,14 @@ import type { DbClient } from "@/platform/db/client";
 
 export interface SessionRecord {
   id: string;
+  name: string | null;
   moduleId: string;
   status: string;
   phase: string;
   currentSceneId: string | null;
   lastEventId: number;
+  sharePcSheets: number;
+  obSeePcState: number;
   createdAt: number;
 }
 export interface CharacterItem {

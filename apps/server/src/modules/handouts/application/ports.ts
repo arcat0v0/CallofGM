@@ -35,4 +35,10 @@ export interface HandoutsRepository {
   ): Promise<void>;
   listRecipientCharacterIds(grantId: string): Promise<string[]>;
   findCharactersNotInSession(sessionId: string, characterIds: string[]): Promise<string[]>;
+  markGrantRead(row: {
+    id: string;
+    grantId: string;
+    playerId: string;
+    readAt: number;
+  }): Promise<void>;
 }
