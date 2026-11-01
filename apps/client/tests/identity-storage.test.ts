@@ -1,5 +1,11 @@
 import { beforeEach, describe, expect, test } from "bun:test";
-import { PLAYER_ID_KEY, writePlayerId } from "../src/lib/storage";
+import {
+  PLAYER_ID_KEY,
+  ROTATE_SUGGESTION_KEY,
+  readRotateSuggestionDismissed,
+  writePlayerId,
+  writeRotateSuggestionDismissed,
+} from "../src/lib/storage";
 
 class MemoryStorage implements Storage {
   private store = new Map<string, string>();
@@ -45,5 +51,16 @@ describe("player identity persistence", () => {
     const values = storage.entries().map(([, value]) => value);
     expect(values).not.toContain("opaque-secret-token");
     expect([...storage.entries()].every(([key]) => !/token/i.test(key))).toBe(true);
+  });
+});
+
+describe("rotate suggestion dismissal persistence", () => {
+  test("defaults to shown and stays dismissed once written", () => {
+    const storage = new MemoryStorage();
+    (globalThis as { localStorage?: Storage }).localStorage = storage;
+    expect(readRotateSuggestionDismissed()).toBe(false);
+    writeRotateSuggestionDismissed();
+    expect(readRotateSuggestionDismissed()).toBe(true);
+    expect(storage.getItem(ROTATE_SUGGESTION_KEY)).toBe("1");
   });
 });
