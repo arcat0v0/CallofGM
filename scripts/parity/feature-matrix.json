@@ -341,7 +341,7 @@
       "probes": [
         {
           "type": "code_regex",
-          "pattern": "预览",
+          "pattern": "previewOpen",
           "scope": "apps/client/src/features/play"
         },
         {
@@ -533,7 +533,7 @@
         },
         {
           "type": "path_exists",
-          "glob": "apps/client/src/features/play/desktop-scene.tsx"
+          "glob": "apps/client/src/themes/default/slots/play-stage.tsx"
         }
       ]
     },
@@ -1244,11 +1244,11 @@
       "probes": [
         {
           "type": "path_exists",
-          "glob": "apps/client/src/features/play/mobile-portrait-scene.tsx"
+          "glob": "apps/client/src/features/play/use-play-viewport.ts"
         },
         {
           "type": "path_exists",
-          "glob": "apps/client/src/features/play/mobile-landscape-scene.tsx"
+          "glob": "apps/client/src/themes/default/slots/play-layout.tsx"
         },
         {
           "type": "code_regex",
@@ -1437,7 +1437,7 @@
         },
         {
           "type": "code_regex",
-          "pattern": "已复制团链接",
+          "pattern": "navigator\\.clipboard\\.writeText",
           "scope": "apps/client/src/routes/gm"
         }
       ]
@@ -1575,7 +1575,7 @@
         },
         {
           "type": "code_regex",
-          "pattern": "观战",
+          "pattern": "spectator",
           "scope": "apps/client/src/routes"
         }
       ]
@@ -2531,7 +2531,7 @@
         },
         {
           "type": "path_exists",
-          "glob": "apps/client/src/features/play/chat-area.tsx"
+          "glob": "apps/client/src/features/play/player-chat-panel.tsx"
         }
       ]
     },
@@ -2710,7 +2710,7 @@
         },
         {
           "type": "path_exists",
-          "glob": "apps/client/src/features/play/desktop-scene.tsx"
+          "glob": "apps/client/src/themes/default/slots/play-dialogue.tsx"
         },
         {
           "type": "code_regex",
@@ -3349,11 +3349,11 @@
       "probes": [
         {
           "type": "path_exists",
-          "glob": "apps/client/src/features/play/mobile-portrait-scene.tsx"
+          "glob": "apps/client/src/features/play/use-play-viewport.ts"
         },
         {
           "type": "path_exists",
-          "glob": "apps/client/src/features/play/mobile-landscape-scene.tsx"
+          "glob": "apps/client/src/themes/default/slots/play-layout.tsx"
         },
         {
           "type": "code_regex",
