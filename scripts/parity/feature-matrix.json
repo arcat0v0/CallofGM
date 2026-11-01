@@ -782,12 +782,17 @@
       "probes": [
         {
           "type": "path_exists",
-          "glob": "apps/server/src/modules/chat/domain/message-policy.ts"
+          "glob": "packages/shared/src/policy.ts"
         },
         {
           "type": "code_regex",
-          "pattern": "decideChatMessage",
-          "scope": "apps/server/src/modules/chat"
+          "pattern": "export function decideChatMessage",
+          "scope": "packages/shared/src/policy.ts"
+        },
+        {
+          "type": "code_regex",
+          "pattern": "export function canPlayerInitiateDiceRoll",
+          "scope": "packages/shared/src/policy.ts"
         }
       ]
     },
