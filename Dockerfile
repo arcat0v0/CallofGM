@@ -8,7 +8,7 @@ COPY packages/theme-sdk/package.json packages/theme-sdk/package.json
 COPY packages/theme-cli/package.json packages/theme-cli/package.json
 RUN bun install --frozen-lockfile
 COPY . .
-RUN bun run typecheck && bun run build:client
+RUN bun run build:client && bun run typecheck
 
 FROM oven/bun:1.3.14-slim AS runtime
 WORKDIR /app
