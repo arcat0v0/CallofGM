@@ -1,4 +1,4 @@
-import { eq, and, or, gt, asc } from "drizzle-orm";
+import { eq, and, or, gt, asc, count, isNotNull, max } from "drizzle-orm";
 import type { DbClient } from "@/platform/db/client";
 import {
   modules,
@@ -7,13 +7,15 @@ import {
   handouts,
   mediaAssets,
   sessions,
+  moduleCharacters,
 } from "@/platform/db/schema";
 import type {
   CatalogRepository,
   CatalogModule,
   CatalogScene,
   CatalogTrack,
-  CatalogHandout
+  CatalogHandout,
+  ModuleSummary
 } from "../application/ports";
 import {
   ModuleNotFoundError,
@@ -38,6 +40,24 @@ type CursorPageOptions = {
   offset?: number;
   cursor?: string;
 };
+
+function mapTrackRow(row: {
+  track: typeof tracks.$inferSelect;
+  assetSize: number | null;
+  assetCreatedAt: number | null;
+}): CatalogTrack {
+  return {
+    id: row.track.id,
+    moduleId: row.track.moduleId,
+    name: row.track.name,
+    audioAssetId: row.track.audioAssetId,
+    type: row.track.type as "bgm" | "se",
+    duration: row.track.duration,
+    audioSize: row.assetSize,
+    audioUploadedAt: row.assetCreatedAt,
+    createdAt: row.track.createdAt,
+  };
+}
 export class DrizzleCatalogRepository implements CatalogRepository {
   constructor(private readonly db: DbClient) {}
 
@@ -130,6 +150,68 @@ export class DrizzleCatalogRepository implements CatalogRepository {
     }
 
     return paginated(items, limit);
+  }
+
+  async listModuleSummaries(): Promise<ModuleSummary[]> {
+    const moduleRows = await this.db.select().from(modules);
+    if (moduleRows.length === 0) {
+      return [];
+    }
+    const [sceneAgg, handoutAgg, trackAgg, characterAgg, coverRows] = await Promise.all([
+      this.db
+        .select({ moduleId: scenes.moduleId, total: count(), latest: max(scenes.createdAt) })
+        .from(scenes)
+        .groupBy(scenes.moduleId),
+      this.db
+        .select({ moduleId: handouts.moduleId, total: count(), latest: max(handouts.createdAt) })
+        .from(handouts)
+        .groupBy(handouts.moduleId),
+      this.db
+        .select({ moduleId: tracks.moduleId, total: count(), latest: max(tracks.createdAt) })
+        .from(tracks)
+        .groupBy(tracks.moduleId),
+      this.db
+        .select({ moduleId: moduleCharacters.moduleId, total: count(), latest: max(moduleCharacters.createdAt) })
+        .from(moduleCharacters)
+        .groupBy(moduleCharacters.moduleId),
+      this.db
+        .select({ moduleId: scenes.moduleId, bgAssetId: scenes.bgAssetId })
+        .from(scenes)
+        .where(isNotNull(scenes.bgAssetId))
+        .orderBy(asc(scenes.sortOrder), asc(scenes.createdAt), asc(scenes.id)),
+    ]);
+
+    const toMap = <T extends { moduleId: string; total: number; latest: number | null }>(rows: T[]) =>
+      new Map(rows.map((row) => [row.moduleId, row]));
+    const sceneMap = toMap(sceneAgg);
+    const handoutMap = toMap(handoutAgg);
+    const trackMap = toMap(trackAgg);
+    const characterMap = toMap(characterAgg);
+    const coverMap = new Map<string, string>();
+    for (const row of coverRows) {
+      if (row.bgAssetId && !coverMap.has(row.moduleId)) {
+        coverMap.set(row.moduleId, row.bgAssetId);
+      }
+    }
+
+    return moduleRows.map((module) => {
+      const latest = Math.max(
+        module.createdAt,
+        sceneMap.get(module.id)?.latest ?? 0,
+        handoutMap.get(module.id)?.latest ?? 0,
+        trackMap.get(module.id)?.latest ?? 0,
+        characterMap.get(module.id)?.latest ?? 0
+      );
+      return {
+        moduleId: module.id,
+        sceneCount: sceneMap.get(module.id)?.total ?? 0,
+        handoutCount: handoutMap.get(module.id)?.total ?? 0,
+        trackCount: trackMap.get(module.id)?.total ?? 0,
+        characterCount: characterMap.get(module.id)?.total ?? 0,
+        coverAssetId: coverMap.get(module.id) ?? null,
+        updatedAt: latest,
+      };
+    });
   }
 
   async findSceneById(id: string): Promise<CatalogScene | null> {
@@ -226,44 +308,46 @@ export class DrizzleCatalogRepository implements CatalogRepository {
   }
 
   async findTrackById(id: string): Promise<CatalogTrack | null> {
-    const result = await this.db
-      .select()
+    const rows = await this.db
+      .select({ track: tracks, assetSize: mediaAssets.size, assetCreatedAt: mediaAssets.createdAt })
       .from(tracks)
+      .leftJoin(mediaAssets, eq(tracks.audioAssetId, mediaAssets.id))
       .where(eq(tracks.id, id))
       .limit(1);
-    if (!result[0]) return null;
-    return {
-      ...result[0],
-      type: result[0].type as "bgm" | "se"
-    };
+    const row = rows[0];
+    return row ? mapTrackRow(row) : null;
   }
 
   async saveTrack(track: CatalogTrack): Promise<void> {
-    await this.db.insert(tracks).values(track);
+    await this.db.insert(tracks).values({
+      id: track.id,
+      moduleId: track.moduleId,
+      name: track.name,
+      audioAssetId: track.audioAssetId,
+      type: track.type,
+      duration: track.duration,
+      createdAt: track.createdAt,
+    });
   }
 
   async updateTrack(
     id: string,
     updates: Partial<Omit<CatalogTrack, "id" | "moduleId" | "createdAt">>
   ): Promise<CatalogTrack> {
+    const { audioSize: _audioSize, audioUploadedAt: _audioUploadedAt, ...columns } = updates;
     const result = await this.db
       .update(tracks)
-      .set(updates)
+      .set(columns)
       .where(eq(tracks.id, id))
-      .returning();
-    const row = result[0];
-    if (!row) {
+      .returning({ id: tracks.id });
+    if (result.length === 0) {
       throw new TrackNotFoundError();
     }
-    return {
-      id: row.id,
-      moduleId: row.moduleId,
-      name: row.name,
-      audioAssetId: row.audioAssetId,
-      type: row.type as "bgm" | "se",
-      duration: row.duration,
-      createdAt: row.createdAt
-    };
+    const updated = await this.findTrackById(id);
+    if (!updated) {
+      throw new TrackNotFoundError();
+    }
+    return updated;
   }
 
   async deleteTrack(id: string): Promise<void> {
@@ -281,24 +365,19 @@ export class DrizzleCatalogRepository implements CatalogRepository {
     options: CursorPageOptions
   ): Promise<{ items: CatalogTrack[]; nextCursor: string | null }> {
     const limit = options.limit;
-    const mapTrack = (t: typeof tracks.$inferSelect): CatalogTrack => ({
-      ...t,
-      type: t.type as "bgm" | "se"
-    });
-    let rows: (typeof tracks.$inferSelect)[];
-    if (options.cursor) {
-      const cursorRow = await this.db
-        .select()
+    const selectTracks = () =>
+      this.db
+        .select({ track: tracks, assetSize: mediaAssets.size, assetCreatedAt: mediaAssets.createdAt })
         .from(tracks)
-        .where(eq(tracks.id, options.cursor))
-        .limit(1);
-      const c = cursorRow[0];
+        .leftJoin(mediaAssets, eq(tracks.audioAssetId, mediaAssets.id));
+    let rows: Array<Parameters<typeof mapTrackRow>[0]>;
+    if (options.cursor) {
+      const cursorRow = await selectTracks().where(eq(tracks.id, options.cursor)).limit(1);
+      const c = cursorRow[0]?.track;
       if (!c) {
         return { items: [], nextCursor: null };
       }
-      rows = await this.db
-        .select()
-        .from(tracks)
+      rows = await selectTracks()
         .where(
           and(
             eq(tracks.moduleId, moduleId),
@@ -311,22 +390,21 @@ export class DrizzleCatalogRepository implements CatalogRepository {
         .orderBy(asc(tracks.createdAt), asc(tracks.id))
         .limit(limit + 1);
     } else if (options.offset !== undefined) {
-      rows = await this.db
-        .select()
-        .from(tracks)
+      rows = await selectTracks()
         .where(eq(tracks.moduleId, moduleId))
         .orderBy(asc(tracks.createdAt), asc(tracks.id))
         .limit(limit + 1)
         .offset(options.offset);
     } else {
-      rows = await this.db
-        .select()
-        .from(tracks)
+      rows = await selectTracks()
         .where(eq(tracks.moduleId, moduleId))
         .orderBy(asc(tracks.createdAt), asc(tracks.id))
         .limit(limit + 1);
     }
-    return paginated(rows.map(mapTrack), limit);
+    return paginated(
+      rows.map((row) => mapTrackRow(row)),
+      limit
+    );
   }
 
   async findHandoutById(id: string): Promise<CatalogHandout | null> {

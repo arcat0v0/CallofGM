@@ -107,6 +107,14 @@ export class ListModulesUseCase {
   }
 }
 
+export class ListModuleSummariesUseCase {
+  constructor(private readonly repo: CatalogRepository) {}
+
+  async execute() {
+    return this.repo.listModuleSummaries();
+  }
+}
+
 export class CreateSceneUseCase {
   constructor(
     private readonly repo: CatalogRepository,
@@ -211,6 +219,8 @@ export class CreateTrackUseCase {
       audioAssetId: input.audioAssetId,
       type: input.type,
       duration: input.duration,
+      audioSize: null,
+      audioUploadedAt: null,
       createdAt: this.clock.nowEpochMs()
     };
     await this.repo.saveTrack(track);

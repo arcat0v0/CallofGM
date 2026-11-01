@@ -569,6 +569,67 @@ describe("Catalog contract tests", () => {
     expect(dbHandoutAfter.length).toBe(0);
   });
 
+  test("Module summaries expose counts, cover and updated time", async () => {
+    const moduleRes = await app.handle(
+      new Request("http://localhost/api/v1/gm/modules", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${gmToken}` },
+        body: JSON.stringify({ name: "Summary Module", description: "", ruleId: "coc7e" }),
+      }),
+    );
+    expect(moduleRes.status).toBe(200);
+    const created = (await moduleRes.json()) as { id: string };
+
+    await app.handle(
+      new Request(`http://localhost/api/v1/gm/modules/${created.id}/scenes`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${gmToken}` },
+        body: JSON.stringify({ name: "封面场景", sortOrder: 1, bgAssetId: "media-asset-id" }),
+      }),
+    );
+    await app.handle(
+      new Request(`http://localhost/api/v1/gm/modules/${created.id}/handouts`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${gmToken}` },
+        body: JSON.stringify({ title: "线索", content: "内容", imageAssetId: null }),
+      }),
+    );
+    await app.handle(
+      new Request(`http://localhost/api/v1/gm/modules/${created.id}/tracks`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${gmToken}` },
+        body: JSON.stringify({ name: "主题曲", audioAssetId: "audio-asset-id", type: "bgm", duration: 1000 }),
+      }),
+    );
+
+    const summariesRes = await app.handle(
+      new Request("http://localhost/api/v1/gm/modules/summaries", {
+        method: "GET",
+        headers: { Authorization: `Bearer ${gmToken}` },
+      }),
+    );
+    expect(summariesRes.status).toBe(200);
+    const summaries = (await summariesRes.json()) as Array<{
+      moduleId: string;
+      sceneCount: number;
+      handoutCount: number;
+      trackCount: number;
+      characterCount: number;
+      coverAssetId: string | null;
+      updatedAt: number;
+    }>;
+    const summary = summaries.find((item) => item.moduleId === created.id);
+    expect(summary).toBeDefined();
+    expect(summary).toMatchObject({
+      sceneCount: 1,
+      handoutCount: 1,
+      trackCount: 1,
+      characterCount: 0,
+      coverAssetId: "media-asset-id",
+    });
+    expect(summary!.updatedAt).toBeGreaterThan(0);
+  });
+
   test("Deleting module referenced by a session returns 409 MODULE_IN_USE", async () => {
     const modRes = await app.handle(
       new Request("http://localhost/api/v1/gm/modules", {
