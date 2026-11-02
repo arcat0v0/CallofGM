@@ -297,21 +297,25 @@
   --color-surface-transparent: #00000000;
 
   /* ── 语义别名：控件（field / segment / focus）────────────────────── */
-  --color-field: var(--color-md-surface-container-highest);
-  --color-field-focus: var(--color-md-surface-container-highest);
+  --color-field: var(--color-md-surface-container-high);
+  --color-field-focus: var(--color-md-surface-container-high);
   --color-field-hover: color-mix(
     in srgb,
-    var(--color-md-on-surface) 8%,
-    var(--color-md-surface-container-highest)
+    var(--color-md-on-surface) 4%,
+    var(--color-md-surface-container-high)
   );
-  --color-field-border: #00000000;
+  --color-field-border: color-mix(
+    in srgb,
+    var(--color-md-outline) 65%,
+    transparent
+  );
   --color-field-border-focus: var(--color-md-primary);
-  --color-field-border-hover: #00000000;
+  --color-field-border-hover: color-mix(in srgb, var(--color-md-outline) 85%, transparent);
   --color-field-foreground: var(--color-md-on-surface);
-  --color-field-placeholder: var(--color-md-on-surface-variant);
+  --color-field-placeholder: var(--color-md-outline);
 
-  --color-segment: var(--color-md-secondary-container);
-  --color-segment-foreground: var(--color-md-on-secondary-container);
+  --color-segment: var(--color-md-primary-container);
+  --color-segment-foreground: var(--color-md-on-primary-container);
   --color-focus-ring: var(--color-md-primary);
 
   /* ── 语义别名：边界 / 分隔 ────────────────────────────────────── */
@@ -484,12 +488,12 @@
   --duration-reduced: 0.01ms;
   --color-m3-disabled-container: color-mix(
     in srgb,
-    var(--color-md-on-surface) 12%,
+    var(--color-md-on-surface) 16%,
     transparent
   );
   --color-m3-disabled-content: color-mix(
     in srgb,
-    var(--color-md-on-surface) 38%,
+    var(--color-md-on-surface) 55%,
     transparent
   );
   --color-m3-state-hover: color-mix(in srgb, currentColor 8%, transparent);

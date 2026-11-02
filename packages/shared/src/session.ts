@@ -69,6 +69,17 @@ export const ClaimSeatRequest = z.object({
 });
 export type ClaimSeatRequest = z.infer<typeof ClaimSeatRequest>;
 
+export const GmAssignClaimRequest = z.object({
+  playerId: z.string().min(1),
+  characterId: z.string().min(1),
+});
+export type GmAssignClaimRequest = z.infer<typeof GmAssignClaimRequest>;
+
+export const GmReleaseClaimRequest = z.object({
+  playerId: z.string().min(1),
+});
+export type GmReleaseClaimRequest = z.infer<typeof GmReleaseClaimRequest>;
+
 export const UpdateSessionStatusRequest = z.object({
   status: SessionStatus,
 });
@@ -146,6 +157,7 @@ export type ClaimDto = z.infer<typeof ClaimDto>;
 export const SessionCloseCode = {
   kicked: 4000,
   claimReplaced: 4001,
+  seatReleased: 4002,
 } as const;
 export type SessionCloseCode = (typeof SessionCloseCode)[keyof typeof SessionCloseCode];
 

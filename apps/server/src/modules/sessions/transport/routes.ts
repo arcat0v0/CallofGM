@@ -23,12 +23,15 @@ import {
   ClaimDto,
   MyClaimResponse,
   SessionCloseCode,
+  GmAssignClaimRequest,
+  GmReleaseClaimRequest,
 } from "@cogm/shared";
 import { sessionClaims } from "@/platform/db/schema";
 import { SessionNotFoundError } from "../domain/errors";
 import {
   CreateSessionUseCase,
   ClaimSeatUseCase,
+  GmAssignClaimUseCase,
   ReleaseSeatUseCase,
   UpdateSessionStatusUseCase,
   UpdateSessionPhaseUseCase,
@@ -83,6 +86,7 @@ export function createSessionsRoutes(container: Container) {
   const listSessions = new ListSessionsUseCase(repo);
   const renameSession = new RenameSessionUseCase(repo);
   const releaseSeat = new ReleaseSeatUseCase(repo, container.clock);
+  const gmAssignClaim = new GmAssignClaimUseCase(repo, container.idGenerator, container.clock);
 
   const allowedOrigins = corsOriginsFor(container.env);
 
@@ -153,6 +157,52 @@ export function createSessionsRoutes(container: Container) {
         sessionId: id,
         phase: result.data.phase,
       }));
+    })
+    .post("/api/v1/gm/sessions/:id/claims/assign", async ({ actor, params: { id }, body, request }) => {
+      assertTrustedOrigin(request, allowedOrigins);
+      if (!actor || actor.type !== "gm") {
+        throw new AuthRequiredError();
+      }
+      const result = GmAssignClaimRequest.safeParse(body);
+      if (!result.success) {
+        throw validationFailed(result.error);
+      }
+      const { claim, displacedPlayerIds } = await gmAssignClaim.execute({
+        sessionId: id,
+        playerId: result.data.playerId,
+        characterId: result.data.characterId,
+      });
+      for (const playerId of displacedPlayerIds) {
+        container.connectionRegistry.closePlayerConnections(
+          playerId,
+          id,
+          SessionCloseCode.seatReleased,
+          "seat released"
+        );
+      }
+      await container.presenceService.broadcast(id);
+      container.connectionRegistry.sendToSession(id, { type: "session:refresh", payload: {} });
+      return ClaimDto.parse(claim);
+    })
+    .post("/api/v1/gm/sessions/:id/claims/release", async ({ actor, params: { id }, body, request }) => {
+      assertTrustedOrigin(request, allowedOrigins);
+      if (!actor || actor.type !== "gm") {
+        throw new AuthRequiredError();
+      }
+      const result = GmReleaseClaimRequest.safeParse(body);
+      if (!result.success) {
+        throw validationFailed(result.error);
+      }
+      const released = await releaseSeat.execute({ sessionId: id, playerId: result.data.playerId });
+      container.connectionRegistry.closePlayerConnections(
+        result.data.playerId,
+        id,
+        SessionCloseCode.seatReleased,
+        "seat released"
+      );
+      await container.presenceService.broadcast(id);
+      container.connectionRegistry.sendToSession(id, { type: "session:refresh", payload: {} });
+      return released;
     })
     .get("/api/v1/public/sessions/:id/join-info", async ({ params: { id } }) => {
       const snapshot = await getSessionSnapshot.execute(id);
@@ -239,8 +289,12 @@ export function createSessionsRoutes(container: Container) {
       if (!actor) {
         throw new AuthRequiredError();
       }
-      if (actor.type !== "player") {
-        throw new ForbiddenError("Only players can claim seats");
+      if (actor.type === "gm") {
+        throw new AppError(
+          "GM_SESSION_ACTIVE",
+          "This browser is signed in as the GM. Log out of the GM console or use a private window to join as a player.",
+          403
+        );
       }
       container.httpLimits.joinRateLimiter.assert(clientIp(request, server, container.env.TRUST_PROXY));
       const result = ClaimSeatRequest.safeParse(body);

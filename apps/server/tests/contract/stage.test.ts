@@ -197,6 +197,28 @@ describe("Stage control contract tests", () => {
 
     await closeAll(pc2);
   });
+  test("立绘布局：GM 调整后广播并写入快照", async () => {
+    const { gm, pc } = await openAll();
+
+    sendCommand(gm, "stage:layout", { layout: "left", scale: "lg" }, "layout-1");
+    const accepted = await gm.waitFor((m) => m.commandId === "layout-1");
+    expect(accepted.type).toBe("command:accepted");
+    const event = await pc.waitFor((m) => m.type === "stage:layout-changed");
+    expect(event.payload).toMatchObject({ layout: "left", scale: "lg" });
+
+    sendCommand(pc, "stage:layout", { layout: "right", scale: "md" }, "layout-2");
+    const rejected = await pc.waitFor((m) => m.commandId === "layout-2");
+    expect(rejected.type).toBe("command:rejected");
+    expect(rejected.payload.code).toBe("FORBIDDEN");
+
+    const reconnected = await connectWs(wsUrl(), ctx.playerTokens.get("pc1")!);
+    const snapshot = await reconnected.waitFor((m) => m.type === "snapshot");
+    expect(snapshot.payload.session.portraitLayout).toBe("left");
+    expect(snapshot.payload.session.portraitScale).toBe("lg");
+
+    await closeAll(gm, pc, reconnected);
+  });
+
   test("BGM 同曲重播：默认续播，restart 从头开始", async () => {
     const { gm, pc } = await openAll();
     const snapshot = gm.messages.find((m) => m.type === "snapshot");

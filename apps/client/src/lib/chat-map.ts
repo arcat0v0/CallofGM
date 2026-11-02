@@ -101,6 +101,7 @@ export function mapActivityEvent(type: string, payload: unknown, eventId: number
       body: `${expression} = ${String(total)}${detail ? `（${detail}）` : ""}${comment}${hidden}`,
       tone: "ooc",
       isSystem: true,
+      hidden: payload.hidden === true,
     };
   }
   if (type === "check:resolved") {
@@ -131,6 +132,8 @@ export function mapActivityEvent(type: string, payload: unknown, eventId: number
         }) + hidden,
         tone: "ooc",
         isSystem: true,
+        hidden: payload.hidden === true,
+        outcome: typeof result.success === "boolean" ? (result.success ? "success" : "failure") : undefined,
       };
     }
     const outcome = typeof result.outcome === "string" ? result.outcome : "";
@@ -161,6 +164,13 @@ export function mapActivityEvent(type: string, payload: unknown, eventId: number
       body: `${skill} ${String(roll)}/${String(target)} · ${label}${context ? `（${context}）` : ""}${hidden}`,
       tone: "ooc",
       isSystem: true,
+      hidden: payload.hidden === true,
+      outcome:
+        typeof result.success === "boolean"
+          ? result.success
+            ? "success"
+            : "failure"
+          : undefined,
     };
   }
   return null;

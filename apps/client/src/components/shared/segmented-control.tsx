@@ -38,14 +38,14 @@ function SegmentedControl<T extends string>({
             role="radio"
             aria-checked={selected}
             disabled={option.disabled}
-            variant="ghost"
+            variant="tertiary"
             size="sm"
             onClick={() => onValueChange(option.value)}
             className={cn(
               "h-8 flex-1 rounded-full px-4",
               selected
                 ? "bg-segment font-semibold text-segment-foreground shadow-tab hover:bg-segment"
-                : "font-medium text-foreground-secondary hover:bg-surface-hover",
+                : "bg-transparent font-medium text-foreground-secondary hover:bg-surface-hover",
               itemClassName,
             )}
           >

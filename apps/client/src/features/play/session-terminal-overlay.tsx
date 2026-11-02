@@ -1,5 +1,5 @@
 import { useNavigate } from "@tanstack/react-router";
-import { ShieldX, UserRoundX, WifiOff } from "lucide-react";
+import { ShieldX, UserRoundMinus, UserRoundX, WifiOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { usePlayStore, type ConnectionTerminal } from "@/stores/play-store";
 import { t } from "@/i18n";
@@ -17,6 +17,10 @@ const TERMINAL_COPY: Record<ConnectionTerminal, { title: string; description: st
     title: "play.replacedTitle",
     description: "play.replacedDescription",
   },
+  released: {
+    title: "play.releasedTitle",
+    description: "play.releasedDescription",
+  },
 };
 
 function SessionTerminalOverlay({ sessionId, onRetry }: { sessionId: string; onRetry: () => void }) {
@@ -30,7 +34,15 @@ function SessionTerminalOverlay({ sessionId, onRetry }: { sessionId: string; onR
   const copy = TERMINAL_COPY[terminal];
 
   const icon =
-    terminal === "kicked" ? <ShieldX className="size-6" /> : terminal === "replaced" ? <UserRoundX className="size-6" /> : <WifiOff className="size-6" />;
+    terminal === "kicked" ? (
+      <ShieldX className="size-6" />
+    ) : terminal === "replaced" ? (
+      <UserRoundX className="size-6" />
+    ) : terminal === "released" ? (
+      <UserRoundMinus className="size-6" />
+    ) : (
+      <WifiOff className="size-6" />
+    );
 
   return (
     <div className="bg-background/90 absolute inset-0 z-[10000] flex flex-col items-center justify-center gap-5 backdrop-blur-sm">
@@ -56,7 +68,7 @@ function SessionTerminalOverlay({ sessionId, onRetry }: { sessionId: string; onR
         <Button type="button" variant="outline" onClick={() => void navigate({ to: "/join/$sessionId", params: { sessionId } })}>
           {t("play.returnEntry")}
         </Button>
-        {terminal === "replaced" ? null : (
+        {terminal === "replaced" || terminal === "released" ? null : (
           <Button type="button" variant="primary" onClick={onRetry}>
             {terminal === "kicked" ? t("play.reenter") : t("play.retryConnect")}
           </Button>

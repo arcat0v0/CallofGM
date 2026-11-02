@@ -4,11 +4,13 @@ import { ChevronRight, ImagePlus, Plus, Trash2, Upload } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/shared/page-header";
+import { FilePicker } from "@/components/shared/file-picker";
 import { AdminLayout } from "@/features/gm-admin/admin-layout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { api, fetchAllPages, mediaUrl } from "@/lib/api";
@@ -74,6 +76,7 @@ function SceneCard({ scene, onReload }: { scene: SceneDto; onReload: () => Promi
         <Button
           variant="ghost"
           size="icon-sm"
+          className="size-8"
           aria-label={t("gm.module.deleteScene", { name: scene.name })}
           onClick={() => {
             void api(`/gm/modules/scenes/${encodeURIComponent(scene.id)}`, { method: "DELETE" })
@@ -126,6 +129,7 @@ function TrackRowItem({ track, onReload }: { track: TrackDto; onReload: () => Pr
       <Button
         variant="ghost"
         size="icon-sm"
+        className="size-8"
         aria-label={t("gm.module.deleteTrack", { name: track.name })}
         onClick={() => {
           void api(`/gm/modules/tracks/${encodeURIComponent(track.id)}`, { method: "DELETE" })
@@ -179,6 +183,7 @@ function HandoutCard({ handout, onReload }: { handout: CatalogHandoutDto; onRelo
         <Button
           variant="ghost"
           size="icon-sm"
+          className="size-8"
           aria-label={t("gm.module.deleteHandout", { title: handout.title })}
           onClick={() => {
             void api(`/gm/modules/handouts/${encodeURIComponent(handout.id)}`, { method: "DELETE" })
@@ -210,10 +215,13 @@ function ModuleDetailPage() {
   const [linked, setLinked] = useState<CharacterDto[]>([]);
   const [allCharacters, setAllCharacters] = useState<CharacterDto[]>([]);
   const [sceneName, setSceneName] = useState("");
+  const [sceneBgName, setSceneBgName] = useState("");
   const [trackName, setTrackName] = useState("");
+  const [trackFileName, setTrackFileName] = useState("");
   const [trackType, setTrackType] = useState<"bgm" | "se">("bgm");
   const [handoutTitle, setHandoutTitle] = useState("");
   const [handoutContent, setHandoutContent] = useState("");
+  const [handoutImageName, setHandoutImageName] = useState("");
 
   async function reload() {
     try {
@@ -263,7 +271,7 @@ function ModuleDetailPage() {
 
   return (
     <AdminLayout>
-      <div className="flex flex-col gap-5">
+      <div className="mx-auto flex w-full max-w-5xl flex-col gap-5">
         <PageHeader
           title={
             <span className="flex items-center gap-1.5">
@@ -282,26 +290,32 @@ function ModuleDetailPage() {
               <span className="text-foreground-secondary text-body-small-emph">{module?.name ?? ""}</span>
             </div>
           }
-          description={module?.description || " "}
+          description={t("gm.module.pageDescription")}
         />
 
-        <Card className="flex flex-col gap-3 rounded-2xl p-4">
-          <Input
-            value={moduleName}
-            onChange={(event) => setModuleName(event.target.value)}
-            placeholder={t("gm.module.moduleNamePlaceholder")}
-            aria-label={t("gm.module.moduleNamePlaceholder")}
-          />
-          <Textarea
-            value={moduleDescription}
-            onChange={(event) => setModuleDescription(event.target.value)}
-            placeholder={t("gm.module.moduleDescriptionPlaceholder")}
-            aria-label={t("gm.module.moduleDescriptionPlaceholder")}
-          />
+        <Card className="flex max-w-2xl flex-col gap-3 rounded-2xl p-4">
+          <label className="flex flex-col gap-1.5">
+            <span className="text-md-on-surface-variant text-label-medium">{t("gm.module.nameLabel")}</span>
+            <Input
+              value={moduleName}
+              onChange={(event) => setModuleName(event.target.value)}
+              placeholder={t("gm.module.moduleNamePlaceholder")}
+              aria-label={t("gm.module.nameLabel")}
+            />
+          </label>
+          <label className="flex flex-col gap-1.5">
+            <span className="text-md-on-surface-variant text-label-medium">{t("gm.module.descriptionLabel")}</span>
+            <Textarea
+              value={moduleDescription}
+              onChange={(event) => setModuleDescription(event.target.value)}
+              placeholder={t("gm.module.moduleDescriptionPlaceholder")}
+              aria-label={t("gm.module.descriptionLabel")}
+            />
+          </label>
           <Button
             type="button"
             variant="primary"
-            className="self-start"
+            className="h-10 self-start"
             disabled={!moduleName.trim() || moduleUnchanged}
             onClick={() => void saveModule()}
           >
@@ -332,6 +346,7 @@ function ModuleDetailPage() {
                       body: JSON.stringify({ name: sceneName || t("gm.module.unnamedScene"), sortOrder: scenes.length, bgAssetId }),
                     });
                     setSceneName("");
+                    setSceneBgName("");
                     await reload();
                   } catch (error) {
                     toast.error(errorText(error, "gm.module.createSceneFailed"));
@@ -339,9 +354,21 @@ function ModuleDetailPage() {
                 })();
               }}
             >
-              <Input value={sceneName} onChange={(event) => setSceneName(event.target.value)} placeholder={t("gm.module.sceneNamePlaceholder")} className="max-w-60" />
-              <Input name="bg" type="file" accept="image/*" aria-label={t("gm.module.sceneBgAria")} className="max-w-60" />
-              <Button type="submit" variant="primary">
+              <label className="flex flex-col gap-1.5">
+                <span className="text-md-on-surface-variant text-label-medium">{t("gm.module.sceneNameLabel")}</span>
+                <Input value={sceneName} onChange={(event) => setSceneName(event.target.value)} placeholder={t("gm.module.sceneNamePlaceholder")} className="w-60" />
+              </label>
+              <div className="flex flex-col gap-1.5">
+                <span className="text-md-on-surface-variant text-label-medium">{t("gm.module.sceneBgAria")}</span>
+                <FilePicker
+                  name="bg"
+                  accept="image/*"
+                  label={t("gm.module.chooseSceneBg")}
+                  value={sceneBgName}
+                  onChange={(event) => setSceneBgName(event.target.files?.[0]?.name ?? "")}
+                />
+              </div>
+              <Button type="submit" variant="primary" className="h-10 self-end">
                 <ImagePlus />
                 {t("gm.module.createScene")}
               </Button>
@@ -410,6 +437,7 @@ function ModuleDetailPage() {
                       }),
                     });
                     setTrackName("");
+                    setTrackFileName("");
                     await reload();
                   } catch (error) {
                     toast.error(errorText(error, "gm.module.uploadFailed"));
@@ -417,18 +445,33 @@ function ModuleDetailPage() {
                 })();
               }}
             >
-              <Input value={trackName} onChange={(event) => setTrackName(event.target.value)} placeholder={t("gm.module.trackNamePlaceholder")} className="max-w-48" />
-              <select
-                value={trackType}
-                onChange={(event) => setTrackType(event.target.value as "bgm" | "se")}
-                className="border-separator bg-background h-9 rounded-md border px-3 text-label-large"
-                aria-label={t("gm.module.audioTypeAria")}
-              >
-                <option value="bgm">BGM</option>
-                <option value="se">SE</option>
-              </select>
-              <Input name="audio" type="file" accept="audio/*" aria-label={t("gm.module.audioFileAria")} className="max-w-60" />
-              <Button type="submit" variant="primary">
+              <label className="flex flex-col gap-1.5">
+                <span className="text-md-on-surface-variant text-label-medium">{t("gm.module.trackNameLabel")}</span>
+                <Input value={trackName} onChange={(event) => setTrackName(event.target.value)} placeholder={t("gm.module.trackNamePlaceholder")} className="w-48" />
+              </label>
+              <div className="flex flex-col gap-1.5">
+                <span className="text-md-on-surface-variant text-label-medium">{t("gm.module.audioTypeLabel")}</span>
+                <Select value={trackType} onValueChange={(value) => setTrackType(value as "bgm" | "se")}>
+                  <SelectTrigger className="w-24" aria-label={t("gm.module.audioTypeAria")}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="bgm">BGM</SelectItem>
+                    <SelectItem value="se">SE</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <span className="text-md-on-surface-variant text-label-medium">{t("gm.module.audioFileLabel")}</span>
+                <FilePicker
+                  name="audio"
+                  accept="audio/*"
+                  label={t("gm.module.chooseAudio")}
+                  value={trackFileName}
+                  onChange={(event) => setTrackFileName(event.target.files?.[0]?.name ?? "")}
+                />
+              </div>
+              <Button type="submit" variant="primary" className="h-10 self-end">
                 <Upload />
                 {t("gm.module.upload")}
               </Button>
@@ -455,6 +498,7 @@ function ModuleDetailPage() {
                     });
                     setHandoutTitle("");
                     setHandoutContent("");
+                    setHandoutImageName("");
                     await reload();
                   } catch (error) {
                     toast.error(errorText(error, "gm.module.createHandoutFailed"));
@@ -462,10 +506,25 @@ function ModuleDetailPage() {
                 })();
               }}
             >
-              <Input value={handoutTitle} onChange={(event) => setHandoutTitle(event.target.value)} placeholder={t("gm.module.handoutTitlePlaceholder")} required />
-              <Textarea value={handoutContent} onChange={(event) => setHandoutContent(event.target.value)} placeholder={t("gm.module.handoutContentPlaceholder")} />
-              <Input name="image" type="file" accept="image/*" aria-label={t("gm.module.handoutImageAria")} className="max-w-60" />
-              <Button type="submit" variant="primary" className="w-fit">
+              <label className="flex flex-col gap-1.5">
+                <span className="text-md-on-surface-variant text-label-medium">{t("gm.module.handoutTitleLabel")}</span>
+                <Input value={handoutTitle} onChange={(event) => setHandoutTitle(event.target.value)} placeholder={t("gm.module.handoutTitlePlaceholder")} required />
+              </label>
+              <label className="flex flex-col gap-1.5">
+                <span className="text-md-on-surface-variant text-label-medium">{t("gm.module.handoutContentLabel")}</span>
+                <Textarea value={handoutContent} onChange={(event) => setHandoutContent(event.target.value)} placeholder={t("gm.module.handoutContentPlaceholder")} />
+              </label>
+              <div className="flex flex-col gap-1.5">
+                <span className="text-md-on-surface-variant text-label-medium">{t("gm.module.handoutImageLabel")}</span>
+                <FilePicker
+                  name="image"
+                  accept="image/*"
+                  label={t("gm.module.chooseHandoutImage")}
+                  value={handoutImageName}
+                  onChange={(event) => setHandoutImageName(event.target.files?.[0]?.name ?? "")}
+                />
+              </div>
+              <Button type="submit" variant="primary" className="h-10 w-fit">
                 <Plus />
                 {t("gm.module.createHandout")}
               </Button>

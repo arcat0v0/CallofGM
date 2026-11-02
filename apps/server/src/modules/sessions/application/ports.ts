@@ -10,6 +10,8 @@ export interface SessionRecord {
   lastEventId: number;
   sharePcSheets: number;
   obSeePcState: number;
+  portraitLayout: string;
+  portraitScale: string;
   createdAt: number;
 }
 export interface CharacterItem {
@@ -111,6 +113,18 @@ export interface SessionsRepository {
     },
     releasedAt: number
   ): Promise<boolean>;
+  forceReplacePlayerClaim(
+    claim: {
+      id: string;
+      sessionId: string;
+      playerId: string;
+      role: string;
+      characterId: string | null;
+      releasedAt: number | null;
+      createdAt: number;
+    },
+    releasedAt: number
+  ): Promise<{ displacedPlayerIds: string[] }>;
   listSessions(options: {
     limit: number;
     offset?: number;

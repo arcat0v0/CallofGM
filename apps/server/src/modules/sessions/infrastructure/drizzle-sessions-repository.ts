@@ -186,6 +186,42 @@ export class DrizzleSessionsRepository implements SessionsRepository {
     });
   }
 
+  async forceReplacePlayerClaim(
+    claim: typeof sessionClaims.$inferInsert,
+    releasedAt: number
+  ): Promise<{ displacedPlayerIds: string[] }> {
+    return await this.db.transaction(async (tx) => {
+      const displacedPlayerIds: string[] = [];
+      if (claim.characterId) {
+        const occupied = await tx
+          .select({ playerId: sessionClaims.playerId })
+          .from(sessionClaims)
+          .where(and(
+            eq(sessionClaims.sessionId, claim.sessionId),
+            eq(sessionClaims.characterId, claim.characterId),
+            isNull(sessionClaims.releasedAt)
+          ));
+        displacedPlayerIds.push(
+          ...occupied
+            .map((row) => row.playerId)
+            .filter((playerId) => playerId !== claim.playerId)
+        );
+        await tx.update(sessionClaims).set({ releasedAt }).where(and(
+          eq(sessionClaims.sessionId, claim.sessionId),
+          eq(sessionClaims.characterId, claim.characterId),
+          isNull(sessionClaims.releasedAt)
+        ));
+      }
+      await tx.update(sessionClaims).set({ releasedAt }).where(and(
+        eq(sessionClaims.sessionId, claim.sessionId),
+        eq(sessionClaims.playerId, claim.playerId),
+        isNull(sessionClaims.releasedAt)
+      ));
+      await tx.insert(sessionClaims).values(claim);
+      return { displacedPlayerIds };
+    });
+  }
+
   async listSessions(options: { limit: number; offset?: number; cursor?: string }) {
     const limit = options.limit;
     let items: (typeof sessions.$inferSelect)[];

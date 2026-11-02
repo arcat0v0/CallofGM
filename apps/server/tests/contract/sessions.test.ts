@@ -256,6 +256,23 @@ describe("Sessions contract tests", () => {
     const p2ClaimErr = (await p2ClaimRes.json()) as any;
     expect(p2ClaimErr.code).toBe("SEAT_ALREADY_CLAIMED");
 
+    const gmClaimRes = await app.handle(
+      new Request(`http://localhost/api/v1/sessions/${sessionId}/claim`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${gmToken}`,
+        },
+        body: JSON.stringify({
+          role: "pc",
+          characterId: "char-2",
+        }),
+      })
+    );
+    expect(gmClaimRes.status).toBe(403);
+    const gmClaimErr = (await gmClaimRes.json()) as any;
+    expect(gmClaimErr.code).toBe("GM_SESSION_ACTIVE");
+
     const publicJoinRes = await app.handle(
       new Request(`http://localhost/api/v1/public/sessions/${sessionId}/join-info`, {
         method: "GET",

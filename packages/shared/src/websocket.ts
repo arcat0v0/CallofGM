@@ -18,6 +18,7 @@ export const ClientCommandType = z.enum([
   "check:san",
   "state:edit",
   "scene:switch",
+  "stage:layout",
   "expression:set",
   "audio:bgm",
   "audio:se",
@@ -72,7 +73,12 @@ export const SessionSnapshot = z.object({
 export type SessionSnapshot = z.infer<typeof SessionSnapshot>;
 
 /** 非持久化控制消息：GM 队列更新、在线列表等。不分配 eventId，不进事件日志。 */
-export const DirectControlMessageType = z.enum(["chat:queue", "presence:updated", "session:kicked"]);
+export const DirectControlMessageType = z.enum([
+  "chat:queue",
+  "presence:updated",
+  "session:kicked",
+  "session:refresh",
+]);
 
 export const DirectControlMessage = z.object({
   protocolVersion: z.literal(1),

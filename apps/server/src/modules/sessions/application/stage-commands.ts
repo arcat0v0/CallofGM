@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import {
   SwitchSceneCommand,
   SetExpressionCommand,
+  UpdateStageLayoutCommand,
   UpdateBgmCommand,
   PlaySeCommand,
   UpdateSessionSettingsCommand,
@@ -168,6 +169,41 @@ export class SetExpressionHandler implements CommandHandler {
         },
       ],
       replyPayload: { characterId, expressionKey },
+    };
+  }
+}
+
+/** stage:layout — GM 调整全团同步的立绘布局与大小 */
+export class UpdateStageLayoutHandler implements CommandHandler {
+  readonly type = "stage:layout" as const;
+  readonly allowedStatuses = ["preparing", "active"] as const;
+
+  async execute(ctx: CommandHandlerContext, payload: unknown): Promise<CommandHandlerResult> {
+    if (ctx.actor.type !== "gm") {
+      throw new ForbiddenError("Only the GM can change the stage layout");
+    }
+    const parsed = UpdateStageLayoutCommand.safeParse(payload);
+    if (!parsed.success) {
+      throw new AppError("VALIDATION_FAILED", parsed.error.message, 400);
+    }
+
+    await ctx.tx
+      .update(sessions)
+      .set({
+        portraitLayout: parsed.data.layout,
+        portraitScale: parsed.data.scale,
+      })
+      .where(eq(sessions.id, ctx.sessionId));
+
+    return {
+      events: [
+        {
+          type: "stage:layout-changed",
+          payload: parsed.data,
+          visibility: { type: "public" },
+        },
+      ],
+      replyPayload: parsed.data,
     };
   }
 }
@@ -397,6 +433,7 @@ export function createStageCommandHandlers(): CommandHandler[] {
   return [
     new SwitchSceneHandler(),
     new SetExpressionHandler(),
+    new UpdateStageLayoutHandler(),
     new UpdateBgmHandler(),
     new PlaySeHandler(),
     new UpdateSessionSettingsHandler(),

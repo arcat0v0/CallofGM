@@ -5,7 +5,7 @@ import { CheckRequestDto } from "./gameplay";
 import { GrantedHandoutDto } from "./handouts";
 import { HistoryCursor, HistoryItem } from "./history";
 import { KickedPlayerDto, OnlinePlayerDto } from "./moderation";
-import { BgmState } from "./stage";
+import { BgmState, PortraitLayout, PortraitScale } from "./stage";
 
 export const SnapshotPortrait = z.object({
   expressionKey: z.string(),
@@ -46,6 +46,8 @@ export const SessionSnapshotPayload = z.object({
     currentSceneId: z.string().nullable(),
     lastEventId: z.number().int(),
     settings: SessionSettings,
+    portraitLayout: PortraitLayout.optional(),
+    portraitScale: PortraitScale.optional(),
   }),
   currentScene: z
     .object({

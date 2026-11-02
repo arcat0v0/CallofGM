@@ -9,7 +9,6 @@ import { PageHeader } from "@/components/shared/page-header";
 import { AdminLayout } from "@/features/gm-admin/admin-layout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { api, fetchAllPages, isApiError, mediaUrl } from "@/lib/api";
 import { errorText } from "@/lib/errors";
@@ -23,18 +22,6 @@ export const Route = createFileRoute("/gm/music")({
   component: MusicResourcesPage,
 });
 
-function formatBytes(bytes: number | null): string {
-  if (bytes === null) {
-    return "—";
-  }
-  if (bytes < 1024) {
-    return `${bytes} B`;
-  }
-  if (bytes < 1024 * 1024) {
-    return `${(bytes / 1024).toFixed(1)} KB`;
-  }
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-}
 
 function formatStamp(epochMs: number | null): string {
   if (epochMs === null) {
@@ -88,7 +75,7 @@ function TrackRow({
   }
 
   return (
-    <Card className="animate-in fade-in slide-in-from-bottom-4 flex-row items-center gap-3 rounded-2xl px-3 py-2.5 duration-500 ease-standard-default-spatial">
+    <div className="animate-in fade-in slide-in-from-bottom-4 border-separator-secondary/40 flex items-center gap-3 border-b px-1 py-2.5 duration-500 ease-standard-default-spatial last:border-b-0">
       <Button
         type="button"
         variant={previewing ? "accentSoft" : "tertiary"}
@@ -122,7 +109,7 @@ function TrackRow({
           <span className="truncate text-body-medium-emph">{track.name}</span>
         )}
         <span className="text-foreground-tertiary text-label-small">
-          {formatDurationMmSs(track.duration)} · {formatBytes(track.audioSize)} · {t("gm.music.uploaded", { time: formatStamp(track.audioUploadedAt) })}
+          {formatDurationMmSs(track.duration)} · {t("gm.music.uploaded", { time: formatStamp(track.audioUploadedAt) })}
         </span>
       </div>
       <Button
@@ -145,7 +132,7 @@ function TrackRow({
       >
         <Trash2 className="size-3.5" />
       </Button>
-    </Card>
+    </div>
   );
 }
 
@@ -249,14 +236,14 @@ function MusicResourcesPage() {
             </Button>
           ))}
         </div>
-        <div className="flex min-h-0 flex-1 flex-col gap-5 xl:flex-row">
-          <section className="animate-in fade-in slide-in-from-bottom-4 flex min-h-0 flex-1 flex-col gap-3 duration-500 ease-standard-default-spatial">
+        <div className="flex flex-wrap items-stretch gap-5 xl:flex-row">
+          <section className="bg-md-surface-container border-md-outline-variant/50 animate-in fade-in slide-in-from-bottom-4 flex min-w-0 flex-1 flex-col gap-3 rounded-xl-inc border p-4 duration-500 ease-standard-default-spatial">
             <div className="flex items-center gap-2">
               <Disc3 className="text-accent-hover size-4" />
-              <span className="text-foreground text-body-medium-emph">{t("gm.music.bgm")}</span>
+              <span className="text-foreground text-title-small-emph">{t("gm.music.bgm")}</span>
               <Badge variant="soft" size="sm">{t("gm.music.bgmCount", { count: bgmTracks.length })}</Badge>
             </div>
-            <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
+            <div className="flex flex-1 flex-col overflow-y-auto">
               {bgmTracks.map((track) => (
                 <TrackRow
                   key={track.id}
@@ -268,17 +255,21 @@ function MusicResourcesPage() {
                 />
               ))}
               {bgmTracks.length === 0 ? (
-                <p className="text-foreground-tertiary text-label-small">{t("gm.music.noBgm")}</p>
+                <div className="flex flex-1 flex-col items-center justify-center gap-2 px-4 py-6 text-center">
+                  <Disc3 className="text-md-on-surface-variant/40 size-6" />
+                  <p className="text-md-on-surface-variant text-label-medium">{t("gm.music.noBgm")}</p>
+                  <p className="text-md-on-surface-variant/70 max-w-xs text-label-small">{t("gm.music.noBgmHint")}</p>
+                </div>
               ) : null}
             </div>
           </section>
-          <section className="animate-in fade-in slide-in-from-bottom-4 flex min-h-0 w-full shrink-0 flex-col gap-3 delay-75 duration-500 ease-standard-default-spatial xl:w-[400px]">
+          <section className="bg-md-surface-container border-md-outline-variant/50 animate-in fade-in slide-in-from-bottom-4 flex w-full shrink-0 flex-col gap-3 rounded-xl-inc border p-4 delay-75 duration-500 ease-standard-default-spatial xl:w-[400px]">
             <div className="flex items-center gap-2">
               <Zap className="text-warning size-4" />
-              <span className="text-foreground text-body-medium-emph">{t("gm.music.se")}</span>
+              <span className="text-foreground text-title-small-emph">{t("gm.music.se")}</span>
               <Badge variant="soft" size="sm">{t("gm.music.seCount", { count: soundEffects.length })}</Badge>
             </div>
-            <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
+            <div className="flex flex-1 flex-col overflow-y-auto">
               {soundEffects.map((track) => (
                 <TrackRow
                   key={track.id}
@@ -290,7 +281,11 @@ function MusicResourcesPage() {
                 />
               ))}
               {soundEffects.length === 0 ? (
-                <p className="text-foreground-tertiary text-label-small">{t("gm.music.noSe")}</p>
+                <div className="flex flex-1 flex-col items-center justify-center gap-2 px-4 py-6 text-center">
+                  <Zap className="text-md-on-surface-variant/40 size-6" />
+                  <p className="text-md-on-surface-variant text-label-medium">{t("gm.music.noSe")}</p>
+                  <p className="text-md-on-surface-variant/70 max-w-xs text-label-small">{t("gm.music.noSeHint")}</p>
+                </div>
               ) : null}
             </div>
           </section>

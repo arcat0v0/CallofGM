@@ -4,6 +4,7 @@ import { parseCocState } from "@/lib/coc-live";
 import { cn } from "@/lib/utils";
 import { t } from "@/i18n";
 import { usePlayStore } from "@/stores/play-store";
+import { portraitSlotWidths, portraitSlots } from "./portrait-layout";
 
 function Bar({
   label,
@@ -45,35 +46,82 @@ function Bar({
   );
 }
 
-function PortraitLayer({ className, compact = false }: { className?: string; compact?: boolean }) {
+function PortraitLayer({
+  className,
+  compact = false,
+  variant = "play",
+  showNameplate = true,
+}: {
+  className?: string;
+  compact?: boolean;
+  variant?: "play" | "gm";
+  showNameplate?: boolean;
+}) {
   const characters = usePlayStore((state) => state.characters);
-  const visible = characters.filter((character) => character.kind === "pc" || character.currentExpressionKey);
+  const layout = usePlayStore((state) => state.portraitLayout);
+  const scale = usePlayStore((state) => state.portraitScale);
+  const latestSpeaker = usePlayStore((state) => {
+    for (let index = state.messages.length - 1; index >= 0; index -= 1) {
+      const message = state.messages[index];
+      if (message && message.tone !== "ooc") {
+        return message.speakerName;
+      }
+    }
+    return null;
+  });
+  const visible = characters
+    .filter((character) => character.kind === "pc" || character.currentExpressionKey)
+    .slice(0, 4);
+  const slots = portraitSlots(visible.length, layout);
+  const slotWidth = portraitSlotWidths(visible.length, layout);
+  const emphasizeSpeaker = visible.length > 1 && visible.some((character) => character.name === latestSpeaker);
+  const heightClass = compact
+    ? scale === "lg"
+      ? "max-h-[46dvh]"
+      : "max-h-[38dvh]"
+    : scale === "lg"
+      ? "h-[68dvh] max-h-[760px]"
+      : "h-[56dvh] max-h-[620px]";
 
   return (
-    <div className={cn(
-      "pointer-events-none absolute inset-x-0 flex items-end justify-center",
-      compact ? "top-14 bottom-22 gap-2 px-3" : "bottom-36 gap-6 px-10",
-      className,
-    )}>
-      {visible.map((character) => {
+    <div
+      className={cn(
+        "pointer-events-none absolute inset-x-0",
+        compact ? "top-14 bottom-22" : "top-0 bottom-36",
+        variant === "gm" && "top-0 bottom-0",
+        className,
+      )}
+    >
+      {visible.map((character, index) => {
         const portraits = character.portraits ?? [];
         const current =
           portraits.find((item) => item.expressionKey === character.currentExpressionKey) ??
           portraits.find((item) => item.isDefault) ??
           portraits[0];
         const state = parseCocState(character.state);
+        const left = slots[index] ?? 50;
+        const speaking = !emphasizeSpeaker || character.name === latestSpeaker;
+        const depth = emphasizeSpeaker
+          ? speaking
+            ? 30
+            : 10 + index
+          : 10 - Math.abs(index - (visible.length - 1) / 2) * 2;
         return (
           <div
             key={character.characterId}
-            className={cn("flex flex-col items-center", compact ? "h-full min-h-0 justify-end gap-1.5" : "gap-2")}
+            className={cn(
+              "absolute bottom-0 flex -translate-x-1/2 flex-col items-center gap-2 transition-[left,width,opacity,transform] duration-500 ease-standard-default-spatial",
+              emphasizeSpeaker && !speaking && "scale-[0.98] opacity-55 saturate-75",
+            )}
+            style={{ left: `${left}%`, width: `${slotWidth}%`, zIndex: depth }}
           >
             {current ? (
               <img
                 src={mediaUrl(current.portraitAssetId) ?? undefined}
                 alt={character.name}
                 className={cn(
-                  "w-auto object-contain drop-shadow-lg",
-                  compact ? "min-h-0 max-w-full flex-1" : "h-[48vh] max-h-[520px]",
+                  "w-full object-contain object-bottom drop-shadow-[0_18px_40px_rgba(0,0,0,0.55)] [mask-image:linear-gradient(to_bottom,black_88%,transparent)]",
+                  heightClass,
                 )}
               />
             ) : (
@@ -81,8 +129,8 @@ function PortraitLayer({ className, compact = false }: { className?: string; com
                 role="img"
                 aria-label={t("stage.portraitPendingAria", { name: character.name })}
                 className={cn(
-                  "bg-stage-panel relative flex shrink-0 flex-col items-center justify-end overflow-hidden rounded-t-full rounded-b-xl",
-                  compact ? "min-h-0 max-h-full w-20 flex-1" : "h-[48vh] max-h-[520px] w-40",
+                  "bg-stage-panel relative flex w-full shrink-0 flex-col items-center justify-end overflow-hidden rounded-t-full rounded-b-xl",
+                  heightClass,
                 )}
               >
                 <span
@@ -106,30 +154,32 @@ function PortraitLayer({ className, compact = false }: { className?: string; com
                 </span>
               </div>
             )}
-            <div
-              className={cn(
-                "bg-stage-panel/90 shrink-0 rounded-xl backdrop-blur",
-                compact ? "w-28 px-2 py-1.5" : "w-40 px-2.5 py-2",
-              )}
-            >
-              <div className={cn("text-md-on-surface text-center", compact ? "text-label-small-emph" : "text-label-medium-emph")}>
-                {character.name}
-              </div>
-              {state ? (
-                <div className={cn("flex flex-col", compact ? "mt-1 gap-0.5" : "mt-1.5 gap-1")}>
-                  <Bar label="HP" current={state.hp} max={state.maxHp} className="bg-danger" dense={compact} />
-                  <Bar label="MP" current={state.mp} max={state.maxMp} className="bg-brand-sora" dense={compact} />
-                  <Bar label="SAN" current={state.san} max={state.maxSan} className="bg-brand-fuji" dense={compact} />
-                  {state.statuses.length > 0 ? (
-                    <div className="text-warning text-label-small">
-                      {state.statuses.map((flag) => coc7e.CharacterStatusFlagLabel[flag]).join(" ")}
-                    </div>
-                  ) : null}
+            {showNameplate ? (
+              <div
+                className={cn(
+                  "bg-stage-panel/90 shrink-0 rounded-xl backdrop-blur",
+                  compact ? "w-28 px-2 py-1.5" : "w-40 px-2.5 py-2",
+                )}
+              >
+                <div className={cn("text-md-on-surface text-center", compact ? "text-label-small-emph" : "text-label-medium-emph")}>
+                  {character.name}
                 </div>
-              ) : character.kind === "npc" ? (
-                <div className="text-foreground-tertiary text-center text-label-small">NPC</div>
-              ) : null}
-            </div>
+                {state ? (
+                  <div className={cn("flex flex-col", compact ? "mt-1 gap-0.5" : "mt-1.5 gap-1")}>
+                    <Bar label="HP" current={state.hp} max={state.maxHp} className="bg-danger" dense={compact} />
+                    <Bar label="MP" current={state.mp} max={state.maxMp} className="bg-brand-sora" dense={compact} />
+                    <Bar label="SAN" current={state.san} max={state.maxSan} className="bg-brand-fuji" dense={compact} />
+                    {state.statuses.length > 0 ? (
+                      <div className="text-warning text-label-small">
+                        {state.statuses.map((flag) => coc7e.CharacterStatusFlagLabel[flag]).join(" ")}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : character.kind === "npc" ? (
+                  <div className="text-foreground-tertiary text-center text-label-small">NPC</div>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         );
       })}

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { coc7e } from "@cogm/shared";
 import { Button } from "@/components/ui/button";
@@ -26,16 +26,25 @@ import { usePlayStore } from "@/stores/play-store";
 export function CharacterSheetPanel({
   open,
   onOpenChange,
+  initialCharacterId,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  initialCharacterId?: string | null;
 }) {
   const playerId = useIdentityStore((state) => state.playerId);
   const isGm = usePlayStore((state) => state.viewer.isGm);
   const characters = usePlayStore((state) => state.characters);
   const claimed = characters.find((character) => character.claim?.playerId === playerId && character.claim.role === "pc");
   const options = characters.filter((character) => character.sheet != null);
-  const [selectedId, setSelectedId] = useState("");
+  const [selectedId, setSelectedId] = useState(initialCharacterId ?? "");
+
+  useEffect(() => {
+    if (open && initialCharacterId) {
+      setSelectedId(initialCharacterId);
+    }
+  }, [open, initialCharacterId]);
+
   const dialog = useBlockingDialog("sheet", open, onOpenChange);
   const target = options.find((character) => character.characterId === selectedId) ?? options[0];
   const sheet = parseCocSheet(target?.sheet);

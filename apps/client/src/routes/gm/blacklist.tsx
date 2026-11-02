@@ -4,7 +4,7 @@ import { Copy, ScanLine, Search, ShieldBan, ShieldOff, ShieldX, Timer, UserX } f
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
-import { MetricCard } from "@/components/shared/metric-card";
+import { MetricStrip } from "@/components/shared/metric-card";
 import { PageHeader } from "@/components/shared/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -148,7 +148,7 @@ function BlacklistPage() {
           description={t("gm.blacklist.description")}
           actions={
             <>
-              <InputGroup className="h-9 w-[220px] rounded-md border-separator-secondary">
+              <InputGroup className="h-12 w-64">
                 <InputGroupAddon>
                   <Search />
                 </InputGroupAddon>
@@ -168,12 +168,37 @@ function BlacklistPage() {
           }
         />
 
-        <div className="animate-in fade-in slide-in-from-bottom-4 flex gap-3.5 duration-500 ease-standard-default-spatial">
-          <MetricCard icon={ShieldBan} value={String(activeCount)} label={t("gm.blacklist.active")} tone="error" />
-          <MetricCard icon={ShieldX} value={String(permanentCount)} label={t("gm.blacklist.permanent")} tone="tertiary" />
-          <MetricCard icon={Timer} value={String(rows.length)} label={t("gm.blacklist.all")} tone="secondary" />
-        </div>
+        <MetricStrip
+          columns={3}
+          className="animate-in fade-in slide-in-from-bottom-4 duration-500 ease-standard-default-spatial"
+          items={[
+            { icon: ShieldBan, value: String(activeCount), label: t("gm.blacklist.active"), emphasis: true },
+            { icon: ShieldX, value: String(permanentCount), label: t("gm.blacklist.permanent") },
+            { icon: Timer, value: String(rows.length), label: t("gm.blacklist.all") },
+          ]}
+        />
 
+        {rows.length === 0 ? (
+          <div className="bg-md-surface-container border-md-outline-variant/50 animate-in fade-in slide-in-from-bottom-4 flex flex-col items-center justify-center gap-3 rounded-xl-inc border px-6 py-16 text-center delay-75 duration-500 ease-standard-default-spatial">
+            <span className="bg-accent-soft text-accent-soft-foreground grid size-12 place-items-center rounded-full">
+              <ShieldBan className="size-6" />
+            </span>
+            <p className="text-md-on-surface text-title-medium-emph">{t("gm.blacklist.emptyTitle")}</p>
+            <p className="text-md-on-surface-variant max-w-sm text-label-medium">{t("gm.blacklist.emptyDescription")}</p>
+            <p className="text-md-on-surface-variant/75 text-label-small">{t("gm.blacklist.emptyHint")}</p>
+          </div>
+        ) : entries.length === 0 ? (
+          <div className="bg-md-surface-container border-md-outline-variant/50 animate-in fade-in slide-in-from-bottom-4 flex flex-col items-center justify-center gap-3 rounded-xl-inc border px-6 py-16 text-center delay-75 duration-500 ease-standard-default-spatial">
+            <span className="bg-default text-md-on-surface-variant grid size-12 place-items-center rounded-full">
+              <Search className="size-6" />
+            </span>
+            <p className="text-md-on-surface text-title-medium-emph">{t("gm.blacklist.noMatchTitle")}</p>
+            <p className="text-md-on-surface-variant max-w-sm text-label-medium">{t("gm.blacklist.noMatchDescription")}</p>
+            <Button variant="tertiary" className="mt-1 h-10 px-4" onClick={() => setQuery("")}>
+              {t("gm.blacklist.clearSearch")}
+            </Button>
+          </div>
+        ) : (
         <div className="animate-in fade-in slide-in-from-bottom-4 overflow-hidden rounded-2xl bg-md-surface-container delay-75 duration-500 ease-standard-default-spatial">
         <Table className="table-fixed">
           <TableHeader>
@@ -274,6 +299,7 @@ function BlacklistPage() {
           </TableBody>
         </Table>
         </div>
+        )}
       </div>
 
       <BanPlayerDialog

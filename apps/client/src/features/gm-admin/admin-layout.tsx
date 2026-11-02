@@ -3,7 +3,6 @@ import { AudioLines, Package, Palette, ShieldBan, Swords, VenetianMask } from "l
 import type { ComponentType, ReactNode } from "react";
 import { logoutGm } from "@/lib/identity";
 import { cn } from "@/lib/utils";
-import { GmThemeControl } from "@/themes/runtime/gm-theme-control";
 import { GmThemeScope } from "@/themes/runtime/gm-theme-scope";
 import { ThemeSlot } from "@/themes/runtime/theme-slot";
 import { t } from "@/i18n";
@@ -80,7 +79,6 @@ function AdminLayout({ children }: { children: ReactNode }) {
   return (
     <GmThemeScope>
       <ThemeSlot name="gm-admin.shell" ctx={{ nodes: { nav, content }, view: { active: current } }} />
-      <GmThemeControl />
     </GmThemeScope>
   );
 }

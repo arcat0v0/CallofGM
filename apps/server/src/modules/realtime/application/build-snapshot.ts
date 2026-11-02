@@ -151,6 +151,8 @@ export class BuildSessionSnapshotUseCase {
           sharePcSheets: session.sharePcSheets === 1,
           obSeePcState: session.obSeePcState === 1,
         },
+        portraitLayout: session.portraitLayout as SessionSnapshotPayload["session"]["portraitLayout"],
+        portraitScale: session.portraitScale as SessionSnapshotPayload["session"]["portraitScale"],
       },
       currentScene,
       characters: charactersSnapshot,

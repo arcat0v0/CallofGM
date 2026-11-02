@@ -18,16 +18,16 @@ function SearchBar({
     <div
       data-slot="search-bar"
       className={cn(
-        "flex h-14 items-center gap-4 rounded-full bg-md-surface-container-high px-4 focus-within:ring-2 focus-within:ring-focus-ring",
+        "flex h-11 items-center gap-3 rounded-full border border-field-border bg-field px-4 transition-[background-color,border-color,box-shadow] duration-200 ease-standard-fast-effects focus-within:border-field-border-focus focus-within:ring-4 focus-within:ring-focus-ring/35",
         className,
       )}
     >
-      <SearchIcon aria-hidden="true" className="size-6 text-foreground-muted" />
+      <SearchIcon aria-hidden="true" className="size-5 shrink-0 text-field-placeholder" />
       <input
         type="search"
         aria-label={label}
         placeholder={label}
-        className="w-full min-w-0 bg-transparent text-body-large outline-none placeholder:text-foreground-muted"
+        className="w-full min-w-0 bg-transparent text-body-medium outline-none placeholder:text-field-placeholder"
         {...props}
       />
     </div>

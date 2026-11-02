@@ -33,44 +33,48 @@ const rows = [
     content: "第二句话测试",
     queueOrder: 2,
   }),
-];
+] as const;
+
+const [observerRow, pcRow] = rows;
 
 describe("speak queue readability", () => {
-  test("every queue action carries a visible text label", () => {
+  test("every queue action carries an accessible label", () => {
     const html = renderToStaticMarkup(
       <div>
-        {rows.map((item, index) => (
+        {rows.map((item) => (
           <QueueRow
             key={item.id}
             item={item}
-            index={index}
-            total={rows.length}
+            expanded
+            onToggle={() => {}}
             onReorder={() => {}}
           />
         ))}
       </div>,
     );
-    for (const label of ["上移", "下移", "放行", "丢弃"]) {
-      expect(html).toContain(`>${label}<`);
-      expect(html).toContain(`title="${label}"`);
-    }
+    expect(html).toContain("放行发言");
+    expect(html).toContain('aria-label="放行「观战 · b4e0d0」的发言"');
+    expect(html).toContain('aria-label="丢弃「观战 · b4e0d0」的发言"');
+    expect(html).toContain('title="丢弃发言"');
+    expect(html).toContain('aria-label="拖动排序「观战 · b4e0d0」的发言"');
+    expect(html).toContain('title="拖动排序；Alt + ↑/↓ 调整"');
   });
 
-  test("queue rows identify observers and keep the full message body untruncated", () => {
+  test("expanded rows identify observers and keep the full message body untruncated", () => {
     const html = renderToStaticMarkup(
-      <QueueRow item={rows[0]!} index={0} total={2} onReorder={() => {}} />,
+      <QueueRow item={observerRow} expanded onToggle={() => {}} onReorder={() => {}} />,
     );
     expect(html).toContain("观战 · b4e0d0");
     expect(html).toContain("（把手电筒举高，照向楼梯井）我上去看看。");
-    expect(html).toContain("text-body-small whitespace-pre-wrap break-words");
-    expect(html).toContain('aria-label="放行「观战 · b4e0d0」的发言"');
+    expect(html).toContain("whitespace-pre-wrap break-words");
   });
 
-  test("PC names stay intact in the queue", () => {
+  test("collapsed rows keep names and hide the message body", () => {
     const html = renderToStaticMarkup(
-      <QueueRow item={rows[1]!} index={1} total={2} onReorder={() => {}} />,
+      <QueueRow item={pcRow} expanded={false} onToggle={() => {}} onReorder={() => {}} />,
     );
     expect(html).toContain("陈默");
-    expect(html).toContain("第二句话测试");
+    expect(html).toContain("角色发言 · 默认");
+    expect(html).not.toContain("第二句话测试");
   });
 });

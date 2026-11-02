@@ -132,7 +132,6 @@
     [data-slot="icon-button"],
     [data-slot="chip"]
   ):disabled {
-    opacity: var(--opacity-m3-disabled);
     background: var(--color-m3-disabled-container);
     color: var(--color-m3-disabled-content);
     box-shadow: none;
@@ -179,8 +178,8 @@
   }
   [data-slot="toggle"][data-state="on"],
   [data-slot="toggle-group-item"][data-state="on"] {
-    background: var(--color-md-secondary-container);
-    color: var(--color-md-on-secondary-container);
+    background: var(--color-md-primary-container);
+    color: var(--color-md-on-primary-container);
     border-radius: calc(var(--spacing-m3-button-sm) / 2);
     font-weight: var(--text-label-large-emph--font-weight);
   }
@@ -289,13 +288,9 @@
     min-height: calc(var(--spacing) * 4);
   }
   [data-slot="avatar"] {
-    background: var(--color-md-tertiary-container);
-    color: var(--color-md-on-tertiary-container);
     border: 0;
   }
   [data-slot="avatar-fallback"] {
-    background: inherit;
-    color: inherit;
     font-weight: var(--text-title-medium-emph--font-weight);
   }
   [data-slot="separator"],
@@ -373,34 +368,10 @@
   [data-slot="switch"]:active:not(:disabled) [data-slot="switch-thumb"] {
     --m3-thumb-size: var(--spacing-m3-switch-thumb-pressed);
   }
-  [data-slot="input"],
-  [data-slot="textarea"],
-  [data-slot="input-group"],
-  [data-slot="select-trigger"] {
-    min-height: var(--spacing-m3-button-md);
-    border-radius: var(--radius-xs) var(--radius-xs) var(--radius-none)
-      var(--radius-none);
-    border: 0;
-    border-bottom: 1px solid var(--color-md-on-surface-variant);
-    background: var(--color-field);
-    box-shadow: none;
-    transition:
-      background-color var(--duration-standard-fast-effects)
-      var(--ease-standard-fast-effects),
-      border-color var(--duration-standard-fast-effects)
-      var(--ease-standard-fast-effects);
-  }
   :is(
     [data-slot="input"],
     [data-slot="textarea"],
     [data-slot="input-group"],
-    [data-slot="select-trigger"]
-  ):focus-within {
-    border-bottom: 2px solid var(--color-accent);
-  }
-  :is(
-    [data-slot="input"],
-    [data-slot="textarea"],
     [data-slot="select-trigger"]
   )[aria-invalid="true"],
   [data-slot="input-group"]:has([aria-invalid="true"]) {
@@ -488,7 +459,7 @@
   }
   [data-slot="tabs-trigger"][data-state="active"] {
     background: transparent;
-    color: var(--color-md-on-secondary-container);
+    color: var(--color-md-on-primary-container);
     box-shadow: none;
     font-weight: var(--text-label-large-emph--font-weight);
   }
@@ -500,11 +471,11 @@
   [data-slot="dropdown-menu-sub-content"],
   [data-slot="select-content"],
   [data-slot="popover-content"] {
-    background: var(--color-md-surface-container-high);
-    border: 0;
+    background: var(--color-md-surface-container-highest);
+    border: 1px solid var(--color-md-outline-variant);
     border-radius: var(--radius-lg);
     padding: calc(var(--spacing) * 2);
-    box-shadow: var(--shadow-dropdown);
+    box-shadow: var(--shadow-overlay);
     transform-origin: var(--radix-popper-transform-origin, top);
     animation:
       m3-surface-in var(--duration-standard-fast-spatial) var(--m3-spatial-fast),
@@ -523,24 +494,33 @@
       m3-fade-out var(--duration-standard-fast-effects)
       var(--ease-standard-fast-effects);
   }
-  [data-slot="dropdown-menu-item"],
-  [data-slot="dropdown-menu-checkbox-item"],
-  [data-slot="dropdown-menu-radio-item"],
-  [data-slot="select-item"] {
-    min-height: var(--spacing-m3-touch);
-    border-radius: var(--radius-md);
-    padding-block: calc(var(--spacing) * 3);
-  }
   [data-slot="dropdown-menu-item"]:focus,
   [data-slot="select-item"][data-highlighted] {
-    background: var(--color-md-secondary-container);
-    color: var(--color-md-on-secondary-container);
+    background: color-mix(
+      in srgb,
+      var(--color-md-on-surface) 12%,
+      transparent
+    );
+    color: var(--color-md-on-surface);
+  }
+  [data-slot="select-item"][data-checked],
+  [data-slot="dropdown-menu-checkbox-item"][data-checked],
+  [data-slot="dropdown-menu-radio-item"][data-checked] {
+    background: var(--color-accent-soft);
+    color: var(--color-accent-soft-foreground);
+    box-shadow: inset 2px 0 0 var(--color-accent);
+  }
+  [data-slot="select-item"][data-checked][data-highlighted],
+  [data-slot="dropdown-menu-checkbox-item"][data-checked][data-highlighted],
+  [data-slot="dropdown-menu-radio-item"][data-checked][data-highlighted] {
+    background: var(--color-accent-soft-hover);
+    color: var(--color-accent-soft-foreground);
   }
   [data-slot="dialog-content"],
   [data-slot="alert-dialog-content"] {
     border: 0;
     border-radius: var(--radius-xl);
-    background: var(--color-md-surface-container-high);
+    background: var(--color-md-surface-container);
     padding: calc(var(--spacing) * 6);
     gap: calc(var(--spacing) * 6);
     box-shadow: var(--shadow-modal);
@@ -627,8 +607,8 @@
   [data-slot="alert"] {
     border: 0;
     border-radius: var(--radius-lg);
-    background: var(--color-md-secondary-container);
-    color: var(--color-md-on-secondary-container);
+    background: var(--color-md-primary-container);
+    color: var(--color-md-on-primary-container);
     padding: calc(var(--spacing) * 4);
   }
   [data-slot="alert"][data-variant="danger"] {
@@ -654,7 +634,7 @@
       var(--ease-standard-fast-effects);
   }
   [data-slot="table-row"][data-state="selected"] {
-    background: var(--color-md-secondary-container);
+    background: var(--color-md-primary-container);
   }
   [data-slot="pagination-link"] {
     border: 0;
@@ -663,8 +643,8 @@
     min-height: var(--spacing-m3-button-sm);
   }
   [data-slot="pagination-link"][aria-current="page"] {
-    background: var(--color-md-secondary-container);
-    color: var(--color-md-on-secondary-container);
+    background: var(--color-md-primary-container);
+    color: var(--color-md-on-primary-container);
   }
   [data-slot="accordion-item"] {
     border: 0;
@@ -693,7 +673,7 @@
     overflow: visible;
     height: var(--spacing-m3-track);
     border-radius: var(--radius-sm);
-    background: var(--color-md-secondary-container);
+    background: var(--color-md-primary-container);
   }
   [data-slot="slider-range"] {
     border-radius: inherit;
@@ -785,7 +765,7 @@
     flex: 1;
     height: var(--spacing-m3-progress-stroke);
     border-radius: var(--radius-full);
-    background: var(--color-md-secondary-container);
+    background: var(--color-md-primary-container);
   }
   [data-slot="progress-track"]::after {
     content: "";
@@ -839,7 +819,7 @@
       var(--ease-expressive-default-spatial) infinite;
   }
   [data-slot="navigation-item"][aria-current="page"] {
-    color: var(--color-md-on-secondary-container);
+    color: var(--color-md-on-primary-container);
     font-weight: var(--text-label-large-emph--font-weight);
   }
   [data-slot="navigation-icon"] {
@@ -979,8 +959,8 @@
   }
   [data-button][data-variant="secondary"],
   [data-button][data-variant="tonal"] {
-    background: var(--color-md-secondary-container);
-    color: var(--color-md-on-secondary-container);
+    background: var(--color-md-primary-container);
+    color: var(--color-md-on-primary-container);
   }
   [data-button][data-variant="outline"],
   [data-button][data-variant="text"],
@@ -1090,7 +1070,7 @@
     position: absolute;
     inset: 0;
     border-radius: inherit;
-    background: var(--color-md-secondary-container);
+    background: var(--color-md-primary-container);
   }
   [data-slot="navigation"]
     > [data-slot="selection-indicator"][data-animated="true"][data-axis="horizontal"]
@@ -1135,7 +1115,7 @@
   }
   [data-slot="toggle-group"][data-selection="single"]
     > [data-slot="toggle-group-item"][data-state="on"] {
-    color: var(--color-md-on-secondary-container);
+    color: var(--color-md-on-primary-container);
   }
   [data-slot="sheet-content"] {
     --m3-sheet-x: 0%;
@@ -1190,8 +1170,8 @@
     color: var(--color-md-on-surface-variant);
   }
   [data-slot="calendar-day"][data-range-middle="true"] {
-    background: var(--color-md-secondary-container);
-    color: var(--color-md-on-secondary-container);
+    background: var(--color-md-primary-container);
+    color: var(--color-md-on-primary-container);
   }
   [data-slot="calendar-day"]:is(
     [data-selected-single="true"],

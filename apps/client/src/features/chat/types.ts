@@ -10,6 +10,8 @@ type ChatMessage = {
   body: string;
   tone?: "ic" | "ooc";
   isSystem?: boolean;
+  hidden?: boolean;
+  outcome?: "success" | "failure";
 };
 
 export type { ChatMessage };

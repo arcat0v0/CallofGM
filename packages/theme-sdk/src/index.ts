@@ -155,9 +155,11 @@ export type PlayChatMessageCtx = {
 
 export type GmConsoleLayoutCtx = {
   nodes: {
+    topbar?: ReactNode;
     controls: ReactNode;
     stage: ReactNode;
     chat: ReactNode;
+    dock?: ReactNode;
     overlays: ReactNode;
     connection: ReactNode;
     endedBanner: ReactNode;

@@ -2,39 +2,47 @@ import type { LucideIcon } from "lucide-react";
 import type * as React from "react";
 import { cn } from "@/lib/utils";
 
-type MetricTone = "primary" | "secondary" | "tertiary" | "error";
-
-const TONE_CLASSES: Record<MetricTone, string> = {
-  primary: "bg-md-primary-container text-md-on-primary-container",
-  secondary: "bg-md-secondary-container text-md-on-secondary-container",
-  tertiary: "bg-md-tertiary-container text-md-on-tertiary-container",
-  error: "bg-md-error-container text-md-on-error-container",
-};
-
-type MetricCardProps = React.ComponentProps<"div"> & {
+type MetricItem = {
   icon: LucideIcon;
   value: React.ReactNode;
   label: React.ReactNode;
-  tone?: MetricTone;
+  emphasis?: boolean;
 };
 
-function MetricCard({ icon: Icon, value, label, tone = "primary", className, ...props }: MetricCardProps) {
+type MetricStripProps = React.ComponentProps<"div"> & {
+  items: MetricItem[];
+  columns?: 3 | 4;
+};
+
+function MetricStrip({ items, columns = 4, className, ...props }: MetricStripProps) {
   return (
     <div
       className={cn(
-        "flex h-28 min-w-0 flex-1 flex-col justify-between rounded-2xl p-4",
-        TONE_CLASSES[tone],
+        "bg-md-outline-variant/40 border-md-outline-variant/50 shadow-card grid gap-px overflow-hidden rounded-3xl border",
+        columns === 4 ? "grid-cols-2 lg:grid-cols-4" : "grid-cols-1 sm:grid-cols-3",
         className,
       )}
       {...props}
     >
-      <Icon className="size-6" />
-      <span className="flex min-w-0 flex-col gap-1">
-        <span className="truncate font-sans text-display-small-emph tabular-nums">{value}</span>
-        <span className="text-title-small opacity-80">{label}</span>
-      </span>
+      {items.map(({ icon: Icon, value, label, emphasis = false }, index) => (
+        <div key={index} className="bg-md-surface-container flex min-w-0 flex-col gap-3 p-5">
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-md-on-surface-variant truncate text-label-medium">{label}</span>
+            <Icon className={cn("size-4 shrink-0", emphasis ? "text-md-primary" : "text-md-outline")} />
+          </div>
+          <span
+            className={cn(
+              "font-serif text-[clamp(2rem,3vw,3rem)] leading-none font-semibold tabular-nums",
+              emphasis ? "text-md-primary" : "text-md-on-surface",
+            )}
+          >
+            {value}
+          </span>
+        </div>
+      ))}
     </div>
   );
 }
 
-export { MetricCard };
+export { MetricStrip };
+export type { MetricItem };

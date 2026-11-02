@@ -68,6 +68,8 @@ export class CreateSessionUseCase {
       lastEventId: 0,
       sharePcSheets: 1,
       obSeePcState: 1,
+      portraitLayout: "auto",
+      portraitScale: "md",
       createdAt: now,
     };
 
@@ -168,6 +170,50 @@ export class ClaimSeatUseCase {
       this.onClaimReplaced?.({ sessionId: input.sessionId, playerId: input.playerId });
     }
     return claim;
+  }
+}
+
+export class GmAssignClaimUseCase {
+  constructor(
+    private readonly repo: SessionsRepository,
+    private readonly idGenerator: IdGenerator,
+    private readonly clock: Clock
+  ) {}
+
+  async execute(input: { sessionId: string; playerId: string; characterId: string }) {
+    const session = await this.repo.findSessionById(input.sessionId);
+    if (!session) {
+      throw new SessionNotFoundError();
+    }
+    if (session.status === "ended") {
+      throw new SessionStateInvalidError("Cannot assign PC seat in an ended session");
+    }
+    const activeKick = await this.repo.findActiveSessionKick(input.sessionId, input.playerId);
+    if (activeKick) {
+      throw new SessionKickedError();
+    }
+
+    const kind = await this.repo.findSessionCharacterKind(input.sessionId, input.characterId);
+    if (!kind) {
+      throw new CharacterNotFoundError("Character not participating in this session");
+    }
+    if (kind !== "pc") {
+      throw new SessionStateInvalidError("Only PC seats can be assigned");
+    }
+
+    const now = this.clock.nowEpochMs();
+    const claim = {
+      id: this.idGenerator.nextId(),
+      sessionId: input.sessionId,
+      playerId: input.playerId,
+      role: "pc" as const,
+      characterId: input.characterId,
+      releasedAt: null,
+      createdAt: now,
+    };
+
+    const { displacedPlayerIds } = await this.repo.forceReplacePlayerClaim(claim, now);
+    return { claim, displacedPlayerIds };
   }
 }
 

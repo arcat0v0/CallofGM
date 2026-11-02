@@ -55,6 +55,10 @@ export function useSessionConnection(
     }
 
     function handleMessage(message: ServerMessage): void {
+      if ("type" in message && message.type === "session:refresh") {
+        void refreshSnapshot();
+        return;
+      }
       const settingsBefore = usePlayStore.getState().settings;
       applyMessage(message);
       if (message.type !== "session:settings-changed") {
@@ -99,6 +103,10 @@ export function useSessionConnection(
             }
             if (code === SessionCloseCode.claimReplaced) {
               setTerminal("replaced");
+              return;
+            }
+            if (code === SessionCloseCode.seatReleased) {
+              setTerminal("released");
               return;
             }
             if (code === 1001 && reason === SESSION_ENDED_REASON) {

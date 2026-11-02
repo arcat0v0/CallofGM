@@ -26,6 +26,7 @@ function MessageList({
   loadingOlder = false,
   olderLoads = 0,
   renderMessage,
+  stickToBottom = false,
 }: {
   messages: ChatMessage[];
   className?: string;
@@ -36,9 +37,11 @@ function MessageList({
   loadingOlder?: boolean;
   olderLoads?: number;
   renderMessage?: (message: ChatMessage, meta: MessageMeta) => ReactNode;
+  stickToBottom?: boolean;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const anchor = useRef<{ firstId: string | undefined; height: number; top: number } | null>(null);
+  const stick = useRef(stickToBottom);
 
   const rememberPosition = () => {
     const container = containerRef.current;
@@ -46,6 +49,7 @@ function MessageList({
       return;
     }
     anchor.current = { firstId: messages[0]?.id, height: container.scrollHeight, top: container.scrollTop };
+    stick.current = container.scrollHeight - container.scrollTop - container.clientHeight < 48;
   };
 
   useLayoutEffect(() => {
@@ -55,14 +59,16 @@ function MessageList({
     }
     const previous = anchor.current;
     const firstId = messages[0]?.id;
-    if (previous && previous.firstId !== undefined && firstId !== previous.firstId) {
+    if (stickToBottom && stick.current) {
+      container.scrollTop = container.scrollHeight;
+    } else if (previous && previous.firstId !== undefined && firstId !== previous.firstId) {
       const grown = container.scrollHeight - previous.height;
       if (grown > 0) {
         container.scrollTop = previous.top + grown;
       }
     }
     rememberPosition();
-  }, [messages]);
+  }, [messages, stickToBottom]);
 
   const showOlderControl = Boolean(onLoadOlder) && (hasOlderHistory || olderLoads > 0);
 

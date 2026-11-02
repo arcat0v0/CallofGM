@@ -1,12 +1,12 @@
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import type { JoinInfoResponse, SessionStatus } from "@cogm/shared";
-import { Link2Off, LogIn, RotateCw } from "lucide-react";
+import { Link2Off, LogIn, LogOut, RotateCw } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { JoinSeatView } from "@cogm/theme-sdk";
 import { Button } from "@/components/ui/button";
 import { api, isApiError } from "@/lib/api";
 import { initialsOf } from "@/lib/format";
-import { ensurePlayer } from "@/lib/identity";
+import { ensurePlayer, logoutGm } from "@/lib/identity";
 import { t, useI18nVersion } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { ThemeScope } from "@/themes/runtime/theme-scope";
@@ -51,12 +51,15 @@ function JoinPage() {
   const [loading, setLoading] = useState(true);
   const [joining, setJoining] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadErrorCode, setLoadErrorCode] = useState<string | null>(null);
+  const [leavingGm, setLeavingGm] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setLoadError(null);
+    setLoadErrorCode(null);
     void (async () => {
       try {
         await ensurePlayer();
@@ -81,6 +84,7 @@ function JoinPage() {
       } catch (error) {
         if (!cancelled) {
           setLoadError(isApiError(error) ? error.message : t("join.loadFailed"));
+          setLoadErrorCode(isApiError(error) ? error.code : null);
         }
       } finally {
         if (!cancelled) {
@@ -131,10 +135,26 @@ function JoinPage() {
       await navigate({ to: "/play/$sessionId", params: { sessionId } });
     } catch (error) {
       setLoadError(isApiError(error) ? error.message : t("join.claimFailed"));
+      setLoadErrorCode(isApiError(error) ? error.code : null);
     } finally {
       setJoining(false);
     }
   };
+
+  async function leaveGmAndRetry() {
+    if (leavingGm) {
+      return;
+    }
+    setLeavingGm(true);
+    try {
+      await logoutGm().catch(() => undefined);
+      setLoadError(null);
+      setLoadErrorCode(null);
+      setReloadToken((token) => token + 1);
+    } finally {
+      setLeavingGm(false);
+    }
+  }
 
   const header = (
     <ThemeSlot
@@ -198,11 +218,18 @@ function JoinPage() {
     ) : null;
 
   const action = loadError ? (
-    <div className="animate-in fade-in slide-in-from-bottom-4 ease-expressive-default-spatial flex items-center gap-2 duration-500">
-      <Button type="button" variant="primary" size="lg" onClick={() => setReloadToken((token) => token + 1)}>
-        <RotateCw className="size-4" />
-        {t("common.retry")}
-      </Button>
+    <div className="animate-in fade-in slide-in-from-bottom-4 ease-expressive-default-spatial flex flex-wrap items-center justify-center gap-2 duration-500">
+      {loadErrorCode === "GM_SESSION_ACTIVE" ? (
+        <Button type="button" variant="primary" size="lg" disabled={leavingGm} onClick={() => void leaveGmAndRetry()}>
+          <LogOut className="size-4" />
+          {t("join.leaveGmAndJoin")}
+        </Button>
+      ) : (
+        <Button type="button" variant="primary" size="lg" onClick={() => setReloadToken((token) => token + 1)}>
+          <RotateCw className="size-4" />
+          {t("common.retry")}
+        </Button>
+      )}
       <Button asChild variant="tertiary" size="lg">
         <Link to="/">{t("play.returnEntry")}</Link>
       </Button>

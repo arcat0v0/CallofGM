@@ -3,7 +3,7 @@ import type { CharacterDto, ModuleDto, ModuleSummaryDto, SessionDto, SessionStat
 import { ArrowRight, Ellipsis, FileSpreadsheet, Link as LinkIcon, Package, Pencil, Play, Plus, SquarePower, Users, VenetianMask } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { MetricCard } from "@/components/shared/metric-card";
+import { MetricStrip } from "@/components/shared/metric-card";
 import { PageHeader } from "@/components/shared/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -39,7 +39,7 @@ import { api, fetchAllPages, isApiError, mediaUrl } from "@/lib/api";
 import { errorText } from "@/lib/errors";
 import { sessionPhaseLabel, sessionStatusLabel } from "@/i18n/labels";
 import { t, useI18nVersion } from "@/i18n";
-import { formatClock, statusTone } from "@/lib/format";
+import { formatClock, formatStamp, statusTone } from "@/lib/format";
 import { requireGmAuth } from "@/lib/identity";
 
 export const Route = createFileRoute("/gm/")({
@@ -81,6 +81,8 @@ function GmDashboardPage() {
   }, []);
 
   const moduleName = (id: string) => modules.find((module) => module.id === id)?.name ?? id;
+  const sessionTitle = (session: SessionDto) =>
+    session.name ?? `${moduleName(session.moduleId)} · ${formatClock(session.createdAt)}`;
   const summaryFor = (id: string) => summaries.find((summary) => summary.moduleId === id);
   const liveCount = sessions.filter((session) => session.status === "active").length;
 
@@ -130,12 +132,15 @@ function GmDashboardPage() {
           }
         />
 
-        <div className="animate-in fade-in slide-in-from-bottom-4 flex gap-3.5 duration-500 ease-standard-default-spatial">
-          <MetricCard icon={Play} value={String(liveCount)} label={t("gm.dashboard.liveSessions")} tone="primary" />
-          <MetricCard icon={Package} value={String(modules.length)} label={t("gm.dashboard.modules")} tone="secondary" />
-          <MetricCard icon={VenetianMask} value={String(characterCount)} label={t("gm.dashboard.characters")} tone="tertiary" />
-          <MetricCard icon={Users} value={String(sessions.length)} label={t("gm.dashboard.allSessions")} tone="error" />
-        </div>
+        <MetricStrip
+          className="animate-in fade-in slide-in-from-bottom-4 duration-500 ease-standard-default-spatial"
+          items={[
+            { icon: Play, value: String(liveCount), label: t("gm.dashboard.liveSessions"), emphasis: true },
+            { icon: Package, value: String(modules.length), label: t("gm.dashboard.modules") },
+            { icon: VenetianMask, value: String(characterCount), label: t("gm.dashboard.characters") },
+            { icon: Users, value: String(sessions.length), label: t("gm.dashboard.allSessions") },
+          ]}
+        />
 
         <div className="animate-in fade-in slide-in-from-bottom-4 overflow-hidden rounded-2xl bg-md-surface-container delay-75 duration-500 ease-standard-default-spatial">
         <Table className="table-fixed">
@@ -153,7 +158,9 @@ function GmDashboardPage() {
           <TableBody>
             {sessions.map((session) => (
               <TableRow key={session.id}>
-                <TableCell className="truncate text-label-large-emph">{session.name ?? t("gm.dashboard.unnamedSession")}</TableCell>
+                <TableCell className="truncate text-label-large-emph" title={formatStamp(session.createdAt)}>
+                  {sessionTitle(session)}
+                </TableCell>
                 <TableCell className="text-foreground-secondary text-body-medium">{moduleName(session.moduleId)}</TableCell>
                 <TableCell>
                   <Badge variant="soft" tone={statusTone(session.status)} size="sm">
@@ -162,15 +169,22 @@ function GmDashboardPage() {
                 </TableCell>
                 <TableCell>
                   {session.phase ? (
-                  <Badge variant="soft" tone="accent" size="sm">
-                    {sessionPhaseLabel(session.phase)}
-                  </Badge>
-                ) : (
-                  <span className="text-foreground-tertiary text-label-large">—</span>
-                )}
+                    <Badge
+                      variant="soft"
+                      tone={session.status === "ended" ? "default" : "accent"}
+                      size="sm"
+                      className={session.status === "ended" ? "opacity-60" : undefined}
+                    >
+                      {sessionPhaseLabel(session.phase)}
+                    </Badge>
+                  ) : (
+                    <span className="text-foreground-tertiary text-label-large">—</span>
+                  )}
                 </TableCell>
-                <TableCell className="text-foreground-secondary text-body-small">{session.id.slice(0, 8)}</TableCell>
-                <TableCell className="text-foreground-tertiary text-body-small">{formatClock(session.createdAt)}</TableCell>
+                <TableCell className="text-foreground-tertiary font-mono text-label-small" title={session.id}>
+                  #{session.id.slice(0, 6)}
+                </TableCell>
+                <TableCell className="text-foreground-tertiary text-body-small">{formatStamp(session.createdAt)}</TableCell>
                 <TableCell>
                   <div className="flex items-center gap-1.5">
                     {session.status !== "ended" && session.status !== "active" ? (
@@ -251,27 +265,41 @@ function GmDashboardPage() {
           </Button>
         </div>
 
-        <div className="animate-in fade-in slide-in-from-bottom-4 flex gap-4 delay-150 duration-500 ease-standard-default-spatial">
+        <div className="animate-in fade-in slide-in-from-bottom-4 flex flex-col gap-4 delay-150 duration-500 ease-standard-default-spatial">
           {modules.map((module) => (
             <Card
               key={module.id}
-              className="flex-1 gap-0 overflow-hidden rounded-2xl p-0"
+              className="min-h-36 flex-row items-stretch gap-0 overflow-hidden rounded-2xl p-0"
             >
-              {(() => {
-                const summary = summaryFor(module.id);
-                const cover = summary?.coverAssetId ? mediaUrl(summary.coverAssetId) : null;
-                return cover ? (
-                  <img src={cover} alt={t("gm.dashboard.coverAlt", { name: module.name })} className="h-[118px] w-full object-cover" />
-                ) : (
-                  <div className="bg-md-surface-container-highest flex h-[118px] w-full items-center justify-center">
-                    <Package className="text-foreground-tertiary size-7" />
-                  </div>
-                );
-              })()}
-              <div className="flex flex-col gap-2 p-3.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-foreground font-serif text-title-medium-emph">{module.name}</span>
+              <div className="bg-md-surface-container-highest relative w-48 shrink-0 overflow-hidden sm:w-56">
+                {(() => {
+                  const summary = summaryFor(module.id);
+                  const cover = summary?.coverAssetId ? mediaUrl(summary.coverAssetId) : null;
+                  return cover ? (
+                    <img src={cover} alt={t("gm.dashboard.coverAlt", { name: module.name })} className="absolute inset-0 size-full object-cover object-[center_30%]" />
+                  ) : (
+                    <Package className="text-foreground-tertiary absolute top-1/2 left-1/2 size-7 -translate-x-1/2 -translate-y-1/2" />
+                  );
+                })()}
+              </div>
+              <div className="flex min-w-0 flex-1 flex-col gap-2 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-foreground truncate font-serif text-title-medium-emph">{module.name}</span>
+                  <Button
+                    asChild
+                    type="button"
+                    variant="tertiary"
+                    size="sm"
+                    className="h-8 shrink-0 px-3"
+                  >
+                    <Link to="/gm/module/$moduleId" params={{ moduleId: module.id }}>
+                      {t("gm.dashboard.manage")}
+                    </Link>
+                  </Button>
                 </div>
+                {module.description ? (
+                  <p className="text-foreground-secondary line-clamp-1 text-label-small">{module.description}</p>
+                ) : null}
                 {summaryFor(module.id) ? (
                   <span className="text-foreground-secondary text-label-small">
                     {t("gm.dashboard.moduleStats", {
@@ -282,31 +310,18 @@ function GmDashboardPage() {
                     })}
                   </span>
                 ) : null}
-                <div className="flex items-center justify-between">
-                  <span className="text-foreground-tertiary truncate text-label-small">
-                    {summaryFor(module.id)
-                      ? t("gm.dashboard.moduleUpdated", {
-                          time: new Date(summaryFor(module.id)!.updatedAt).toLocaleString("zh-CN", {
-                            month: "2-digit",
-                            day: "2-digit",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          }),
-                        })
-                      : module.description || module.ruleId}
-                  </span>
-                  <Button
-                    asChild
-                    type="button"
-                    variant="accentSoft"
-                    size="sm"
-                    className="h-[26px] px-3"
-                  >
-                    <Link to="/gm/module/$moduleId" params={{ moduleId: module.id }}>
-                      {t("gm.dashboard.manage")}
-                    </Link>
-                  </Button>
-                </div>
+                <span className="text-foreground-tertiary mt-auto truncate text-label-small">
+                  {summaryFor(module.id)
+                    ? t("gm.dashboard.moduleUpdated", {
+                        time: new Date(summaryFor(module.id)!.updatedAt).toLocaleString("zh-CN", {
+                          month: "2-digit",
+                          day: "2-digit",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        }),
+                      })
+                    : module.ruleId}
+                </span>
               </div>
             </Card>
           ))}

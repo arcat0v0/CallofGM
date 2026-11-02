@@ -27,7 +27,7 @@ function DropdownMenuContent({
         data-slot="dropdown-menu-content"
         sideOffset={sideOffset}
         className={cn(
-          "shadow-dropdown z-50 min-w-48 origin-(--radix-dropdown-menu-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-md bg-md-surface-container-low p-1.5 text-foreground data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 data-closed:duration-200 data-closed:ease-expressive-default-effects data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-open:duration-500 data-open:ease-expressive-default-spatial",
+          "shadow-overlay z-50 min-w-48 origin-(--radix-dropdown-menu-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-lg border border-md-outline-variant/40 bg-md-surface-container-high p-1.5 text-foreground data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 data-closed:duration-200 data-closed:ease-expressive-default-effects data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-open:duration-300 data-open:ease-expressive-default-spatial",
           className,
         )}
         {...props}
@@ -55,7 +55,7 @@ function DropdownMenuItem({
       data-inset={inset}
       data-variant={variant}
       className={cn(
-        "relative flex h-10 cursor-default items-center gap-3 rounded-sm px-3 font-sans text-label-large text-foreground transition-colors duration-150 ease-expressive-fast-effects outline-hidden select-none data-disabled:pointer-events-none data-disabled:opacity-50 data-highlighted:bg-foreground/8 data-inset:pl-7 data-[variant=destructive]:text-danger data-[variant=destructive]:data-highlighted:bg-danger-soft [&_svg]:pointer-events-none [&_svg]:size-5 [&_svg]:shrink-0",
+        "relative flex h-9 cursor-default items-center gap-3 rounded-sm px-3 font-sans text-label-large text-foreground transition-colors duration-150 ease-standard-fast-effects outline-hidden select-none data-disabled:pointer-events-none data-disabled:opacity-50 data-highlighted:bg-md-on-surface/8 data-inset:pl-7 data-[variant=destructive]:text-danger data-[variant=destructive]:data-highlighted:bg-danger-soft [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
         className,
       )}
       {...props}
@@ -73,7 +73,7 @@ function DropdownMenuCheckboxItem({
     <DropdownMenuPrimitive.CheckboxItem
       data-slot="dropdown-menu-checkbox-item"
       className={cn(
-        "relative flex h-10 cursor-default items-center gap-3 rounded-sm py-1.5 pr-9 pl-3 font-sans text-label-large text-foreground transition-colors duration-150 ease-expressive-fast-effects outline-hidden select-none data-checked:bg-md-tertiary-container data-checked:text-md-on-tertiary-container data-disabled:pointer-events-none data-disabled:opacity-50 data-highlighted:bg-foreground/8 data-checked:data-highlighted:bg-md-tertiary-container [&_svg]:pointer-events-none [&_svg]:size-5 [&_svg]:shrink-0",
+        "relative flex h-9 cursor-default items-center gap-3 rounded-sm py-1.5 pr-9 pl-3 font-sans text-label-large text-foreground transition-colors duration-150 ease-standard-fast-effects outline-hidden select-none data-checked:bg-accent-soft data-checked:text-accent-soft-foreground data-disabled:pointer-events-none data-disabled:opacity-50 data-highlighted:bg-md-on-surface/8 data-checked:data-highlighted:bg-accent-soft [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
         className,
       )}
       checked={checked}
@@ -102,7 +102,7 @@ function DropdownMenuRadioItem({
     <DropdownMenuPrimitive.RadioItem
       data-slot="dropdown-menu-radio-item"
       className={cn(
-        "relative flex h-10 cursor-default items-center gap-3 rounded-sm py-1.5 pr-9 pl-3 font-sans text-label-large text-foreground transition-colors duration-150 ease-expressive-fast-effects outline-hidden select-none data-checked:bg-md-tertiary-container data-checked:text-md-on-tertiary-container data-disabled:pointer-events-none data-disabled:opacity-50 data-highlighted:bg-foreground/8 data-checked:data-highlighted:bg-md-tertiary-container [&_svg]:pointer-events-none [&_svg]:size-5 [&_svg]:shrink-0",
+        "relative flex h-9 cursor-default items-center gap-3 rounded-sm py-1.5 pr-9 pl-3 font-sans text-label-large text-foreground transition-colors duration-150 ease-standard-fast-effects outline-hidden select-none data-checked:bg-accent-soft data-checked:text-accent-soft-foreground data-disabled:pointer-events-none data-disabled:opacity-50 data-highlighted:bg-md-on-surface/8 data-checked:data-highlighted:bg-accent-soft [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
         className,
       )}
       {...props}

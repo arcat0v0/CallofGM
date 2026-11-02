@@ -28,7 +28,7 @@ export function GmAdminNav({ items, onLogout }: GmAdminNavCtx) {
                 className={cn(
                   "flex h-8 w-16 items-center justify-center rounded-full transition-colors duration-200 ease-standard-default-effects",
                   item.active
-                    ? "bg-md-secondary-container text-md-on-secondary-container"
+                    ? "bg-md-primary-container text-md-on-primary-container"
                     : "text-md-on-surface-variant group-hover:bg-md-on-surface/8 group-active:bg-md-on-surface/12",
                 )}
               >

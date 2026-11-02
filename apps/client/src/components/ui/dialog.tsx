@@ -36,7 +36,7 @@ function DialogOverlay({
     <DialogPrimitive.Overlay
       data-slot="dialog-overlay"
       className={cn(
-        "bg-modal-backdrop fixed inset-0 z-50 data-closed:pointer-events-none data-closed:animate-out data-closed:fade-out-0 data-closed:duration-200 data-open:animate-in data-open:fade-in-0 data-open:duration-200",
+        "bg-backdrop fixed inset-0 z-50 data-closed:pointer-events-none data-closed:animate-out data-closed:fade-out-0 data-closed:duration-200 data-open:animate-in data-open:fade-in-0 data-open:duration-200",
         className,
       )}
       {...props}
@@ -58,7 +58,7 @@ function DialogContent({
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          "border-separator-secondary bg-overlay shadow-modal rounded-modal fixed top-1/2 left-1/2 z-50 grid max-h-[calc(100dvh-2rem)] w-full max-w-md -translate-x-1/2 -translate-y-1/2 gap-4 overflow-y-auto overscroll-contain border p-6 text-foreground outline-none",
+          "border-separator-secondary bg-md-surface-container shadow-modal rounded-modal fixed top-1/2 left-1/2 z-50 grid max-h-[calc(100dvh-2rem)] w-full max-w-md -translate-x-1/2 -translate-y-1/2 gap-4 overflow-y-auto overscroll-contain border p-6 text-foreground outline-none",
           className,
         )}
         {...props}
@@ -108,7 +108,7 @@ function DialogTitle({
   return (
     <DialogPrimitive.Title
       data-slot="dialog-title"
-      className={cn("font-sans text-headline-small text-foreground", className)}
+      className={cn("font-serif text-headline-small font-semibold text-foreground", className)}
       {...props}
     />
   );

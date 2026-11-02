@@ -7,14 +7,17 @@ import { useSessionConnection } from "@/lib/use-session-connection";
 import { usePlayStore } from "@/stores/play-store";
 import { SessionTerminalOverlay } from "@/features/play/session-terminal-overlay";
 import { ConnectionBanner } from "@/features/play/connection-banner";
+import { DialogueBox } from "@/features/session-stage/dialogue-box";
 import { PortraitLayer } from "@/features/session-stage/portrait-layer";
 import { SceneAudioControl } from "@/features/session-stage/scene-audio-control";
-import { GmChatPanel } from "./gm-chat-panel";
-import { GmPanel } from "./gm-panel";
-import { GmThemeControl } from "@/themes/runtime/gm-theme-control";
 import { GmThemeScope } from "@/themes/runtime/gm-theme-scope";
 import { ThemeSlot } from "@/themes/runtime/theme-slot";
 import { t, useI18nVersion } from "@/i18n";
+import { GmChatPanel } from "./gm-chat-panel";
+import { GmPanel } from "./gm-panel";
+import { GmToolProvider } from "./gm-tool-context";
+import { GmToolDock } from "./gm-tool-dock";
+import { GmTopBar } from "./gm-top-bar";
 
 function GmConsoleView() {
   useI18nVersion();
@@ -55,19 +58,13 @@ function GmConsoleView() {
 
   const latest = [...messages].reverse().find((message) => message.tone !== "ooc");
 
-  const sceneInfo = <ThemeSlot name="play.scene-info" ctx={{ variant: "desktop" }} />;
-  const portrait = <PortraitLayer />;
-  const audio = <SceneAudioControl variant="desktop" />;
   const dialogue = latest ? (
-    <ThemeSlot
-      name="play.dialogue"
-      ctx={{
-        messageId: latest.id,
-        speaker: latest.speakerName,
-        roleLabel: latest.speakerRoleLabel || undefined,
-        text: latest.body,
-        size: "md",
-      }}
+    <DialogueBox
+      speaker={latest.speakerName}
+      roleLabel={latest.speakerRoleLabel || undefined}
+      text={latest.body}
+      size="md"
+      className="w-[min(760px,100%)]"
     />
   ) : null;
 
@@ -82,35 +79,38 @@ function GmConsoleView() {
           phase,
           hasDialogue: Boolean(latest),
         },
-        nodes: { sceneInfo, portrait, dialogue, audio },
+        nodes: {
+          sceneInfo: null,
+          portrait: <PortraitLayer variant="gm" showNameplate={false} />,
+          dialogue,
+          audio: <SceneAudioControl variant="desktop" />,
+        },
       }}
     />
   );
 
   return (
     <GmThemeScope>
-      <div className="bg-background relative h-dvh w-full overflow-hidden">
-        <ThemeSlot
-          name="gm-console.layout"
-          ctx={{
-            nodes: {
-              controls: <GmPanel />,
-              stage,
-              chat: <GmChatPanel />,
-              overlays: <SessionTerminalOverlay sessionId={sessionId} onRetry={retry} />,
-              connection: <ConnectionBanner />,
-              endedBanner:
-                status === "ended" ? (
-                  <div className="bg-warning/20 text-warning absolute inset-x-0 top-0 z-30 px-3 py-1.5 text-center text-label-small">
-                    {t("play.endedBanner")}
-                  </div>
-                ) : null,
-            },
-            view: { sessionId, status },
-          }}
-        />
-      </div>
-      <GmThemeControl />
+      <GmToolProvider>
+        <div className="bg-background relative h-dvh w-full overflow-hidden">
+          <ThemeSlot
+            name="gm-console.layout"
+            ctx={{
+              nodes: {
+                topbar: <GmTopBar />,
+                controls: <GmPanel />,
+                stage,
+                chat: <GmChatPanel />,
+                dock: <GmToolDock />,
+                overlays: <SessionTerminalOverlay sessionId={sessionId} onRetry={retry} />,
+                connection: <ConnectionBanner />,
+                endedBanner: null,
+              },
+              view: { sessionId, status },
+            }}
+          />
+        </div>
+      </GmToolProvider>
     </GmThemeScope>
   );
 }

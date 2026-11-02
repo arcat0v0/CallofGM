@@ -132,7 +132,7 @@ export default defineTheme({
 | `play.dialogue` | `PlayDialogueCtx` | 当前演绎对话框；`speaker`、`roleLabel`、`text`、`size` |
 | `play.chat-panel` | `PlayChatPanelCtx` | 聊天面板；`messages: ChatMessageView[]`、`compact`、`onCollapse` |
 | `play.chat-message` | `PlayChatMessageCtx` | 单条聊天消息气泡；`message`、`variant` |
-| `gm-console.layout` | `GmConsoleLayoutCtx` | GM 控制台三栏布局；`nodes.controls/stage/chat/overlays/connection/endedBanner` |
+| `gm-console.layout` | `GmConsoleLayoutCtx` | GM 控制台全屏布局；`nodes.topbar/controls/stage/chat/dock/overlays/connection/endedBanner`（`topbar`/`dock` 为新增可选节点） |
 | `gm-console.stage` | `GmConsoleStageCtx` | 控制台舞台外壳 |
 | `gm-admin.shell` | `GmAdminShellCtx` | GM 后台外壳；`nodes.nav/content` |
 | `gm-admin.nav` | `GmAdminNavCtx` | 导航栏；`items`（含 label/icon/to/active）、`onNavigate`、`onLogout` |

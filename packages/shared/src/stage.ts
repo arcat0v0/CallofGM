@@ -13,6 +13,18 @@ export const SetExpressionCommand = z.object({
 });
 export type SetExpressionCommand = z.infer<typeof SetExpressionCommand>;
 
+export const PortraitLayout = z.enum(["auto", "center", "left", "right", "spread"]);
+export type PortraitLayout = z.infer<typeof PortraitLayout>;
+
+export const PortraitScale = z.enum(["md", "lg"]);
+export type PortraitScale = z.infer<typeof PortraitScale>;
+
+export const UpdateStageLayoutCommand = z.object({
+  layout: PortraitLayout,
+  scale: PortraitScale,
+});
+export type UpdateStageLayoutCommand = z.infer<typeof UpdateStageLayoutCommand>;
+
 export const UpdateBgmCommand = z.object({
   action: z.enum(["play", "pause", "seek", "volume", "loop"]),
   trackId: z.string().min(1).optional(),
@@ -48,6 +60,10 @@ export const ExpressionChangedEvent = z.object({
   expressionKey: z.string(),
 });
 export type ExpressionChangedEvent = z.infer<typeof ExpressionChangedEvent>;
+
+/** Event payload: stage:layout-changed（全团同步的立绘布局） */
+export const StageLayoutChangedEvent = UpdateStageLayoutCommand;
+export type StageLayoutChangedEvent = z.infer<typeof StageLayoutChangedEvent>;
 
 export const BgmState = z.object({
   trackId: z.string().nullable(),

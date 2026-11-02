@@ -122,12 +122,17 @@
 - 列表页：表格外层套 `rounded-2xl bg-md-surface-container-low` 容器；模组/音乐等卡片封面区 `rounded-t-2xl bg-md-surface-container-highest`，标题 serif emphasized。
 - 表格、表单等高密度区保持信息密度，不为装饰牺牲可用性。
 
-### GM 控制台 `/gm/session/$sessionId`
+### GM 控制台 `/gm/session/$sessionId`（B2 · 导演工作台）
 
-- 三栏结构不变；左控制栏 `bg-md-surface-container-low` 无边线，section 标题 `text-label-large-emph text-md-on-surface-variant`。
-- **阶段切换（本页 Hero）**：改单列 list，每行一项（名称 + 一句描述），选中行 `bg-md-secondary-container` 容器色 + emphasized 标签，切换 spring——替代原先的 2×2 按钮阵。
-- 场景/立绘/音乐条目：缩略图 `rounded-xl`，选中态 `ring-2 ring-md-primary`，hover state layer。
-- 右聊天栏与玩家视图同款气泡化。
+以 1920×1080 为基准的全屏舞台构图，控制层作为浮岛叠在场景之上，不再切分左右实体栏。
+
+- **顶部导航**：44px 圆形返回键 + 模组题名（serif headline-small）+「团名 / 导演工作台」副题；右侧依次为状态 pill（进行中）、在线人数 pill、更多菜单与 KP 头像。
+- **舞台**：左右 24px、上 104px、下 24px 的内嵌 32px 圆角画面；顶部 457px 与底部 438px 的暗色可读性渐变。
+- **左列浮岛**（292px，`bg-md-surface-container-low/95` + blur）：团内阶段大卡（`bg-md-primary`，内含 36px serif 阶段名）、待呈现队列、角色状态重点提醒、BGM 迷你播放器。阶段卡展开为 380px 纵向菜单。
+- **右列浮岛**：292px「桌边对话」实时消息卡；频道筛选、搜索、消息流与 KP 作曲器。系统骰点/鉴定记录用独立容器卡呈现。
+- **中央工具坞**：顶部居中的 56px 圆形按钮组，激活项横向展开为 112px 主色胶囊；图标固定 24px，外层始终画面居中。面板从按钮下方展开为 584px `rounded-xl-inc` 浮层，点击原按钮或 Esc 收起。
+- **五块配置浮层**：场景（搜索 + 缩略图列表）、人物（表情 / HP / MP / SAN 与状态编辑）、情报（条目预览 + 公开/秘密发放）、鉴定（类型/对象/技能/难度/奖惩/暗骰）、声音（曲目、波浪进度、循环与淡入淡出、全团音量、即兴音效）。
+- 动效以 standard 曲线为主：宽度变化直接停靠，颜色单独平滑过渡，避免共享底板横向滑动。
 
 ## 风格系统规范（落地参数）
 

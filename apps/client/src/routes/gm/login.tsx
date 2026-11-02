@@ -64,11 +64,15 @@ function GmLoginPage() {
         onSubmit={handleSubmit}
         className="animate-in fade-in slide-in-from-bottom-4 ease-expressive-default-spatial flex w-full max-w-105 flex-col gap-2.5 delay-150 duration-500"
       >
+        <label htmlFor="gm-login-password" className="text-md-on-surface-variant px-1 text-label-medium">
+          {t("login.passwordLabel")}
+        </label>
         <InputGroup className="h-14 px-4">
           <InputGroupAddon>
             <Lock />
           </InputGroupAddon>
           <InputGroupInput
+            id="gm-login-password"
             type={showPassword ? "text" : "password"}
             placeholder={t("login.passwordPlaceholder")}
             aria-label={t("login.passwordLabel")}

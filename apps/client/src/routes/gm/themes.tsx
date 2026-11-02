@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import type { ThemeSummaryDto } from "@cogm/shared";
-import { Package, RefreshCw, Trash2, Upload } from "lucide-react";
+import { AlertTriangle, Package, RefreshCw, Trash2, Upload } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
@@ -105,14 +105,16 @@ function GmThemesPage() {
               <Button type="button" variant="outline" onClick={() => void handleRescan()}>
                 <RefreshCw /> {t("gm.themes.rescan")}
               </Button>
-              <Button
-                type="button"
-                variant="primary"
-                disabled={uploading}
-                onClick={() => inputRef.current?.click()}
-              >
-                <Upload /> {uploading ? t("gm.themes.installing") : t("gm.themes.install")}
-              </Button>
+              {themes.length > 0 ? (
+                <Button
+                  type="button"
+                  variant="primary"
+                  disabled={uploading}
+                  onClick={() => inputRef.current?.click()}
+                >
+                  <Upload /> {uploading ? t("gm.themes.installing") : t("gm.themes.install")}
+                </Button>
+              ) : null}
             </>
           }
         />
@@ -120,19 +122,22 @@ function GmThemesPage() {
         {loading ? (
           <p className="text-foreground-tertiary text-body-medium">{t("gm.themes.loading")}</p>
         ) : themes.length === 0 ? (
-          <Card className="rounded-2xl p-6">
-            <div className="flex items-center gap-3">
-              <span className="bg-md-surface-container-highest text-md-on-surface-variant flex size-10 items-center justify-center rounded-full">
-                <Package className="size-5" />
-              </span>
-              <div>
-                <div className="font-serif text-title-medium-emph">{t("gm.themes.emptyTitle")}</div>
-                <p className="text-foreground-tertiary text-body-small">
-                  {t("gm.themes.emptyDescription")}
-                </p>
-              </div>
+          <div className="bg-md-surface-container border-md-outline-variant/50 animate-in fade-in slide-in-from-bottom-4 mx-auto flex w-full max-w-3xl flex-col items-center justify-center gap-3 rounded-xl-inc border px-8 py-8 text-center duration-500 ease-standard-default-spatial">
+            <span className="bg-accent-soft text-accent-soft-foreground grid size-14 place-items-center rounded-full">
+              <Package className="size-7" />
+            </span>
+            <div className="flex max-w-lg flex-col gap-1.5">
+              <h2 className="text-md-on-surface font-serif text-title-large-emph">{t("gm.themes.emptyTitle")}</h2>
+              <p className="text-md-on-surface-variant text-body-medium">{t("gm.themes.emptyDescription")}</p>
             </div>
-          </Card>
+            <Button type="button" variant="primary" disabled={uploading} onClick={() => inputRef.current?.click()}>
+              <Upload /> {uploading ? t("gm.themes.installing") : t("gm.themes.install")}
+            </Button>
+            <p className="text-md-on-surface-variant/70 flex items-center gap-1.5 text-label-small">
+              <AlertTriangle className="text-warning size-3.5 shrink-0" />
+              <span>{t("gm.themes.emptyWarning")}</span>
+            </p>
+          </div>
         ) : (
           <div className="grid grid-cols-2 gap-4">
             {themes.map((theme) => (

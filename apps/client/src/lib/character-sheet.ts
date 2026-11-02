@@ -35,6 +35,7 @@ export type GameCharacter = {
   portrait?: string;
   expressions: string[];
   portraits: CharacterPortrait[];
+  sheet: coc7e.Coc7eCharacterSheet | null;
   derived: DerivedStats;
   attributes: Attribute[];
   skills: Skill[];
@@ -79,6 +80,7 @@ export function mapCharacterRow(row: CharacterRow): GameCharacter {
     portrait: mediaUrl(defaultPortrait?.portraitAssetId) ?? undefined,
     expressions: portraits.length > 0 ? portraits.map((item) => expressionLabel(item.expressionKey)) : [t("expression.default")],
     portraits,
+    sheet,
     derived: {
       hp: { current: hpMax, max: hpMax },
       mp: { current: mpMax, max: mpMax },

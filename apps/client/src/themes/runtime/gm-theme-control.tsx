@@ -1,21 +1,38 @@
 import { Palette } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { ThemeSummaryDto } from "@cogm/shared";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useGmSettingsStore } from "@/stores/gm-settings-store";
 import { listThemes } from "@/themes/themes-api";
 import { t } from "@/i18n";
 
-export function GmThemeControl() {
-  const [open, setOpen] = useState(false);
+const DEFAULT_THEME = "default";
+
+function GmThemeDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
   const [themes, setThemes] = useState<ThemeSummaryDto[]>([]);
-  const [selection, setSelection] = useState("");
+  const [selection, setSelection] = useState(DEFAULT_THEME);
   const [saving, setSaving] = useState(false);
   const gmThemeId = useGmSettingsStore((state) => state.gmThemeId);
   const error = useGmSettingsStore((state) => state.error);
   const setGmThemeId = useGmSettingsStore((state) => state.setGmThemeId);
 
   useEffect(() => {
-    setSelection(gmThemeId ?? "");
+    setSelection(gmThemeId ?? DEFAULT_THEME);
   }, [gmThemeId]);
 
   useEffect(() => {
@@ -37,55 +54,63 @@ export function GmThemeControl() {
 
   async function apply(): Promise<void> {
     setSaving(true);
-    await setGmThemeId(selection || null);
+    await setGmThemeId(selection === DEFAULT_THEME ? null : selection);
     setSaving(false);
   }
 
   return (
-    <div className="fixed right-4 bottom-4 z-[20000]">
-      {open ? (
-        <div className="mb-2 w-64 rounded-xl border border-neutral-700 bg-neutral-900 p-3 text-neutral-50 shadow-xl">
-          <div className="mb-2 text-sm font-medium">{t("gm.themeControl.title")}</div>
-          <select
-            value={selection}
-            onChange={(event) => setSelection(event.target.value)}
-            className="mb-2 w-full rounded-md border border-neutral-700 bg-neutral-800 px-2 py-1.5 text-sm text-neutral-50"
-          >
-            <option value="">{t("gm.themeControl.default")}</option>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{t("gm.themeControl.title")}</DialogTitle>
+          <DialogDescription>{t("gm.themeControl.description")}</DialogDescription>
+        </DialogHeader>
+        <Select value={selection} onValueChange={setSelection}>
+          <SelectTrigger aria-label={t("gm.themeControl.title")}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={DEFAULT_THEME}>{t("gm.themeControl.default")}</SelectItem>
             {themes.map((theme) => (
-              <option key={theme.id} value={theme.id}>
+              <SelectItem key={theme.id} value={theme.id}>
                 {theme.name} ({theme.version})
-              </option>
+              </SelectItem>
             ))}
-          </select>
-          {error ? <p className="mb-2 text-xs text-red-300">{error}</p> : null}
-          <div className="flex items-center justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              className="rounded-md px-2 py-1 text-xs text-neutral-300 hover:bg-neutral-800"
-            >
-              {t("gm.themeControl.close")}
-            </button>
-            <button
-              type="button"
-              disabled={saving}
-              onClick={() => void apply()}
-              className="rounded-md bg-neutral-50 px-3 py-1 text-xs font-medium text-neutral-900 disabled:opacity-50"
-            >
-              {saving ? t("gm.themeControl.saving") : t("gm.themeControl.apply")}
-            </button>
-          </div>
-        </div>
-      ) : null}
-      <button
+          </SelectContent>
+        </Select>
+        {error ? <p className="text-danger text-label-medium">{error}</p> : null}
+        <DialogFooter>
+          <Button type="button" variant="tertiary" onClick={() => onOpenChange(false)}>
+            {t("gm.themeControl.close")}
+          </Button>
+          <Button type="button" variant="primary" disabled={saving} onClick={() => void apply()}>
+            {saving ? t("gm.themeControl.saving") : t("gm.themeControl.apply")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export function GmThemeControl() {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="fixed right-4 bottom-4 z-[20000]">
+      <Button
         type="button"
+        variant="tertiary"
+        size="icon-sm"
+        className="bg-md-surface-container-high border-white/10 shadow-overlay border"
         aria-label={t("gm.themeControl.aria")}
-        onClick={() => setOpen((value) => !value)}
-        className="flex size-10 items-center justify-center rounded-full border border-neutral-700 bg-neutral-900 text-neutral-50 shadow-lg hover:bg-neutral-800"
+        title={t("gm.themeControl.title")}
+        onClick={() => setOpen(true)}
       >
-        <Palette className="size-4" />
-      </button>
+        <Palette />
+      </Button>
+      <GmThemeDialog open={open} onOpenChange={setOpen} />
     </div>
   );
 }
+
+export { GmThemeDialog };

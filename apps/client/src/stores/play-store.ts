@@ -12,6 +12,8 @@ import {
   type HistoryPage,
   type KickedPlayerDto,
   type OnlinePlayerDto,
+  PortraitLayout,
+  PortraitScale,
   type SceneDto,
   type SePlayedEvent,
   type ServerMessage,
@@ -33,7 +35,7 @@ import { sendSessionCommand } from "@/lib/session-socket";
 import { readLocalMuted, readLocalVolume, writeLocalMuted, writeLocalVolume } from "@/lib/storage";
 import { t } from "@/i18n";
 
-export type ConnectionTerminal = "kicked" | "unavailable" | "replaced";
+export type ConnectionTerminal = "kicked" | "unavailable" | "replaced" | "released";
 
 type PlayState = {
   sessionId: string | null;
@@ -45,6 +47,8 @@ type PlayState = {
   phase: SessionPhase | null;
   lastEventId: number;
   settings: SessionSettings;
+  portraitLayout: PortraitLayout;
+  portraitScale: PortraitScale;
   viewer: { isGm: boolean; seatRole: SeatRole | null };
   characters: SnapshotCharacter[];
   messages: ChatMessage[];
@@ -102,6 +106,8 @@ const empty = {
   phase: null as SessionPhase | null,
   lastEventId: 0,
   settings: SessionSettingsDefaults,
+  portraitLayout: "auto" as PortraitLayout,
+  portraitScale: "md" as PortraitScale,
   viewer: { isGm: false, seatRole: null } as PlayState["viewer"],
   characters: [] as SnapshotCharacter[],
   messages: [] as ChatMessage[],
@@ -246,6 +252,14 @@ function applyEvent(state: PlayState, type: string, payload: unknown, eventId?: 
         },
       };
     }
+    case "stage:layout-changed": {
+      const layout = PortraitLayout.safeParse(payload.layout);
+      const scale = PortraitScale.safeParse(payload.scale);
+      if (!layout.success || !scale.success) {
+        return {};
+      }
+      return { portraitLayout: layout.data, portraitScale: scale.data };
+    }
     case "expression:changed": {
       const characterId = typeof payload.characterId === "string" ? payload.characterId : null;
       const expressionKey = typeof payload.expressionKey === "string" ? payload.expressionKey : null;
@@ -329,6 +343,8 @@ export const usePlayStore = create<PlayState>((set, get) => ({
       phase: payload.session.phase,
       lastEventId: watermark,
       settings: payload.session.settings,
+      portraitLayout: payload.session.portraitLayout ?? "auto",
+      portraitScale: payload.session.portraitScale ?? "md",
       viewer: payload.viewer,
       characters: payload.characters,
       messages: merged,

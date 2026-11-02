@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { toast } from "sonner";
-import { coc7e } from "@cogm/shared";
+import { coc7e, type CharacterDto } from "@cogm/shared";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -30,7 +30,7 @@ export function CreateCharacterDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onCreated?: () => void;
+  onCreated?: (created: CharacterDto) => void;
 }) {
   const [name, setName] = useState("");
   const [kind, setKind] = useState<"pc" | "npc">("pc");
@@ -44,7 +44,7 @@ export function CreateCharacterDialog({
     }
     setPending(true);
     try {
-      await api("/gm/characters", {
+      const created = await api<CharacterDto>("/gm/characters", {
         method: "POST",
         body: JSON.stringify({
           name: trimmed,
@@ -55,7 +55,7 @@ export function CreateCharacterDialog({
       });
       onOpenChange(false);
       setName("");
-      onCreated?.();
+      onCreated?.(created);
     } catch (error) {
       toast.error(errorText(error, "gm.createCharacter.createFailed"));
     } finally {

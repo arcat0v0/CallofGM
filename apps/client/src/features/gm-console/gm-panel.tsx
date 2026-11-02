@@ -1,31 +1,25 @@
 import { cn } from "@/lib/utils";
 import { usePlayStore } from "@/stores/play-store";
-import { t } from "@/i18n";
-import { AudioSection, CharactersSection, HandoutSection, OnlineSection, RulesSection, SessionSettingsSection } from "./gm-panel-controls";
-import { GmHead, PhaseSection, SceneSection, SpeakQueueSection } from "./gm-panel-stage";
+import { AudioMiniCard, CharacterStateCard, PhaseCard, QueueCard } from "./gm-panel-stage";
+import { useGmTool } from "./gm-tool-context";
 
 function GmPanel({ className }: { className?: string }) {
   const ended = usePlayStore((state) => state.status === "ended");
-
+  const { activeTool } = useGmTool();
   return (
-    <div className={cn("bg-md-surface-container-low flex h-full flex-col overflow-y-auto", className)}>
-      <GmHead />
-      {ended ? (
-        <p className="text-warning px-4 pb-2 text-label-small">
-          {t("gm.console.endedLockout")}
-        </p>
-      ) : null}
-      <OnlineSection />
-      <div inert={ended} className={cn(ended && "pointer-events-none opacity-45")}>
-        <PhaseSection />
-        <SessionSettingsSection />
-        <SpeakQueueSection />
-        <SceneSection />
-        <CharactersSection />
-        <AudioSection />
-        <RulesSection />
-        <HandoutSection />
+    <div
+      className={cn(
+        "flex h-full min-h-0 flex-col gap-2 overflow-y-auto 2xl:gap-3",
+        ended && "pointer-events-none opacity-45",
+        className,
+      )}
+    >
+      <PhaseCard />
+      <div className="min-h-20 flex-1">
+        <QueueCard className="h-full" />
       </div>
+      <CharacterStateCard />
+      {activeTool !== "audio" ? <AudioMiniCard /> : null}
     </div>
   );
 }

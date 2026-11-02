@@ -25,7 +25,7 @@ function SelectTrigger({
     <SelectPrimitive.Trigger
       data-slot="select-trigger"
       className={cn(
-        "flex h-12 w-full items-center justify-between gap-2 rounded-t-xs rounded-b-none border-b-2 border-separator bg-field px-4 font-sans text-body-large whitespace-nowrap text-field-foreground outline-none transition-all duration-150 ease-expressive-fast-effects data-placeholder:text-field-placeholder hover:bg-field-hover focus-visible:border-field-border-focus disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-5 [&_svg]:shrink-0 [&_svg]:text-field-placeholder",
+        "flex h-10 w-full items-center justify-between gap-2 rounded-md border border-field-border bg-field px-3.5 font-sans text-body-medium whitespace-nowrap text-field-foreground outline-none transition-[background-color,border-color,box-shadow] duration-200 ease-standard-fast-effects data-placeholder:text-field-placeholder hover:border-field-border-hover hover:bg-field-hover focus-visible:border-field-border-focus focus-visible:ring-4 focus-visible:ring-focus-ring/35 disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-md-on-surface-variant",
         className,
       )}
       {...props}
@@ -50,7 +50,7 @@ function SelectContent({
       <SelectPrimitive.Content
         data-slot="select-content"
         className={cn(
-          "shadow-dropdown relative z-50 max-h-(--radix-select-content-available-height) min-w-36 origin-(--radix-select-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-md bg-md-surface-container-low p-1.5 text-foreground data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 data-closed:duration-200 data-closed:ease-expressive-default-effects data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-open:duration-500 data-open:ease-expressive-default-spatial",
+          "shadow-overlay relative z-50 max-h-(--radix-select-content-available-height) min-w-36 origin-(--radix-select-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-lg border border-md-outline-variant/40 bg-md-surface-container-high p-1.5 text-foreground data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 data-closed:duration-200 data-closed:ease-expressive-default-effects data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-open:duration-300 data-open:ease-expressive-default-spatial",
           position === "popper" &&
             "data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1",
           className,
@@ -94,7 +94,7 @@ function SelectItem({
     <SelectPrimitive.Item
       data-slot="select-item"
       className={cn(
-        "relative flex h-10 w-full cursor-default items-center gap-3 rounded-sm px-3 pr-9 font-sans text-label-large text-foreground transition-colors duration-150 ease-expressive-fast-effects outline-hidden select-none data-checked:bg-md-tertiary-container data-checked:text-md-on-tertiary-container data-disabled:pointer-events-none data-disabled:opacity-50 data-highlighted:bg-foreground/8 [&_svg]:pointer-events-none [&_svg]:size-5 [&_svg]:shrink-0",
+        "relative flex h-9 w-full cursor-default items-center gap-3 rounded-sm px-3 pr-9 font-sans text-label-large text-foreground transition-colors duration-150 ease-standard-fast-effects outline-hidden select-none data-checked:bg-accent-soft data-checked:text-accent-soft-foreground data-disabled:pointer-events-none data-disabled:opacity-50 data-highlighted:bg-md-on-surface/8 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
         className,
       )}
       {...props}

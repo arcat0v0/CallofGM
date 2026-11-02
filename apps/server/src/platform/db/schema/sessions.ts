@@ -14,6 +14,8 @@ export const sessions = sqliteTable("sessions", {
   lastEventId: integer("last_event_id").notNull().default(0),
   sharePcSheets: integer("share_pc_sheets").notNull().default(1),
   obSeePcState: integer("ob_see_pc_state").notNull().default(1),
+  portraitLayout: text("portrait_layout").notNull().default("auto"),
+  portraitScale: text("portrait_scale").notNull().default("md"),
   createdAt: integer("created_at").notNull(),
 });
 

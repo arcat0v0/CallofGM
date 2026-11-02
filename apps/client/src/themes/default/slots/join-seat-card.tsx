@@ -73,7 +73,7 @@ export function JoinSeatCard({ seat, selected, disabled, onSelect, variant, clas
       className={cn(
         "flex w-52 flex-col items-center gap-3 rounded-2xl px-5 pt-5 pb-6 text-center transition-all duration-350 ease-expressive-fast-spatial focus-visible:outline-none",
         seat.claimed
-          ? "cursor-not-allowed bg-md-surface-container-lowest opacity-50"
+          ? "cursor-not-allowed bg-md-surface-container border border-md-outline-variant/40 opacity-65"
           : active
             ? "bg-md-primary-container text-md-on-primary-container shadow-card ring-md-primary cursor-pointer ring-2"
             : "bg-md-surface-container-low hover:bg-md-surface-container focus-visible:ring-md-primary cursor-pointer focus-visible:ring-2",
