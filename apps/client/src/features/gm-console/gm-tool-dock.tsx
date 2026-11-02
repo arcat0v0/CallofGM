@@ -2,8 +2,7 @@ import { Dices, Image as ImageIcon, Music2, ScrollText, Users } from "lucide-rea
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import type { LucideIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { ToolDock, ToolDockButton } from "@/components/shared/tool-dock";
 import { usePlayStore } from "@/stores/play-store";
 import { t } from "@/i18n";
 import { AudioPanel } from "./audio-panel";
@@ -70,33 +69,25 @@ function GmToolDock() {
           )
         : null}
       <div className="relative z-30">
-        <div className="bg-md-surface-container-high/92 border-md-outline-variant/40 shadow-overlay flex items-center gap-1 rounded-full border p-1.5 backdrop-blur-xl">
+        <ToolDock
+          label={t("gm.workbench.tools")}
+          className="bg-md-surface-container-high/92 border-md-outline-variant/40 shadow-overlay border p-1.5"
+        >
           {TOOLS.map((tool) => {
             const active = activeTool === tool.id;
             const label = t(tool.labelKey);
             return (
-              <Button
+              <ToolDockButton
                 key={tool.id}
-                type="button"
-                variant={active ? "primary" : "ghost"}
-                size="sm"
-                aria-label={label}
-                aria-pressed={active}
+                icon={tool.icon}
+                label={label}
+                active={active}
                 disabled={ended}
                 onClick={() => toggleTool(tool.id)}
-                className={cn(
-                  "h-10 gap-2 rounded-full px-3 text-label-medium transition-[background-color,color,border-radius] duration-200 ease-standard-fast-effects",
-                  active
-                    ? "rounded-xl hover:bg-accent-hover"
-                    : "text-md-on-surface-variant hover:bg-md-on-surface/10 hover:text-md-on-surface",
-                )}
-              >
-                <tool.icon className="size-4" />
-                <span>{label}</span>
-              </Button>
+              />
             );
           })}
-        </div>
+        </ToolDock>
       {panel ? (
         <div className="absolute top-[calc(100%_+_12px)] left-1/2 z-30 -translate-x-1/2">
           {panel}

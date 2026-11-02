@@ -35,6 +35,11 @@ export type ChatMessageView = {
   self: boolean;
   continued: boolean;
   showRoleBadge: boolean;
+  hidden?: boolean;
+  outcome?: "success" | "failure";
+  pending?: boolean;
+  rejected?: boolean;
+  rejectionReason?: string | null;
 };
 
 export type JoinSeatView = {
@@ -94,6 +99,7 @@ export type PlayLayoutCtx = {
     stage: ReactNode;
     chat: ReactNode;
     composer: ReactNode;
+    dock?: ReactNode;
     overlays: ReactNode;
     connection: ReactNode;
   };
@@ -102,9 +108,11 @@ export type PlayLayoutCtx = {
     status: SessionStatus | null;
     phase: SessionPhase | null;
     landscapeChatOpen: boolean;
+    chatOpen?: boolean;
   };
   actions: {
     setLandscapeChatOpen: (open: boolean) => void;
+    setChatOpen?: (open: boolean) => void;
   };
 };
 

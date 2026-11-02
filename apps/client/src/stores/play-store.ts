@@ -151,6 +151,20 @@ function appendMessage(messages: ChatMessage[], next: ChatMessage | null): ChatM
   return [...messages, next];
 }
 
+function appendLiveMessage(messages: ChatMessage[], next: ChatMessage | null): ChatMessage[] {
+  if (!next) {
+    return messages;
+  }
+  const index = messages.findIndex((message) => message.id === next.id);
+  if (index === -1) {
+    return [...messages, next];
+  }
+  if (!messages[index]?.pending && !messages[index]?.rejected) {
+    return messages;
+  }
+  return [...messages.filter((message) => message.id !== next.id), next];
+}
+
 function mergeMessages(current: ChatMessage[], incoming: ChatMessage[]): ChatMessage[] {
   if (incoming.length === 0) {
     return current;
@@ -192,7 +206,7 @@ function applyEvent(state: PlayState, type: string, payload: unknown, eventId?: 
       if (!dto?.id) {
         return {};
       }
-      return { messages: appendMessage(state.messages, mapChatMessage(dto)) };
+      return { messages: appendLiveMessage(state.messages, mapChatMessage(dto)) };
     }
     case "dice:rolled":
     case "check:resolved": {
@@ -332,7 +346,20 @@ export const usePlayStore = create<PlayState>((set, get) => ({
   localVolume: readLocalVolume(),
   muted: readLocalMuted(),
   applySnapshot: (payload, watermark) => {
-    const merged = mergeMessages([], mapHistoryItems(payload.recentHistory, payload.characters));
+    const ownPending = (payload.ownPendingMessages ?? []).map((dto) => ({
+      ...mapChatMessage(dto),
+      pending: true,
+    }));
+    const ownRejected = (payload.ownRejectedMessages ?? []).map((dto) => ({
+      ...mapChatMessage(dto),
+      rejected: true,
+      rejectionReason: dto.rejectionReason ?? null,
+    }));
+    const merged = mergeMessages([], [
+      ...mapHistoryItems(payload.recentHistory, payload.characters),
+      ...ownPending,
+      ...ownRejected,
+    ]);
     set({
       sessionId: payload.session.id,
       moduleId: payload.session.moduleId,
@@ -441,6 +468,53 @@ export const usePlayStore = create<PlayState>((set, get) => ({
         lastEventId: Math.max(state.lastEventId, message.eventId),
         ...applyEvent(state, message.type, message.payload, message.eventId, "occurredAt" in message ? message.occurredAt : undefined),
       }));
+      return;
+    }
+    if ("type" in message && message.type === "chat:pending") {
+      const payload = isRecord(message.payload) ? message.payload : {};
+      const dto = payload.message as ChatMessageDto | undefined;
+      if (!dto?.id) {
+        return;
+      }
+      const next: ChatMessage = {
+        ...mapChatMessage(dto),
+        pending: true,
+        rejected: false,
+        rejectionReason: null,
+      };
+      set((state) => {
+        const existing = state.messages.find((item) => item.id === next.id);
+        if (existing && !existing.pending && !existing.rejected) {
+          return {};
+        }
+        return {
+          messages: existing
+            ? state.messages.map((item) => (item.id === next.id ? next : item))
+            : [...state.messages, next],
+        };
+      });
+      return;
+    }
+    if ("type" in message && message.type === "chat:rejected") {
+      const payload = isRecord(message.payload) ? message.payload : {};
+      const messageId = typeof payload.messageId === "string" ? payload.messageId : null;
+      if (!messageId) {
+        return;
+      }
+      const reason =
+        typeof payload.reason === "string" && payload.reason.trim() ? payload.reason.trim() : null;
+      set((state) => ({
+        messages: state.messages.map((item) =>
+          item.id === messageId
+            ? { ...item, pending: false, rejected: true, rejectionReason: reason }
+            : item
+        ),
+      }));
+      toast.warning(
+        reason
+          ? t("chat.rejectionToastWithReason", { reason })
+          : t("chat.rejectionToast")
+      );
       return;
     }
     if ("type" in message && message.type === "chat:queue") {

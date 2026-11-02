@@ -1,8 +1,9 @@
-import { canPlayerInitiateDiceRoll, decideChatMessage } from "@cogm/shared";
-import { Dices, Eye, VenetianMask } from "lucide-react";
+import { decideChatMessage } from "@cogm/shared";
+import { Eye, Send, VenetianMask } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -10,10 +11,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { InputGroup, InputGroupInput } from "@/components/ui/input-group";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { MessageInput } from "@/features/chat/message-input";
 import { type MessageMode, MessageModeSwitch } from "@/features/chat/message-mode-switch";
-import { DiceTray } from "@/features/session-live/dice-tray";
 import { expressionLabel, initialsOf, phaseChatHint } from "@/lib/format";
 import { mediaUrl } from "@/lib/api";
 import { sendSessionCommand } from "@/lib/session-socket";
@@ -70,7 +70,7 @@ function Composer({ compact = false, className }: { compact?: boolean; className
   const messageForbidden =
     phase !== null && decideChatMessage(phase, "player", seatRole, effectiveMode === "ooc" ? "ooc" : "roleplay").kind === "forbidden";
   const chatDisabled = ended || messageForbidden;
-  const diceDisabled = ended || phase === null || !canPlayerInitiateDiceRoll(phase, "player", seatRole);
+  const showExpression = effectiveMode === "roleplay" && canExpress;
 
   useEffect(() => {
     if (discussion) setMode("ooc");
@@ -111,101 +111,151 @@ function Composer({ compact = false, className }: { compact?: boolean; className
         ? t("chat.hint.spectator")
         : phaseChatHint(phase);
 
+  const placeholder = ended
+    ? t("chat.endedPlaceholder")
+    : chatDisabled
+      ? t("chat.disabledPlaceholder")
+      : t("chat.placeholder");
+
   return (
-    <div
-      className={cn(
-        "bg-md-surface-container flex flex-col",
-        compact ? "gap-1.5 px-3 pt-2 pb-2.5" : "gap-2.5 px-4 pt-3 pb-3.5",
-        className,
-      )}
+    <form
+      className={cn("shrink-0", compact ? "px-3 pb-2.5" : "px-3.5 pb-3.5", className)}
+      onSubmit={(event) => {
+        event.preventDefault();
+        handleSend();
+      }}
     >
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-2 px-1">
-          <Avatar size="sm" className="bg-default">
-            <AvatarFallback className="text-foreground font-sans text-label-medium">{initialsOf(speakerName)}</AvatarFallback>
-          </Avatar>
-          <span className="text-foreground truncate font-sans text-label-large">{speakerName}</span>
-        </div>
-        <div className="flex shrink-0 items-center gap-1">
-          {compact ? (
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  type="button"
-                  variant="tertiary"
-                  size="icon-sm"
-                  aria-label={t("chat.diceAria")}
-                  disabled={diceDisabled}
-                >
-                  <Dices />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent side="top" align="end" className="w-[min(316px,calc(100vw-24px))] p-3">
-                <DiceTray characterId={claimed?.characterId} disabled={diceDisabled} />
-              </PopoverContent>
-            </Popover>
-          ) : null}
-          {performance ? null : (
-            <MessageModeSwitch value={effectiveMode} onValueChange={setMode} roleplayDisabled={discussion} />
+      <div
+        className={cn(
+          "border border-md-outline-variant/40 bg-md-surface-container/70 flex flex-col rounded-xl",
+          compact ? "gap-2 p-2.5" : "gap-2.5 p-3",
+        )}
+      >
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-1.5">
+            <Avatar size="sm" className={cn("shrink-0", compact ? "size-6" : "size-7")}>
+              <AvatarFallback
+                className={cn(
+                  "text-foreground font-sans",
+                  compact ? "text-label-small" : "text-label-small",
+                )}
+              >
+                {initialsOf(speakerName)}
+              </AvatarFallback>
+            </Avatar>
+            <span className="text-foreground min-w-0 truncate font-sans text-label-medium">
+              {speakerName}
+            </span>
+            {showExpression ? (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="xs"
+                    aria-label={t("chat.expression")}
+                    title={t("chat.expression")}
+                    className="text-md-on-surface-variant h-6 shrink-0 gap-1 rounded-full px-2 text-label-small"
+                  >
+                    <VenetianMask className="size-3.5" />
+                    {expressionLabel(expression)}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="start" side="top" className="w-72 p-3">
+                  <div className="grid grid-cols-3 gap-2">
+                    {expressionOptions.map((tile) => {
+                      const isActive = tile.key === expression;
+                      return (
+                        <button
+                          key={tile.key}
+                          type="button"
+                          aria-pressed={isActive}
+                          onClick={() => setExpression(tile.key)}
+                          className={cn(
+                            "flex flex-col items-center gap-1 rounded-lg p-1.5 outline-none transition-colors duration-150 ease-standard-fast-effects focus-visible:ring-4 focus-visible:ring-focus-ring/50",
+                            isActive
+                              ? "bg-accent-soft text-accent-soft-foreground"
+                              : "text-md-on-surface-variant hover:bg-md-on-surface/8",
+                          )}
+                        >
+                          {tile.src ? (
+                            <img src={tile.src} alt="" className="h-16 w-full object-contain" />
+                          ) : (
+                            <span className="bg-default h-16 w-full rounded-md" />
+                          )}
+                          <span className="text-label-small">{tile.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="xs"
+                    className="text-md-on-surface-variant mt-2 h-8 w-full gap-1.5 text-label-small"
+                    onClick={() => setPreviewOpen(true)}
+                  >
+                    <Eye className="size-3.5" />
+                    {t("chat.previewPortrait")}
+                  </Button>
+                </PopoverContent>
+              </Popover>
+            ) : null}
+          </div>
+          {performance || discussion || ended || phase === "forced_cg" ? (
+            <Badge variant="soft" tone="default" size="sm" className="shrink-0">
+              {ended
+                ? t("status.ended")
+                : discussion
+                  ? t("chat.ooc")
+                  : performance
+                    ? t("chat.roleplay")
+                    : t("phase.forced_cg")}
+            </Badge>
+          ) : (
+            <div className="shrink-0">
+              <MessageModeSwitch value={effectiveMode} onValueChange={setMode} />
+            </div>
           )}
         </div>
-      </div>
 
-      {effectiveMode === "roleplay" && canExpress && (
-        <div className="flex flex-col gap-1.5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5">
-              <VenetianMask className="text-accent-hover size-[13px]" />
-              <span className="text-foreground-secondary font-sans text-label-small">{t("chat.expression")}</span>
-            </div>
-            <Button type="button" variant="tertiary" size="icon-sm" aria-label={t("chat.previewPortrait")} onClick={() => setPreviewOpen(true)}>
-              <Eye />
-            </Button>
-          </div>
-          <div className="bg-md-surface-container-high flex rounded-full p-0.5">
-            {expressionOptions.map((tile) => {
-              const isActive = tile.key === expression;
-              return (
-                <button
-                  key={tile.key}
-                  type="button"
-                  onClick={() => setExpression(tile.key)}
-                  aria-pressed={isActive}
-                  className={cn(
-                    "h-7 flex-1 rounded-full px-2 transition-all duration-350 ease-expressive-fast-spatial",
-                    isActive
-                      ? "bg-md-secondary-container text-md-on-secondary-container text-label-medium-emph"
-                      : "text-label-medium text-md-on-surface-variant hover:bg-md-surface-container-highest",
-                  )}
-                >
-                  {tile.label}
-                </button>
-              );
-            })}
-          </div>
+        <div className="flex items-center gap-1.5">
+          <InputGroup
+            className={cn(
+              "border-md-outline-variant/40 bg-md-surface-container-high/55 flex-1 rounded-full px-3.5",
+              compact ? "h-9" : "h-10",
+            )}
+          >
+            <InputGroupInput
+              placeholder={placeholder}
+              aria-label={placeholder}
+              className="text-body-medium"
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              disabled={chatDisabled}
+            />
+          </InputGroup>
+          <Button
+            type="submit"
+            variant="primary"
+            size="icon-sm"
+            aria-label={t("chat.send")}
+            disabled={chatDisabled || draft.trim().length === 0}
+            className={cn("shrink-0", compact ? "size-9" : "size-10")}
+          >
+            <Send className="size-4" />
+          </Button>
         </div>
-      )}
 
-      {compact ? null : <DiceTray characterId={claimed?.characterId} disabled={diceDisabled} />}
-
-      <MessageInput
-        compact={compact}
-        placeholder={
-          ended
-            ? t("chat.endedPlaceholder")
-            : chatDisabled
-              ? t("chat.disabledPlaceholder")
-              : t("chat.placeholder")
-        }
-        value={draft}
-        onChange={setDraft}
-        onSubmit={handleSend}
-        disabled={chatDisabled}
-      />
-
-      <p className={cn("font-sans text-label-small", discussion ? "text-accent" : "text-foreground-tertiary")}>
-        {hint}
-      </p>
+        <p
+          className={cn(
+            "px-1 text-label-small",
+            discussion ? "text-accent" : "text-md-on-surface-variant/70",
+          )}
+        >
+          {hint}
+        </p>
+      </div>
 
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
         <DialogContent className="max-w-md">
@@ -214,15 +264,25 @@ function Composer({ compact = false, className }: { compact?: boolean; className
           </DialogHeader>
           <div className="grid grid-cols-2 gap-3">
             {expressionOptions.map((tile) => (
-              <button key={tile.key} type="button" className="flex flex-col gap-1" onClick={() => setExpression(tile.key)}>
-                {tile.src ? <img src={tile.src} alt={tile.label} className="h-40 w-full object-contain" /> : <div className="bg-default h-40" />}
+              <button
+                key={tile.key}
+                type="button"
+                aria-pressed={tile.key === expression}
+                className="flex flex-col gap-1"
+                onClick={() => setExpression(tile.key)}
+              >
+                {tile.src ? (
+                  <img src={tile.src} alt={tile.label} className="h-40 w-full object-contain" />
+                ) : (
+                  <div className="bg-default h-40" />
+                )}
                 <span className="text-center text-label-medium">{tile.label}</span>
               </button>
             ))}
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </form>
   );
 }
 

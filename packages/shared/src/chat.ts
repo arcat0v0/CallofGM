@@ -17,6 +17,7 @@ export type ReleaseChatMessageCommand = z.infer<typeof ReleaseChatMessageCommand
 
 export const DiscardChatMessageCommand = z.object({
   messageId: z.string().min(1),
+  reason: z.string().trim().max(500).optional(),
 });
 export type DiscardChatMessageCommand = z.infer<typeof DiscardChatMessageCommand>;
 
@@ -49,8 +50,22 @@ export const ChatMessageDto = z.object({
   eventId: z.number().int().nullable(),
   presentedAt: z.number().int().nullable(),
   createdAt: z.number().int(),
+  rejectionReason: z.string().nullable().optional(),
 });
 export type ChatMessageDto = z.infer<typeof ChatMessageDto>;
+
+/** DirectControlMessage: chat:pending（仅发送给消息作者） */
+export const ChatPendingMessage = z.object({
+  message: ChatMessageDto,
+});
+export type ChatPendingMessage = z.infer<typeof ChatPendingMessage>;
+
+/** DirectControlMessage: chat:rejected（仅发送给消息作者） */
+export const ChatRejectedMessage = z.object({
+  messageId: z.string(),
+  reason: z.string().nullable(),
+});
+export type ChatRejectedMessage = z.infer<typeof ChatRejectedMessage>;
 
 /** Event payload: chat:message（已呈现的消息，分配 eventId 后广播） */
 export const ChatMessageEvent = z.object({

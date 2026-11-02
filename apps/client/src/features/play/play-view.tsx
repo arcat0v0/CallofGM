@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { LoadingIndicator } from "@/components/ui/loading-indicator";
 import { ConnectionBanner } from "@/features/play/connection-banner";
 import { PlayOverlays } from "@/features/play/play-overlays";
+import { PlayerActionDock } from "@/features/play/player-action-dock";
 import { usePlayViewport } from "@/features/play/use-play-viewport";
 import { useSessionTheme } from "@/features/play/use-session-theme";
 import { Composer } from "@/features/play/composer";
@@ -16,6 +17,7 @@ import { mediaUrl } from "@/lib/api";
 import { useSessionConnection } from "@/lib/use-session-connection";
 import { readRotateSuggestionDismissed, writeRotateSuggestionDismissed } from "@/lib/storage";
 import { useIdentityStore } from "@/stores/identity-store";
+import { usePlayDisplayStore } from "@/stores/play-display-store";
 import { usePlayStore } from "@/stores/play-store";
 import { ThemeScope } from "@/themes/runtime/theme-scope";
 import { ThemeSlot } from "@/themes/runtime/theme-slot";
@@ -90,6 +92,11 @@ function buildChatMessages(
         !isSystemMessage(previous) &&
         previous.speakerName === message.speakerName,
       showRoleBadge: true,
+      hidden: message.hidden,
+      outcome: message.outcome,
+      pending: message.pending,
+      rejected: message.rejected,
+      rejectionReason: message.rejectionReason,
     };
   });
 }
@@ -129,8 +136,9 @@ function PlaySession({ sessionId }: { sessionId: string }) {
   const playerId = useIdentityStore((state) => state.playerId);
   const snapshotReady = usePlayStore((state) => state.snapshotReady);
   const storeSessionId = usePlayStore((state) => state.sessionId);
+  const display = usePlayDisplayStore((state) => state.settings);
+  const setDisplayVisible = usePlayDisplayStore((state) => state.setVisible);
   const [showRotateSuggestion, setShowRotateSuggestion] = useState(() => !readRotateSuggestionDismissed());
-  const [landscapeChatOpen, setLandscapeChatOpen] = useState(true);
   const [endDialogOpen, setEndDialogOpen] = useState(false);
 
   const claimed = characters.find((character) => character.claim?.playerId === playerId && character.claim.role === "pc");
@@ -158,26 +166,30 @@ function PlaySession({ sessionId }: { sessionId: string }) {
           onDismissRotate={() => undefined}
           endDialogOpen={endDialogOpen}
           onEndDialogChange={setEndDialogOpen}
+          handoutPromptEnabled={display.handoutPrompt}
         />
       </main>
     );
   }
 
-  const sceneInfo = <ThemeSlot name="play.scene-info" ctx={{ variant: viewport }} />;
+  const sceneInfo = display.sceneInfo ? (
+    <ThemeSlot name="play.scene-info" ctx={{ variant: viewport }} />
+  ) : null;
   const portrait = (
     <PortraitLayer
       compact={viewport !== "desktop"}
+      showNameplate={display.characterStatus}
       className={
         viewport === "portrait"
-          ? "top-[78px] bottom-[88px]"
+          ? "top-[64px] bottom-2"
           : viewport === "landscape"
-            ? "top-[44px] bottom-[96px]"
+            ? "top-[44px] bottom-[88px]"
             : undefined
       }
     />
   );
-  const audio = <SceneAudioControl variant={viewport} />;
-  const dialogue = latest ? (
+  const audio = display.audio ? <SceneAudioControl variant={viewport} /> : null;
+  const dialogue = latest && display.dialogue ? (
     <ThemeSlot
       key={latest.id}
       name="play.dialogue"
@@ -217,7 +229,7 @@ function PlaySession({ sessionId }: { sessionId: string }) {
         compact: viewport !== "desktop",
         messages: buildChatMessages(messages, selfName),
         selfName,
-        onCollapse: viewport === "landscape" ? () => setLandscapeChatOpen(false) : undefined,
+        onCollapse: viewport === "portrait" ? undefined : () => setDisplayVisible("chat", false),
       }}
     />
   );
@@ -233,6 +245,7 @@ function PlaySession({ sessionId }: { sessionId: string }) {
               stage,
               chat,
               composer: <Composer compact={viewport !== "desktop"} />,
+              dock: <PlayerActionDock variant={viewport} />,
               overlays: (
                 <PlayOverlays
                   sessionId={sessionId}
@@ -244,6 +257,7 @@ function PlaySession({ sessionId }: { sessionId: string }) {
                   }}
                   endDialogOpen={endDialogOpen}
                   onEndDialogChange={setEndDialogOpen}
+                  handoutPromptEnabled={display.handoutPrompt}
                 />
               ),
               connection: <ConnectionBanner />,
@@ -252,10 +266,12 @@ function PlaySession({ sessionId }: { sessionId: string }) {
               sessionId,
               status,
               phase,
-              landscapeChatOpen,
+              landscapeChatOpen: display.chat,
+              chatOpen: display.chat,
             },
             actions: {
-              setLandscapeChatOpen,
+              setLandscapeChatOpen: (open) => setDisplayVisible("chat", open),
+              setChatOpen: (open) => setDisplayVisible("chat", open),
             },
           }}
         />

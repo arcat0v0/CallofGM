@@ -31,6 +31,7 @@ export function toMessageDto(row: SessionMessageRow, nameMap: Map<string, string
     eventId: row.eventId ?? null,
     presentedAt: row.presentedAt ?? null,
     createdAt: row.createdAt,
+    rejectionReason: row.rejectionReason ?? null,
   };
 }
 

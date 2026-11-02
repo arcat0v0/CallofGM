@@ -3,9 +3,10 @@ import { useNavigate } from "@tanstack/react-router";
 import { LogOut } from "lucide-react";
 import { toast } from "sonner";
 import type { PlayViewport } from "@cogm/theme-sdk";
-import { Badge } from "@/components/ui/badge";
 import { SegmentedControl } from "@/components/shared/segmented-control";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { filterChatMessages, type ChatChannel } from "@/features/chat/channel-filter";
+import { ChatEmptyState } from "@/features/chat/chat-empty-state";
 import { ChatPanelHeader } from "@/features/chat/chat-panel-header";
 import { MessageList, type MessageMeta } from "@/features/chat/message-list";
 import type { ChatMessage } from "@/features/chat/types";
@@ -16,8 +17,6 @@ import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { usePlayStore } from "@/stores/play-store";
 import { useIdentityStore } from "@/stores/identity-store";
-
-type ChatChannel = "all" | "ic" | "ooc";
 
 const CHANNEL_OPTIONS = [
   { value: "all", label: "chat.all" },
@@ -62,15 +61,7 @@ function PlayerChatPanel({
     }
   }
 
-  const visible = useMemo(() => {
-    if (channel === "ic") {
-      return messages.filter((message) => message.tone !== "ooc");
-    }
-    if (channel === "ooc") {
-      return messages.filter((message) => message.tone === "ooc");
-    }
-    return messages;
-  }, [channel, messages]);
+  const visible = useMemo(() => filterChatMessages(messages, channel), [channel, messages]);
 
   function renderMessage(message: ChatMessage, meta: MessageMeta) {
     return (
@@ -92,6 +83,11 @@ function PlayerChatPanel({
             self: meta.self,
             continued: meta.continued,
             showRoleBadge: true,
+            hidden: message.hidden,
+            outcome: message.outcome,
+            pending: message.pending,
+            rejected: message.rejected,
+            rejectionReason: message.rejectionReason,
           },
         }}
       />
@@ -102,34 +98,37 @@ function PlayerChatPanel({
     <div className={cn("flex min-h-0 flex-1 flex-col", className)}>
       <ChatPanelHeader
         compact={compact}
-        onCollapse={variant === "landscape" ? onCollapse : undefined}
+        onCollapse={onCollapse}
         onLeaveSeat={() => setLeaveOpen(true)}
       >
-        <div className={cn("flex items-center justify-between", variant === "desktop" ? "px-4 pb-2.5" : "px-3 py-2")}>
-          <SegmentedControl
-            value={channel}
-            options={CHANNEL_OPTIONS.map((option) => ({ value: option.value, label: t(option.label) }))}
-            onValueChange={setChannel}
-            aria-label={t("chat.channelAria")}
-          />
-          {variant === "portrait" && (
-            <Badge variant="soft" tone="accent" size="md" className="h-6 px-2.5 text-label-small">
-              {t("chat.rotateHint")}
-            </Badge>
-          )}
-        </div>
+        <SegmentedControl
+          value={channel}
+          options={CHANNEL_OPTIONS.map((option) => ({ value: option.value, label: t(option.label) }))}
+          onValueChange={setChannel}
+          aria-label={t("chat.channelAria")}
+          className="bg-md-surface-container-high/55 w-full p-0.5"
+          itemClassName="h-7 px-3 text-label-small"
+        />
       </ChatPanelHeader>
 
-      <MessageList
-        messages={visible}
-        selfName={selfName}
-        onLoadOlder={loadOlderHistory}
-        hasOlderHistory={historyHasMore}
-        loadingOlder={historyLoading}
-        olderLoads={historyPagesLoaded}
-        renderMessage={renderMessage}
-        className={cn("min-h-0 flex-1 overflow-y-auto", variant === "desktop" ? "px-4 py-1.5" : "px-3 py-2")}
-      />
+      {visible.length === 0 && !historyHasMore ? (
+        <ChatEmptyState
+          title={t("chat.emptyTitle")}
+          description={t("chat.emptyDescription")}
+        />
+      ) : (
+        <MessageList
+          messages={visible}
+          selfName={selfName}
+          onLoadOlder={loadOlderHistory}
+          hasOlderHistory={historyHasMore}
+          loadingOlder={historyLoading}
+          olderLoads={historyPagesLoaded}
+          renderMessage={renderMessage}
+          stickToBottom
+          className="min-h-0 flex-1 overflow-y-auto px-3.5 py-2"
+        />
+      )}
 
       <ConfirmDialog
         open={leaveOpen}

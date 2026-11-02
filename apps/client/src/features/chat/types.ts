@@ -12,6 +12,9 @@ type ChatMessage = {
   isSystem?: boolean;
   hidden?: boolean;
   outcome?: "success" | "failure";
+  pending?: boolean;
+  rejected?: boolean;
+  rejectionReason?: string | null;
 };
 
 export type { ChatMessage };

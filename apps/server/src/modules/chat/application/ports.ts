@@ -13,6 +13,7 @@ export interface MessageRow {
   expressionKey: string | null;
   eventId: number | null;
   presentedAt: number | null;
+  rejectionReason: string | null;
   createdAt: number;
 }
 
@@ -29,6 +30,7 @@ export interface NewMessageRow {
   expressionKey: string | null;
   eventId: number | null;
   presentedAt: number | null;
+  rejectionReason?: string | null;
   createdAt: number;
 }
 
@@ -39,7 +41,7 @@ export interface ChatRepository {
   listPending(sessionId: string): Promise<MessageRow[]>;
   listDiscarded(sessionId: string): Promise<MessageRow[]>;
   markPresentedIfPending(id: string, presentedAt: number): Promise<boolean>;
-  markDiscardedIfPending(id: string): Promise<boolean>;
+  markDiscardedIfPending(id: string, reason: string | null): Promise<boolean>;
   markPendingIfDiscarded(id: string, queueOrder: number): Promise<boolean>;
   assignEventId(id: string, eventId: number): Promise<void>;
   reorderPending(sessionId: string, orderedIds: string[]): Promise<void>;

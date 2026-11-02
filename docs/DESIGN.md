@@ -108,11 +108,17 @@
 
 ### 玩家沉浸视图 `/play/$sessionId`
 
-- 舞台保持全屏背景图 + 立绘，顶部/底部 scrim 渐变保留。
-- 场景信息（左上）：场景名升级为 `text-headline-medium-emph font-serif`，状态/阶段 chip 用 tonal badge。
-- **对话框重做**：悬浮大卡 `rounded-2xl`（surface-container-high/95），说话人名牌为半悬浮 pill（`-mt-5`，`bg-md-primary-container text-md-on-primary-container`，serif emphasized），正文 `text-body-large`；新消息 `animate-in fade-in slide-in-from-bottom-2 duration-350 ease-expressive-fast-spatial`。
-- 聊天面板：无边线，改为 `bg-md-surface-container-low` 容器；消息**气泡化**——本人/己方 `bg-md-primary-container text-md-on-primary-container`，他人 `bg-md-surface-container-high`，系统消息居中 `text-label-medium` 无气泡；气泡 `rounded-2xl`、连续同人消息收紧间距。
-- 骰盘/作曲器：预设与快捷骰用连接 button group 形态；工具按钮 icon button tonal。
+与 GM 控制台共享“浮岛”语言：场景全屏铺满，交互层以悬浮卡片叠在画面之上，玩家侧只保留聊天与必要操作。
+
+- **舞台**：全屏背景图 + 立绘，顶部/底部 scrim 渐变保留；场景信息在左上，场景名 `text-headline-small-emph font-serif`，状态/阶段 chip 用 tonal badge，外层为小号浮岛卡（`bg-md-surface-container-low/72` + blur）。
+- **顶部工具坞**：画面顶部居中，形制与 GM 控制台一致；桌面端显示图标 + 文案（窄视口自动收为纯图标），提供掷骰/鉴定、人物卡、情报、在线玩家四个入口。点击展开浮层或对话框，不占用聊天侧栏。
+- **对话框**：底部居中的悬浮卡（最大 860px），说话人名牌为半悬浮 pill（`-top-4`，`bg-md-primary-container`，serif emphasized），正文 `text-body-large`；新消息 `animate-in fade-in slide-in-from-bottom-2 duration-350 ease-expressive-fast-spatial`。
+- **聊天浮岛**：右侧悬浮 `rounded-xl` 面板（`bg-md-surface-container-low/92` + blur + border），宽度随视口 344–400px，可收起；结构为标题 + 频道筛选 + 消息流 + 作曲器，不再内嵌骰盘。
+- **消息**：本人/己方 `bg-md-primary-container`，他人 `bg-md-surface-container-high/70`，系统骰点/鉴定记录为带骰子图标的独立小卡（`rounded-xl`，失败/成功用左侧 2px 状态色），气泡 `rounded-2xl`、连续同人消息收紧间距。
+- **审查状态**：玩家发言进入待呈现队列时，作者侧立即显示「待审查」与放行提示；主持人拒绝时可填写理由，玩家侧保留原发言并显示「未通过」与拒绝理由。
+- **作曲器**：说话人 + 发言模式/表情（表情经浮层选择）+ 单行输入；骰盘、人物卡、情报、在线列表均以浮层/对话框展开。
+- **界面显示**：工具坞的「界面显示」浮层可逐项隐藏场景信息、音乐播放器、人物状态卡、对话框与情报提示；设置仅保存在本机。
+- **竖屏/横屏**：舞台与聊天改为上下叠放（竖屏）或左右浮岛（横屏），操作坞并入聊天面板，避免遮挡立绘。
 
 ### GM 后台 `/gm/*`（参考 m3.material.io 官网版式）
 

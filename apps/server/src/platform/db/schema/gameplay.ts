@@ -17,6 +17,7 @@ export const sessionMessages = sqliteTable("session_messages", {
   expressionKey: text("expression_key"),
   eventId: integer("event_id"),
   presentedAt: integer("presented_at"),
+  rejectionReason: text("rejection_reason"),
   createdAt: integer("created_at").notNull(),
 });
 

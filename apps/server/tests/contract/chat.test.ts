@@ -194,29 +194,70 @@ describe("Chat contract tests", () => {
     await closeAll(gm, pc, ob);
   });
 
-  test("丢弃：玩家无通知，队列与数据库状态正确", async () => {
+  test("拒绝：作者收到拒绝理由，队列与数据库状态正确", async () => {
     await setSessionPhase(ctx, "performance_time");
     const { gm, pc, ob } = await openAll();
 
-    sendCommand(pc, "chat:send", { channel: "roleplay", content: "将被丢弃" }, "c-dis-1");
+    sendCommand(pc, "chat:send", { channel: "roleplay", content: "将被拒绝" }, "c-dis-1");
     const queueMsg = await gm.waitFor(
-      (m) => m.type === "chat:queue" && m.payload.messages.some((msg: any) => msg.content === "将被丢弃")
+      (m) => m.type === "chat:queue" && m.payload.messages.some((msg: any) => msg.content === "将被拒绝")
     );
-    const target = queueMsg.payload.messages.find((msg: any) => msg.content === "将被丢弃");
+    const target = queueMsg.payload.messages.find((msg: any) => msg.content === "将被拒绝");
 
-    sendCommand(gm, "chat:discard", { messageId: target.id }, "c-dis-r");
+    sendCommand(
+      gm,
+      "chat:discard",
+      { messageId: target.id, reason: "与当前场景不符" },
+      "c-dis-r"
+    );
     await gm.waitFor((m) => m.commandId === "c-dis-r" && m.type === "command:accepted");
-    await gm.waitFor((m) => m.type === "chat:queue" && !m.payload.messages.some((msg: any) => msg.content === "将被丢弃"));
+    await gm.waitFor((m) => m.type === "chat:queue" && !m.payload.messages.some((msg: any) => msg.content === "将被拒绝"));
+
+    const rejected = await pc.waitFor(
+      (m) => m.type === "chat:rejected" && m.payload.messageId === target.id
+    );
+    expect(rejected.payload.reason).toBe("与当前场景不符");
 
     await new Promise((r) => setTimeout(r, 200));
-    expect(pc.messages.some((m) => m.type === "chat:message" && m.payload.message.content === "将被丢弃")).toBe(false);
-    expect(ob.messages.some((m) => m.type === "chat:message" && m.payload.message.content === "将被丢弃")).toBe(false);
+    expect(pc.messages.some((m) => m.type === "chat:message" && m.payload.message.content === "将被拒绝")).toBe(false);
+    expect(ob.messages.some((m) => m.type === "chat:message" && m.payload.message.content === "将被拒绝")).toBe(false);
 
     const rows = await ctx.container.db
       .select()
       .from(sessionMessages)
       .where(and(eq(sessionMessages.id, target.id), eq(sessionMessages.status, "discarded")));
     expect(rows.length).toBe(1);
+    expect(rows[0]?.rejectionReason).toBe("与当前场景不符");
+
+    const rejectedSnapshotWs = await connectWs(wsUrl(), ctx.playerTokens.get("pc1")!);
+    const rejectedSnapshot = await rejectedSnapshotWs.waitFor((m) => m.type === "snapshot");
+    expect(
+      (rejectedSnapshot.payload.ownRejectedMessages ?? []).some(
+        (msg: any) => msg.id === target.id && msg.rejectionReason === "与当前场景不符"
+      )
+    ).toBe(true);
+    await closeWs(rejectedSnapshotWs);
+
+    await closeAll(gm, pc, ob);
+  });
+
+  test("待审查：作者收到 chat:pending，队列仍只发给 GM", async () => {
+    await setSessionPhase(ctx, "performance_time");
+    const { gm, pc, ob } = await openAll();
+
+    sendCommand(pc, "chat:send", { channel: "roleplay", content: "等待审查的发言" }, "c-pending-1");
+    const pending = await pc.waitFor(
+      (m) => m.type === "chat:pending" && m.payload.message.content === "等待审查的发言"
+    );
+    expect(pending.payload.message.id).toBeTruthy();
+    expect(pending.payload.message.rejectionReason).toBeNull();
+
+    const queue = await gm.waitFor(
+      (m) => m.type === "chat:queue" && m.payload.messages.some((msg: any) => msg.content === "等待审查的发言")
+    );
+    expect(queue.payload.messages.some((msg: any) => msg.content === "等待审查的发言")).toBe(true);
+    await new Promise((r) => setTimeout(r, 200));
+    expect(ob.messages.some((m) => m.type === "chat:pending")).toBe(false);
 
     await closeAll(gm, pc, ob);
   });
@@ -240,6 +281,11 @@ describe("Chat contract tests", () => {
     expect(
       pcSnapshot.payload.recentHistory.some((item: any) => item.kind === "chat" && item.message.content === "快照中的pending")
     ).toBe(false);
+    expect(
+      (pcSnapshot.payload.ownPendingMessages ?? []).some(
+        (msg: any) => msg.content === "快照中的pending"
+      )
+    ).toBe(true);
 
     await closeAll(gm2, pc2);
   });

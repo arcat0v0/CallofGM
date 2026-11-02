@@ -4,6 +4,7 @@ import { useParams } from "@tanstack/react-router";
 import { toast } from "sonner";
 import {
   ArrowUpRight,
+  Ban,
   Check,
   ChevronRight,
   ChevronUp,
@@ -18,7 +19,6 @@ import {
   Play,
   Speech,
   Theater,
-  Trash2,
   Volume2,
   X,
 } from "lucide-react";
@@ -26,8 +26,16 @@ import type { LucideIcon } from "lucide-react";
 import type { ChatMessageDto, SessionPhase } from "@cogm/shared";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Slider } from "@/components/ui/slider";
+import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/lib/api";
 import { speakerInitialsOf, speakerNameOf, speakerRoleLabelOf } from "@/lib/chat-map";
 import { errorText } from "@/lib/errors";
@@ -172,6 +180,8 @@ function QueueRow({
 }) {
   const name = speakerNameOf(item);
   const context = queueContext(item);
+  const [rejectOpen, setRejectOpen] = useState(false);
+  const [reason, setReason] = useState("");
 
   function onGripKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
     if (!event.altKey) {
@@ -273,11 +283,58 @@ function QueueRow({
           disabled={disabled}
           aria-label={t("gm.console.queueDiscardAria", { name })}
           title={t("gm.workbench.discardLine")}
-          onClick={() => sendSessionCommand("chat:discard", { messageId: item.id })}
+          onClick={() => {
+            setReason("");
+            setRejectOpen(true);
+          }}
         >
-          <Trash2 className="size-4" />
+          <Ban className="size-4" />
         </Button>
       </div>
+      <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{t("gm.console.rejectTitle")}</DialogTitle>
+            <DialogDescription>{t("gm.console.rejectDescription")}</DialogDescription>
+          </DialogHeader>
+          <div className="bg-md-surface-container-high flex flex-col gap-1 rounded-lg px-3 py-2">
+            <span className="text-md-on-surface-variant text-label-small">{name}</span>
+            <p className="text-md-on-surface text-body-medium whitespace-pre-wrap break-words">
+              {item.content}
+            </p>
+          </div>
+          <Textarea
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+            placeholder={t("gm.console.rejectReasonPlaceholder")}
+            aria-label={t("gm.console.rejectReasonPlaceholder")}
+            rows={3}
+            maxLength={500}
+          />
+          <div className="flex items-center justify-end gap-2">
+            <Button type="button" variant="outline" onClick={() => setRejectOpen(false)}>
+              {t("common.cancel")}
+            </Button>
+            <Button
+              type="button"
+              variant="danger"
+              onClick={() => {
+                const sent = sendSessionCommand("chat:discard", {
+                  messageId: item.id,
+                  ...(reason.trim() ? { reason: reason.trim() } : {}),
+                });
+                if (!sent) {
+                  toast.error(t("chat.notConnected"));
+                  return;
+                }
+                setRejectOpen(false);
+              }}
+            >
+              {t("gm.console.rejectConfirm")}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -391,20 +448,27 @@ function QueueCard({ className }: { className?: string }) {
             </button>
             {showDiscarded
               ? discarded.map((item) => (
-                  <div key={item.id} className="flex items-center gap-1.5">
-                    <span className="text-md-on-surface-variant min-w-0 flex-1 truncate text-label-small">
-                      {speakerNameOf(item)} · {item.content}
-                    </span>
-                    <Button
-                      type="button"
-                      variant="accentSoft"
-                      size="xs"
-                      className="h-7 px-2 text-label-small"
-                      disabled={ended}
-                      onClick={() => sendSessionCommand("chat:restore", { messageId: item.id })}
-                    >
-                      {t("gm.console.restore")}
-                    </Button>
+                  <div key={item.id} className="flex flex-col gap-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-md-on-surface-variant min-w-0 flex-1 truncate text-label-small">
+                        {speakerNameOf(item)} · {item.content}
+                      </span>
+                      <Button
+                        type="button"
+                        variant="accentSoft"
+                        size="xs"
+                        className="h-7 px-2 text-label-small"
+                        disabled={ended}
+                        onClick={() => sendSessionCommand("chat:restore", { messageId: item.id })}
+                      >
+                        {t("gm.console.restore")}
+                      </Button>
+                    </div>
+                    {item.rejectionReason ? (
+                      <span className="text-danger-soft-foreground text-label-small">
+                        {t("gm.console.rejectedReason", { reason: item.rejectionReason })}
+                      </span>
+                    ) : null}
                   </div>
                 ))
               : null}

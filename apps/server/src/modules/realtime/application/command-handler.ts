@@ -34,6 +34,8 @@ export interface CommandHandlerResult {
   directToGms?: Array<{ type: string; payload: unknown }>;
   /** 向当前团所有在线连接即时发送，不分配 eventId、不写 outbox、不参与重放。 */
   directToSession?: Array<{ type: string; payload: unknown }>;
+  /** 仅向指定玩家在本团的在线连接发送（DirectControlMessage）。 */
+  directToPlayers?: Array<{ playerId: string; message: { type: string; payload: unknown } }>;
   /** 提交后需要强制关闭的玩家连接（踢出/拉黑） */
   closeConnectionsOfPlayerIds?: string[];
   /** 为 true 时关闭该玩家全部团的连接（拉黑）；默认只关本团 */

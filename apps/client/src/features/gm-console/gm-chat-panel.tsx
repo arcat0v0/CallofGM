@@ -1,8 +1,6 @@
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { ArrowUp, ChevronDown, Dices, EyeOff, MessagesSquare, Paperclip, Search, X } from "lucide-react";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
+import { ArrowUp, ChevronDown, Dices, MessagesSquare, Paperclip, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -14,8 +12,11 @@ import {
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
+import { filterChatMessages, type ChatChannel } from "@/features/chat/channel-filter";
+import { ChatEmptyState } from "@/features/chat/chat-empty-state";
+import { ChatMessageCard } from "@/features/chat/chat-message-card";
+import { ChatPanelHeader } from "@/features/chat/chat-panel-header";
 import { MessageList } from "@/features/chat/message-list";
-import type { ChatMessage } from "@/features/chat/types";
 import { DiceTray } from "@/features/session-live/dice-tray";
 import { sendSessionCommand } from "@/lib/session-socket";
 import { cn } from "@/lib/utils";
@@ -25,78 +26,16 @@ import { t } from "@/i18n";
 import { gmFloatingCard } from "./gm-styles";
 import { useGmTool } from "./gm-tool-context";
 
-type Channel = "all" | "ic" | "ooc";
 type MessageMode = "roleplay" | "ooc";
 
-const CHANNEL_LABELS: Record<Channel, string> = {
+const CHANNEL_LABELS: Record<ChatChannel, string> = {
   all: "gm.workbench.channelAll",
   ic: "gm.workbench.channelIc",
   ooc: "gm.workbench.channelOoc",
 };
 
-function GmMessageCard({ message }: { message: ChatMessage }) {
-  if (message.isSystem) {
-    const accent = message.hidden
-      ? "text-warning border-l-warning"
-      : message.outcome === "failure"
-        ? "text-danger border-l-danger"
-        : message.outcome === "success"
-          ? "text-md-primary border-l-md-primary"
-          : "text-md-on-surface-variant border-l-md-outline";
-    const target = message.body.match(/（目标值\s*([^）]+)）$/);
-    const body = (target ? message.body.slice(0, target.index ?? 0).trimEnd() : message.body).replace(
-      / → SAN (\S+)$/,
-      "\u00A0→\u00A0SAN\u00A0$1",
-    );
-    return (
-      <div className={cn("bg-md-surface-container-high border border-md-outline-variant/40 flex flex-col gap-2 rounded-lg border-l-2 p-3.5", accent)}>
-        <div className="flex items-center gap-2">
-          {message.hidden ? <EyeOff className="size-4 shrink-0" /> : <Dices className="size-4 shrink-0" />}
-          <span className="min-w-0 flex-1 truncate text-label-medium">
-            {message.speakerName} · {message.speakerRoleLabel}
-          </span>
-          <span className="text-md-outline shrink-0 font-mono text-label-small">{message.time}</span>
-        </div>
-        <p className="text-md-on-surface whitespace-pre-wrap text-pretty break-words font-sans text-body-medium font-semibold">
-          {body}
-        </p>
-        {target ? (
-          <span className="text-md-outline font-mono text-label-small">{t("gm.workbench.targetValue", { value: target[1] ?? "" })}</span>
-        ) : null}
-        {message.hidden ? (
-          <span className="text-md-on-surface-variant text-label-small">{t("gm.workbench.privateRoll")}</span>
-        ) : null}
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex gap-2.5">
-      <Avatar size="sm" className={cn("size-7 shrink-0", message.avatarBg)}>
-        <AvatarFallback className={cn("text-label-small", message.avatarFg)}>
-          {message.avatarInitials}
-        </AvatarFallback>
-      </Avatar>
-      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-        <div className="flex items-center gap-2">
-          <span className="text-md-on-surface text-label-medium-emph">{message.speakerName}</span>
-          {message.tone === "ooc" ? (
-            <Badge variant="soft" tone="default" size="sm">
-              {t("chat.ooc")}
-            </Badge>
-          ) : null}
-          <span className="text-md-outline font-mono text-label-small">{message.time}</span>
-        </div>
-        <p className="text-md-on-surface-variant whitespace-pre-wrap break-words text-body-medium">
-          {message.body}
-        </p>
-      </div>
-    </div>
-  );
-}
-
 function GmChatPanel({ className }: { className?: string }) {
-  const [channel, setChannel] = useState<Channel>("all");
+  const [channel, setChannel] = useState<ChatChannel>("all");
   const [mode, setMode] = useState<MessageMode>("roleplay");
   const [draft, setDraft] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
@@ -111,12 +50,7 @@ function GmChatPanel({ className }: { className?: string }) {
   const { openTool } = useGmTool();
   const ended = status === "ended";
   const visible = useMemo(() => {
-    const byChannel =
-      channel === "ic"
-        ? messages.filter((message) => message.tone !== "ooc")
-        : channel === "ooc"
-          ? messages.filter((message) => message.tone === "ooc")
-          : messages;
+    const byChannel = filterChatMessages(messages, channel);
     const keyword = query.trim().toLowerCase();
     if (!keyword) {
       return byChannel;
@@ -152,70 +86,71 @@ function GmChatPanel({ className }: { className?: string }) {
         className,
       )}
     >
-      <div className="flex shrink-0 items-center justify-between gap-3">
-        <span className="text-md-on-surface text-title-medium-emph">{t("gm.workbench.chatTitle")}</span>
-        <span className="text-md-on-surface-variant text-label-medium">
-          {ended && status ? sessionStatusLabel(status) : t("gm.workbench.realtime")}
-        </span>
-      </div>
-
-      <div className="flex shrink-0 items-center justify-between gap-2">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button type="button" variant="tertiary" size="sm" className="bg-md-surface-container-high/80 border border-md-outline-variant/50 h-9 gap-2 rounded-full px-3.5">
-              <MessagesSquare className="size-4" />
-              {t(CHANNEL_LABELS[channel])}
-              <ChevronDown className="size-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-40">
-            <DropdownMenuRadioGroup value={channel} onValueChange={(value) => setChannel(value as Channel)}>
-              {(Object.keys(CHANNEL_LABELS) as Channel[]).map((key) => (
-                <DropdownMenuRadioItem key={key} value={key}>
-                  {t(CHANNEL_LABELS[key])}
-                </DropdownMenuRadioItem>
-              ))}
-            </DropdownMenuRadioGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
-        <Button
-          type="button"
-          variant="tertiary"
-          size="icon-sm"
-          className="bg-md-surface-container-high/80 border border-md-outline-variant/50 text-md-on-surface-variant size-9"
-          aria-label={t("gm.workbench.searchChat")}
-          aria-pressed={searchOpen}
-          onClick={() => {
-            setSearchOpen((value) => !value);
-            if (searchOpen) {
-              setQuery("");
-            }
-          }}
-        >
-          {searchOpen ? <X className="size-4" /> : <Search className="size-4" />}
-        </Button>
-      </div>
-
-      {searchOpen ? (
-        <InputGroup className="h-9 shrink-0">
-          <InputGroupAddon className="[&_svg]:size-5">
-            <Search />
-          </InputGroupAddon>
-          <InputGroupInput
-            value={query}
+      <ChatPanelHeader
+        padded={false}
+        className="gap-4"
+        statusPosition="end"
+        status={
+          <span className="text-md-on-surface-variant text-label-medium">
+            {ended && status ? sessionStatusLabel(status) : t("chat.realtime")}
+          </span>
+        }
+      >
+        <div className="flex shrink-0 items-center justify-between gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button type="button" variant="tertiary" size="sm" className="bg-md-surface-container-high/80 border border-md-outline-variant/50 h-9 gap-2 rounded-full px-3.5">
+                <MessagesSquare className="size-4" />
+                {t(CHANNEL_LABELS[channel])}
+                <ChevronDown className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-40">
+              <DropdownMenuRadioGroup value={channel} onValueChange={(value) => setChannel(value as ChatChannel)}>
+                {(Object.keys(CHANNEL_LABELS) as ChatChannel[]).map((key) => (
+                  <DropdownMenuRadioItem key={key} value={key}>
+                    {t(CHANNEL_LABELS[key])}
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Button
+            type="button"
+            variant="tertiary"
+            size="icon-sm"
+            className="bg-md-surface-container-high/80 border border-md-outline-variant/50 text-md-on-surface-variant size-9"
             aria-label={t("gm.workbench.searchChat")}
-            placeholder={t("gm.workbench.searchChat")}
-            className="text-label-medium"
-            onChange={(event) => setQuery(event.target.value)}
-          />
-        </InputGroup>
-      ) : null}
+            aria-pressed={searchOpen}
+            onClick={() => {
+              setSearchOpen((value) => !value);
+              if (searchOpen) {
+                setQuery("");
+              }
+            }}
+          >
+            {searchOpen ? <X className="size-4" /> : <Search className="size-4" />}
+          </Button>
+        </div>
+
+        {searchOpen ? (
+          <InputGroup className="h-9 shrink-0">
+            <InputGroupAddon className="[&_svg]:size-5">
+              <Search />
+            </InputGroupAddon>
+            <InputGroupInput
+              value={query}
+              aria-label={t("gm.workbench.searchChat")}
+              placeholder={t("gm.workbench.searchChat")}
+              className="text-label-medium"
+              onChange={(event) => setQuery(event.target.value)}
+            />
+          </InputGroup>
+        ) : null}
+      </ChatPanelHeader>
 
       {visible.length === 0 && !historyHasMore ? (
-        <div className="flex flex-1 flex-col items-center justify-center gap-2 py-8 text-center">
-          <MessagesSquare className="text-md-on-surface-variant/35 size-6" />
-          <p className="text-md-on-surface-variant/85 text-label-medium">{t("gm.workbench.chatEmpty")}</p>
-        </div>
+        <ChatEmptyState variant="gm" title={t("gm.workbench.chatEmpty")} />
       ) : (
         <div className="flex min-h-0 flex-1 flex-col justify-end">
           <MessageList
@@ -225,7 +160,7 @@ function GmChatPanel({ className }: { className?: string }) {
             hasOlderHistory={historyHasMore}
             loadingOlder={historyLoading}
             olderLoads={historyPagesLoaded}
-            renderMessage={(message) => <GmMessageCard message={message} />}
+            renderMessage={(message) => <ChatMessageCard message={message} variant="flat" />}
             stickToBottom
             className="min-h-0 max-h-full gap-4 overflow-y-auto pr-0.5"
           />

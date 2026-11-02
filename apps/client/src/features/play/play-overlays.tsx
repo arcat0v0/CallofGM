@@ -16,6 +16,7 @@ function PlayOverlays({
   onDismissRotate,
   endDialogOpen,
   onEndDialogChange,
+  handoutPromptEnabled,
 }: {
   sessionId: string;
   retry: () => void;
@@ -23,6 +24,7 @@ function PlayOverlays({
   onDismissRotate: () => void;
   endDialogOpen: boolean;
   onEndDialogChange: (open: boolean) => void;
+  handoutPromptEnabled: boolean;
 }) {
   const pendingChecks = usePlayStore((state) => state.pendingChecks);
   const dismissedChecks = usePlayStore((state) => state.dismissedChecks);
@@ -41,7 +43,7 @@ function PlayOverlays({
           onDismiss={() => dismissCheck(check.id)}
         />
       ) : null}
-      <HandoutPrompt handouts={handouts} />
+      {handoutPromptEnabled ? <HandoutPrompt handouts={handouts} /> : null}
       {showRotateSuggestion && !blockingModalOpen ? <RotateSuggestionOverlay onDismiss={onDismissRotate} /> : null}
       <SessionTerminalOverlay sessionId={sessionId} onRetry={retry} />
       <Dialog open={endDialog.open} onOpenChange={endDialog.onOpenChange}>

@@ -1,5 +1,6 @@
 import { ChevronDown, Pencil, X } from "lucide-react";
 import type { ReactNode } from "react";
+import { PanelHeading } from "@/components/shared/panel-heading";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
@@ -29,21 +30,24 @@ function GmPanelShell({
         className,
       )}
     >
-      <header className="flex shrink-0 items-center justify-between gap-3">
-        <div className="flex min-w-0 flex-col gap-1">
-          <h2 className="text-md-on-surface font-serif text-headline-small font-semibold">{title}</h2>
-          <p className="text-md-on-surface-variant text-label-medium 2xl:text-label-large">{subtitle}</p>
-        </div>
-        <Button
-          type="button"
-          variant="tertiary"
-          size="icon-sm"
-          className="bg-md-surface-container-highest size-10 shrink-0"
-          aria-label={t("common.close")}
-          onClick={onClose}
-        >
-          <X />
-        </Button>
+      <header className="shrink-0">
+        <PanelHeading
+          title={title}
+          description={subtitle}
+          descriptionClassName="2xl:text-label-large"
+          actions={
+            <Button
+              type="button"
+              variant="tertiary"
+              size="icon-sm"
+              className="bg-md-surface-container-highest size-10 shrink-0"
+              aria-label={t("common.close")}
+              onClick={onClose}
+            >
+              <X />
+            </Button>
+          }
+        />
       </header>
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain pr-1 2xl:gap-5">{children}</div>
       {footer ? (

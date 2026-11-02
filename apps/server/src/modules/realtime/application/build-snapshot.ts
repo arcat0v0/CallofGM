@@ -105,6 +105,8 @@ export class BuildSessionSnapshotUseCase {
       visibleHandouts,
       pendingCheckRequests,
       pendingQueue,
+      ownPendingMessages,
+      ownRejectedMessages,
       discardedQueue,
       online,
       kickedPlayers,
@@ -130,6 +132,8 @@ export class BuildSessionSnapshotUseCase {
       ),
       this.buildPendingCheckRequests(sessionId, isGm, claimedCharacterId),
       isGm ? this.buildPendingQueue(sessionId) : Promise.resolve(undefined),
+      isGm ? Promise.resolve(undefined) : this.buildOwnPendingQueue(sessionId, actor),
+      isGm ? Promise.resolve(undefined) : this.buildOwnRejectedQueue(sessionId, actor),
       isGm ? this.buildDiscardedQueue(sessionId) : Promise.resolve(undefined),
       isGm ? this.presenceService.listOnline(sessionId) : Promise.resolve(undefined),
       isGm ? loadKickedPlayers(this.db, sessionId) : Promise.resolve(undefined),
@@ -162,6 +166,8 @@ export class BuildSessionSnapshotUseCase {
       visibleHandouts,
       pendingCheckRequests,
       pendingQueue,
+      ownPendingMessages,
+      ownRejectedMessages,
       discardedQueue,
       online,
       kickedPlayers,
@@ -354,6 +360,54 @@ export class BuildSessionSnapshotUseCase {
       .from(sessionMessages)
       .where(and(eq(sessionMessages.sessionId, sessionId), eq(sessionMessages.status, "pending")))
       .orderBy(sessionMessages.queueOrder);
+
+    const nameMap = await loadCharacterNames(this.db, collectCharacterIds(rows));
+
+    return rows.map((row) => toMessageDto(row, nameMap));
+  }
+
+  private async buildOwnPendingQueue(
+    sessionId: string,
+    actor: ActorContext
+  ): Promise<ChatMessageDto[]> {
+    if (actor.type !== "player") {
+      return [];
+    }
+    const rows = await this.db
+      .select()
+      .from(sessionMessages)
+      .where(
+        and(
+          eq(sessionMessages.sessionId, sessionId),
+          eq(sessionMessages.senderId, actor.playerId),
+          eq(sessionMessages.status, "pending")
+        )
+      )
+      .orderBy(sessionMessages.queueOrder);
+
+    const nameMap = await loadCharacterNames(this.db, collectCharacterIds(rows));
+
+    return rows.map((row) => toMessageDto(row, nameMap));
+  }
+
+  private async buildOwnRejectedQueue(
+    sessionId: string,
+    actor: ActorContext
+  ): Promise<ChatMessageDto[]> {
+    if (actor.type !== "player") {
+      return [];
+    }
+    const rows = await this.db
+      .select()
+      .from(sessionMessages)
+      .where(
+        and(
+          eq(sessionMessages.sessionId, sessionId),
+          eq(sessionMessages.senderId, actor.playerId),
+          eq(sessionMessages.status, "discarded")
+        )
+      )
+      .orderBy(sessionMessages.createdAt);
 
     const nameMap = await loadCharacterNames(this.db, collectCharacterIds(rows));
 

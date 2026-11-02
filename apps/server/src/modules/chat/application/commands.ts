@@ -47,6 +47,7 @@ async function toDto(
     eventId: row.eventId ?? null,
     presentedAt: row.presentedAt ?? null,
     createdAt: row.createdAt,
+    rejectionReason: row.rejectionReason ?? null,
   };
 }
 
@@ -86,7 +87,7 @@ async function queueUpdate(
 
 /**
  * chat:send — 发送消息。
- * 按阶段权限矩阵裁决：立即呈现（分配 eventId 广播）或进入 GM 待呈现队列（对玩家零感知）。
+ * 按阶段权限矩阵裁决：立即呈现（分配 eventId 广播）或进入 GM 待呈现队列（仅向作者推送待审查状态）。
  */
 export class SendChatMessageHandler implements CommandHandler {
   readonly type = "chat:send" as const;
@@ -146,6 +147,7 @@ export class SendChatMessageHandler implements CommandHandler {
         expressionKey,
         eventId: null,
         presentedAt: now,
+        rejectionReason: null,
         createdAt: now,
       };
       await repo.insertMessage(row);
@@ -168,9 +170,9 @@ export class SendChatMessageHandler implements CommandHandler {
       };
     }
 
-    // 进入待呈现队列：不广播、不分配 eventId，玩家零感知
+    // 进入待呈现队列：不广播事件、不分配 eventId；仅向作者推送待审查状态
     const queueOrder = (await repo.maxQueueOrder(ctx.sessionId)) + 1;
-    await repo.insertMessage({
+    const pendingRow = {
       id: messageId,
       sessionId: ctx.sessionId,
       senderId,
@@ -183,11 +185,25 @@ export class SendChatMessageHandler implements CommandHandler {
       expressionKey,
       eventId: null,
       presentedAt: null,
+      rejectionReason: null,
       createdAt: now,
-    });
+    };
+    await repo.insertMessage(pendingRow);
+
+    const dto = await toDto(repo, pendingRow, new Map<string, string | null>());
 
     return {
       directToGms: [await queueUpdate(ctx, repo)],
+      ...(senderId
+        ? {
+            directToPlayers: [
+              {
+                playerId: senderId,
+                message: { type: "chat:pending", payload: { message: dto } },
+              },
+            ],
+          }
+        : {}),
       replyPayload: { messageId, presented: false },
     };
   }
@@ -254,7 +270,7 @@ export class ReleaseChatMessageHandler implements CommandHandler {
   }
 }
 
-/** chat:discard — GM 丢弃队列消息（对玩家无通知，保留最小审计记录） */
+/** chat:discard — GM 拒绝队列消息；可附拒绝理由，仅通知消息作者 */
 export class DiscardChatMessageHandler implements CommandHandler {
   readonly type = "chat:discard" as const;
   readonly allowedStatuses = ["waiting", "preparing", "active"] as const;
@@ -275,13 +291,24 @@ export class DiscardChatMessageHandler implements CommandHandler {
     if (!row || row.sessionId !== ctx.sessionId) {
       throw new MessageNotFoundError();
     }
-    const discarded = await repo.markDiscardedIfPending(row.id);
+    const reason = parsed.data.reason?.trim() ? parsed.data.reason.trim() : null;
+    const discarded = await repo.markDiscardedIfPending(row.id, reason);
     if (!discarded) {
       throw new MessageNotPendingError();
     }
 
     return {
       directToGms: [await queueUpdate(ctx, repo)],
+      ...(row.senderId
+        ? {
+            directToPlayers: [
+              {
+                playerId: row.senderId,
+                message: { type: "chat:rejected", payload: { messageId: row.id, reason } },
+              },
+            ],
+          }
+        : {}),
       replyPayload: { messageId: row.id },
     };
   }
@@ -313,8 +340,24 @@ export class RestoreChatMessageHandler implements CommandHandler {
       throw new MessageNotPendingError();
     }
 
+    const dto = await toDto(
+      repo,
+      { ...row, status: "pending", queueOrder, rejectionReason: null },
+      new Map<string, string | null>()
+    );
+
     return {
       directToGms: [await queueUpdate(ctx, repo)],
+      ...(row.senderId
+        ? {
+            directToPlayers: [
+              {
+                playerId: row.senderId,
+                message: { type: "chat:pending", payload: { message: dto } },
+              },
+            ],
+          }
+        : {}),
       replyPayload: { messageId: row.id, queueOrder },
     };
   }

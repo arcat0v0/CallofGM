@@ -52,11 +52,11 @@ export class DrizzleChatRepository implements ChatRepository {
     return updated.length > 0;
   }
 
-  /** 仅当消息仍为 pending 时丢弃 */
-  async markDiscardedIfPending(id: string): Promise<boolean> {
+  /** 仅当消息仍为 pending 时拒绝；顺带记录返回给玩家的理由 */
+  async markDiscardedIfPending(id: string, reason: string | null): Promise<boolean> {
     const updated = await this.db
       .update(sessionMessages)
-      .set({ status: "discarded" })
+      .set({ status: "discarded", rejectionReason: reason })
       .where(and(eq(sessionMessages.id, id), eq(sessionMessages.status, "pending")))
       .returning({ id: sessionMessages.id });
     return updated.length > 0;
@@ -65,7 +65,7 @@ export class DrizzleChatRepository implements ChatRepository {
   async markPendingIfDiscarded(id: string, queueOrder: number): Promise<boolean> {
     const updated = await this.db
       .update(sessionMessages)
-      .set({ status: "pending", queueOrder })
+      .set({ status: "pending", queueOrder, rejectionReason: null })
       .where(and(eq(sessionMessages.id, id), eq(sessionMessages.status, "discarded")))
       .returning({ id: sessionMessages.id });
     return updated.length > 0;

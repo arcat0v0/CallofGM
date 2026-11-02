@@ -60,6 +60,11 @@ describe("Chat discard traceability contract", () => {
     const discardReply = await gm.waitFor((m) => m.commandId === "d-discard");
     expect(discardReply.type).toBe("command:accepted");
 
+    const rejected = await pc.waitFor(
+      (m) => m.type === "chat:rejected" && m.payload.messageId === firstId
+    );
+    expect(rejected.payload.reason).toBeNull();
+
     const afterDiscard = await gm.waitFor(
       (m) =>
         m.type === "chat:queue" &&
@@ -84,6 +89,14 @@ describe("Chat discard traceability contract", () => {
     expect(restoreReply.type).toBe("command:accepted");
     expect(restoreReply.payload.messageId).toBe(firstId);
 
+    const snapshotPcRestored = await connectWs(wsUrl(), ctx.playerTokens.get("pc1")!);
+    const restoredSnapshot = await snapshotPcRestored.waitFor((m) => m.type === "snapshot");
+    expect(
+      (restoredSnapshot.payload.ownPendingMessages ?? []).some(
+        (msg: { id: string }) => msg.id === firstId
+      )
+    ).toBe(true);
+
     const afterRestore = await gm.waitFor(
       (m) =>
         m.type === "chat:queue" &&
@@ -102,6 +115,7 @@ describe("Chat discard traceability contract", () => {
 
     await closeWs(snapshotGm);
     await closeWs(snapshotPc);
+    await closeWs(snapshotPcRestored);
     await closeWs(gm);
     await closeWs(pc);
   });

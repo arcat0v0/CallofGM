@@ -157,7 +157,7 @@ function PortraitLayer({
             {showNameplate ? (
               <div
                 className={cn(
-                  "bg-stage-panel/90 shrink-0 rounded-xl backdrop-blur",
+                  "bg-md-surface-container-low/85 border border-md-outline-variant/40 shadow-card shrink-0 rounded-xl backdrop-blur-xl",
                   compact ? "w-28 px-2 py-1.5" : "w-40 px-2.5 py-2",
                 )}
               >

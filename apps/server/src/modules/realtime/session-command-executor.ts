@@ -233,6 +233,9 @@ export class SessionCommandExecutor {
     for (const message of result.directToSession ?? []) {
       this.connectionRegistry.sendToSession(sessionId, message);
     }
+    for (const target of result.directToPlayers ?? []) {
+      this.connectionRegistry.sendToPlayer(sessionId, target.playerId, target.message);
+    }
 
     for (const playerId of result.closeConnectionsOfPlayerIds ?? []) {
       this.connectionRegistry.closePlayerConnections(

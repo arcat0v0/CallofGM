@@ -1,5 +1,5 @@
-import { Dices } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Dices, EyeOff } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { coc7e } from "@cogm/shared";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { SegmentedControl } from "@/components/shared/segmented-control";
 import { t } from "@/i18n";
 import { skillKeysFor, skillValue } from "@/lib/coc-live";
 import { sendSessionCommand } from "@/lib/session-socket";
@@ -18,6 +19,10 @@ import { cn } from "@/lib/utils";
 import { usePlayStore } from "@/stores/play-store";
 
 const DICE_PRESETS = ["1d100", "1d6", "1d4", "1d8", "1d10", "3d6"];
+
+function FieldLabel({ children }: { children: string }) {
+  return <span className="text-md-on-surface-variant text-label-small">{children}</span>;
+}
 
 function DiceTray({
   characterId,
@@ -31,6 +36,7 @@ function DiceTray({
   disabled?: boolean;
 }) {
   const characters = usePlayStore((state) => state.characters);
+  const [tab, setTab] = useState<"roll" | "check">("roll");
   const [selectedId, setSelectedId] = useState(characterId ?? "");
   const resolvedId = gm ? selectedId || characterId || characters[0]?.characterId : characterId;
   const character = characters.find((item) => item.characterId === resolvedId);
@@ -43,6 +49,12 @@ function DiceTray({
   const [penaltyDice, setPenaltyDice] = useState(0);
   const [hidden, setHidden] = useState(false);
   const value = skillValue(character, skillKey);
+
+  useEffect(() => {
+    if (!skills.includes(skillKey)) {
+      setSkillKey(skills[0] ?? t("gm.console.defaultSkill"));
+    }
+  }, [skillKey, skills]);
 
   function roll() {
     const sent = sendSessionCommand("dice:roll", {
@@ -70,90 +82,194 @@ function DiceTray({
   }
 
   return (
-    <div className={cn("flex flex-col gap-2", className)}>
-      {gm ? (
-        <Select value={resolvedId ?? ""} onValueChange={setSelectedId}>
-          <SelectTrigger className="h-8 text-label-medium" aria-label={t("dice.target")}>
-            <SelectValue placeholder={t("dice.target")} />
-          </SelectTrigger>
-          <SelectContent>
-            {characters.map((item) => (
-              <SelectItem key={item.characterId} value={item.characterId}>
-                {item.name} · {item.kind === "npc" ? "NPC" : "PC"}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      ) : null}
-      <div className="bg-md-surface-container-high flex rounded-full p-0.5">
-        {DICE_PRESETS.map((preset) => {
-          const active = expression === preset;
-          return (
-            <button
-              key={preset}
-              type="button"
+    <div className={cn("flex flex-col gap-3", className)}>
+      <SegmentedControl
+        value={tab}
+        options={[
+          { value: "roll", label: t("dice.tabRoll") },
+          { value: "check", label: t("dice.tabCheck") },
+        ]}
+        onValueChange={setTab}
+        aria-label={t("dice.panelTitle")}
+        className="bg-md-surface-container-high/70 w-full p-0.5"
+        itemClassName="h-8 px-3 text-label-medium"
+      />
+
+      {tab === "roll" ? (
+        <div className="flex flex-col gap-2.5">
+          <div className="flex flex-col gap-1.5">
+            <FieldLabel>{t("dice.presets")}</FieldLabel>
+            <div className="grid grid-cols-6 gap-1">
+              {DICE_PRESETS.map((preset) => {
+                const active = expression === preset;
+                return (
+                  <Button
+                    key={preset}
+                    type="button"
+                    variant={active ? "accentSoft" : "tertiary"}
+                    size="xs"
+                    disabled={disabled}
+                    aria-pressed={active}
+                    onClick={() => setExpression(preset)}
+                    className="h-8 px-0 text-label-small"
+                  >
+                    {preset}
+                  </Button>
+                );
+              })}
+            </div>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <FieldLabel>{t("dice.expression")}</FieldLabel>
+            <Input
+              value={expression}
+              aria-label={t("dice.expression")}
+              onChange={(event) => setExpression(event.target.value)}
               disabled={disabled}
-              aria-pressed={active}
-              onClick={() => setExpression(preset)}
-              className={cn(
-                "h-6 flex-1 rounded-full px-2 transition-all duration-350 ease-expressive-fast-spatial disabled:opacity-50",
-                active
-                  ? "bg-md-secondary-container text-md-on-secondary-container text-label-small-emph"
-                  : "text-label-small text-md-on-surface-variant hover:bg-md-surface-container-highest",
-              )}
+              className="h-9 text-label-medium"
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <FieldLabel>{t("dice.comment")}</FieldLabel>
+            <Input
+              value={comment}
+              aria-label={t("dice.comment")}
+              onChange={(event) => setComment(event.target.value)}
+              placeholder={t("dice.comment")}
+              disabled={disabled}
+              className="h-9 text-label-medium"
+            />
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
+              className="h-10 flex-1"
+              disabled={disabled}
+              onClick={roll}
             >
-              {preset}
-            </button>
-          );
-        })}
-      </div>
-      <div className="flex items-center gap-1.5">
-        <Input value={expression} onChange={(event) => setExpression(event.target.value)} aria-label={t("dice.expression")} disabled={disabled} className="h-8 flex-1 text-label-medium" />
-        <Input value={comment} onChange={(event) => setComment(event.target.value)} placeholder={t("dice.comment")} aria-label={t("dice.comment")} disabled={disabled} className="h-8 flex-1 text-label-medium" />
-        <Button type="button" size="sm" variant="tertiary" className="h-8 px-2.5" disabled={disabled} onClick={roll}>
-          <Dices className="size-3.5" />
-          {t("dice.roll")}
-        </Button>
-      </div>
-      <div className="flex items-center gap-1.5">
-        <Select value={skillKey} onValueChange={setSkillKey} disabled={disabled}>
-          <SelectTrigger className="h-8 flex-1 text-label-medium" aria-label={t("dice.skillAria")}>
-            <SelectValue placeholder={t("dice.skill")} />
-          </SelectTrigger>
-          <SelectContent>
-            {skills.map((skill) => (
-              <SelectItem key={skill} value={skill}>
-                {coc7e.coc7eSkillLabel(skill)}
-                {skillValue(character, skill) !== null ? ` ${skillValue(character, skill)}` : ""}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={difficulty} onValueChange={(next) => setDifficulty(next as typeof difficulty)} disabled={disabled}>
-          <SelectTrigger className="h-8 w-[88px] text-label-medium" aria-label={t("dice.difficultyAria")}><SelectValue /></SelectTrigger>
-          <SelectContent>
-            {(["regular", "hard", "extreme"] as const).map((item) => (
-              <SelectItem key={item} value={item}>{coc7e.CheckDifficultyLabel[item]}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Button type="button" size="sm" variant="tertiary" className="h-8 px-2.5" onClick={check} disabled={disabled || !resolvedId}>
-          {value !== null ? t("dice.checkWithValue", { value }) : t("dice.check")}
-        </Button>
-      </div>
-      <div className="flex items-center gap-1.5">
-        <Button type="button" size="sm" variant={bonusDice ? "accentSoft" : "tertiary"} className="h-6 px-2 text-label-small" disabled={disabled} onClick={() => setBonusDice((n) => (n + 1) % 3)}>
-          {t("dice.bonus", { count: bonusDice })}
-        </Button>
-        <Button type="button" size="sm" variant={penaltyDice ? "dangerSoft" : "tertiary"} className="h-6 px-2 text-label-small" disabled={disabled} onClick={() => setPenaltyDice((n) => (n + 1) % 3)}>
-          {t("dice.penalty", { count: penaltyDice })}
-        </Button>
-        {gm ? (
-          <Button type="button" size="sm" variant={hidden ? "dangerSoft" : "tertiary"} className="h-6 px-2.5 text-label-small" disabled={disabled} onClick={() => setHidden((value) => !value)}>
-            {hidden ? t("dice.hidden") : t("dice.public")}
+              <Dices className="size-4" />
+              {t("dice.roll")}
+            </Button>
+            {gm ? (
+              <Button
+                type="button"
+                variant={hidden ? "dangerSoft" : "tertiary"}
+                size="xs"
+                className="h-10 shrink-0 px-3 text-label-small"
+                disabled={disabled}
+                onClick={() => setHidden((value) => !value)}
+              >
+                <EyeOff className="size-3.5" />
+                {hidden ? t("dice.hidden") : t("dice.public")}
+              </Button>
+            ) : null}
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2.5">
+          {gm ? (
+            <div className="flex flex-col gap-1.5">
+              <FieldLabel>{t("dice.target")}</FieldLabel>
+              <Select value={resolvedId ?? ""} onValueChange={setSelectedId}>
+                <SelectTrigger className="h-9 w-full text-label-medium" aria-label={t("dice.target")}>
+                  <SelectValue placeholder={t("dice.target")} className="min-w-0 truncate" />
+                </SelectTrigger>
+                <SelectContent>
+                  {characters.map((item) => (
+                    <SelectItem key={item.characterId} value={item.characterId}>
+                      {item.name} · {item.kind === "npc" ? "NPC" : "PC"}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : null}
+          <div className="flex flex-col gap-1.5">
+            <FieldLabel>{t("dice.skill")}</FieldLabel>
+            <Select value={skillKey} onValueChange={setSkillKey} disabled={disabled}>
+              <SelectTrigger className="h-9 w-full text-label-medium" aria-label={t("dice.skillAria")}>
+                <SelectValue placeholder={t("dice.skill")} className="min-w-0 truncate" />
+              </SelectTrigger>
+              <SelectContent>
+                {skills.map((skill) => (
+                  <SelectItem key={skill} value={skill}>
+                    {coc7e.coc7eSkillLabel(skill)}
+                    {skillValue(character, skill) !== null ? ` ${skillValue(character, skill)}` : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <FieldLabel>{t("dice.difficulty")}</FieldLabel>
+            <Select
+              value={difficulty}
+              onValueChange={(next) => setDifficulty(next as typeof difficulty)}
+              disabled={disabled}
+            >
+              <SelectTrigger className="h-9 w-full text-label-medium" aria-label={t("dice.difficultyAria")}>
+                <SelectValue className="min-w-0 truncate" />
+              </SelectTrigger>
+              <SelectContent>
+                {(["regular", "hard", "extreme"] as const).map((item) => (
+                  <SelectItem key={item} value={item}>
+                    {coc7e.CheckDifficultyLabel[item]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <FieldLabel>{t("dice.modifier")}</FieldLabel>
+            <div className="grid grid-cols-2 gap-1.5">
+              <Button
+                type="button"
+                size="xs"
+                variant={bonusDice ? "accentSoft" : "tertiary"}
+                className="h-9"
+                disabled={disabled}
+                onClick={() => setBonusDice((n) => (n + 1) % 3)}
+              >
+                {t("dice.bonus", { count: bonusDice })}
+              </Button>
+              <Button
+                type="button"
+                size="xs"
+                variant={penaltyDice ? "dangerSoft" : "tertiary"}
+                className="h-9"
+                disabled={disabled}
+                onClick={() => setPenaltyDice((n) => (n + 1) % 3)}
+              >
+                {t("dice.penalty", { count: penaltyDice })}
+              </Button>
+            </div>
+          </div>
+          {gm ? (
+            <Button
+              type="button"
+              size="xs"
+              variant={hidden ? "dangerSoft" : "tertiary"}
+              className="h-8 self-start px-3 text-label-small"
+              disabled={disabled}
+              onClick={() => setHidden((value) => !value)}
+            >
+              {hidden ? t("dice.hidden") : t("dice.public")}
+            </Button>
+          ) : null}
+          <Button
+            type="button"
+            variant="primary"
+            size="sm"
+            className="h-10 w-full"
+            onClick={check}
+            disabled={disabled || !resolvedId}
+          >
+            {value !== null ? t("dice.checkWithValue", { value }) : t("dice.check")}
           </Button>
-        ) : null}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

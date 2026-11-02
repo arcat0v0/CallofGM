@@ -126,7 +126,7 @@ export default defineTheme({
 | `join.layout` | `JoinLayoutCtx` | 进团页整体布局；`nodes.header/notice/seats/spectator/action`、`view`（含 `sessionName`/`ended`/`loadError`）、`actions.join` |
 | `join.header` | `JoinHeaderCtx` | 团名、模组名、状态，以及加载中 / 已结团 / 链接错误状态 |
 | `join.seat-card` | `JoinSeatCardCtx` | PC/OB 座位卡；`seat`、`selected`、`disabled`、`onSelect`、`variant` |
-| `play.layout` | `PlayLayoutCtx` | 玩家沉浸视图布局；`nodes.stage/chat/composer/overlays/connection`、`viewport` |
+| `play.layout` | `PlayLayoutCtx` | 玩家沉浸视图布局；`nodes.stage/chat/composer/dock/overlays/connection`、`viewport`、聊天开关（`view.chatOpen` / `actions.setChatOpen`；`dock`、`chatOpen` 为可选） |
 | `play.stage` | `PlayStageCtx` | 舞台外壳；`nodes.sceneInfo/portrait/dialogue/audio`、场景视图数据 |
 | `play.scene-info` | `PlaySceneInfoCtx` | 左上场景/阶段信息；由核心渲染（主题通常只调整外观） |
 | `play.dialogue` | `PlayDialogueCtx` | 当前演绎对话框；`speaker`、`roleLabel`、`text`、`size` |
@@ -137,7 +137,7 @@ export default defineTheme({
 | `gm-admin.shell` | `GmAdminShellCtx` | GM 后台外壳；`nodes.nav/content` |
 | `gm-admin.nav` | `GmAdminNavCtx` | 导航栏；`items`（含 label/icon/to/active）、`onNavigate`、`onLogout` |
 
-`ChatMessageView.isSystem` 是稳定字段：系统消息（骰点结果、状态提示等）由服务端/核心标记，主题应据此渲染，不得通过匹配文案判断。`speakerRoleLabel`、`roleLabel` 等展示文案已由核心本地化。
+`ChatMessageView.isSystem` 是稳定字段：系统消息（骰点结果、状态提示等）由服务端/核心标记，主题应据此渲染，不得通过匹配文案判断。`speakerRoleLabel`、`roleLabel` 等展示文案已由核心本地化。`hidden`、`outcome`、`pending`、`rejected`、`rejectionReason` 为可选的展示状态字段，主题可据此渲染暗骰、成功/失败、待审查与拒绝理由。
 
 ### 文案覆盖
 

@@ -8,7 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { mediaUrl } from "@/lib/api";
+import { HandoutPreview, HandoutScopeBadge } from "@/features/session-live/handout-preview";
 import { t } from "@/i18n";
 import { sendSessionCommand } from "@/lib/session-socket";
 import { useBlockingDialog } from "@/stores/modal-store";
@@ -39,28 +39,23 @@ export function HandoutPrompt({ handouts }: { handouts: GrantedHandoutDto[] }) {
     return null;
   }
 
-  const image = mediaUrl(newest.handout.imageAssetId);
-
   return (
     <Dialog open={dialog.open} onOpenChange={(next) => !next && dismiss()}>
       <DialogContent className="flex max-h-[calc(100dvh-2rem)] max-w-lg flex-col">
-        <DialogHeader>
+        <DialogHeader className="sr-only">
           <DialogTitle>{newest.handout.title}</DialogTitle>
           <DialogDescription>{newest.isPublic ? t("handout.public") : t("handout.secret")}</DialogDescription>
         </DialogHeader>
         <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
-          {image ? (
-            <div className="bg-md-surface-container-high aspect-video w-full overflow-hidden rounded-lg">
-              <img
-                src={image}
-                alt={t("handout.imageAlt", { title: newest.handout.title })}
-                className="size-full object-contain"
-              />
-            </div>
-          ) : null}
-          <p className="text-md-on-surface text-body-large whitespace-pre-wrap">
-            {newest.handout.content}
-          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <HandoutScopeBadge isPublic={newest.isPublic} />
+          </div>
+          <HandoutPreview
+            title={newest.handout.title}
+            content={newest.handout.content}
+            imageAssetId={newest.handout.imageAssetId}
+            variant="detail"
+          />
         </div>
         <Button type="button" variant="primary" onClick={dismiss}>
           {t("handout.accept")}

@@ -1,12 +1,15 @@
-import { SegmentedControl } from "@/components/shared/segmented-control";
+import { ChevronDown } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { t } from "@/i18n";
 
 type MessageMode = "roleplay" | "ooc";
-
-const MESSAGE_MODE_OPTIONS = [
-  { value: "roleplay", label: "chat.roleplay" },
-  { value: "ooc", label: "chat.oocMode" },
-] as const;
 
 function MessageModeSwitch({
   value,
@@ -17,18 +20,32 @@ function MessageModeSwitch({
   onValueChange: (value: MessageMode) => void;
   roleplayDisabled?: boolean;
 }) {
-  const options = MESSAGE_MODE_OPTIONS.map((option) =>
-    option.value === "roleplay" ? { ...option, disabled: roleplayDisabled } : option,
-  );
   return (
-    <SegmentedControl
-      value={value}
-      options={options.map((option) => ({ ...option, label: t(option.label) }))}
-      onValueChange={onValueChange}
-      className="rounded-full"
-      itemClassName="h-6"
-      aria-label={t("chat.modeLabel")}
-    />
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          type="button"
+          variant="ghost"
+          size="xs"
+          aria-label={t("chat.modeLabel")}
+          className="text-md-on-surface-variant h-6 shrink-0 gap-1 rounded-full px-2 text-label-small"
+        >
+          {value === "ooc" ? t("chat.ooc") : t("chat.roleplay")}
+          <ChevronDown className="size-3.5" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-36">
+        <DropdownMenuRadioGroup
+          value={value}
+          onValueChange={(next) => onValueChange(next as MessageMode)}
+        >
+          <DropdownMenuRadioItem value="roleplay" disabled={roleplayDisabled}>
+            {t("chat.roleplay")}
+          </DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="ooc">{t("chat.ooc")}</DropdownMenuRadioItem>
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 

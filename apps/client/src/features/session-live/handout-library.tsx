@@ -10,11 +10,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { HandoutPreview, HandoutScopeBadge } from "@/features/session-live/handout-preview";
 import { mediaUrl } from "@/lib/api";
 import { formatStamp } from "@/lib/format";
+import { sendSessionCommand } from "@/lib/session-socket";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { useBlockingDialog } from "@/stores/modal-store";
+import { usePlayStore } from "@/stores/play-store";
 
 export function HandoutLibrary({
   handouts,
@@ -28,9 +31,18 @@ export function HandoutLibrary({
   const [activeId, setActiveId] = useState<string | null>(null);
   const [zoomOpen, setZoomOpen] = useState(false);
   const dialog = useBlockingDialog("library", open, onOpenChange);
+  const markHandoutRead = usePlayStore((state) => state.markHandoutRead);
   const active =
     handouts.find((item) => item.grantId === activeId) ?? handouts[0] ?? null;
   const image = mediaUrl(active?.handout.imageAssetId);
+
+  useEffect(() => {
+    if (!dialog.open || !active || active.read) {
+      return;
+    }
+    markHandoutRead(active.grantId);
+    sendSessionCommand("handout:read", { grantId: active.grantId });
+  }, [active, dialog.open, markHandoutRead]);
 
   useEffect(() => {
     if (!zoomOpen) {
@@ -95,14 +107,7 @@ export function HandoutLibrary({
                   )}
                     </span>
                     <span className="flex items-center gap-1.5">
-                      <Badge
-                        variant="soft"
-                        tone={item.isPublic ? "accent" : "warning"}
-                        size="sm"
-                        className="shrink-0"
-                      >
-                        {item.isPublic ? t("handout.public") : t("handout.secret")}
-                      </Badge>
+                      <HandoutScopeBadge isPublic={item.isPublic} className="shrink-0" />
                       <span className="text-md-on-surface-variant truncate text-label-small">
                         {formatStamp(item.grantedAt)}
                       </span>
@@ -112,59 +117,52 @@ export function HandoutLibrary({
               })}
             </div>
             {active ? (
-              <div className="flex min-h-0 flex-col gap-2 overflow-y-auto pr-1">
+              <div className="flex min-h-0 flex-col gap-3 overflow-y-auto pr-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <Badge
-                    variant="solid"
-                    tone={active.isPublic ? "accent" : "warning"}
-                    size="sm"
-                  >
-                    {active.isPublic ? t("handout.public") : t("handout.secret")}
-                  </Badge>
+                  <HandoutScopeBadge isPublic={active.isPublic} />
                   <span className="text-md-on-surface-variant text-label-small">
                     {t("handout.grantedBy", { time: formatStamp(active.grantedAt) })}
                   </span>
                 </div>
-                {image ? (
-                  <div className="bg-md-surface-container-high relative aspect-video w-full overflow-hidden rounded-lg">
-                    <img
-                      src={image}
-                      alt={t("handout.imageAlt", { title: active.handout.title })}
-                      className="size-full object-contain"
-                    />
-                    <div className="absolute right-2 bottom-2 flex gap-2">
-                      <Button
-                        type="button"
-                        variant="tonal"
-                        size="xs"
-                        className="h-3 min-h-7 px-2.5 text-label-small"
-                        aria-label={t("handout.zoomTitle", { title: active.handout.title })}
-                        onClick={() => setZoomOpen(true)}
-                      >
-                        <Maximize2 className="size-3.5" />
-                        {t("handout.zoom")}
-                      </Button>
-                      <Button
-                        asChild
-                        variant="tonal"
-                        size="xs"
-                        className="h-3 min-h-7 px-2.5 text-label-small"
-                      >
-                        <a
-                          href={image}
-                          download={`${active.handout.title}.png`}
-                          aria-label={t("handout.downloadTitle", { title: active.handout.title })}
+                <HandoutPreview
+                  title={active.handout.title}
+                  content={active.handout.content}
+                  imageAssetId={active.handout.imageAssetId}
+                  imageAlt={t("handout.imageAlt", { title: active.handout.title })}
+                  variant="detail"
+                  imageActions={
+                    image ? (
+                      <>
+                        <Button
+                          type="button"
+                          variant="tonal"
+                          size="xs"
+                          className="h-3 min-h-7 px-2.5 text-label-small"
+                          aria-label={t("handout.zoomTitle", { title: active.handout.title })}
+                          onClick={() => setZoomOpen(true)}
                         >
-                          <Download className="size-3.5" />
-                          {t("handout.download")}
-                        </a>
-                      </Button>
-                    </div>
-                  </div>
-                ) : null}
-                <p className="text-md-on-surface text-body-large whitespace-pre-wrap">
-                  {active.handout.content}
-                </p>
+                          <Maximize2 className="size-3.5" />
+                          {t("handout.zoom")}
+                        </Button>
+                        <Button
+                          asChild
+                          variant="tonal"
+                          size="xs"
+                          className="h-3 min-h-7 px-2.5 text-label-small"
+                        >
+                          <a
+                            href={image}
+                            download={`${active.handout.title}.png`}
+                            aria-label={t("handout.downloadTitle", { title: active.handout.title })}
+                          >
+                            <Download className="size-3.5" />
+                            {t("handout.download")}
+                          </a>
+                        </Button>
+                      </>
+                    ) : undefined
+                  }
+                />
               </div>
             ) : null}
           </div>

@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { ShieldBan, UserX, Users } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { BanPlayerDialog } from "@/features/gm-admin/dialogs/ban-player-dialog";
+import { PresenceList } from "@/features/session-live/presence-list";
 import { formatClock } from "@/lib/format";
 import { sendSessionCommand } from "@/lib/session-socket";
 import { usePlayStore } from "@/stores/play-store";
@@ -35,44 +35,38 @@ function GmOnlinePopover() {
               {t("chat.presenceTitle", { count: presence.length })}
             </p>
             <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
-              {presence.length === 0 ? (
-                <p className="text-md-on-surface-variant px-2 py-1 text-label-small">{t("chat.noPresence")}</p>
-              ) : (
-                presence.map((player) => {
-                  const claimed = characters.find((character) => character.characterId === player.characterId);
-                  const name = claimed?.name ?? player.playerId.slice(0, 8);
-                  return (
-                    <div key={player.playerId} className="hover:bg-md-on-surface/8 flex items-center gap-2 rounded-lg px-2 py-1.5">
-                      <span className="min-w-0 flex-1 truncate text-label-medium">{name}</span>
-                      <Badge variant="soft" tone="accent" size="sm" className="shrink-0">
-                        {player.role === "ob" ? t("common.ob") : t("common.pc")}
-                      </Badge>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-sm"
-                        className="text-danger-soft-foreground size-7 shrink-0"
-                        aria-label={t("gm.console.kickAria", { name })}
-                        title={t("gm.console.kick")}
-                        onClick={() => sendSessionCommand("player:kick", { playerId: player.playerId })}
-                      >
-                        <UserX className="size-3.5" />
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-sm"
-                        className="text-md-on-surface-variant size-7 shrink-0"
-                        aria-label={t("gm.console.banAria", { name })}
-                        title={t("gm.console.ban")}
-                        onClick={() => setBanPlayerId(player.playerId)}
-                      >
-                        <ShieldBan className="size-3.5" />
-                      </Button>
-                    </div>
-                  );
-                })
-              )}
+              <PresenceList
+                players={presence}
+                characters={characters}
+                showAvatar={false}
+                rowClassName="hover:bg-md-on-surface/8"
+                renderActions={(player, name) => (
+                  <>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      className="text-danger-soft-foreground size-7 shrink-0"
+                      aria-label={t("gm.console.kickAria", { name })}
+                      title={t("gm.console.kick")}
+                      onClick={() => sendSessionCommand("player:kick", { playerId: player.playerId })}
+                    >
+                      <UserX className="size-3.5" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      className="text-md-on-surface-variant size-7 shrink-0"
+                      aria-label={t("gm.console.banAria", { name })}
+                      title={t("gm.console.ban")}
+                      onClick={() => setBanPlayerId(player.playerId)}
+                    >
+                      <ShieldBan className="size-3.5" />
+                    </Button>
+                  </>
+                )}
+              />
             </div>
             {kickedPlayers.length > 0 ? (
               <div className="border-separator-secondary border-t px-2 pt-2 pb-3">

@@ -1,0 +1,1 @@
+ALTER TABLE `session_messages` ADD `rejection_reason` text;

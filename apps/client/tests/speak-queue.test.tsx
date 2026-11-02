@@ -54,8 +54,8 @@ describe("speak queue readability", () => {
     );
     expect(html).toContain("放行发言");
     expect(html).toContain('aria-label="放行「观战 · b4e0d0」的发言"');
-    expect(html).toContain('aria-label="丢弃「观战 · b4e0d0」的发言"');
-    expect(html).toContain('title="丢弃发言"');
+    expect(html).toContain('aria-label="拒绝「观战 · b4e0d0」的发言"');
+    expect(html).toContain('title="拒绝发言"');
     expect(html).toContain('aria-label="拖动排序「观战 · b4e0d0」的发言"');
     expect(html).toContain('title="拖动排序；Alt + ↑/↓ 调整"');
   });

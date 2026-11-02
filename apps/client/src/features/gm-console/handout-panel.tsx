@@ -1,11 +1,10 @@
 import { useState } from "react";
 import { toast } from "sonner";
-import { Check, Eye, EyeOff, ScrollText, Send } from "lucide-react";
+import { Check, Eye, EyeOff, Send } from "lucide-react";
 import { Link } from "@tanstack/react-router";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SelectItem } from "@/components/ui/select";
-import { mediaUrl } from "@/lib/api";
+import { HandoutPreview, HandoutScopeBadge } from "@/features/session-live/handout-preview";
 import { initialsOf } from "@/lib/format";
 import { sendSessionCommand } from "@/lib/session-socket";
 import { usePlayStore } from "@/stores/play-store";
@@ -140,22 +139,12 @@ function HandoutPanel({ onClose }: { onClose: () => void }) {
             ))}
           </GmSelectField>
 
-          <div className="bg-md-surface-container border border-md-outline-variant/50 flex flex-col gap-2 rounded-lg-inc p-5">
-            <div className="flex items-center gap-2">
-              <ScrollText className="text-md-on-surface-variant size-5" />
-              <span className="text-md-on-surface font-serif text-title-medium-emph">{selected.title}</span>
-            </div>
-            {selected.imageAssetId ? (
-              <img
-                src={mediaUrl(selected.imageAssetId) ?? undefined}
-                alt={selected.title}
-                className="bg-md-surface-container-high h-32 w-full rounded-xl object-cover"
-              />
-            ) : null}
-            <p className="text-md-on-surface-variant max-h-36 overflow-y-auto whitespace-pre-wrap text-body-medium">
-              {selected.content}
-            </p>
-          </div>
+          <HandoutPreview
+            title={selected.title}
+            content={selected.content}
+            imageAssetId={selected.imageAssetId}
+            imageAlt={selected.title}
+          />
 
           <GmSelectField
             label={t("gm.workbench.handoutScope")}
@@ -242,9 +231,7 @@ function HandoutPanel({ onClose }: { onClose: () => void }) {
                   return (
                     <div key={group.handout.id} className="bg-md-surface-container border border-md-outline-variant/50 flex items-center gap-2 rounded-lg px-3 py-2">
                       <span className="min-w-0 flex-1 truncate text-label-medium">{group.handout.title}</span>
-                      <Badge variant="soft" tone={group.isPublic ? "accent" : "warning"} size="sm">
-                        {group.isPublic ? t("handout.public") : t("handout.secret")}
-                      </Badge>
+                      <HandoutScopeBadge isPublic={group.isPublic} />
                       {secretGrant ? (
                         <Button
                           type="button"
