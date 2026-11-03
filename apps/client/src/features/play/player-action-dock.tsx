@@ -30,7 +30,6 @@ import { DiceTray } from "@/features/session-live/dice-tray";
 import { HandoutLibrary } from "@/features/session-live/handout-library";
 import { PresenceList } from "@/features/session-live/presence-list";
 import type { PlayDisplayKey } from "@/lib/storage";
-import { cn } from "@/lib/utils";
 import { t } from "@/i18n";
 import { useIdentityStore } from "@/stores/identity-store";
 import { usePlayDisplayStore } from "@/stores/play-display-store";
@@ -133,10 +132,7 @@ function PlayerActionDock({ variant }: { variant: PlayViewport }) {
   return (
     <ToolDock
       label={t("play.actions")}
-      className={cn(
-        "bg-md-surface-container-low/90 border-md-outline-variant/40 border",
-        showLabel ? "p-1.5 shadow-overlay" : "p-1 shadow-card",
-      )}
+      className={showLabel ? "p-1.5 shadow-overlay" : "p-1 shadow-card"}
     >
       {variant === "desktop" ? (
         <Popover open={diceOpen} onOpenChange={setDiceOpen}>

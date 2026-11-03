@@ -71,7 +71,7 @@ function GmToolDock() {
       <div className="relative z-30">
         <ToolDock
           label={t("gm.workbench.tools")}
-          className="bg-md-surface-container-high/92 border-md-outline-variant/40 shadow-overlay border p-1.5"
+          className="shadow-overlay p-1.5"
         >
           {TOOLS.map((tool) => {
             const active = activeTool === tool.id;

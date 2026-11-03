@@ -16,7 +16,10 @@ function ToolDock({
     <div
       role="toolbar"
       aria-label={label}
-      className={cn("flex items-center gap-1 rounded-full backdrop-blur-xl", className)}
+      className={cn(
+        "flex items-center gap-1 rounded-full bg-md-surface-container-high/92 border-md-outline-variant/40 border backdrop-blur-xl",
+        className,
+      )}
     >
       {children}
     </div>
