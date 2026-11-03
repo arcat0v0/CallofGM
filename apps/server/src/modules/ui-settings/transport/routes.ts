@@ -27,6 +27,7 @@ export function createUiSettingsRoutes(container: Container) {
 	);
 
 	return new Elysia({ prefix: "/api/v1/admin/ui-settings" })
+		.get("/api/v1/public/ui-settings", async () => getSettings.execute())
 		.use(authPlugin)
 		.onBeforeHandle(({ actor }) => {
 			if (!actor || actor.type !== "user" || actor.role !== "admin") {

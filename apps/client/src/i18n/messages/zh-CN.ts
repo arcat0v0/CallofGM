@@ -154,6 +154,7 @@ export const zhCN: Record<string, string> = {
 	"account.passwordFailed": "密码修改失败",
 
 	"admin.title": "账号管理",
+	"admin.logout": "退出登录",
 	"admin.users": "账号",
 	"admin.createUser": "新建账号",
 	"admin.username": "用户名",

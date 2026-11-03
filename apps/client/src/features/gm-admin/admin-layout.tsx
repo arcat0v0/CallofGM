@@ -24,7 +24,6 @@ type AdminNavKey =
 	| "characters"
 	| "music"
 	| "blacklist"
-	| "themes"
 	| "trash"
 	| "reviews";
 
@@ -66,7 +65,6 @@ const NAV_ITEMS: {
 		icon: ClipboardCheck,
 		to: "/gm/reviews",
 	},
-	{ key: "themes", labelKey: "gm.nav.themes", icon: Palette, to: "/gm/themes" },
 	{ key: "trash", labelKey: "gm.nav.trash", icon: Trash2, to: "/gm/trash" },
 ];
 
@@ -89,9 +87,6 @@ export function adminNavCurrentKey(pathname: string): AdminNavKey | null {
 	}
 	if (path === "/gm/blacklist") {
 		return "blacklist";
-	}
-	if (path === "/gm/themes") {
-		return "themes";
 	}
 	if (path === "/gm/templates") {
 		return "templates";

@@ -375,3 +375,4 @@ interface RuleMetadata {
 
 - **回溯是软删除的唯一例外**：团内运行态数据（`check_requests`、`handout_grants`、`handout_grant_recipients`、`handout_reads`）在 GM 回溯与撤销回溯时仍按现有实现物理删除并重建，因为它们是可从时间线重算的运行态，不是业务资产。软删除约束覆盖账号、人物、模组、团、场景、媒体、模板、提交、邀请、关联表、登录会话与临时导入记录。
 - **实例设置归 admin**：`ui_settings.gmThemeId`、主题包安装/删除/重扫全部迁移到 `/api/v1/admin/*`；GM 控制台不再提供主题浮钮与主题选择入口，GM 后台的主题管理页移除。
+- **主题应用面只读**：GM 控制台仍需套用管理员选定的实例主题，故 `GET /api/v1/public/ui-settings` 公开只读返回 `gmThemeId`；写入与主题管理仍仅 admin 可达。

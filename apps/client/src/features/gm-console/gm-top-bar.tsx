@@ -33,7 +33,6 @@ import {
 	statusTone,
 } from "@/lib/format";
 import { usePlayStore } from "@/stores/play-store";
-import { GmThemeDialog } from "@/themes/runtime/gm-theme-control";
 import { GmOnlinePopover } from "./gm-online-popover";
 import { GmSessionSettingsDialog } from "./gm-session-settings-dialog";
 import { StageLayoutControl } from "./stage-layout-control";
@@ -47,7 +46,6 @@ function GmTopBar() {
 	const presenceAvailable = usePlayStore((state) => state.presenceAvailable);
 	const [endOpen, setEndOpen] = useState(false);
 	const [settingsOpen, setSettingsOpen] = useState(false);
-	const [themeOpen, setThemeOpen] = useState(false);
 	const [invitesOpen, setInvitesOpen] = useState(false);
 	const nextStatus = status ? nextSessionStatus(status) : null;
 	const title = moduleName ?? sessionName ?? scene?.name ?? sessionId;
@@ -149,10 +147,6 @@ function GmTopBar() {
 							<UserPlus />
 							{t("gm.invites.open")}
 						</DropdownMenuItem>
-						<DropdownMenuItem onSelect={() => setThemeOpen(true)}>
-							<Palette />
-							{t("gm.workbench.theme")}
-						</DropdownMenuItem>
 						{status === "active" ? (
 							<>
 								<DropdownMenuSeparator />
@@ -189,7 +183,6 @@ function GmTopBar() {
 				open={settingsOpen}
 				onOpenChange={setSettingsOpen}
 			/>
-			<GmThemeDialog open={themeOpen} onOpenChange={setThemeOpen} />
 			<InviteLinksDialog
 				open={invitesOpen}
 				onOpenChange={setInvitesOpen}

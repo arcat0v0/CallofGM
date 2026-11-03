@@ -14,10 +14,10 @@ import { PageHeader } from "@/components/shared/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { AdminLayout } from "@/features/gm-admin/admin-layout";
+import { AdminShell } from "@/features/admin/admin-shell";
 import { t, useI18nVersion } from "@/i18n";
 import { errorText } from "@/lib/errors";
-import { requireGmAuth } from "@/lib/identity";
+import { requireAccount } from "@/lib/identity";
 import {
 	deleteTheme,
 	listThemes,
@@ -25,12 +25,12 @@ import {
 	uploadTheme,
 } from "@/themes/themes-api";
 
-export const Route = createFileRoute("/gm/themes")({
-	beforeLoad: requireGmAuth,
-	component: GmThemesPage,
+export const Route = createFileRoute("/admin/themes")({
+	beforeLoad: () => requireAccount(["admin"]),
+	component: AdminThemesPage,
 });
 
-function GmThemesPage() {
+function AdminThemesPage() {
 	useI18nVersion();
 	const [themes, setThemes] = useState<ThemeSummaryDto[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -99,7 +99,7 @@ function GmThemesPage() {
 	const deleting = themes.find((theme) => theme.id === deleteId) ?? null;
 
 	return (
-		<AdminLayout>
+		<AdminShell>
 			<div className="flex flex-col gap-5">
 				<PageHeader
 					title={t("gm.themes.title")}
@@ -259,6 +259,6 @@ function GmThemesPage() {
 				confirmLabel={t("gm.themes.deleteConfirm")}
 				onConfirm={() => void handleDelete()}
 			/>
-		</AdminLayout>
+		</AdminShell>
 	);
 }

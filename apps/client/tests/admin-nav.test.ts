@@ -7,10 +7,12 @@ import {
 const NAV_KEYS: AdminNavKey[] = [
 	"sessions",
 	"modules",
+	"templates",
 	"characters",
 	"music",
 	"blacklist",
-	"themes",
+	"reviews",
+	"trash",
 ];
 
 describe("GM admin navigation matching", () => {
@@ -34,13 +36,15 @@ describe("GM admin navigation matching", () => {
 			["/gm/characters", "characters"],
 			["/gm/music", "music"],
 			["/gm/blacklist", "blacklist"],
-			["/gm/themes", "themes"],
+			["/gm/templates", "templates"],
+			["/gm/reviews", "reviews"],
+			["/gm/trash", "trash"],
 		];
 		for (const [pathname, expected] of routes) {
 			const current = adminNavCurrentKey(pathname);
 			expect(current).toBe(expected);
 			expect(NAV_KEYS.filter((key) => key === current)).toHaveLength(1);
 		}
-		expect(adminNavCurrentKey("/gm/login")).toBeNull();
+		expect(adminNavCurrentKey("/login")).toBeNull();
 	});
 });
