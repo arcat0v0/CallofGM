@@ -1,709 +1,857 @@
-import { expect, test, describe, beforeAll, afterAll } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { SessionCloseCode } from "@cogm/shared";
+import { eq } from "drizzle-orm";
 import { Elysia } from "elysia";
 import { Container } from "@/bootstrap/container";
-import { createIdentityRoutes } from "@/modules/identity/transport/routes";
-import { createSessionsRoutes } from "@/modules/sessions/transport/routes";
 import { createCharactersRoutes } from "@/modules/characters/transport/routes";
-import { AppError } from "@/platform/errors/app-error";
-import { modules, characters, sessionOutbox, moduleCharacters } from "@/platform/db/schema";
+import { createIdentityRoutes } from "@/modules/identity/transport/routes";
+import type {
+	CommandHandler,
+	CommandHandlerContext,
+	CommandHandlerResult,
+	VisibilityScope,
+} from "@/modules/realtime";
 import { routes as realtimeRoutes } from "@/modules/realtime";
-import type { CommandHandler, CommandHandlerContext, CommandHandlerResult } from "@/modules/realtime";
-import type { VisibilityScope } from "@/modules/realtime";
-import { CreateSessionUseCase, ClaimSeatUseCase } from "@/modules/sessions/application/use-cases";
+import {
+	ClaimSeatUseCase,
+	CreateSessionUseCase,
+} from "@/modules/sessions/application/use-cases";
 import { DrizzleSessionsRepository } from "@/modules/sessions/infrastructure/drizzle-sessions-repository";
-import { eq } from "drizzle-orm";
-import { listenTestApp, seedAccounts, stopServer, gmUserIdRef } from "../helpers/setup";
-import { SessionCloseCode } from "@cogm/shared";
+import { createSessionsRoutes } from "@/modules/sessions/transport/routes";
+import {
+	characters,
+	moduleCharacters,
+	modules,
+	sessionOutbox,
+} from "@/platform/db/schema";
+import { AppError } from "@/platform/errors/app-error";
+import {
+	gmUserIdRef,
+	listenTestApp,
+	loginToken,
+	seedAccounts,
+	seedPlayers,
+	stopServer,
+} from "../helpers/setup";
 
 interface TestWebSocket extends WebSocket {
-  messages: any[];
-  waitForMessages(count: number): Promise<any[]>;
+	messages: any[];
+	waitForMessages(count: number): Promise<any[]>;
 }
 
-function connectWs(url: string, token: string, fingerprint?: string): Promise<TestWebSocket> {
-  const { promise, resolve, reject } = Promise.withResolvers<TestWebSocket>();
-  const ws = new WebSocket(url, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      ...(fingerprint ? { "x-fingerprint": fingerprint } : {}),
-    },
-  }) as TestWebSocket;
+function connectWs(
+	url: string,
+	token: string,
+	fingerprint?: string,
+): Promise<TestWebSocket> {
+	const { promise, resolve, reject } = Promise.withResolvers<TestWebSocket>();
+	const ws = new WebSocket(url, {
+		headers: {
+			Authorization: `Bearer ${token}`,
+			...(fingerprint ? { "x-fingerprint": fingerprint } : {}),
+		},
+	}) as TestWebSocket;
 
-  ws.messages = [];
-  const resolvers = new Set<{ count: number; resolve: (msgs: any[]) => void }>();
+	ws.messages = [];
+	const resolvers = new Set<{
+		count: number;
+		resolve: (msgs: any[]) => void;
+	}>();
 
-  ws.onmessage = (event) => {
-    const data = JSON.parse(event.data as string);
-    ws.messages.push(data);
-    for (const r of resolvers) {
-      if (ws.messages.length >= r.count) {
-        resolvers.delete(r);
-        r.resolve(ws.messages);
-      }
-    }
-  };
+	ws.onmessage = (event) => {
+		const data = JSON.parse(event.data as string);
+		ws.messages.push(data);
+		for (const r of resolvers) {
+			if (ws.messages.length >= r.count) {
+				resolvers.delete(r);
+				r.resolve(ws.messages);
+			}
+		}
+	};
 
-  ws.waitForMessages = (count: number) => {
-    const { promise: p, resolve: res } = Promise.withResolvers<any[]>();
-    if (ws.messages.length >= count) {
-      res(ws.messages);
-    } else {
-      resolvers.add({ count, resolve: res });
-    }
-    return p;
-  };
+	ws.waitForMessages = (count: number) => {
+		const { promise: p, resolve: res } = Promise.withResolvers<any[]>();
+		if (ws.messages.length >= count) {
+			res(ws.messages);
+		} else {
+			resolvers.add({ count, resolve: res });
+		}
+		return p;
+	};
 
-  if (ws.readyState === WebSocket.OPEN) {
-    resolve(ws);
-  } else if (ws.readyState === WebSocket.CLOSED) {
-    reject(new Error("WebSocket is already closed"));
-  } else {
-    ws.onopen = () => {
-      resolve(ws);
-    };
-    ws.onerror = (err) => {
-      reject(err);
-    };
-  }
-  return promise;
+	if (ws.readyState === WebSocket.OPEN) {
+		resolve(ws);
+	} else if (ws.readyState === WebSocket.CLOSED) {
+		reject(new Error("WebSocket is already closed"));
+	} else {
+		ws.onopen = () => {
+			resolve(ws);
+		};
+		ws.onerror = (err) => {
+			reject(err);
+		};
+	}
+	return promise;
 }
 
 function closeWs(ws: WebSocket): Promise<void> {
-  const { promise, resolve } = Promise.withResolvers<void>();
-  if (ws.readyState === WebSocket.CLOSED) {
-    resolve();
-  } else {
-    ws.onclose = () => {
-      resolve();
-    };
-    ws.close();
-  }
-  return promise;
+	const { promise, resolve } = Promise.withResolvers<void>();
+	if (ws.readyState === WebSocket.CLOSED) {
+		resolve();
+	} else {
+		ws.onclose = () => {
+			resolve();
+		};
+		ws.close();
+	}
+	return promise;
 }
 
 /** 测试用事件探针：生产环境不注册此处理器 */
 class TestEventProbeHandler implements CommandHandler {
-  readonly type = "test:command" as const;
-  readonly allowedStatuses = ["waiting", "preparing", "active"] as const;
+	readonly type = "test:command" as const;
+	readonly allowedStatuses = ["waiting", "preparing", "active"] as const;
 
-  async execute(ctx: CommandHandlerContext, payload: unknown): Promise<CommandHandlerResult> {
-    const p = (payload ?? {}) as {
-      eventType?: string;
-      eventPayload?: unknown;
-      visibility?: VisibilityScope;
-    };
-    return {
-      events: [
-        {
-          type: p.eventType ?? "test:event",
-          payload: p.eventPayload ?? {},
-          visibility: p.visibility ?? { type: "public" },
-        },
-      ],
-    };
-  }
+	async execute(
+		ctx: CommandHandlerContext,
+		payload: unknown,
+	): Promise<CommandHandlerResult> {
+		const p = (payload ?? {}) as {
+			eventType?: string;
+			eventPayload?: unknown;
+			visibility?: VisibilityScope;
+		};
+		return {
+			events: [
+				{
+					type: p.eventType ?? "test:event",
+					payload: p.eventPayload ?? {},
+					visibility: p.visibility ?? { type: "public" },
+				},
+			],
+		};
+	}
 }
 
 describe("Realtime contract tests", () => {
-  let container: Container;
-  let app: any;
-  const gmPassword = "realtime-test-password";
-  let gmToken = "";
-  let player1Token = "";
-  let player2Token = "";
-  let player3Token = "";
-  let player1Id = "";
-  let player2Id = "";
-  let player3Id = "";
-  let sessionId = "";
-
-  beforeAll(async () => {
-    process.env.DATABASE_URL = ":memory:";
-    container = new Container([new TestEventProbeHandler()]);
-    await container.startupService.startup();
-    await seedAccounts(container.db, gmPassword);
-
-    app = new Elysia()
-      .onError(({ error, code, set }) => {
-        if (error instanceof AppError) {
-          set.status = error.statusCode;
-          return {
-            code: error.code,
-            message: error.message,
-          };
-        }
-        if (code === "VALIDATION") {
-          set.status = 400;
-          return {
-            code: "VALIDATION_FAILED",
-            message: error.message,
-          };
-        }
-        set.status = 500;
-        return {
-          code: "INTERNAL_SERVER_ERROR",
-          message: (error as Error).message,
-        };
-      })
-      .use(createIdentityRoutes(container))
-      .use(createSessionsRoutes(container))
-      .use(createCharactersRoutes(container))
-      .use(realtimeRoutes(container));
-
-    const loginRes = await app.handle(
-      new Request("http://localhost/api/v1/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: "gm", password: gmPassword }),
-      })
-    );
-    const loginBody = (await loginRes.json()) as { sessionToken: string };
-    gmToken = loginBody.sessionToken;
-
-    await container.db.insert(modules).values({
-      id: "module-rt",
-      name: "Realtime Module",
-      description: "Realtime Description",
-      ruleId: "coc7e",
-      createdAt: Date.now(),
-      ownerId: gmUserIdRef(),
-      deletedAt: null,
-      updatedAt: Date.now(),
-    });
-
-    await container.db.insert(characters).values({
-      id: "char-rt-1",
-      name: "Character rt 1",
-      kind: "pc",
-      ruleId: "coc7e",
-      sheetJson: JSON.stringify({
-        attributes: { str: 50, con: 50, siz: 50, dex: 50, app: 50, int: 50, pow: 70, edu: 50, luck: 50 },
-        skills: {},
-      }),
-      createdAt: Date.now(),
-    });
-
-    await container.db.insert(characters).values({
-      id: "char-rt-2",
-      name: "Character rt 2",
-      kind: "pc",
-      ruleId: "coc7e",
-      sheetJson: JSON.stringify({
-        attributes: { str: 50, con: 50, siz: 50, dex: 50, app: 50, int: 50, pow: 60, edu: 50, luck: 50 },
-        skills: {},
-      }),
-      createdAt: Date.now(),
-    });
-
-    await container.db.insert(moduleCharacters).values([
-      { id: "link-rt-1", moduleId: "module-rt", characterId: "char-rt-1", createdAt: Date.now() },
-      { id: "link-rt-2", moduleId: "module-rt", characterId: "char-rt-2", createdAt: Date.now() },
-    ]);
-
-    const p1Res = await app.handle(
-      new Request("http://localhost/api/v1/player/identity", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fingerprint: "p1-rt" }),
-      })
-    );
-    const p1Body = (await p1Res.json()) as { playerId: string; token: string };
-    player1Id = p1Body.playerId;
-    player1Token = p1Body.token;
-
-    const p2Res = await app.handle(
-      new Request("http://localhost/api/v1/player/identity", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fingerprint: "p2-rt" }),
-      })
-    );
-    const p2Body = (await p2Res.json()) as { playerId: string; token: string };
-    player2Id = p2Body.playerId;
-    player2Token = p2Body.token;
-
-    const p3Res = await app.handle(
-      new Request("http://localhost/api/v1/player/identity", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fingerprint: "p3-rt" }),
-      })
-    );
-    const p3Body = (await p3Res.json()) as { playerId: string; token: string };
-    player3Id = p3Body.playerId;
-    player3Token = p3Body.token;
-
-    const sessionsRepo = new DrizzleSessionsRepository(container.db);
-    const createSession = new CreateSessionUseCase(
-      sessionsRepo,
-      container.ruleRegistry,
-      container.idGenerator,
-      container.clock
-    );
-    const sessionRes = await createSession.execute({ ownerId: gmUserId, moduleId: "module-rt", characterIds: ["char-rt-1", "char-rt-2"],
-    });
-    sessionId = sessionRes.session.id;
-
-    const claimSeat = new ClaimSeatUseCase(
-      sessionsRepo,
-      container.idGenerator,
-      container.clock
-    );
-
-    await claimSeat.execute({
-      sessionId,
-      playerId: player1Id,
-      role: "pc",
-      characterId: "char-rt-1",
-    });
-
-    await claimSeat.execute({
-      sessionId,
-      playerId: player2Id,
-      role: "pc",
-      characterId: "char-rt-2",
-    });
-  });
-
-  afterAll(() => {
-    container.dbContext.sqlite.close();
-  });
-
-  test("Upgrade checks and authorization", async () => {
-    const server = listenTestApp(app);
-    const port = server.server?.port;
-    const wsUrl = `ws://localhost:${port}/api/v1/sessions/${sessionId}/ws`;
-
-    await expect(connectWs(wsUrl, "")).rejects.toThrow();
-
-    await expect(connectWs(wsUrl, player3Token)).rejects.toThrow();
-
-    const p1Ws = await connectWs(wsUrl, player1Token);
-    expect(p1Ws).toBeDefined();
-    await closeWs(p1Ws);
-
-    const gmWs = await connectWs(wsUrl, gmToken);
-    expect(gmWs).toBeDefined();
-    await closeWs(gmWs);
-
-    await server.stop(true);
-  });
-
-  test("Real-time message broadcasting and visibility filtering", async () => {
-    const server = listenTestApp(app);
-    const port = server.server?.port;
-    const wsUrl = `ws://localhost:${port}/api/v1/sessions/${sessionId}/ws`;
-
-    const gmWs = await connectWs(wsUrl, gmToken);
-    const p1Ws = await connectWs(wsUrl, player1Token);
-    const p2Ws = await connectWs(wsUrl, player2Token);
-
-    const gmMsgsPromise = gmWs.waitForMessages(9);
-    const p1MsgsPromise = p1Ws.waitForMessages(4);
-    const p2MsgsPromise = p2Ws.waitForMessages(3);
-
-
-    p1Ws.send(
-      JSON.stringify({
-        protocolVersion: 1,
-        commandId: "cmd-p1-pub",
-        type: "test:command",
-        payload: {
-          eventType: "test:event:public",
-          eventPayload: { data: "hello public" },
-          visibility: { type: "public" },
-        },
-      })
-    );
-
-    gmWs.send(
-      JSON.stringify({
-        protocolVersion: 1,
-        commandId: "cmd-gm-sec",
-        type: "test:command",
-        payload: {
-          eventType: "test:event:secret",
-          eventPayload: { data: "hello secret" },
-          visibility: { type: "gmOnly" },
-        },
-      })
-    );
-
-    gmWs.send(
-      JSON.stringify({
-        protocolVersion: 1,
-        commandId: "cmd-gm-sel-1",
-        type: "test:command",
-        payload: {
-          eventType: "test:event:whisper1",
-          eventPayload: { data: "hello p1" },
-          visibility: { type: "selectedPcIds", pcIds: ["char-rt-1"] },
-        },
-      })
-    );
-
-    gmWs.send(
-      JSON.stringify({
-        protocolVersion: 1,
-        commandId: "cmd-gm-sel-2",
-        type: "test:command",
-        payload: {
-          eventType: "test:event:whisper2",
-          eventPayload: { data: "hello p2" },
-          visibility: { type: "selectedPcIds", pcIds: ["char-rt-2"] },
-        },
-      })
-    );
-
-    const gmMsgs = await gmMsgsPromise;
-    const p1Msgs = await p1MsgsPromise;
-    const p2Msgs = await p2MsgsPromise;
-
-    expect(gmMsgs.some((m) => m.type === "test:event:public")).toBe(true);
-    expect(gmMsgs.some((m) => m.type === "test:event:secret")).toBe(true);
-    expect(gmMsgs.some((m) => m.type === "test:event:whisper1")).toBe(true);
-    expect(gmMsgs.some((m) => m.type === "test:event:whisper2")).toBe(true);
-
-    expect(p1Msgs.some((m) => m.type === "test:event:public")).toBe(true);
-    expect(p1Msgs.some((m) => m.type === "test:event:secret")).toBe(false);
-    expect(p1Msgs.some((m) => m.type === "test:event:whisper1")).toBe(true);
-    expect(p1Msgs.some((m) => m.type === "test:event:whisper2")).toBe(false);
-
-    expect(p2Msgs.some((m) => m.type === "test:event:public")).toBe(true);
-    expect(p2Msgs.some((m) => m.type === "test:event:secret")).toBe(false);
-    expect(p2Msgs.some((m) => m.type === "test:event:whisper1")).toBe(false);
-    expect(p2Msgs.some((m) => m.type === "test:event:whisper2")).toBe(true);
-
-    await closeWs(gmWs);
-    await closeWs(p1Ws);
-    await closeWs(p2Ws);
-    await server.stop(true);
-  });
-
-  test("Command dedup by commandId", async () => {
-    const server = listenTestApp(app);
-    const port = server.server?.port;
-    const wsUrl = `ws://localhost:${port}/api/v1/sessions/${sessionId}/ws`;
-
-    const gmWs = await connectWs(wsUrl, gmToken);
-    await gmWs.waitForMessages(1);
-
-    const command = JSON.stringify({
-      protocolVersion: 1,
-      commandId: "cmd-dedup-1",
-      type: "test:command",
-      payload: { eventType: "test:event:dedup", eventPayload: { n: 1 } },
-    });
-    gmWs.send(command);
-    gmWs.send(command);
-
-    // snapshot + presence + reply×2（第二条为去重后的缓存回执）+ event×1
-    await gmWs.waitForMessages(5);
-
-    const replies = gmWs.messages.filter(
-      (m) => m.type === "command:accepted" && m.commandId === "cmd-dedup-1"
-    );
-    expect(replies.length).toBe(2);
-    const events = gmWs.messages.filter((m) => m.type === "test:event:dedup");
-    expect(events.length).toBe(1);
-
-    await closeWs(gmWs);
-    await server.stop(true);
-  });
-
-  test("Outbox delivery status update", async () => {
-    await container.sessionCommandExecutor.execute(
-      sessionId,
-      { type: "user", userId: "test-gm", role: "gm", loginSessionId: "s", username: "gm" },
-      {
-        protocolVersion: 1,
-        commandId: crypto.randomUUID(),
-        type: "test:command",
-        payload: { eventType: "test:event:outbox", eventPayload: { ok: true } },
-      },
-      "test-outbox-connection"
-    );
-    const records = await container.db
-      .select()
-      .from(sessionOutbox)
-      .where(eq(sessionOutbox.sessionId, sessionId))
-      .execute();
-
-    expect(records.length).toBeGreaterThan(0);
-    for (const record of records) {
-      expect(record.status).toBe("delivered");
-      expect(JSON.parse(record.visibilityJson)).toHaveProperty("type");
-    }
-  });
-
-  test("Reconnection recovery - ring buffer catch-up", async () => {
-    const server = listenTestApp(app);
-    const port = server.server?.port;
-    const wsUrl = `ws://localhost:${port}/api/v1/sessions/${sessionId}/ws`;
-
-    const gmWs = await connectWs(wsUrl, gmToken);
-    const p1Ws = await connectWs(wsUrl, player1Token);
-
-    const firstMessages = await p1Ws.waitForMessages(1);
-    expect(firstMessages.length).toBe(1);
-    expect(firstMessages[0].type).toBe("snapshot");
-
-    const lastEventId = firstMessages[0].watermark;
-
-    await closeWs(p1Ws);
-
-    const gmCatchMsgsPromise = gmWs.waitForMessages(7);
-    gmWs.send(
-      JSON.stringify({
-        protocolVersion: 1,
-        commandId: "cmd-catch-1",
-        type: "test:command",
-        payload: {
-          eventType: "event:missed:1",
-          eventPayload: { seq: 1 },
-          visibility: { type: "public" },
-        },
-      })
-    );
-    gmWs.send(
-      JSON.stringify({
-        protocolVersion: 1,
-        commandId: "cmd-catch-2",
-        type: "test:command",
-        payload: {
-          eventType: "event:missed:2",
-          eventPayload: { seq: 2 },
-          visibility: { type: "public" },
-        },
-      })
-    );
-    await gmCatchMsgsPromise;
-
-    const reconnectedWs = await connectWs(`${wsUrl}?lastEventId=${lastEventId}`, player1Token);
-    const recoveredMessages = await reconnectedWs.waitForMessages(2);
-
-    expect(recoveredMessages.length).toBe(2);
-    expect(recoveredMessages[0].type).toBe("event:missed:1");
-    expect(recoveredMessages[1].type).toBe("event:missed:2");
-
-    await closeWs(reconnectedWs);
-    await closeWs(gmWs);
-    await server.stop(true);
-  });
-
-  test("Reconnection recovery - full snapshot fallback", async () => {
-    const server = listenTestApp(app);
-    const port = server.server?.port;
-    const wsUrl = `ws://localhost:${port}/api/v1/sessions/${sessionId}/ws`;
-
-    const reconnectedWs = await connectWs(`${wsUrl}?lastEventId=999999`, player1Token);
-    const recoveredMessages = await reconnectedWs.waitForMessages(1);
-    expect(recoveredMessages.length).toBe(1);
-    expect(recoveredMessages[0].type).toBe("snapshot");
-    expect(recoveredMessages[0].watermark).toBeDefined();
-
-    await closeWs(reconnectedWs);
-    await server.stop(true);
-  });
-
-  test("Ended session still hydrates a snapshot and rejects gameplay writes", async () => {
-    const auth = { Authorization: `Bearer ${gmToken}`, "Content-Type": "application/json" };
-    for (const status of ["preparing", "active", "ended"] as const) {
-      const res = await app.handle(
-        new Request(`http://localhost/api/v1/gm/sessions/${sessionId}/status`, {
-          method: "POST",
-          headers: auth,
-          body: JSON.stringify({ status }),
-        })
-      );
-      expect(res.status).toBe(200);
-    }
-
-    const server = listenTestApp(app);
-    const port = server.server?.port;
-    const wsUrl = `ws://localhost:${port}/api/v1/sessions/${sessionId}/ws`;
-    const gmWs = await connectWs(wsUrl, gmToken);
-    const p3ClaimRes = await app.handle(
-      new Request(`http://localhost/api/v1/sessions/${sessionId}/claim`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${player3Token}` },
-        body: JSON.stringify({ role: "ob" }),
-      })
-    );
-    expect(p3ClaimRes.status).toBe(200);
-
-    const p3Ws = await connectWs(wsUrl, player3Token);
-    const p3Snapshot = await p3Ws.waitForMessages(1);
-    expect(p3Snapshot[0].type).toBe("snapshot");
-    expect(p3Snapshot[0].payload.session.status).toBe("ended");
-    await closeWs(p3Ws);
-
-
-    const snapshot = await gmWs.waitForMessages(1);
-    expect(snapshot[0].type).toBe("snapshot");
-    expect(snapshot[0].payload.session.status).toBe("ended");
-
-    gmWs.send(
-      JSON.stringify({
-        protocolVersion: 1,
-        commandId: "ended-write",
-        type: "test:command",
-        payload: {
-          eventType: "should:not:emit",
-          eventPayload: {},
-          visibility: { type: "public" },
-        },
-      })
-    );
-    const deadline = Date.now() + 3000;
-    let reply: { type?: string; payload?: { code?: string } } | undefined;
-    while (Date.now() < deadline) {
-      reply = gmWs.messages.find((m: { commandId?: string }) => m.commandId === "ended-write");
-      if (reply) {
-        break;
-      }
-      await new Promise((resolve) => setTimeout(resolve, 20));
-    }
-    expect(reply?.type).toBe("command:rejected");
-    expect(reply?.payload?.code).toBe("SESSION_STATE_INVALID");
-
-    await closeWs(gmWs);
-    await server.stop(true);
-  });
-
-  test("Snapshot recovers visible events when preceded by many hidden events", async () => {
-    const sessionsRepo = new DrizzleSessionsRepository(container.db);
-    const createSession = new CreateSessionUseCase(
-      sessionsRepo,
-      container.ruleRegistry,
-      container.idGenerator,
-      container.clock
-    );
-    const created = await createSession.execute({ ownerId: gmUserId, moduleId: "module-rt", characterIds: ["char-rt-1"],
-    });
-    const testSessionId = created.session.id;
-
-    const claimSeat = new ClaimSeatUseCase(sessionsRepo, container.idGenerator, container.clock);
-    await claimSeat.execute({
-      sessionId: testSessionId,
-      playerId: player1Id,
-      role: "pc",
-      characterId: "char-rt-1",
-    });
-
-    await container.sessionEventBus.emit(testSessionId, [
-      {
-        type: "dice:rolled",
-        payload: { rollerType: "player", result: { total: 42, expression: "1d100", detail: "42" }, hidden: false },
-        visibility: { type: "public" },
-      },
-    ]);
-
-    for (let i = 0; i < 55; i++) {
-      await container.sessionEventBus.emit(testSessionId, [
-        {
-          type: "dice:rolled",
-          payload: { rollerType: "gm", result: { total: i, expression: "1d100", detail: String(i) }, hidden: true },
-          visibility: { type: "gmOnly" },
-        },
-      ]);
-    }
-
-    const playerSnapshot = await container.snapshotBuilder.execute({
-      sessionId: testSessionId,
-      actor: { type: "player", playerId: player1Id },
-      claimedCharacterId: "char-rt-1",
-    });
-
-    const hasTargetRoll = playerSnapshot.recentHistory.some((item) => {
-      if (item.kind !== "activity") {
-        return false;
-      }
-      const payload = item.payload;
-      if (payload && typeof payload === "object" && "result" in payload) {
-        const res = payload.result;
-        if (res && typeof res === "object" && "total" in res) {
-          return res.total === 42;
-        }
-      }
-      return false;
-    });
-    expect(hasTargetRoll).toBe(true);
-  });
-
-  test("Snapshot viewer carries the authoritative seat role for input gating", async () => {
-    const pcSnapshot = await container.snapshotBuilder.execute({
-      sessionId,
-      actor: { type: "player", playerId: player1Id },
-      claimedCharacterId: "char-rt-1",
-    });
-    expect(pcSnapshot.viewer).toEqual({ isGm: false, seatRole: "pc" });
-
-    const gmSnapshot = await container.snapshotBuilder.execute({
-      sessionId,
-      actor: { type: "user", userId: "test-gm", role: "gm", loginSessionId: "s", username: "gm" },
-      claimedCharacterId: null,
-    });
-    expect(gmSnapshot.viewer).toEqual({ isGm: true, seatRole: null });
-
-    const claimSeat = new ClaimSeatUseCase(
-      new DrizzleSessionsRepository(container.db),
-      container.idGenerator,
-      container.clock
-    );
-    await claimSeat.execute({ sessionId, playerId: player3Id, role: "ob" });
-    const obSnapshot = await container.snapshotBuilder.execute({
-      sessionId,
-      actor: { type: "player", playerId: player3Id },
-      claimedCharacterId: null,
-    });
-    expect(obSnapshot.viewer).toEqual({ isGm: false, seatRole: "ob" });
-  });
-
-  test("Replacing a player's claim closes their previous connection with a dedicated code", async () => {
-    const sessionsRepo = new DrizzleSessionsRepository(container.db);
-    const createSession = new CreateSessionUseCase(
-      sessionsRepo,
-      container.ruleRegistry,
-      container.idGenerator,
-      container.clock
-    );
-    const created = await createSession.execute({ ownerId: gmUserId, moduleId: "module-rt", characterIds: ["char-rt-1", "char-rt-2"],
-    });
-    const freshSessionId = created.session.id;
-    const claimSeat = new ClaimSeatUseCase(sessionsRepo, container.idGenerator, container.clock);
-    await claimSeat.execute({
-      sessionId: freshSessionId,
-      playerId: player3Id,
-      role: "pc",
-      characterId: "char-rt-1",
-    });
-
-    const server = listenTestApp(app);
-    const wsUrl = `ws://localhost:${server.server?.port}/api/v1/sessions/${freshSessionId}/ws`;
-    const ws = await connectWs(wsUrl, player3Token);
-    await ws.waitForMessages(1);
-
-    const closed = new Promise<{ code: number; reason: string }>((resolve) => {
-      ws.onclose = (event) => resolve({ code: event.code, reason: event.reason });
-    });
-
-    const claimRes = await app.handle(
-      new Request(`http://localhost/api/v1/sessions/${freshSessionId}/claim`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${player3Token}`,
-        },
-        body: JSON.stringify({ role: "ob" }),
-      })
-    );
-    expect(claimRes.status).toBe(200);
-
-    const closeInfo = await closed;
-    expect(closeInfo.code).toBe(SessionCloseCode.claimReplaced);
-    expect(closeInfo.reason).toBe("claim replaced");
-
-    await stopServer(server);
-  });
+	let container: Container;
+	let app: any;
+	const gmPassword = "realtime-test-password";
+	let gmToken = "";
+	let player1Token = "";
+	let player2Token = "";
+	let player3Token = "";
+	let player1Id = "";
+	let player2Id = "";
+	let player3Id = "";
+	let sessionId = "";
+
+	beforeAll(async () => {
+		process.env.DATABASE_URL = ":memory:";
+		container = new Container([new TestEventProbeHandler()]);
+		await container.startupService.startup();
+		await seedAccounts(container.db, gmPassword);
+
+		app = new Elysia()
+			.onError(({ error, code, set }) => {
+				if (error instanceof AppError) {
+					set.status = error.statusCode;
+					return {
+						code: error.code,
+						message: error.message,
+					};
+				}
+				if (code === "VALIDATION") {
+					set.status = 400;
+					return {
+						code: "VALIDATION_FAILED",
+						message: error.message,
+					};
+				}
+				set.status = 500;
+				return {
+					code: "INTERNAL_SERVER_ERROR",
+					message: (error as Error).message,
+				};
+			})
+			.use(createIdentityRoutes(container))
+			.use(createSessionsRoutes(container))
+			.use(createCharactersRoutes(container))
+			.use(realtimeRoutes(container));
+
+		const loginRes = await app.handle(
+			new Request("http://localhost/api/v1/auth/login", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ username: "gm", password: gmPassword }),
+			}),
+		);
+		const loginBody = (await loginRes.json()) as { sessionToken: string };
+		gmToken = loginBody.sessionToken;
+
+		await container.db.insert(modules).values({
+			id: "module-rt",
+			name: "Realtime Module",
+			description: "Realtime Description",
+			ruleId: "coc7e",
+			createdAt: Date.now(),
+			ownerId: gmUserIdRef(container.db),
+			deletedAt: null,
+			updatedAt: Date.now(),
+		});
+
+		await container.db.insert(characters).values({
+			id: "char-rt-1",
+			name: "Character rt 1",
+			kind: "pc",
+			ruleId: "coc7e",
+			sheetJson: JSON.stringify({
+				attributes: {
+					str: 50,
+					con: 50,
+					siz: 50,
+					dex: 50,
+					app: 50,
+					int: 50,
+					pow: 70,
+					edu: 50,
+					luck: 50,
+				},
+				skills: {},
+			}),
+			createdAt: Date.now(),
+			ownerId: gmUserIdRef(container.db),
+			ownerKind: "gm",
+			background: "",
+			sheetVersion: 1,
+			profileVersion: 1,
+			version: 1,
+			originType: "manual",
+			originRefId: null,
+			deletedAt: null,
+			updatedAt: Date.now(),
+		});
+
+		await container.db.insert(characters).values({
+			id: "char-rt-2",
+			name: "Character rt 2",
+			kind: "pc",
+			ruleId: "coc7e",
+			sheetJson: JSON.stringify({
+				attributes: {
+					str: 50,
+					con: 50,
+					siz: 50,
+					dex: 50,
+					app: 50,
+					int: 50,
+					pow: 60,
+					edu: 50,
+					luck: 50,
+				},
+				skills: {},
+			}),
+			createdAt: Date.now(),
+			ownerId: gmUserIdRef(container.db),
+			ownerKind: "gm",
+			background: "",
+			sheetVersion: 1,
+			profileVersion: 1,
+			version: 1,
+			originType: "manual",
+			originRefId: null,
+			deletedAt: null,
+			updatedAt: Date.now(),
+		});
+
+		await container.db.insert(moduleCharacters).values([
+			{
+				id: "link-rt-1",
+				moduleId: "module-rt",
+				characterId: "char-rt-1",
+				createdAt: Date.now(),
+			},
+			{
+				id: "link-rt-2",
+				moduleId: "module-rt",
+				characterId: "char-rt-2",
+				createdAt: Date.now(),
+			},
+		]);
+
+		const accountPassword = "realtime-test-password";
+		const accounts = await seedPlayers(container.db, accountPassword, [
+			"rt-p1",
+			"rt-p2",
+		]);
+		player1Id = accounts.get("rt-p1")!.userId;
+		player1Token = await loginToken(app, "rt-p1", accountPassword);
+		player2Id = accounts.get("rt-p2")!.userId;
+		player2Token = await loginToken(app, "rt-p2", accountPassword);
+
+		const p3Res = await app.handle(
+			new Request("http://localhost/api/v1/player/identity", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ fingerprint: "p3-rt" }),
+			}),
+		);
+		const p3Body = (await p3Res.json()) as { playerId: string; token: string };
+		player3Id = p3Body.playerId;
+		player3Token = p3Body.token;
+
+		const sessionsRepo = new DrizzleSessionsRepository(container.db);
+		const createSession = new CreateSessionUseCase(
+			sessionsRepo,
+			container.ruleRegistry,
+			container.idGenerator,
+			container.clock,
+		);
+		const sessionRes = await createSession.execute({
+			ownerId: gmUserIdRef(container.db),
+			moduleId: "module-rt",
+			characterIds: ["char-rt-1", "char-rt-2"],
+		});
+		sessionId = sessionRes.session.id;
+
+		const claimSeat = new ClaimSeatUseCase(
+			sessionsRepo,
+			container.idGenerator,
+			container.clock,
+		);
+
+		await claimSeat.execute({
+			sessionId,
+			holder: { holderKind: "user", playerId: null, userId: player1Id },
+			role: "pc",
+			characterId: "char-rt-1",
+		});
+
+		await claimSeat.execute({
+			sessionId,
+			holder: { holderKind: "user", playerId: null, userId: player2Id },
+			role: "pc",
+			characterId: "char-rt-2",
+		});
+	});
+
+	afterAll(() => {
+		container.dbContext.sqlite.close();
+	});
+
+	test("Upgrade checks and authorization", async () => {
+		const server = listenTestApp(app);
+		const port = server.server?.port;
+		const wsUrl = `ws://localhost:${port}/api/v1/sessions/${sessionId}/ws`;
+
+		await expect(connectWs(wsUrl, "")).rejects.toThrow();
+
+		await expect(connectWs(wsUrl, player3Token)).rejects.toThrow();
+
+		const p1Ws = await connectWs(wsUrl, player1Token);
+		expect(p1Ws).toBeDefined();
+		await closeWs(p1Ws);
+
+		const gmWs = await connectWs(wsUrl, gmToken);
+		expect(gmWs).toBeDefined();
+		await closeWs(gmWs);
+
+		await server.stop(true);
+	});
+
+	test("Real-time message broadcasting and visibility filtering", async () => {
+		const server = listenTestApp(app);
+		const port = server.server?.port;
+		const wsUrl = `ws://localhost:${port}/api/v1/sessions/${sessionId}/ws`;
+
+		const gmWs = await connectWs(wsUrl, gmToken);
+		const p1Ws = await connectWs(wsUrl, player1Token);
+		const p2Ws = await connectWs(wsUrl, player2Token);
+
+		const gmMsgsPromise = gmWs.waitForMessages(9);
+		const p1MsgsPromise = p1Ws.waitForMessages(4);
+		const p2MsgsPromise = p2Ws.waitForMessages(3);
+
+		p1Ws.send(
+			JSON.stringify({
+				protocolVersion: 1,
+				commandId: "cmd-p1-pub",
+				type: "test:command",
+				payload: {
+					eventType: "test:event:public",
+					eventPayload: { data: "hello public" },
+					visibility: { type: "public" },
+				},
+			}),
+		);
+
+		gmWs.send(
+			JSON.stringify({
+				protocolVersion: 1,
+				commandId: "cmd-gm-sec",
+				type: "test:command",
+				payload: {
+					eventType: "test:event:secret",
+					eventPayload: { data: "hello secret" },
+					visibility: { type: "gmOnly" },
+				},
+			}),
+		);
+
+		gmWs.send(
+			JSON.stringify({
+				protocolVersion: 1,
+				commandId: "cmd-gm-sel-1",
+				type: "test:command",
+				payload: {
+					eventType: "test:event:whisper1",
+					eventPayload: { data: "hello p1" },
+					visibility: { type: "selectedPcIds", pcIds: ["char-rt-1"] },
+				},
+			}),
+		);
+
+		gmWs.send(
+			JSON.stringify({
+				protocolVersion: 1,
+				commandId: "cmd-gm-sel-2",
+				type: "test:command",
+				payload: {
+					eventType: "test:event:whisper2",
+					eventPayload: { data: "hello p2" },
+					visibility: { type: "selectedPcIds", pcIds: ["char-rt-2"] },
+				},
+			}),
+		);
+
+		const gmMsgs = await gmMsgsPromise;
+		const p1Msgs = await p1MsgsPromise;
+		const p2Msgs = await p2MsgsPromise;
+
+		expect(gmMsgs.some((m) => m.type === "test:event:public")).toBe(true);
+		expect(gmMsgs.some((m) => m.type === "test:event:secret")).toBe(true);
+		expect(gmMsgs.some((m) => m.type === "test:event:whisper1")).toBe(true);
+		expect(gmMsgs.some((m) => m.type === "test:event:whisper2")).toBe(true);
+
+		expect(p1Msgs.some((m) => m.type === "test:event:public")).toBe(true);
+		expect(p1Msgs.some((m) => m.type === "test:event:secret")).toBe(false);
+		expect(p1Msgs.some((m) => m.type === "test:event:whisper1")).toBe(true);
+		expect(p1Msgs.some((m) => m.type === "test:event:whisper2")).toBe(false);
+
+		expect(p2Msgs.some((m) => m.type === "test:event:public")).toBe(true);
+		expect(p2Msgs.some((m) => m.type === "test:event:secret")).toBe(false);
+		expect(p2Msgs.some((m) => m.type === "test:event:whisper1")).toBe(false);
+		expect(p2Msgs.some((m) => m.type === "test:event:whisper2")).toBe(true);
+
+		await closeWs(gmWs);
+		await closeWs(p1Ws);
+		await closeWs(p2Ws);
+		await server.stop(true);
+	});
+
+	test("Command dedup by commandId", async () => {
+		const server = listenTestApp(app);
+		const port = server.server?.port;
+		const wsUrl = `ws://localhost:${port}/api/v1/sessions/${sessionId}/ws`;
+
+		const gmWs = await connectWs(wsUrl, gmToken);
+		await gmWs.waitForMessages(1);
+
+		const command = JSON.stringify({
+			protocolVersion: 1,
+			commandId: "cmd-dedup-1",
+			type: "test:command",
+			payload: { eventType: "test:event:dedup", eventPayload: { n: 1 } },
+		});
+		gmWs.send(command);
+		gmWs.send(command);
+
+		// snapshot + presence + reply×2（第二条为去重后的缓存回执）+ event×1
+		await gmWs.waitForMessages(5);
+
+		const replies = gmWs.messages.filter(
+			(m) => m.type === "command:accepted" && m.commandId === "cmd-dedup-1",
+		);
+		expect(replies.length).toBe(2);
+		const events = gmWs.messages.filter((m) => m.type === "test:event:dedup");
+		expect(events.length).toBe(1);
+
+		await closeWs(gmWs);
+		await server.stop(true);
+	});
+
+	test("Outbox delivery status update", async () => {
+		await container.sessionCommandExecutor.execute(
+			sessionId,
+			{
+				type: "user",
+				userId: "test-gm",
+				role: "gm",
+				loginSessionId: "s",
+				username: "gm",
+			},
+			{
+				protocolVersion: 1,
+				commandId: crypto.randomUUID(),
+				type: "test:command",
+				payload: { eventType: "test:event:outbox", eventPayload: { ok: true } },
+			},
+			"test-outbox-connection",
+		);
+		const records = await container.db
+			.select()
+			.from(sessionOutbox)
+			.where(eq(sessionOutbox.sessionId, sessionId))
+			.execute();
+
+		expect(records.length).toBeGreaterThan(0);
+		for (const record of records) {
+			expect(record.status).toBe("delivered");
+			expect(JSON.parse(record.visibilityJson)).toHaveProperty("type");
+		}
+	});
+
+	test("Reconnection recovery - ring buffer catch-up", async () => {
+		const server = listenTestApp(app);
+		const port = server.server?.port;
+		const wsUrl = `ws://localhost:${port}/api/v1/sessions/${sessionId}/ws`;
+
+		const gmWs = await connectWs(wsUrl, gmToken);
+		const p1Ws = await connectWs(wsUrl, player1Token);
+
+		const firstMessages = await p1Ws.waitForMessages(1);
+		expect(firstMessages.length).toBe(1);
+		expect(firstMessages[0].type).toBe("snapshot");
+
+		const lastEventId = firstMessages[0].watermark;
+
+		await closeWs(p1Ws);
+
+		const gmCatchMsgsPromise = gmWs.waitForMessages(7);
+		gmWs.send(
+			JSON.stringify({
+				protocolVersion: 1,
+				commandId: "cmd-catch-1",
+				type: "test:command",
+				payload: {
+					eventType: "event:missed:1",
+					eventPayload: { seq: 1 },
+					visibility: { type: "public" },
+				},
+			}),
+		);
+		gmWs.send(
+			JSON.stringify({
+				protocolVersion: 1,
+				commandId: "cmd-catch-2",
+				type: "test:command",
+				payload: {
+					eventType: "event:missed:2",
+					eventPayload: { seq: 2 },
+					visibility: { type: "public" },
+				},
+			}),
+		);
+		await gmCatchMsgsPromise;
+
+		const reconnectedWs = await connectWs(
+			`${wsUrl}?lastEventId=${lastEventId}`,
+			player1Token,
+		);
+		const recoveredMessages = await reconnectedWs.waitForMessages(2);
+
+		expect(recoveredMessages.length).toBe(2);
+		expect(recoveredMessages[0].type).toBe("event:missed:1");
+		expect(recoveredMessages[1].type).toBe("event:missed:2");
+
+		await closeWs(reconnectedWs);
+		await closeWs(gmWs);
+		await server.stop(true);
+	});
+
+	test("Reconnection recovery - full snapshot fallback", async () => {
+		const server = listenTestApp(app);
+		const port = server.server?.port;
+		const wsUrl = `ws://localhost:${port}/api/v1/sessions/${sessionId}/ws`;
+
+		const reconnectedWs = await connectWs(
+			`${wsUrl}?lastEventId=999999`,
+			player1Token,
+		);
+		const recoveredMessages = await reconnectedWs.waitForMessages(1);
+		expect(recoveredMessages.length).toBe(1);
+		expect(recoveredMessages[0].type).toBe("snapshot");
+		expect(recoveredMessages[0].watermark).toBeDefined();
+
+		await closeWs(reconnectedWs);
+		await server.stop(true);
+	});
+
+	test("Ended session still hydrates a snapshot and rejects gameplay writes", async () => {
+		const auth = {
+			Authorization: `Bearer ${gmToken}`,
+			"Content-Type": "application/json",
+		};
+		for (const status of ["preparing", "active", "ended"] as const) {
+			const res = await app.handle(
+				new Request(`http://localhost/api/v1/gm/sessions/${sessionId}/status`, {
+					method: "POST",
+					headers: auth,
+					body: JSON.stringify({ status }),
+				}),
+			);
+			expect(res.status).toBe(200);
+		}
+
+		const server = listenTestApp(app);
+		const port = server.server?.port;
+		const wsUrl = `ws://localhost:${port}/api/v1/sessions/${sessionId}/ws`;
+		const gmWs = await connectWs(wsUrl, gmToken);
+		const p3ClaimRes = await app.handle(
+			new Request(`http://localhost/api/v1/sessions/${sessionId}/claim`, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${player3Token}`,
+				},
+				body: JSON.stringify({ role: "ob" }),
+			}),
+		);
+		expect(p3ClaimRes.status).toBe(200);
+
+		const p3Ws = await connectWs(wsUrl, player3Token);
+		const p3Snapshot = await p3Ws.waitForMessages(1);
+		expect(p3Snapshot[0].type).toBe("snapshot");
+		expect(p3Snapshot[0].payload.session.status).toBe("ended");
+		await closeWs(p3Ws);
+
+		const snapshot = await gmWs.waitForMessages(1);
+		expect(snapshot[0].type).toBe("snapshot");
+		expect(snapshot[0].payload.session.status).toBe("ended");
+
+		gmWs.send(
+			JSON.stringify({
+				protocolVersion: 1,
+				commandId: "ended-write",
+				type: "test:command",
+				payload: {
+					eventType: "should:not:emit",
+					eventPayload: {},
+					visibility: { type: "public" },
+				},
+			}),
+		);
+		const deadline = Date.now() + 3000;
+		let reply: { type?: string; payload?: { code?: string } } | undefined;
+		while (Date.now() < deadline) {
+			reply = gmWs.messages.find(
+				(m: { commandId?: string }) => m.commandId === "ended-write",
+			);
+			if (reply) {
+				break;
+			}
+			await new Promise((resolve) => setTimeout(resolve, 20));
+		}
+		expect(reply?.type).toBe("command:rejected");
+		expect(reply?.payload?.code).toBe("SESSION_STATE_INVALID");
+
+		await closeWs(gmWs);
+		await server.stop(true);
+	});
+
+	test("Snapshot recovers visible events when preceded by many hidden events", async () => {
+		const sessionsRepo = new DrizzleSessionsRepository(container.db);
+		const createSession = new CreateSessionUseCase(
+			sessionsRepo,
+			container.ruleRegistry,
+			container.idGenerator,
+			container.clock,
+		);
+		const created = await createSession.execute({
+			ownerId: gmUserIdRef(container.db),
+			moduleId: "module-rt",
+			characterIds: ["char-rt-1"],
+		});
+		const testSessionId = created.session.id;
+
+		const claimSeat = new ClaimSeatUseCase(
+			sessionsRepo,
+			container.idGenerator,
+			container.clock,
+		);
+		await claimSeat.execute({
+			sessionId: testSessionId,
+			holder: { holderKind: "user", playerId: null, userId: player1Id },
+			role: "pc",
+			characterId: "char-rt-1",
+		});
+
+		await container.sessionEventBus.emit(testSessionId, [
+			{
+				type: "dice:rolled",
+				payload: {
+					rollerType: "player",
+					result: { total: 42, expression: "1d100", detail: "42" },
+					hidden: false,
+				},
+				visibility: { type: "public" },
+			},
+		]);
+
+		for (let i = 0; i < 55; i++) {
+			await container.sessionEventBus.emit(testSessionId, [
+				{
+					type: "dice:rolled",
+					payload: {
+						rollerType: "gm",
+						result: { total: i, expression: "1d100", detail: String(i) },
+						hidden: true,
+					},
+					visibility: { type: "gmOnly" },
+				},
+			]);
+		}
+
+		const playerSnapshot = await container.snapshotBuilder.execute({
+			sessionId: testSessionId,
+			actor: {
+				type: "user",
+				userId: player1Id,
+				role: "pl",
+				loginSessionId: "s1",
+				username: "rt-p1",
+			},
+			claimedCharacterId: "char-rt-1",
+		});
+
+		const hasTargetRoll = playerSnapshot.recentHistory.some((item) => {
+			if (item.kind !== "activity") {
+				return false;
+			}
+			const payload = item.payload;
+			if (payload && typeof payload === "object" && "result" in payload) {
+				const res = payload.result;
+				if (res && typeof res === "object" && "total" in res) {
+					return res.total === 42;
+				}
+			}
+			return false;
+		});
+		expect(hasTargetRoll).toBe(true);
+	});
+
+	test("Snapshot viewer carries the authoritative seat role for input gating", async () => {
+		const pcSnapshot = await container.snapshotBuilder.execute({
+			sessionId,
+			actor: {
+				type: "user",
+				userId: player1Id,
+				role: "pl",
+				loginSessionId: "s1",
+				username: "rt-p1",
+			},
+			claimedCharacterId: "char-rt-1",
+		});
+		expect(pcSnapshot.viewer).toMatchObject({
+			isGm: false,
+			seatRole: "pc",
+			holderKind: "user",
+			holderId: player1Id,
+		});
+
+		const gmSnapshot = await container.snapshotBuilder.execute({
+			sessionId,
+			actor: {
+				type: "user",
+				userId: "test-gm",
+				role: "gm",
+				loginSessionId: "s",
+				username: "gm",
+			},
+			claimedCharacterId: null,
+		});
+		expect(gmSnapshot.viewer).toMatchObject({
+			isGm: true,
+			seatRole: null,
+			holderKind: null,
+			holderId: null,
+		});
+
+		const claimSeat = new ClaimSeatUseCase(
+			new DrizzleSessionsRepository(container.db),
+			container.idGenerator,
+			container.clock,
+		);
+		await claimSeat.execute({
+			sessionId,
+			holder: { holderKind: "anonymous", playerId: player3Id, userId: null },
+			role: "ob",
+		});
+		const obSnapshot = await container.snapshotBuilder.execute({
+			sessionId,
+			actor: { type: "player", playerId: player3Id },
+			claimedCharacterId: null,
+		});
+		expect(obSnapshot.viewer).toMatchObject({
+			isGm: false,
+			seatRole: "ob",
+			holderKind: "anonymous",
+			holderId: player3Id,
+		});
+	});
+
+	test("Replacing a player's claim closes their previous connection with a dedicated code", async () => {
+		const sessionsRepo = new DrizzleSessionsRepository(container.db);
+		const createSession = new CreateSessionUseCase(
+			sessionsRepo,
+			container.ruleRegistry,
+			container.idGenerator,
+			container.clock,
+		);
+		const created = await createSession.execute({
+			ownerId: gmUserIdRef(container.db),
+			moduleId: "module-rt",
+			characterIds: ["char-rt-1", "char-rt-2"],
+		});
+		const freshSessionId = created.session.id;
+		const claimSeat = new ClaimSeatUseCase(
+			sessionsRepo,
+			container.idGenerator,
+			container.clock,
+		);
+		await claimSeat.execute({
+			sessionId: freshSessionId,
+			holder: { holderKind: "user", playerId: null, userId: player1Id },
+			role: "pc",
+			characterId: "char-rt-1",
+		});
+
+		const server = listenTestApp(app);
+		const wsUrl = `ws://localhost:${server.server?.port}/api/v1/sessions/${freshSessionId}/ws`;
+		const ws = await connectWs(wsUrl, player1Token);
+		await ws.waitForMessages(1);
+
+		const closed = new Promise<{ code: number; reason: string }>((resolve) => {
+			ws.onclose = (event) =>
+				resolve({ code: event.code, reason: event.reason });
+		});
+
+		const claimRes = await app.handle(
+			new Request(`http://localhost/api/v1/sessions/${freshSessionId}/claim`, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${player1Token}`,
+				},
+				body: JSON.stringify({ role: "ob" }),
+			}),
+		);
+		expect(claimRes.status).toBe(200);
+
+		const closeInfo = await closed;
+		expect(closeInfo.code).toBe(SessionCloseCode.claimReplaced);
+		expect(closeInfo.reason).toBe("claim replaced");
+
+		await stopServer(server);
+	});
 });

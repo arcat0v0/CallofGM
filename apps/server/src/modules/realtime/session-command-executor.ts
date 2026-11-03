@@ -1,28 +1,37 @@
-import { and, eq, isNull } from "drizzle-orm";
-import { holderOfActor } from "@/modules/identity";
+import type {
+	ClientCommand,
+	ClientCommandType,
+	CommandReply,
+} from "@cogm/shared";
+import { and, eq, eq as eqCol, isNull } from "drizzle-orm";
 import type { ActorContext } from "@/modules/identity";
-import type { ClientCommand, CommandReply, ClientCommandType } from "@cogm/shared";
+import { ForbiddenError, holderOfActor } from "@/modules/identity";
+import {
+	SessionNotFoundError,
+	SessionStateInvalidError,
+} from "@/modules/sessions";
 import type { DbClient } from "@/platform/db/client";
+import { sessionClaims, sessions } from "@/platform/db/schema";
 import type { TransactionRunner } from "@/platform/db/transaction";
-import { sessions, sessionClaims } from "@/platform/db/schema";
-import { eq as eqCol } from "drizzle-orm";
 import { AppError } from "@/platform/errors/app-error";
-import { SessionNotFoundError, SessionStateInvalidError } from "@/modules/sessions";
-import { ForbiddenError } from "@/modules/identity";
-import type { Clock, IdGenerator, RandomSource } from "@/platform/ports";
-import type { SessionEventBus, StagedEvents } from "./session-event-bus";
-import type { PresenceService } from "./presence-service";
-import type { ConnectionRegistry } from "./connection-registry";
-import type { CommandHandler, CommandHandlerContext, CommandHandlerResult } from "./application/command-handler";
-import type { SessionHistoryRecorder } from "./application/history-recorder";
 import { logger } from "@/platform/logging/logger";
+import type { Clock, IdGenerator, RandomSource } from "@/platform/ports";
+import type {
+	CommandHandler,
+	CommandHandlerContext,
+	CommandHandlerResult,
+} from "./application/command-handler";
+import type { SessionHistoryRecorder } from "./application/history-recorder";
+import type { ConnectionRegistry } from "./connection-registry";
+import type { PresenceService } from "./presence-service";
+import type { SessionEventBus, StagedEvents } from "./session-event-bus";
 
 const MAX_CACHED_REPLIES_PER_SESSION = 500;
 
 function actorKey(actor: ActorContext): string {
-  return actor.type === "player"
-    ? `player:${actor.playerId}`
-    : `user:${actor.userId}:${actor.loginSessionId}`;
+	return actor.type === "player"
+		? `player:${actor.playerId}`
+		: `user:${actor.userId}:${actor.loginSessionId}`;
 }
 
 /**
@@ -32,265 +41,326 @@ function actorKey(actor: ActorContext): string {
  * 具体业务由按 type 注册的 CommandHandler 完成。
  */
 export class SessionCommandExecutor {
-  private queues = new Map<string, Promise<unknown>>();
-  private handlers = new Map<ClientCommandType, CommandHandler>();
-  private cachedReplies = new Map<string, Map<string, CommandReply>>();
+	private queues = new Map<string, Promise<unknown>>();
+	private handlers = new Map<ClientCommandType, CommandHandler>();
+	private cachedReplies = new Map<string, Map<string, CommandReply>>();
 
-  constructor(
-    private readonly db: DbClient,
-    private readonly transactionRunner: TransactionRunner,
-    private readonly eventBus: SessionEventBus,
-    private readonly presenceService: PresenceService,
-    private readonly connectionRegistry: ConnectionRegistry,
-    private readonly clock: Clock,
-    private readonly idGenerator: IdGenerator,
-    private readonly randomSource: RandomSource,
-    private readonly historyRecorder: SessionHistoryRecorder
-  ) {}
+	constructor(
+		private readonly db: DbClient,
+		private readonly transactionRunner: TransactionRunner,
+		private readonly eventBus: SessionEventBus,
+		private readonly presenceService: PresenceService,
+		private readonly connectionRegistry: ConnectionRegistry,
+		private readonly clock: Clock,
+		private readonly idGenerator: IdGenerator,
+		private readonly randomSource: RandomSource,
+		private readonly historyRecorder: SessionHistoryRecorder,
+	) {}
 
-  registerHandlers(handlers: CommandHandler[]): void {
-    for (const handler of handlers) {
-      if (this.handlers.has(handler.type)) {
-        throw new Error(`Duplicate command handler for type: ${handler.type}`);
-      }
-      this.handlers.set(handler.type, handler);
-    }
-  }
+	registerHandlers(handlers: CommandHandler[]): void {
+		for (const handler of handlers) {
+			if (this.handlers.has(handler.type)) {
+				throw new Error(`Duplicate command handler for type: ${handler.type}`);
+			}
+			this.handlers.set(handler.type, handler);
+		}
+	}
 
-  async execute(
-    sessionId: string,
-    actor: ActorContext,
-    command: ClientCommand,
-    connectionId: string
-  ): Promise<CommandReply> {
-    return this.enqueue(sessionId, async () => {
-      const replyKey = `${actorKey(actor)}:${command.commandId}`;
-      // 去重检查必须位于团级串行队列内，否则两个同时到达的同 commandId 都会穿透。
-      const cached = this.cachedReplies.get(sessionId)?.get(replyKey);
-      if (cached) {
-        return cached;
-      }
+	async execute(
+		sessionId: string,
+		actor: ActorContext,
+		command: ClientCommand,
+		connectionId: string,
+	): Promise<CommandReply> {
+		return this.enqueue(sessionId, async () => {
+			const replyKey = `${actorKey(actor)}:${command.commandId}`;
+			// 去重检查必须位于团级串行队列内，否则两个同时到达的同 commandId 都会穿透。
+			const cached = this.cachedReplies.get(sessionId)?.get(replyKey);
+			if (cached) {
+				return cached;
+			}
 
-      const reply = await this.processCommand(sessionId, actor, command, connectionId);
-      if (this.handlers.get(command.type)?.transientReply !== true) {
-        if (reply.type === "command:accepted") {
-          this.cacheReply(sessionId, replyKey, reply);
-        } else if ((reply.payload as { code?: string })?.code !== "INTERNAL_SERVER_ERROR") {
-          this.cacheReply(sessionId, replyKey, reply);
-        }
-      }
-      return reply;
-    });
-  }
+			const reply = await this.processCommand(
+				sessionId,
+				actor,
+				command,
+				connectionId,
+			);
+			if (this.handlers.get(command.type)?.transientReply !== true) {
+				if (reply.type === "command:accepted") {
+					this.cacheReply(sessionId, replyKey, reply);
+				} else if (
+					(reply.payload as { code?: string })?.code !== "INTERNAL_SERVER_ERROR"
+				) {
+					this.cacheReply(sessionId, replyKey, reply);
+				}
+			}
+			return reply;
+		});
+	}
 
-  /** 与命令共用串行队列，用于无竞态快照 */
-  runExclusive<T>(sessionId: string, work: () => Promise<T>): Promise<T> {
-    return this.enqueue(sessionId, work);
-  }
+	/** 与命令共用串行队列，用于无竞态快照 */
+	runExclusive<T>(sessionId: string, work: () => Promise<T>): Promise<T> {
+		return this.enqueue(sessionId, work);
+	}
 
-  evictSession(sessionId: string): void {
-    this.cachedReplies.delete(sessionId);
-  }
+	evictSession(sessionId: string): void {
+		this.cachedReplies.delete(sessionId);
+	}
 
-  private enqueue<T>(sessionId: string, work: () => Promise<T>): Promise<T> {
-    const previous = this.queues.get(sessionId) ?? Promise.resolve();
-    const result = previous.catch(() => undefined).then(work);
-    this.queues.set(sessionId, result);
-    // 队列引用链清理： settled 后移除，避免长会话内存膨胀
-    void result.finally(() => {
-      if (this.queues.get(sessionId) === result) {
-        this.queues.delete(sessionId);
-      }
-    });
-    return result;
-  }
+	private enqueue<T>(sessionId: string, work: () => Promise<T>): Promise<T> {
+		const previous = this.queues.get(sessionId) ?? Promise.resolve();
+		const result = previous.catch(() => undefined).then(work);
+		this.queues.set(sessionId, result);
+		// 队列引用链清理： settled 后移除，避免长会话内存膨胀
+		void result.finally(() => {
+			if (this.queues.get(sessionId) === result) {
+				this.queues.delete(sessionId);
+			}
+		});
+		return result;
+	}
 
-  private cacheReply(sessionId: string, commandId: string, reply: CommandReply): void {
-    let byCommand = this.cachedReplies.get(sessionId);
-    if (!byCommand) {
-      byCommand = new Map();
-      this.cachedReplies.set(sessionId, byCommand);
-    }
-    if (byCommand.size >= MAX_CACHED_REPLIES_PER_SESSION) {
-      const oldest = byCommand.keys().next().value;
-      if (oldest !== undefined) {
-        byCommand.delete(oldest);
-      }
-    }
-    byCommand.set(commandId, reply);
-  }
+	private cacheReply(
+		sessionId: string,
+		commandId: string,
+		reply: CommandReply,
+	): void {
+		let byCommand = this.cachedReplies.get(sessionId);
+		if (!byCommand) {
+			byCommand = new Map();
+			this.cachedReplies.set(sessionId, byCommand);
+		}
+		if (byCommand.size >= MAX_CACHED_REPLIES_PER_SESSION) {
+			const oldest = byCommand.keys().next().value;
+			if (oldest !== undefined) {
+				byCommand.delete(oldest);
+			}
+		}
+		byCommand.set(commandId, reply);
+	}
 
-  private async processCommand(
-    sessionId: string,
-    actor: ActorContext,
-    command: ClientCommand,
-    connectionId: string
-  ): Promise<CommandReply> {
-    const handler = this.handlers.get(command.type);
-    if (!handler) {
-      return this.reject(command, new AppError("RULE_ACTION_UNSUPPORTED", `Unsupported command: ${command.type}`, 400));
-    }
+	private async processCommand(
+		sessionId: string,
+		actor: ActorContext,
+		command: ClientCommand,
+		connectionId: string,
+	): Promise<CommandReply> {
+		const handler = this.handlers.get(command.type);
+		if (!handler) {
+			return this.reject(
+				command,
+				new AppError(
+					"RULE_ACTION_UNSUPPORTED",
+					`Unsupported command: ${command.type}`,
+					400,
+				),
+			);
+		}
 
-    try {
-      const { staged, result } = await this.transactionRunner.run(async (tx) => {
-        const sessionRows = await tx.select().from(sessions).where(eqCol(sessions.id, sessionId));
-        const session = sessionRows[0];
-        if (!session) {
-          throw new SessionNotFoundError();
-        }
-        if (session.status === "ended") {
-          if (!handler.allowWhenEnded) {
-            throw new SessionStateInvalidError("Session has ended");
-          }
-        } else {
-          const allowed = handler.allowedStatuses ?? ["active"];
-          if (!allowed.includes(session.status as "waiting" | "preparing" | "active")) {
-            throw new SessionStateInvalidError(`Command not allowed while session is ${session.status}`);
-          }
-        }
+		try {
+			const { staged, result } = await this.transactionRunner.run(
+				async (tx) => {
+					const sessionRows = await tx
+						.select()
+						.from(sessions)
+						.where(eqCol(sessions.id, sessionId));
+					const session = sessionRows[0];
+					if (!session) {
+						throw new SessionNotFoundError();
+					}
+					if (session.status === "ended") {
+						if (!handler.allowWhenEnded) {
+							throw new SessionStateInvalidError("Session has ended");
+						}
+					} else {
+						const allowed = handler.allowedStatuses ?? ["active"];
+						if (
+							!allowed.includes(
+								session.status as "waiting" | "preparing" | "active",
+							)
+						) {
+							throw new SessionStateInvalidError(
+								`Command not allowed while session is ${session.status}`,
+							);
+						}
+					}
 
-        const seat = await this.resolveSeat(tx, sessionId, actor);
-        const ctx: CommandHandlerContext = {
-          tx,
-          sessionId,
-          session,
-          actor,
-          seat,
-          connectionId,
-          clock: this.clock,
-          idGenerator: this.idGenerator,
-          randomSource: this.randomSource,
-        };
+					const seat = await this.resolveSeat(tx, sessionId, actor);
+					const ctx: CommandHandlerContext = {
+						tx,
+						sessionId,
+						session,
+						actor,
+						seat,
+						connectionId,
+						clock: this.clock,
+						idGenerator: this.idGenerator,
+						randomSource: this.randomSource,
+					};
 
-        const result = await handler.execute(ctx, command.payload);
-        const staged = await this.eventBus.stage(tx, sessionId, result.events ?? []);
-        if (staged.entries.length === 0 && !handler.skipHistoryCheckpoint) {
-          await this.historyRecorder.recordHead(tx, sessionId);
-        }
-        if (result.finalizeAfterStaged) {
-          await result.finalizeAfterStaged(tx, staged);
-        }
-        return { staged, result };
-      });
+					const result = await handler.execute(ctx, command.payload);
+					const staged = await this.eventBus.stage(
+						tx,
+						sessionId,
+						result.events ?? [],
+					);
+					if (staged.entries.length === 0 && !handler.skipHistoryCheckpoint) {
+						await this.historyRecorder.recordHead(tx, sessionId);
+					}
+					if (result.finalizeAfterStaged) {
+						await result.finalizeAfterStaged(tx, staged);
+					}
+					return { staged, result };
+				},
+			);
 
-      const accepted: CommandReply = {
-        protocolVersion: 1,
-        commandId: command.commandId,
-        type: "command:accepted",
-        payload: result.replyPayload ?? {
-          eventIds: staged.entries.map((e) => e.event.eventId),
-        },
-      };
+			const accepted: CommandReply = {
+				protocolVersion: 1,
+				commandId: command.commandId,
+				type: "command:accepted",
+				payload: result.replyPayload ?? {
+					eventIds: staged.entries.map((e) => e.event.eventId),
+				},
+			};
 
-      try {
-        await this.afterCommit(sessionId, staged, result);
-      } catch (err) {
-        logger.error("afterCommit failed after command commit", {
-          sessionId,
-          commandId: command.commandId,
-          commandType: command.type,
-          err,
-        });
-      }
+			try {
+				await this.afterCommit(sessionId, staged, result);
+			} catch (err) {
+				logger.error("afterCommit failed after command commit", {
+					sessionId,
+					commandId: command.commandId,
+					commandType: command.type,
+					err,
+				});
+			}
 
-      return accepted;
-    } catch (err) {
-      return this.reject(command, err);
-    }
-  }
+			return accepted;
+		} catch (err) {
+			return this.reject(command, err);
+		}
+	}
 
-  private async resolveSeat(
-    tx: DbClient,
-    sessionId: string,
-    actor: ActorContext
-  ): Promise<CommandHandlerContext["seat"]> {
-    if (actor.type === "user" && actor.role !== "pl") {
-      return null;
-    }
-    const holder = holderOfActor(actor);
-    const claims = await tx
-      .select()
-      .from(sessionClaims)
-      .where(
-        and(
-          eqCol(sessionClaims.sessionId, sessionId),
-          holder.holderKind === "user"
-            ? eqCol(sessionClaims.userId, holder.userId!)
-            : eqCol(sessionClaims.playerId, holder.playerId!),
-          isNull(sessionClaims.releasedAt)
-        )
-      );
-    const claim = claims[0];
-    if (!claim) {
-      throw new ForbiddenError("No active claim in this session");
-    }
-    return {
-      role: claim.role === "pc" ? "pc" : "ob",
-      characterId: claim.characterId ?? null,
-    };
-  }
+	private async resolveSeat(
+		tx: DbClient,
+		sessionId: string,
+		actor: ActorContext,
+	): Promise<CommandHandlerContext["seat"]> {
+		if (actor.type === "user" && actor.role !== "pl") {
+			return null;
+		}
+		const holder = holderOfActor(actor);
+		const claims = await tx
+			.select()
+			.from(sessionClaims)
+			.where(
+				and(
+					eqCol(sessionClaims.sessionId, sessionId),
+					holder.holderKind === "user"
+						? eqCol(sessionClaims.userId, holder.userId!)
+						: eqCol(sessionClaims.playerId, holder.playerId!),
+					isNull(sessionClaims.releasedAt),
+				),
+			);
+		const claim = claims[0];
+		if (!claim) {
+			throw new ForbiddenError("No active claim in this session");
+		}
+		return {
+			role: claim.role === "pc" ? "pc" : "ob",
+			characterId: claim.characterId ?? null,
+		};
+	}
 
-  /** 提交后副作用：投递事件、GM 定向消息、关闭连接、刷新在线列表。 */
-  private async afterCommit(
-    sessionId: string,
-    staged: StagedEvents,
-    result: CommandHandlerResult
-  ): Promise<void> {
-    await this.eventBus.deliver(staged);
-    if (result.resetEventBuffer) {
-      const lastEventId = staged.entries[staged.entries.length - 1]?.event.eventId;
-      if (lastEventId !== undefined) {
-        this.eventBus.resetRingBuffer(sessionId, lastEventId + 1);
-      }
-    }
+	/** 提交后副作用：投递事件、GM 定向消息、关闭连接、刷新在线列表。 */
+	private async afterCommit(
+		sessionId: string,
+		staged: StagedEvents,
+		result: CommandHandlerResult,
+	): Promise<void> {
+		await this.eventBus.deliver(staged);
+		if (result.resetEventBuffer) {
+			const lastEventId =
+				staged.entries[staged.entries.length - 1]?.event.eventId;
+			if (lastEventId !== undefined) {
+				this.eventBus.resetRingBuffer(sessionId, lastEventId + 1);
+			}
+		}
 
-    for (const message of result.directToGms ?? []) {
-      this.connectionRegistry.sendToGms(sessionId, message);
-    }
-    for (const message of result.directToSession ?? []) {
-      this.connectionRegistry.sendToSession(sessionId, message);
-    }
-    for (const target of result.directToPlayers ?? []) {
-      this.connectionRegistry.sendToPlayer(sessionId, target.playerId, target.message);
-    }
-    for (const target of result.directToHolders ?? []) {
-      if (target.holderKind === "user") {
-        this.connectionRegistry.sendToUser(sessionId, target.holderId, target.message);
-      } else {
-        this.connectionRegistry.sendToPlayer(sessionId, target.holderId, target.message);
-      }
-    }
+		for (const message of result.directToGms ?? []) {
+			this.connectionRegistry.sendToGms(sessionId, message);
+		}
+		for (const message of result.directToSession ?? []) {
+			this.connectionRegistry.sendToSession(sessionId, message);
+		}
+		for (const target of result.directToPlayers ?? []) {
+			this.connectionRegistry.sendToPlayer(
+				sessionId,
+				target.playerId,
+				target.message,
+			);
+		}
+		for (const target of result.directToHolders ?? []) {
+			if (target.holderKind === "user") {
+				this.connectionRegistry.sendToUser(
+					sessionId,
+					target.holderId,
+					target.message,
+				);
+			} else {
+				this.connectionRegistry.sendToPlayer(
+					sessionId,
+					target.holderId,
+					target.message,
+				);
+			}
+		}
 
-    for (const holderId of result.closeConnectionsOfHolders ?? []) {
-      const scope = result.closeConnectionsGlobally ? undefined : sessionId;
-      if (holderId.startsWith("user:")) {
-        this.connectionRegistry.closeUserConnections(holderId.slice(5), scope, 4000, "kicked");
-      } else if (holderId.startsWith("player:")) {
-        this.connectionRegistry.closePlayerConnections(holderId.slice(7), scope);
-      }
-      result.refreshPresence = true;
-    }
+		for (const holderId of result.closeConnectionsOfHolders ?? []) {
+			const scope = result.closeConnectionsGlobally ? undefined : sessionId;
+			if (holderId.startsWith("user:")) {
+				this.connectionRegistry.closeUserConnections(
+					holderId.slice(5),
+					scope,
+					4000,
+					"kicked",
+				);
+			} else if (holderId.startsWith("player:")) {
+				this.connectionRegistry.closePlayerConnections(
+					holderId.slice(7),
+					scope,
+				);
+			}
+			result.refreshPresence = true;
+		}
 
-    if (result.refreshPresence) {
-      await this.presenceService.broadcast(sessionId);
-    }
-  }
+		if (result.refreshPresence) {
+			await this.presenceService.broadcast(sessionId);
+		}
+	}
 
-  private reject(command: ClientCommand, err: unknown): CommandReply {
-    if (err instanceof AppError) {
-      return {
-        protocolVersion: 1,
-        commandId: command.commandId,
-        type: "command:rejected",
-        payload: { code: err.code, message: err.message },
-      };
-    }
-    logger.error("command failed", { commandType: command.type, commandId: command.commandId, err });
-    return {
-      protocolVersion: 1,
-      commandId: command.commandId,
-      type: "command:rejected",
-      payload: { code: "INTERNAL_SERVER_ERROR", message: "An unexpected error occurred" },
-    };
-  }
+	private reject(command: ClientCommand, err: unknown): CommandReply {
+		if (err instanceof AppError) {
+			return {
+				protocolVersion: 1,
+				commandId: command.commandId,
+				type: "command:rejected",
+				payload: { code: err.code, message: err.message },
+			};
+		}
+		logger.error("command failed", {
+			commandType: command.type,
+			commandId: command.commandId,
+			err,
+		});
+		return {
+			protocolVersion: 1,
+			commandId: command.commandId,
+			type: "command:rejected",
+			payload: {
+				code: "INTERNAL_SERVER_ERROR",
+				message: "An unexpected error occurred",
+			},
+		};
+	}
 }

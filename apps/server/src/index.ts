@@ -1,22 +1,26 @@
+import { createApp } from "./app";
 import { Container } from "./bootstrap/container";
 import { buildCommandHandlers } from "./bootstrap/handlers";
-import { createApp } from "./app";
 
 const container = new Container();
-container.sessionCommandExecutor.registerHandlers(buildCommandHandlers(container));
+container.sessionCommandExecutor.registerHandlers(
+	buildCommandHandlers(container),
+);
 
 try {
-  await container.startupService.startup();
-  console.log("Startup sequence completed successfully.");
+	await container.startupService.startup();
+	console.log("Startup sequence completed successfully.");
 } catch (err) {
-  console.error("Startup sequence failed:", err);
-  process.exit(1);
+	console.error("Startup sequence failed:", err);
+	process.exit(1);
 }
 
 const app = createApp(container);
 
 const server = app.listen(container.env.PORT, () => {
-  console.log(`CoGM server running at http://${app.server?.hostname}:${app.server?.port}`);
+	console.log(
+		`CoGM server running at http://${app.server?.hostname}:${app.server?.port}`,
+	);
 });
 
 let shuttingDown = false;
@@ -28,28 +32,29 @@ let shuttingDown = false;
  * 因此所有等待都带期限，到期强制退出。
  */
 async function shutdown() {
-  if (shuttingDown) {
-    return;
-  }
-  shuttingDown = true;
-  console.log("Shutting down gracefully...");
+	if (shuttingDown) {
+		return;
+	}
+	shuttingDown = true;
+	console.log("Shutting down gracefully...");
 
-  const deadline = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+	const deadline = (ms: number) =>
+		new Promise((resolve) => setTimeout(resolve, ms));
 
-  try {
-    container.connectionRegistry.closeAll(1001, "server shutdown");
-    await Promise.race([Promise.resolve(server.stop(true)), deadline(2000)]);
-  } catch (err) {
-    console.error("Error stopping server:", err);
-  }
+	try {
+		container.connectionRegistry.closeAll(1001, "server shutdown");
+		await Promise.race([Promise.resolve(server.stop(true)), deadline(2000)]);
+	} catch (err) {
+		console.error("Error stopping server:", err);
+	}
 
-  try {
-    container.startupService.stop();
-    container.dbContext.sqlite.close();
-  } catch (err) {
-    console.error("Error closing database:", err);
-  }
-  process.exit(0);
+	try {
+		container.startupService.stop();
+		container.dbContext.sqlite.close();
+	} catch (err) {
+		console.error("Error closing database:", err);
+	}
+	process.exit(0);
 }
 
 process.on("SIGTERM", shutdown);

@@ -1,3 +1,3 @@
 export function normalizeUsername(username: string): string {
-  return username.trim().toLowerCase();
+	return username.trim().toLowerCase();
 }
