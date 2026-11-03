@@ -197,21 +197,27 @@ __root.tsx[EU4T]: F:根路由：TooltipProvider+Toaster 全局挂载+Outlet，no
 index.tsx[AU3T]: F:站点首页：输入团号或完整加入链接跳转 /join/:sessionId，底部 GM 入口 | R:code:apps/client/src/i18n/index.ts,code:apps/client/src/components/brand/logo.tsx | A:导出 Route | S:输入若含 /join/<id> 则正则提取并 decode，否则整串视为 sessionId
 join.$sessionId.tsx[AU5M]: F:入团选座页：拉取 join-info 展示团信息与席位卡片（PC 卡+OB），选中后 POST /sessions/:id/claim 并跳 /play；claim 返回 GM_SESSION_ACTIVE 时提供退出主持登录并重试 | R:code:apps/client/src/themes/runtime/theme-scope.tsx,code:apps/client/src/themes/runtime/theme-slot.tsx,code:apps/client/src/lib/identity.ts,code:apps/client/src/lib/api.ts | A:导出 Route；slot join.header/join.layout/join.seat-card | S:未结束默认选第一个未占 PC，已结束强制 OB；join-info 请求按 sessionId 共享 Promise；GM cookie 优先于玩家 token，冲突时显示专用按钮并保留错误码
 play.$sessionId.tsx[EU3T]: F:玩家游玩路由：无守卫，直接渲染 PlayView | R:code:apps/client/src/features/play/play-view.tsx | A:- | S:-
+login.tsx[AU5S]: F:账号登录页：用户名+密码表单，成功后按角色跳转 admin/gm/pl，401 提示凭据错误，密码可切换明文显示 | R:code:apps/client/src/stores/identity-store.ts,code:apps/client/src/lib/api.ts,code:apps/client/src/i18n/index.ts | A:导出 Route；调用 loginAccount 写入身份 | S:roleHome 映射 admin→/admin、pl→/pl，其余→/gm；401 单独提示而非通用错误
+submit.$token.tsx[AU5S]: F:邀请提交页：按 token 展示团/模组与规则，可选提交新人物或从本人同规则人物中选择；已提交人物禁用 | R:code:apps/client/src/lib/api.ts,code:apps/client/src/lib/identity.ts | A:导出 Route（requireAccount(["pl"])）；GET /pl/invites/:token，POST /pl/invites/:token/submissions | S:已有列表只保留 ruleId 与邀请一致的项；alreadySubmitted 的项不可再选
 
 ===/home/arcat/Develop/CallofGM/apps/client/src/routes/gm/===
-blacklist.tsx[AS5M]: F:黑名单管理页：MetricStrip 三指标+指纹表格（时长/剩余/封禁时间/操作）+搜索过滤+手动拉黑与解封；空态提示右上角手动拉黑 | R:code:apps/client/src/features/gm-admin/dialogs/ban-player-dialog.tsx,code:apps/client/src/lib/api.ts,code:apps/client/src/components/shared/confirm-dialog.tsx | A:导出 Route；GET /gm/blacklist，拉黑 POST /gm/blacklist，解封 POST /gm/blacklist/unban | S:expiresAt=null 即永久封禁；beforeLoad 用 requireGmAuth；表格行以 fingerprintHash 为 key；三指标用 MetricStrip columns=3
-characters.tsx[AU5M]: F:GM 人物库：左侧搜索/PC-NPC 过滤列表+右侧详情（立绘预览、MD3 操作工具栏：导入 Excel/编辑数值/表情选择/上传立绘、kebab 删除）；统计与属性卡双列；新建/导入弹窗 | R:code:apps/client/src/lib/character-sheet.ts,code:apps/client/src/features/gm-admin/dialogs/import-character-sheet-dialog.tsx,code:apps/client/src/features/gm-admin/dialogs/character-sheet-editor-dialog.tsx | A:导出 Route；GET/DELETE /gm/characters，上传 /media/upload 与 /gm/characters/:id/portraits；创建成功以返回 id 打开编辑器 | S:选中人物会单独 GET 一次详情刷新列表；上传按 expressionKey 写回，isDefault 仅 default 为真；动作行用 role=toolbar 的胶囊工具栏，表情选择与上传同组；删除入口收进 kebab
-index.tsx[AU5M]: F:GM 总览台：MetricStrip 四指标+团列表（名称/模组/状态/阶段/短代号/更新时间/操作），支持新建团、Excel 导入、推进、改名、复制链接与结团；模组资源卡为横向封面 | R:code:apps/client/src/features/gm-admin/dialogs/create-session-dialog.tsx,code:apps/client/src/lib/api.ts,code:apps/client/src/i18n/labels.ts,code:apps/client/src/components/shared/metric-card.tsx | A:导出 Route；GET /gm/sessions、/gm/modules、/gm/characters、/gm/modules/summaries，POST /gm/sessions/:id/status 与 /name | S:推进只按 waiting→preparing→active；active 不显示推进；代号展示 6 位但 title 保留完整 id；指标用 MetricStrip 的 emphasis 标记进行中的团
-module.$moduleId.tsx[AU5L]: F:模组详情：名称/描述/主题编辑，Tabs 管理场景（改删+上传背景）、曲目（改删+上传音频测时长）、情报（改删+配图）；标签与示例占位分离 | R:code:apps/client/src/lib/api.ts,code:apps/client/src/lib/audio-duration.ts,code:apps/client/src/themes/themes-api.ts | A:导出 Route；REST /gm/modules/:id 及 scenes/tracks/handouts 子资源，上传 /media/upload（purpose 区分） | S:子件草稿态未变更时保存 disabled；上传音频先本地测时长；行内编辑控件统一 32px，删除钮同样 32px
-modules.tsx[AU4M]: F:模组管理页：PageHeader 新建按钮+响应式卡片网格（16:9 封面、规则徽标、四类计数、主题选择、更新时间、管理/删除）；新建表单移入 CreateModuleDialog，空态引导 | R:code:apps/client/src/features/gm-admin/dialogs/create-module-dialog.tsx,code:apps/client/src/components/shared/confirm-dialog.tsx | A:导出 Route；GET/POST /gm/modules 与 /gm/modules/summaries，PATCH themeId，DELETE | S:themeId 空串映射为 null；列表并行拉 summaries 显示封面/计数；名称空时创建禁用；删除在卡片封面 kebab 菜单而非行内红钮；新建成功关闭弹窗并刷新列表
+blacklist.tsx[AS5L]: F:黑名单管理页：MetricStrip 三指标（活跃/永久/全部）+指纹表格（玩家/指纹/备注/时长/剩余/封禁时间/操作）+搜索过滤+手动拉黑与解封；无数据与无匹配双空态 | R:code:apps/client/src/features/gm-admin/dialogs/ban-player-dialog.tsx,code:apps/client/src/lib/api.ts,code:apps/client/src/components/shared/confirm-dialog.tsx | A:导出 Route；GET /gm/blacklist，拉黑 POST /gm/blacklist，解封 POST /gm/blacklist/unban | S:expiresAt=null 即永久封禁；剩余时长按 24 小时分档；表格行以 fingerprintHash 为 key；已失效行操作变为重新拉黑
+characters.tsx[AU5L]: F:GM 人物库：左侧搜索/PC-NPC 过滤列表+右侧详情（立绘预览、MD3 操作工具栏：导入 Excel/编辑数值/表情选择/上传立绘、kebab 删除）；统计与属性卡双列；新建/导入弹窗 | R:code:apps/client/src/lib/character-sheet.ts,code:apps/client/src/features/gm-admin/dialogs/import-character-sheet-dialog.tsx,code:apps/client/src/features/gm-admin/dialogs/character-sheet-editor-dialog.tsx | A:导出 Route；GET/DELETE /gm/characters，上传 /media/upload 与 /gm/characters/:id/portraits；创建成功以返回 id 打开编辑器 | S:选中人物会单独 GET 一次详情刷新列表；上传按 expressionKey 写回，isDefault 仅 default 为真；动作行用 role=toolbar 的胶囊工具栏，删除入口收进 kebab
+index.tsx[AU5L]: F:GM 总览台：MetricStrip 四指标+团列表（名称/模组/状态/阶段/短代号/更新时间/操作），支持新建团、Excel 导入、推进、改名、复制链接与结团；模组资源卡为横向封面 | R:code:apps/client/src/features/gm-admin/dialogs/create-session-dialog.tsx,code:apps/client/src/lib/api.ts,code:apps/client/src/i18n/labels.ts,code:apps/client/src/components/shared/metric-card.tsx | A:导出 Route；GET /gm/sessions、/gm/modules、/gm/characters、/gm/modules/summaries，POST /gm/sessions/:id/status 与 /name | S:推进只按 waiting→preparing→active；active 不显示推进；代号展示 6 位但 title 保留完整 id；指标用 MetricStrip 的 emphasis 标记进行中的团
+module.$moduleId.tsx[AU5L]: F:模组详情：名称/描述/主题编辑与邀请链接入口，Tabs 管理场景（改删+上传背景）、曲目（改删+上传音频测时长）、情报（改删+配图）；标签与示例占位分离 | R:code:apps/client/src/lib/api.ts,code:apps/client/src/lib/audio-duration.ts,code:apps/client/src/themes/themes-api.ts,code:apps/client/src/features/gm-admin/dialogs/invite-links-dialog.tsx | A:导出 Route；REST /gm/modules/:id 及 scenes/tracks/handouts 子资源，上传 /media/upload（purpose 区分） | S:子件草稿态未变更时保存 disabled；上传音频先本地测时长；行内编辑控件统一 32px；邀请按钮在 PageHeader actions 以 scope=module 打开
+modules.tsx[AU4M]: F:模组管理页：PageHeader 新建按钮+响应式卡片网格（16:9 封面、规则徽标、四类计数、主题选择、更新时间、管理/删除）；新建表单移入 CreateModuleDialog，空态引导 | R:code:apps/client/src/features/gm-admin/dialogs/create-module-dialog.tsx,code:apps/client/src/components/shared/confirm-dialog.tsx | A:导出 Route；GET/POST /gm/modules 与 /gm/modules/summaries，PATCH themeId，DELETE | S:themeId 空串映射为 null；列表并行拉 summaries 显示封面/计数；删除在卡片封面 kebab 菜单而非行内红钮；新建成功关闭弹窗并刷新列表
 music.tsx[AU5M]: F:音乐资源页：按模组切换曲目，BGM/SE 分栏等高层，支持本地试听、重命名与删除，并可跳到模组上传页 | R:code:apps/client/src/lib/api.ts,code:apps/client/src/lib/format.ts,code:apps/client/src/lib/identity.ts | A:导出 Route；GET /gm/modules/:id/tracks，PATCH/DELETE /gm/modules/tracks/:id | S:试听用独立 Howl 并在换曲/卸载时 unload；重命名 Enter 提交、Esc 还原，空名不提交；两栏 items-stretch 保持等高
 session.$sessionId.tsx[EU3T]: F:GM 控制台路由：beforeLoad=requireGmAuth 守卫，组件 GmConsoleView | R:code:apps/client/src/features/gm-console/gm-console-view.tsx,code:apps/client/src/lib/identity.ts | A:- | S:-
+reviews.tsx[AU5S]: F:GM 审核页：列出待审人物提交（人物名/所属团或模组/提交人/时间），支持通过或填写理由驳回 | R:code:apps/client/src/lib/api.ts,code:apps/client/src/lib/identity.ts | A:导出 Route（requireGmAuth）；GET /gm/reviews?status=pending，POST /gm/reviews/:id/decide {approve,reason} | S:scope 徽标区分团与模组；驳回理由随 decide 一并提交
+templates.tsx[AU5M]: F:模组模板页：卡片列出模板（规则/当前版本/场景数/情报数），支持从模组创建模板、实例化为新模组、快速开团、保存新版本与删除 | R:code:apps/client/src/lib/api.ts,code:apps/client/src/components/shared/confirm-dialog.tsx | A:导出 Route；GET/POST /gm/templates，POST /gm/templates/:id/instantiate 与 /versions，DELETE /gm/templates/:id | S:新建模板的 ruleId 取自所选源模组，无源模组时回落 coc7e；实例化与快速开团各自新建独立模组/团
+trash.tsx[AU5S]: F:回收站页：列出已软删除实体（类型/名称/删除时间），支持恢复；类型标签缺失时回退显示原始 entityType | R:code:apps/client/src/lib/api.ts,code:apps/client/src/lib/errors.ts | A:导出 Route；GET /trash，POST /trash/restore {entityType,id} | S:恢复按 entityType+id 定位；typeLabel 未命中 i18n key 时直接显示原值
 
 ===/home/arcat/Develop/CallofGM/apps/client/src/stores/===
-identity-store.ts[AI3T]: F:玩家身份 store：playerId（初始取 localStorage）与 GM 鉴权态，setPlayer 同步写回存储 | R:code:apps/client/src/lib/storage.ts | A:导出 useIdentityStore | S:gmAuthenticated 初始 null 表示未知，须先经 fetchGmMe 判定
+identity-store.ts[AI4T]: F:身份 store：账号身份（userId/username/role）与待判定鉴权态、匿名 playerId（取 localStorage），并提供账号/匿名 holder key 生成 | R:code:apps/client/src/lib/storage.ts | A:导出 useIdentityStore、holderKeyOfAccount/holderKeyOfAnonymous | S:accountResolved=false 表示尚未经 /me 判定；holder key 前缀 user:/anonymous: 用于席位归属匹配
 play-store.ts[AU7L]: F:玩家端全局状态与消息归约：快照应用、事件分发（聊天/骰点/检定/状态/场景/表情/立绘布局/音频/情报/队列/在线）、历史分页、终态与本地音量/静音 | R:code:apps/client/src/lib/chat-map.ts,code:apps/client/src/lib/session-socket.ts,code:apps/client/src/lib/storage.ts,code:packages/shared/src/websocket.ts | A:导出 usePlayStore 与 ConnectionTerminal | S:消息按 id 去重并按 sortKey 排序；history:page 响应只在 commandId 匹配当前请求时合并；portraitLayout/Scale 缺省 auto/md；released 表示主持人收回席位
 gm-settings-store.ts[AE4T]: F:GM 界面设置 store：加载 gmThemeId，切换时乐观更新并在失败时回滚并记录错误文案 | R:code:apps/client/src/themes/themes-api.ts,code:apps/client/src/lib/errors.ts | A:导出 useGmSettingsStore | S:load 有 loading 去重；setGmThemeId 失败回滚到上一个主题并写 error
 modal-store.ts[AU4T]: F:阻塞弹窗协调：按优先级（end/check/handout/library/sheet）计算唯一活跃弹窗，useBlockingDialog 把请求态映射为实际 open | R:- | A:导出 useModalStore/useBlockingModalOpen/useActiveBlockingModal/useBlockingDialog | S:高优先级压制低优先级；低优先级仍记为请求，待其关闭后自动显现；卸载注销
+play-display-store.ts[AU3T]: F:玩家显示设置 store：从本地存储读取可见性等显示项，setVisible 同步写回，reset 还原默认 | R:code:apps/client/src/lib/storage.ts | A:导出 usePlayDisplayStore | S:初始值来自 readPlayDisplay()，不依赖服务端
 
 ===/home/arcat/Develop/CallofGM/apps/client/src/styles/===
 expressive-shapes.css[FU5L]: F:M3 形状形变样式：[data-slot=loading-shape] 的多形状 clip-path 关键帧序列（加载形变动画） | R:code:apps/client/src/styles/expressive.css | A:- | S:clip-path 多边形顶点由脚本生成，勿手改
@@ -225,29 +231,30 @@ package.json[FV6T]: F:服务端包清单：Elysia+drizzle-orm+bun:sqlite、xlsx�
 tsconfig.json[FV3T]: F:服务端 TS 配置：继承根 tsconfig.base，@/* 别名指向 src，含 tests 与 scripts | R:- | A:- | S:-
 
 ===/home/arcat/Develop/CallofGM/apps/server/migrations/meta/===
-0000_snapshot.json[FD2M]: F:drizzle 快照 0000：四张身份/安全基表（anonymous_players、blacklist_entries、gm_login_sessions、player_tokens）的列与索引状态 | R:- | A:- | S:-
-_journal.json[FD4T]: F:迁移日志：按 idx 记录 0000–0013 每个迁移的 tag、时间戳与 breakpoints，是 drizzle migrator 的执行清单 | R:code:apps/server/migrations/meta/0013_snapshot.json | A:- | S:顺序即执行顺序，禁止重排或复用 tag；dialect 固定 sqlite
+0000_snapshot.json[FD2L]: F:drizzle 快照 0000：单一初始迁移下全部 40 张表的列、外键与索引状态，供后续 generate 比对 | R:code:apps/server/migrations/0000_initial_multi_ruleset.sql | A:- | S:由drizzle-kit生成，不手改；改schema后重新生成即产出新迁移与新快照
+_journal.json[FD4T]: F:迁移日志：记录唯一迁移 0000_initial_multi_ruleset 的 tag、时间戳与 breakpoints，是 drizzle migrator 的执行清单 | R:code:apps/server/migrations/0000_initial_multi_ruleset.sql | A:- | S:顺序即执行顺序，禁止重排或复用 tag；dialect 固定 sqlite
 
 ===/home/arcat/Develop/CallofGM/apps/server/scripts/===
 backup-db.ts[OV4T]: F:SQLite 热备份脚本：只读连接 VACUUM INTO 生成时间戳快照到 backups 目录 | R:- | A:DATABASE_URL/BACKUP_DIR 可覆盖；:memory: 直接退出 | S:VACUUM INTO 在服务运行中也能得到一致快照，不中断服务
 check-boundaries.ts[XV5T]: F:架构边界静态检查：扫描全部 import，违规即退出码 1 | R:- | A:两条规则：跨模块只许 import 模块根 index；通用代码禁止 import 具体规则实现 | S:rules 白名单仅 rule-system/registry/dice-engine，且 bootstrap/container.ts 是唯一豁免（具体规则在此注册）
 e2e-security-evidence.ts[TQ6M]: F:端到端安全证据脚本：以真实 HTTP/WS 登录 GM、建模组/人物/团，验证跨源写拒绝、httpOnly 认领、暗骰结果与成长标记不泄漏给玩家、快照过滤 | R:code:packages/shared/src/session.ts,code:apps/server/src/app.ts | A:依赖 PORT/E2E_RUN/GM_PASSWORD 环境变量，逐项打印 PASS/FAIL | S:玩家侧断言的是「根本没收到事件」而非内容为空；暗骰成长需循环重试直到出现成功结果
+setup-admin.ts[XI4T]: F:运维脚本：先跑迁移，按用户名创建或重置管理员（强制 role=admin、清除禁用与软删），用户名密码取自参数或 COGM_ADMIN_* 环境变量 | R:code:apps/server/src/modules/identity/index.ts,code:apps/server/src/platform/db/migration.ts | A:- | S:用户名按 trim+小写归一查重；已存在则重置密码并复活账号，不新建重复用户
 
 ===/home/arcat/Develop/CallofGM/apps/server/src/===
-app.ts[AN7S]: F:Elysia 应用装配：请求 ID、CORS 与来源校验、请求日志、统一错误映射（AppError/校验失败/外键冲突）、八组路由挂载、健康检查与 SPA 静态回退 | R:code:apps/server/src/bootstrap/container.ts,code:apps/server/config/env.ts | A:导出 createApp 与 App 类型 | S:静态回退拒绝 /api/ 前缀并做路径穿越校验；非 GET 路由另需 assertTrustedOrigin
+app.ts[AN7S]: F:Elysia 应用装配：请求 ID、CORS 与来源校验、请求日志、统一错误映射（AppError/校验失败/外键冲突）、十二组路由挂载、健康检查与 SPA 静态回退 | R:code:apps/server/src/bootstrap/container.ts,code:apps/server/src/config/env.ts | A:导出 createApp 与 App 类型 | S:静态回退拒绝 /api/ 前缀并做路径穿越校验；非 GET 路由另需 assertTrustedOrigin
 index.ts[ER7T]: F:进程入口：建 Container→注册命令处理器→startup（迁移/恢复/清理）→createApp 监听 PORT；SIGTERM/SIGINT 优雅退出 | R:code:apps/server/src/bootstrap/container.ts,code:apps/server/src/app.ts | A:- | S:所有关闭等待带期限（server.stop 限时 2s 后强制退出），因 Bun 服务端关闭过 WS 后 stop 可能永不 resolve
 
 ===/home/arcat/Develop/CallofGM/apps/server/src/bootstrap/===
-container.ts[AR8T]: F:依赖容器（composition root）：解析 env、建 DB/事务/时钟/ID/随机源、注册规则系统与主题注册表、装配实时事件总线/命令执行器/快照构建器 | R:code:apps/server/src/config/env.ts,code:apps/server/src/rules/registry.ts,code:apps/server/src/modules/realtime/index.ts | A:导出 Container；构造参数可注入 clock/id/random/httpLimits 便于测试 | S:规则与主题注册在构造时完成，新增规则系统须在此 register；实时组件共享同一事件缓冲与连接表
+container.ts[AR8S]: F:依赖容器（composition root）：解析 env、建 DB/事务/时钟/ID/随机源、注册规则系统与主题注册表、装配实时事件总线/命令执行器/快照构建器 | R:code:apps/server/src/config/env.ts,code:apps/server/src/rules/registry.ts,code:apps/server/src/modules/realtime/index.ts | A:导出 Container；构造参数可注入 clock/id/random/httpLimits 便于测试 | S:规则与主题注册在构造时完成，新增规则系统须在此 register；实时组件共享同一事件缓冲与连接表
 handlers.ts[AW7T]: F:实时命令处理器注册表：把 chat/gameplay/sessions/handouts/moderation/realtime 六组 handler 汇总为 CommandHandler[] | R:code:apps/server/src/modules/chat/index.ts,code:apps/server/src/modules/gameplay/index.ts,code:apps/server/src/modules/realtime/index.ts | A:导出 buildCommandHandlers | S:生产入口与测试必须共用此函数，禁止各自拼装导致行为漂移
-startup.ts[AB7T]: F:启动服务：建目录+跑迁移+outbox 恢复+黑名单过期清理（每小时定时），isReady/pingDatabase 供就绪探针 | R:code:apps/server/src/platform/db/migration.ts | A:导出 StartupService | S:崩溃恢复将 pending outbox 一律标记 delivered：重启后无活跃连接，重连客户端走全量快照而非补发
+startup.ts[AB7S]: F:启动服务：建目录+跑迁移+outbox 恢复+黑名单过期清理（每小时定时），isReady/pingDatabase 供就绪探针 | R:code:apps/server/src/platform/db/migration.ts | A:导出 StartupService | S:崩溃恢复将 pending outbox 一律标记 delivered：重启后无活跃连接，重连客户端走全量快照而非补发
 
 ===/home/arcat/Develop/CallofGM/apps/server/src/config/===
 env.ts[FC5T]: F:环境变量 schema：PORT/NODE_ENV/DATABASE_URL/MEDIA_DIR/THEMES_DIR/CORS_ORIGINS/TRUST_PROXY，解析失败即退出；corsOriginsFor 生成允许来源 | R:code:apps/server/src/platform/security/origin.ts | A:导出 Env/parseEnv/corsOriginsFor | S:生产未配 CORS_ORIGINS 时仅允许同源；TRUST_PROXY 必须显式为 true 才信任 X-Forwarded-For
 
 ===/home/arcat/Develop/CallofGM/apps/server/src/modules/catalog/application/===
-ports.ts[CD5S]: F:模组目录端口：Module/Scene/Track/Handout 记录与 CatalogRepository（增删改查、游标分页、模块汇总、媒体资产校验） | R:code:packages/shared/src/catalog.ts | A:- | S:同模块下场景/曲目/情报按游标分页，实体 id 同时作为游标
-use-cases.ts[DB6M]: F:模组目录用例：模块/场景/曲目/情报的增删改查与列表；创建前校验模块存在、图片资产须 image/*、音频须 purpose=audio 且 audio/*；删除模块前检查是否被团引用 | R:code:apps/server/src/modules/catalog/application/ports.ts,code:apps/server/src/modules/catalog/domain/errors.ts | A:导出 18 个 UseCase 类 | S:媒体资产在写入时即校验，不留悬空引用；删除场景/曲目/情报不做存在性预检，由仓储抛 404
+ports.ts[CD5S]: F:模组目录端口：Module/Scene/Track/Handout 记录与 CatalogRepository（增删改查、游标分页、模块汇总、媒体资产校验、软删与占用检查） | R:code:packages/shared/src/catalog.ts | A:- | S:同模块下场景/曲目/情报按游标分页，实体 id 同时作为游标
+use-cases.ts[DB6M]: F:模组目录用例：模块/场景/曲目/情报的增删改查与列表；创建前校验模块归属与存在、图片资产须 image/*、音频须 purpose=audio 且 audio/*；删除模块前检查是否被团引用并改为软删 | R:code:apps/server/src/modules/catalog/application/ports.ts,code:apps/server/src/modules/catalog/domain/errors.ts | A:导出 18 个 UseCase 类 | S:媒体资产在写入时即校验，不留悬空引用；删除场景/曲目/情报不做存在性预检，由仓储抛 404
 
 ===/home/arcat/Develop/CallofGM/apps/server/src/modules/catalog/domain/===
 errors.ts[DB4T]: F:目录域错误：MODULE/SCENE/TRACK/HANDOUT/MEDIA_NOT_FOUND、MEDIA_INVALID、MODULE_IN_USE 的 code 与状态码映射 | R:code:apps/server/src/platform/errors/app-error.ts | A:导出八个错误类 | S:MODULE_IN_USE 为 409，其余不存在类均 404
@@ -256,29 +263,31 @@ errors.ts[DB4T]: F:目录域错误：MODULE/SCENE/TRACK/HANDOUT/MEDIA_NOT_FOUND�
 index.ts[DB2T]: F:catalog 模块根出口：路由工厂+errors+ports+use-cases+repository 全量 re-export | R:- | A:跨模块只允许从此文件导入（边界检查约束） | S:-
 
 ===/home/arcat/Develop/CallofGM/apps/server/src/modules/catalog/infrastructure/===
-drizzle-catalog-repository.ts[PD6L]: F:目录仓储：模块/场景/曲目/情报的 CRUD、按 (createdAt,id) 的 keyset 游标分页、模块汇总聚合（场景/情报/曲目/人物计数+封面+最近更新） | R:code:apps/server/src/modules/catalog/application/ports.ts,code:apps/server/src/platform/db/schema/index.ts | A:导出 DrizzleCatalogRepository | S:列表查询固定 limit+1 判有无下页；轨道读取联表媒体资产补 audioSize/uploadedAt；封面取 sortOrder 最小的有背景场景
+drizzle-catalog-repository.ts[PD6L]: F:目录仓储：模块/场景/曲目/情报的 CRUD、按 (createdAt,id) 的 keyset 游标分页、模块汇总聚合（场景/情报/曲目/人物计数+封面+最近更新）、软删过滤与媒体资产查询 | R:code:apps/server/src/modules/catalog/application/ports.ts,code:apps/server/src/platform/db/schema/index.ts | A:导出 DrizzleCatalogRepository | S:列表查询固定 limit+1 判有无下页；轨道读取联表媒体资产补 audioSize/uploadedAt；封面取 sortOrder 最小的有背景场景；所有读路径过滤 deletedAt
 
 ===/home/arcat/Develop/CallofGM/apps/server/src/modules/catalog/transport/===
-routes.ts[AN6S]: F:目录 HTTP 路由（GM 专用）：/api/v1/gm/modules 下模块 CRUD 与 scenes/tracks/handouts 子资源，含 summaries 聚合 | R:code:apps/server/src/modules/catalog/application/use-cases.ts,code:apps/server/src/modules/identity/index.ts | A:导出 createCatalogRoutes；写请求校验 trusted origin 与 themeId 存在 | S:主题校验先 await themeRegistry.ready()，未知主题 404；响应统一经 DTO zod 解析
+routes.ts[AN6M]: F:目录 HTTP 路由（GM 专用）：/api/v1/gm/modules 下模块 CRUD 与 scenes/tracks/handouts 子资源，含 summaries 聚合 | R:code:apps/server/src/modules/catalog/application/use-cases.ts,code:apps/server/src/modules/identity/index.ts | A:导出 createCatalogRoutes；写请求校验 trusted origin 与 themeId 存在 | S:主题校验先 await themeRegistry.ready()，未知主题 404；响应统一经 DTO zod 解析；模块查询限定当前 GM 为 owner
 
 ===/home/arcat/Develop/CallofGM/apps/server/src/modules/characters/application/===
-ports.ts[CD5S]: F:人物端口：人物/立绘/导入暂存记录与模块关联的记录类型，CharactersRepository 覆盖 CRUD、人物占用检查、立绘默认位、暂存消费与模块关联 | R:code:packages/shared/src/character.ts | A:- | S:立绘 isDefault 以 0/1 存储；暂存记录含 gmSessionId 与 expiresAt 用于归属与过期校验
-use-cases.ts[DB6M]: F:人物用例：按规则系统校验人物卡后增改；立绘默认位互斥；Excel 导入预览生成 30 分钟一次性 importToken，确认时校验归属/过期/已消费/解析错误/规则一致并可选覆盖或关联模组 | R:code:apps/server/src/modules/characters/application/ports.ts,code:apps/server/src/rules/registry.ts,code:apps/server/src/modules/catalog/domain/errors.ts | A:导出 12 个 UseCase 类 | S:人物卡 schema 由 ruleRegistry 按 ruleId 取得，禁止在此硬编码规则；暂存 TTL 30 分钟且导入错误存在时禁止入库
+ports.ts[CD5M]: F:人物端口：人物/立绘/暂存/版本/成长/审计/邀请/审核记录与 CharactersRepository，覆盖 CRUD、软删、版本与成长追加、立绘默认位、暂存消费、模块关联、邀请与审核读写 | R:code:packages/shared/src/characters.ts | A:- | S:立绘 isDefault 以 0/1 存储；暂存记录含 gmSessionId 与 expiresAt 用于归属与过期校验；软删以 deletedAt 非空表达
+use-cases.ts[DB6L]: F:人物用例：按规则系统校验人物卡后增改，版本与成长、历史查询；立绘默认位互斥；Excel 导入预览生成 30 分钟一次性 importToken，确认时校验归属/过期/已消费/解析错误/规则一致并可覆盖或关联模组 | R:code:apps/server/src/modules/characters/application/ports.ts,code:apps/server/src/rules/registry.ts,code:apps/server/src/modules/catalog/domain/errors.ts | A:导出 15 个 UseCase 类 | S:人物卡 schema 由 ruleRegistry 按 ruleId 取得，禁止在此硬编码规则；暂存 TTL 30 分钟且导入错误存在时禁止入库
+lifecycle.ts[AB7L]: F:人物生命周期用例：GM 建/列/撤销邀请链接，PL 按 token 看邀请信息与提交人物，GM 列审与通过/驳回，以及 GM 改永久字段；审核通过的模组/团提交分别写入关联或团快照需由调用方接手 | R:code:apps/server/src/modules/characters/application/ports.ts,code:apps/server/src/rules/registry.ts | A:导出 CreateCharacterInvite/ListCharacterInvites/RevokeCharacterInvite/GetInviteInfo/SubmitCharacter/ListReviews/DecideReview/GmEditPermanentField 等 UseCase | S:邀请仅 owner 可建/撤，模组/团必须归属同一 GM；已过期或已撤销均报 InviteExpired；同一人物仅能有一条非 rejected 审单，驳回后可重提；提交时按目标规则校验人物卡
+sync.ts[AB6S]: F:团内同步：预览对比主卡与团快照的姓名/背景/人物卡与版本，标记审单是否过时；应用时按 fields 把主卡内容写回团内快照并以 expectedVersion 防并发 | R:code:apps/server/src/modules/sessions/index.ts,code:apps/server/src/modules/characters/application/ports.ts | A:导出 PreviewCharacterSyncUseCase/ApplyCharacterSyncUseCase 与 SessionSyncDiff | S:只允许团 owner 操作且已结束的团禁止同步；sheet 同步前按 ruleId 重新解析校验，profile 变更只刷新 profileVersion
 
 ===/home/arcat/Develop/CallofGM/apps/server/src/modules/characters/domain/===
-errors.ts[DB4T]: F:人物域错误：人物/立绘/暂存不存在、暂存过期/已消费/有解析错误/归属不符、kind 非法、模组关联重复或缺失、媒体资产不合法、规则不匹配、人物被引用 | R:code:apps/server/src/platform/errors/app-error.ts | A:导出十三个错误类 | S:暂存归属不符为 403、已消费与已关联为 409，其余多为 400/404
+errors.ts[DB4S]: F:人物域错误：人物/立绘/暂存/邀请/审核不存在、暂存过期/已消费/有解析错误/归属不符、kind 非法、模组关联重复或缺失、媒体资产不合法、规则不匹配、人物被引用、非本人所有、同步版本冲突 | R:code:apps/server/src/platform/errors/app-error.ts | A:导出十余个错误类 | S:暂存归属不符为 403、已消费/已关联/审核已决为 409，其余多为 400/404
 
 ===/home/arcat/Develop/CallofGM/apps/server/src/modules/characters/===
-index.ts[DB2T]: F:characters 模块根出口：路由工厂+errors+use-cases+repository | R:- | A:- | S:-
+index.ts[DB2T]: F:characters 模块根出口：路由工厂+errors+use-cases+lifecycle+sync+repository | R:- | A:- | S:-
 
 ===/home/arcat/Develop/CallofGM/apps/server/src/modules/characters/infrastructure/===
-drizzle-characters-repository.ts[PD6M]: F:人物仓储：人物 CRUD 与占用检查、立绘读写与默认位清除、导入暂存读写与消费、模块-人物关联与分页列表 | R:code:apps/server/src/modules/characters/application/ports.ts,code:apps/server/src/platform/db/schema/index.ts | A:导出 DrizzleCharactersRepository | S:占用检查同时覆盖团内人物与模组关联；立绘与暂存均按 id 直查；模块人物列表走联合查询分页
+drizzle-characters-repository.ts[PD6L]: F:人物仓储：人物 CRUD/软删与占用检查、版本/成长/审计追加、立绘读写与默认位清除、导入暂存读写与消费、模块关联分页、邀请与审核读写 | R:code:apps/server/src/modules/characters/application/ports.ts,code:apps/server/src/platform/db/schema/index.ts | A:导出 DrizzleCharactersRepository | S:占用检查同时覆盖团内人物与模组关联；立绘与暂存均按 id 直查；模块人物列表走联合查询分页；读列表均过滤 deletedAt
 
 ===/home/arcat/Develop/CallofGM/apps/server/src/modules/characters/transport/===
-routes.ts[AN6M]: F:人物 HTTP 路由（GM 专用）：人物 CRUD、import/preview（multipart）与 import/confirm、立绘增删，及 /gm/modules/:id/characters 关联增删查 | R:code:apps/server/src/modules/characters/application/use-cases.ts,code:apps/server/src/modules/identity/index.ts | A:导出 createCharactersRoutes；导入预览带 GM 登录会话归属 | S:预览用 t.File() 接收 multipart，ruleId 单独校验；写请求必须通过 trusted origin 检查
+routes.ts[AN6L]: F:人物 HTTP 路由：/gm 下人物 CRUD、历史、改属主/永久字段、import 预览与确认、立绘增删改、模块关联查增删，以及邀请与审核；/pl 下本人人物 CRUD、邀请 token 查看/提交与提交记录 | R:code:apps/server/src/modules/characters/application/lifecycle.ts,code:apps/server/src/modules/characters/application/use-cases.ts,code:apps/server/src/modules/identity/index.ts | A:导出 createCharactersRoutes；GM/PL 分组各自 requireGm/requirePl，导入预览带登录会话归属 | S:预览用 t.File() 接收 multipart，ruleId 单独校验；写请求必须通过 trusted origin 检查；PL 路由只能操作自己的资源
 
 ===/home/arcat/Develop/CallofGM/apps/server/src/modules/chat/application/===
-commands.ts[DM7M]: F:聊天命令处理：chat:send 按阶段权限矩阵决定立即广播或入 GM 待放行队列；release/discard/restore/reorder 由 GM 操作队列，放行时应用表情切换并分配 eventId | R:code:packages/shared/src/chat.ts,code:apps/server/src/modules/chat/application/ports.ts,code:apps/server/src/modules/realtime/index.ts | A:导出五个 Handler 与 createChatCommandHandlers | S:入队消息不广播不分配 eventId，玩家零感知；表情键必须是发言者已认领 PC 的既有立绘；重复放行/丢弃由条件更新返回 false 抛错
+commands.ts[DM7L]: F:聊天命令处理：chat:send 按阶段权限矩阵决定立即广播或入 GM 待放行队列；release/discard/restore/reorder 由 GM 操作队列，放行时应用表情切换并分配 eventId | R:code:packages/shared/src/chat.ts,code:apps/server/src/modules/chat/application/ports.ts,code:apps/server/src/modules/realtime/index.ts | A:导出五个 Handler 与 createChatCommandHandlers | S:入队消息不广播不分配 eventId，玩家零感知；表情键必须是发言者已认领 PC 的既有立绘；重复放行/丢弃由条件更新返回 false 抛错
 ports.ts[CM4T]: F:聊天端口：消息行/新消息行结构与 ChatRepository（插入、按 id 查、队列序号、待放行/已丢弃列表、条件状态迁移、eventId 分配、重排、人物名与立绘查询、团内表情写入） | R:code:packages/shared/src/chat.ts | A:- | S:状态迁移接口返回布尔以表达条件更新是否命中，调用方据此判冲突
 
 ===/home/arcat/Develop/CallofGM/apps/server/src/modules/chat/domain/===
@@ -292,7 +301,7 @@ drizzle-chat-repository.ts[PM6S]: F:聊天仓储：消息插入与查询、pendi
 
 ===/home/arcat/Develop/CallofGM/apps/server/src/modules/gameplay/application/===
 commands.ts[DB8L]: F:规则玩法命令：骰点、技能检定、SAN 检定、GM 发起鉴定请求、玩家响应、GM 状态编辑；统一经 RuleRegistry 取规则实现，检定成功后写成长标记，状态事件按 hidden/PC-NPC/obSeePcState 决定可见范围 | R:code:apps/server/src/rules/rule-system.ts,code:apps/server/src/rules/registry.ts,code:apps/server/src/rules/dice-engine.ts,code:packages/shared/src/session.ts | A:导出六个 Handler 与 createGameplayCommandHandlers | S:玩家只能用自己的 PC 检定且受阶段限制；暗骰结果与成长变更只发 GM；鉴定请求只允许 PC 且响应用条件更新防重复
-ports.ts[DP4T]: F:玩法仓储端口：人物/团内角色状态读写与 check_requests 存取 | R:- | A:- | S:-
+ports.ts[DP4T]: F:玩法仓储端口：人物/团内角色状态读写与 check_requests 存取 | R:code:apps/server/src/platform/db/schema/index.ts | A:- | S:-
 
 ===/home/arcat/Develop/CallofGM/apps/server/src/modules/gameplay/domain/===
 errors.ts[DB3T]: F:玩法域错误：技能不存在、鉴定请求不存在/已解决、SAN 损失表达式非法 | R:code:apps/server/src/platform/errors/app-error.ts | A:- | S:-
@@ -304,8 +313,8 @@ index.ts[DB4T]: F:gameplay 模块根出口：createGameplayCommandHandlers 工�
 drizzle-gameplay-repository.ts[PI3T]: F:玩法 Drizzle 仓储：characters/session_characters/check_requests 读写 | R:code:apps/server/src/platform/db/schema/gameplay.ts | A:- | S:-
 
 ===/home/arcat/Develop/CallofGM/apps/server/src/modules/handouts/application/===
-commands.ts[DM6M]: F:情报命令：handout:grant 公开广播或定向投递给指定 PC，append 只为新增 PC 补发，read 记录玩家已读 | R:code:packages/shared/src/handout.ts,code:apps/server/src/modules/handouts/application/ports.ts | A:导出三个 Handler 与 createHandoutCommandHandlers | S:接收者若不在团内即 400；已公开的发放不可追加接收者；read 会校验秘密情报的接收名单且支持结团后仍可读
-ports.ts[CM4T]: F:情报端口：发放记录/接收者记录与 HandoutsRepository（发放与接收者写入、接收者查询、团内 PC 校验、已读写入） | R:code:packages/shared/src/handout.ts | A:- | S:isPublic 以 0/1 存储；已读写入按 grant+player 幂等
+commands.ts[DM6M]: F:情报命令：handout:grant 公开广播或定向投递给指定 PC，append 只为新增 PC 补发，read 记录玩家已读 | R:code:packages/shared/src/handouts.ts,code:apps/server/src/modules/handouts/application/ports.ts | A:导出三个 Handler 与 createHandoutCommandHandlers | S:接收者若不在团内即 400；已公开的发放不可追加接收者；read 会校验秘密情报的接收名单且支持结团后仍可读
+ports.ts[CM4T]: F:情报端口：发放记录/接收者记录与 HandoutsRepository（发放与接收者写入、接收者查询、团内 PC 校验、已读写入） | R:code:packages/shared/src/handouts.ts | A:- | S:isPublic 以 0/1 存储；已读写入按 grant+player 幂等
 
 ===/home/arcat/Develop/CallofGM/apps/server/src/modules/handouts/domain/===
 errors.ts[DB2T]: F:情报域错误：情报不存在/发放记录不存在 | R:code:apps/server/src/platform/errors/app-error.ts | A:- | S:-
@@ -318,22 +327,25 @@ drizzle-handouts-repository.ts[PM5T]: F:情报仓储：情报与发放记录查�
 
 ===/home/arcat/Develop/CallofGM/apps/server/src/modules/identity/application/===
 player-identity.ts[DI7T]: F:玩家身份用例：指纹哈希查黑名单即 403；有效 token 直接复用身份；否则按指纹找/建匿名玩家并签发 30 天 token | R:code:apps/server/src/modules/identity/application/token.ts | A:- | S:token 过期时间带随机抖动（≤1000s）避免同批过期；并发建玩家冲突时回退按指纹查询
-ports.ts[CI5T]: F:身份端口：GM 登录会话、匿名玩家、玩家令牌、黑名单记录与 IdentityRepository（口令哈希、会话/令牌查找与吊销、指纹玩家查找、黑名单查询） | R:code:packages/shared/src/identity.ts | A:- | S:会话与令牌均存哈希而非明文，并带 expiresAt/revokedAt
+ports.ts[CI5S]: F:身份端口：用户、用户会话、匿名玩家、玩家令牌、黑名单记录与 IdentityRepository（用户增改查/活跃管理员计数、会话签发与吊销、指纹玩家、黑名单判定） | R:code:packages/shared/src/identity.ts | A:- | S:会话与令牌均存哈希而非明文，并带 expiresAt/revokedAt；用户的禁用与软删分两个时间字段
 token.ts[DS6T]: F:不透明 token：32 字节随机 base64url，SHA-256 后入库；token 本体不含 playerId | R:- | A:导出 issueOpaqueToken/hashToken | S:-
+guards.ts[AI6T]: F:身份守卫纯函数：isGm/isAdmin/isPl 与 requireActor/requireGm/requireAdmin/requirePl，以及 holderOfActor/requireSeatHolder 把账号或匿名身份映射为席位持有者 | R:code:apps/server/src/modules/identity/domain/actor.ts,code:apps/server/src/modules/sessions/index.ts | A:导出 isGm/isAdmin/isPl/requireActor/requireGm/requireAdmin/requirePl/holderOfActor/requireSeatHolder | S:admin 不允许占座；账号席位用 holderKind=user+userId，匿名用 holderKind=anonymous+playerId
+user-accounts.ts[AB7M]: F:账号用例：登录校验密码与禁用、签发会话 token 并记录被替换会话；登出撤销会话；改自管密码；admin 建号、改角色/禁用/软删与重置密码 | R:code:apps/server/src/modules/identity/application/ports.ts,code:apps/server/src/modules/identity/application/token.ts | A:导出 Login/Logout/ChangeOwnPassword/CreateUser/UpdateUser/ResetUserPassword 与 USER_SESSION_TTL_MS | S:新登录会踢掉被替换的旧会话；会让最后一个活跃 admin 失去权限时抛 LastAdminError；用户名统一 normalizeUsername 后查重
+username.ts[DI2T]: F:用户名归一：trim 后转小写，供查重与登录查找共用 | R:- | A:导出 normalizeUsername | S:-
 
 ===/home/arcat/Develop/CallofGM/apps/server/src/modules/identity/domain/===
-actor.ts[DI4T]: F:演员上下文类型：ActorContext（gm 带 loginSessionId / player 带 playerId）与 SessionActorContext（WS 会话内含座席与角色） | R:- | A:- | S:-
-errors.ts[DI4T]: F:身份域错误：需要认证/禁止/凭据无效/GM 密码未配置/会话过期/指纹被拉黑/token 无效 | R:code:apps/server/src/platform/errors/app-error.ts | A:- | S:-
+actor.ts[DI5T]: F:演员上下文：三种角色的 UserRole、ActorContext（账号带 loginSessionId/username，玩家带 playerId）、SeatHolder 与 holderKey/holderOf，以及 WS 用 SessionActorContext | R:- | A:导出 UserRole/ActorContext/SeatHolder/holderKey/holderOf/SessionActorContext | S:holder key 前缀为 user: 与 player:，与客户端匿名侧命名需对应
+errors.ts[DI4T]: F:身份域错误：需要认证/禁止、凭据无效/当前密码错误、账号禁用、admin/gm/pl 权限不足、会话过期、指纹被拉黑、token 无效、用户名占用、用户不存在、最后一个管理员 | R:code:apps/server/src/platform/errors/app-error.ts | A:导出十四个错误类 | S:凭据类均 401，权限类 403，用户名占用与最后管理员为 409
 
 ===/home/arcat/Develop/CallofGM/apps/server/src/modules/identity/===
-index.ts[DI5T]: F:identity 模块根出口：路由工厂、auth-middleware、actor/errors、仓储与 token 工具 | R:- | A:- | S:-
+index.ts[DI5T]: F:identity 模块根出口：guards、token、账号用例、username、actor/errors、仓储、auth-middleware 与路由工厂 | R:- | A:跨模块只允许从此文件导入（边界检查约束） | S:-
 
 ===/home/arcat/Develop/CallofGM/apps/server/src/modules/identity/infrastructure/===
-drizzle-identity-repository.ts[PI6S]: F:身份 Drizzle 仓储：gm_credentials（幂等 upsert）、gm_login_sessions、anonymous_players、player_tokens、blacklist_entries 存取 | R:code:apps/server/src/platform/db/schema/identity.ts | A:- | S:黑名单判定 expiresAt IS NULL 视为永久；GM 凭据行 id 固定为 "gm" 单行
+drizzle-identity-repository.ts[PI6M]: F:身份 Drizzle 仓储：users/user_sessions、anonymous_players、player_tokens、blacklist_entries 的增删改查，含活跃管理员计数、会话批量吊销与用户黑名单判定 | R:code:apps/server/src/platform/db/schema/identity.ts | A:导出 DrizzleIdentityRepository | S:黑名单判定 expiresAt IS NULL 视为永久；用户软删以 deletedAt 非空表达，listUsers 默认排除
 
 ===/home/arcat/Develop/CallofGM/apps/server/src/modules/identity/transport/===
-auth-middleware.ts[IS7T]: F:鉴权插件：从 Bearer 或 gm_session/player_token Cookie 解析令牌，先验 GM 会话再验玩家令牌；按 X-Fingerprint 或 query 指纹检查黑名单 | R:code:apps/server/src/modules/identity/application/ports.ts,code:apps/server/src/modules/identity/application/token.ts | A:导出 createAuthPlugin；derive 全局注入 actor | S:黑名单命中直接抛错而非退回匿名；GM 令牌优先于玩家令牌；指纹以 sha256 存储比较
-routes.ts[AN7M]: F:身份与黑名单路由：GM 登录/登出/me、黑名单增删查、玩家 /player/me 与 /player/identity；登录与身份签发走限流，令牌写入 httpOnly+sameSite=strict Cookie | R:code:apps/server/src/modules/identity/application/ports.ts,code:apps/server/src/modules/identity/transport/auth-middleware.ts,code:apps/server/src/modules/moderation/index.ts | A:导出 createIdentityRoutes | S:非生产环境才在响应体返回 sessionToken/token；按 playerId 封禁会立即断开其现有连接；GM 会话 Cookie 过期时间取自会话记录
+auth-middleware.ts[IS7S]: F:鉴权插件：从 Bearer 或 session/player Cookie 解析令牌，先验账号会话再验玩家令牌；按 X-Fingerprint 或 query 指纹检查黑名单 | R:code:apps/server/src/modules/identity/application/ports.ts,code:apps/server/src/modules/identity/application/token.ts | A:导出 createAuthPlugin 与 Cookie 常量/解析工具；derive 全局注入 actor | S:黑名单命中直接抛错而非退回匿名；账号令牌优先于玩家令牌；指纹以 sha256 存储比较
+routes.ts[AN7M]: F:身份与黑名单路由：登录/登出/me/改密，GM 黑名单增删查，玩家 /player/me 与身份签发；登录与身份签发走限流，令牌写入 httpOnly+sameSite=strict Cookie | R:code:apps/server/src/modules/identity/application/user-accounts.ts,code:apps/server/src/modules/identity/transport/auth-middleware.ts,code:apps/server/src/modules/moderation/index.ts | A:导出 createIdentityRoutes | S:非生产环境才在响应体返回 sessionToken/token；按 playerId 封禁会立即断开其现有连接；Cookie 过期时间取自会话记录
 
 ===/home/arcat/Develop/CallofGM/apps/server/src/modules/media/application/===
 ports.ts[DB4T]: F:MediaStorage 端口：按 key 存取删二进制资产 | R:code:apps/server/src/modules/media/infrastructure/local-media-storage.ts | A:- | S:-
@@ -352,14 +364,14 @@ local-media-storage.ts[PB4T]: F:本地文件系统 MediaStorage 实现，默认�
 routes.ts[AN7M]: F:媒体路由：GM 上传（限流+来源校验+purpose）与按 id 读取；读取前按 GM/当前场景背景/团内曲目/参团人物立绘/公开或秘密情报接收名单逐层判权 | R:code:apps/server/src/modules/media/application/upload-media.ts,code:apps/server/src/platform/db/schema/index.ts | A:导出 createMediaRoutes | S:秘密情报图片仅对接收名单内且未离座的玩家可读，防止可猜 URL 泄漏；未授权读取返回 403 而非 404
 
 ===/home/arcat/Develop/CallofGM/apps/server/src/modules/moderation/application/===
-commands.ts[AS7S]: F:管理命令：player:kick/unkick 维护团内禁入（踢出需已有有效认领），player:ban/unban 写入或删除指纹黑名单并在提交后断开连接、刷新在线列表 | R:code:apps/server/src/modules/moderation/application/ports.ts,code:packages/shared/src/moderation.ts,code:apps/server/src/modules/realtime/index.ts | A:导出四个 Handler 与 createModerationCommandHandlers | S:四个命令均 allowWhenEnded 可结团后执行；durationSeconds 缺省为永久（NULL）；按 playerId 封禁需能查到指纹，否则 404
+commands.ts[AS7M]: F:管理命令：player:kick/unkick 维护团内禁入（踢出需已有有效认领），player:ban/unban 写入或删除指纹黑名单并在提交后断开连接、刷新在线列表 | R:code:apps/server/src/modules/moderation/application/ports.ts,code:packages/shared/src/moderation.ts,code:apps/server/src/modules/realtime/index.ts | A:导出四个 Handler 与 createModerationCommandHandlers | S:四个命令均 allowWhenEnded 可结团后执行；durationSeconds 缺省为永久（NULL）；按 playerId 封禁需能查到指纹，否则 404
 ports.ts[CS5T]: F:管理端口：黑名单条目与封禁上下文、SessionKickStore（查/记/解除禁入）与 ModerationRepository（取玩家封禁上下文、按指纹 upsert、删除） | R:code:apps/server/src/modules/sessions/application/ports.ts | A:- | S:黑名单以 fingerprintHash 唯一，upsert 覆盖原因/时长/显示名
 
 ===/home/arcat/Develop/CallofGM/apps/server/src/modules/moderation/===
 index.ts[AS5T]: F:管理模块入口：以可替换的封禁仓储与 SessionKickStore 工厂组装四个处理器，并再导出 Handler 与错误 | R:code:apps/server/src/modules/moderation/application/commands.ts,code:apps/server/src/modules/sessions/infrastructure/drizzle-sessions-repository.ts | A:导出 createModerationCommandHandlers | S:默认 kickStore 复用会话仓储，保证禁入记录与认领表在同一事务内一致
 
 ===/home/arcat/Develop/CallofGM/apps/server/src/modules/moderation/infrastructure/===
-drizzle-moderation-repository.ts[PS6T]: F:管理仓储：按 playerId 取指纹与最近认领名（角色名或 OB），按指纹 upsert 黑名单，按指纹删除并返回是否命中 | R:code:apps/server/src/modules/moderation/application/ports.ts,code:apps/server/src/platform/db/schema/index.ts | A:导出 DrizzleModerationRepository | S:显示名取最近一次认领（含已离座），无认领时为 null
+drizzle-moderation-repository.ts[PS6S]: F:管理仓储：按 playerId 取指纹与最近认领名（角色名或 OB），按指纹 upsert 黑名单，按指纹删除并返回是否命中 | R:code:apps/server/src/modules/moderation/application/ports.ts,code:apps/server/src/platform/db/schema/index.ts | A:导出 DrizzleModerationRepository | S:显示名取最近一次认领（含已离座），无认领时为 null
 
 ===/home/arcat/Develop/CallofGM/apps/server/src/modules/realtime/application/===
 build-snapshot.ts[AM8L]: F:按请求者可见性构建全量快照：会话/模组/团设置/立绘布局、人物（NPC 与 OB 状态按设置裁剪）、当前场景、BGM、最近 50 条历史、可见情报、待处理鉴定、GM 专属队列/在线/禁入名单 | R:code:apps/server/src/modules/realtime/application/session-history.ts,code:apps/server/src/modules/realtime/presence-service.ts,code:apps/server/src/rules/registry.ts | A:导出 BuildSessionSnapshotUseCase | S:秘密数据在服务端一次裁剪完成；NPC 状态仅 GM 可见，OB 在 obSeePcState=false 时也收不到 PC 状态；portraitLayout/Scale 随会话快照下发
@@ -367,38 +379,41 @@ command-handler.ts[AM7T]: F:命令处理器契约：ProducedEvent 与 CommandHan
 chat-message-mapper.ts[CM4T]: F:会话消息映射：批量查人物名并把 session_messages 行转 ChatMessageDto，收集去重 characterId | R:code:packages/shared/src/chat.ts,code:apps/server/src/platform/db/schema/index.ts | A:导出 loadCharacterNames/toMessageDto/collectCharacterIds | S:无法识别的 senderType 归一为 player、channel 归一为 ooc，避免脏数据外泄为未知类型
 history-command-handler.ts[AM5T]: F:history:page 命令：解析分页参数后交给 SessionHistoryPager，以回执直接返回一页历史 | R:code:apps/server/src/modules/realtime/application/session-history.ts | A:导出 HistoryPageHandler 与 createHistoryCommandHandlers | S:transientReply=true，结果不进命令回执缓存；结团后仍可翻历史
 kicked-players.ts[CM4T]: F:禁入名单读取：查未解除的 session_kicks，并按当前有效认领补角色名 | R:code:packages/shared/src/moderation.ts,code:apps/server/src/platform/db/schema/index.ts | A:导出 loadKickedPlayers | S:只取 lifted_at 为空的记录；名字来自当前认领，离座后可能为 null
-session-history.ts[AM7S]: F:会话历史分页：合并已呈现聊天消息与 dice:rolled/check:resolved 活动事件，按可见性过滤后以 eventId 倒序分批扫描，返回升序一页 | R:code:apps/server/src/modules/realtime/domain/visibility.ts,code:apps/server/src/modules/realtime/application/chat-message-mapper.ts | A:导出 SessionHistoryPager | S:limit 默认 50、上限 100；单次最多扫描 2000 条避免长会话全表扫；活动事件可见性取自 outbox 的 visibilityJson
+session-history.ts[AM7M]: F:会话历史分页：合并已呈现聊天消息与骰点/检定/状态等时间线事件，按可见性过滤后以 eventId 倒序分批扫描，返回升序一页 | R:code:apps/server/src/modules/realtime/domain/visibility.ts,code:apps/server/src/modules/realtime/application/chat-message-mapper.ts | A:导出 SessionHistoryPager | S:limit 默认 50、上限 100；单次最多扫描 2000 条避免长会话全表扫；活动事件可见性取自持久化的 visibilityJson
+history-recorder.ts[AM6S]: F:历史记录器：把命令产生的事件中有时间线意义者写入 session_history_events（含可见性与是否可锚定），并在运行时事件后写检查点快照 | R:code:apps/server/src/modules/realtime/application/runtime-snapshot.ts,code:apps/server/src/platform/db/schema/history.ts | A:导出 SessionHistoryRecorder | S:state:changed 不直接暴露给玩家（playerVisible=0），session:rewound 不可锚定；检查点按 (sessionId,eventId) upsert
+history-rewind-commands.ts[AM8L]: F:历史回溯命令：按 eventId 解析锚点与最近检查点，预览变更；执行时归档当前时间线、丢弃待放行消息、恢复运行时快照，并广播 session:rewound 与 session:refresh | R:code:apps/server/src/modules/realtime/application/history-recorder.ts,code:apps/server/src/modules/realtime/application/runtime-snapshot.ts,code:apps/server/src/platform/db/schema/history.ts | A:导出 createHistoryRewindCommandHandlers | S:回溯前必须已有可用检查点；被丢弃的玩家消息以 chat:rejected 定向通知；归档用独立时间线表，撤销可恢复原时间线
+runtime-snapshot.ts[AM6S]: F:运行时快照：定义可回溯状态（人物数值与表情、鉴定请求、情报发放与已读、场景、阶段、音频），从当前表数据抓取并按快照重新应用 | R:code:apps/server/src/platform/db/schema/history.ts | A:导出 RuntimeSnapshot/initialRuntimeSnapshot/captureRuntimeSnapshot 等 | S:快照只含可从库重建的状态，不含连接与在线信息；回溯后由下一事件重新写检查点
 
 ===/home/arcat/Develop/CallofGM/apps/server/src/modules/realtime/===
-connection-registry.ts[DM6M]: F:单进程内存 WS 连接注册表：按团/玩家索引、hydrating 缓冲、按可见范围逐连接发布事件、定向 GM/全员发送与批量关闭 | R:code:apps/server/src/modules/realtime/domain/visibility.ts,code:apps/server/src/modules/realtime/session-event-bus.ts | A:- | S:在线状态唯一事实来源，不得以 DB lastSeen 冒充；关闭连接必须经 setTimeout 脱离同步栈，否则 socket 状态机卡死；秘密事件逐连接过滤，绝不广播后由前端隐藏
+connection-registry.ts[DM6M]: F:单进程内存 WS 连接注册表：按团/玩家索引、hydrating 缓冲、按可见范围逐连接发布事件、定向 GM/全员发送、批量关闭与按用户踢下线 | R:code:apps/server/src/modules/realtime/domain/visibility.ts,code:apps/server/src/modules/realtime/session-event-bus.ts | A:- | S:在线状态唯一事实来源，不得以 DB lastSeen 冒充；关闭连接必须经 setTimeout 脱离同步栈，否则 socket 状态机卡死；秘密事件逐连接过滤，绝不广播后由前端隐藏
 event-ring-buffer.ts[DM4T]: F:每团 1000 条事件环形缓冲，支持按 lastEventId 校验连续性以供断线补发 | R:code:apps/server/src/modules/realtime/transport/ws-handler.ts | A:- | S:容量 1000，超出后无法按 lastEventId 续传，须回退全量快照
-index.ts[AM5T]: F:实时模块公共出口：导出 ws 路由、连接注册表、命令执行器、事件总线/环形缓冲、在线服务、快照构建、历史分页与可见性契约 | R:code:apps/server/src/modules/realtime/transport/ws-handler.ts | A:- | S:-
+index.ts[AM5T]: F:实时模块公共出口：导出 ws 路由、连接注册表、命令执行器、事件总线/环形缓冲、历史记录与回溯、在线服务、快照构建、历史分页与可见性契约 | R:code:apps/server/src/modules/realtime/transport/ws-handler.ts | A:- | S:-
 presence-service.ts[AM6T]: F:在线名单服务：以连接注册表为事实来源，结合未释放认领聚合 GM 视角在线列表，并向 GM 推送 presence:updated（含禁入名单） | R:code:apps/server/src/modules/realtime/connection-registry.ts,code:apps/server/src/modules/realtime/application/kicked-players.ts | A:导出 PresenceService | S:没有连接时不返回该玩家；广播为 DirectControlMessage，无 eventId 不参与重放
 session-command-executor.ts[AM8M]: F:团命令串行执行器：同团队列串行、按 commandId 去重回执、解析认领上下文、事务边界与状态门禁、事件暂存与提交后投递/关连接/刷新在线 | R:code:apps/server/src/modules/realtime/application/command-handler.ts,code:apps/server/src/modules/realtime/session-event-bus.ts,code:apps/server/src/modules/sessions/application/ports.ts | A:导出 SessionCommandExecutor；runExclusive 供快照复用同一队列 | S:去重必须发生在团级队列内；每团最多缓存 500 条回执；afterCommit 失败只记日志，不回滚已提交命令；未注册命令返回 RULE_ACTION_UNSUPPORTED
-session-event-bus.ts[AM7S]: F:SessionEventBus：事务内 stage 分配 eventId 并写 outbox，提交后 deliver 推送连接，维护 lastEventId | R:code:apps/server/src/modules/realtime/connection-registry.ts,code:apps/server/src/platform/db/schema/sessions.ts | A:- | S:eventId 在事务内分配并写 outbox；deliver 必须在事务提交后执行，未提交事件对任何连接不可见，保证补发序列与持久化一致
+session-event-bus.ts[AM7S]: F:SessionEventBus：事务内 stage 分 eventId 并写 outbox，提交后 deliver 推送连接，调用历史记录器写时间线与检查点，并维护 lastEventId | R:code:apps/server/src/modules/realtime/connection-registry.ts,code:apps/server/src/modules/realtime/application/history-recorder.ts,code:apps/server/src/platform/db/schema/sessions.ts | A:- | S:eventId 在事务内分配并写 outbox；deliver 必须在事务提交后执行，未提交事件对任何连接不可见，保证补发序列与持久化一致
 
 ===/home/arcat/Develop/CallofGM/apps/server/src/modules/realtime/domain/===
 visibility.ts[DM6T]: F:事件可见范围：public/gmOnly/pcPlayers/selectedPcIds/connectionOnly 五种，checkVisibility 按 actor、认领角色与连接判定 | R:code:apps/server/src/modules/identity/domain/actor.ts | A:导出 VisibilityScope 与 checkVisibility | S:GM 对任意范围恒可见；pcPlayers 要求有认领角色，OB 不计入；未知 type 一律不可见
 
 ===/home/arcat/Develop/CallofGM/apps/server/src/modules/realtime/transport/===
-ws-handler.ts[AN8M]: F:WS 入口：握手鉴权（GM/玩家、踢出、必须有效认领、禁入拦截 4000），按 lastEventId 走环形缓冲补发或走串行快照，ping/pong、命令限流与 command 回执 | R:code:apps/server/src/modules/realtime/session-command-executor.ts,code:apps/server/src/modules/realtime/application/build-snapshot.ts,code:apps/server/src/modules/realtime/presence-service.ts | A:导出 createRealtimeRoutes | S:5 秒内超过 50 条命令返回 RATE_LIMITED；缓冲未覆盖水位时退回全量快照，再补发 hydrate 期间事件；被踢连接发 session:kicked 后以 4000 关闭
+ws-handler.ts[AN8L]: F:WS 入口：握手鉴权（GM/玩家、踢出、必须有效认领、禁入拦截 4000），按 lastEventId 走环形缓冲补发或走串行快照，ping/pong、命令限流与 command 回执 | R:code:apps/server/src/modules/realtime/session-command-executor.ts,code:apps/server/src/modules/realtime/application/build-snapshot.ts,code:apps/server/src/modules/realtime/presence-service.ts | A:导出 createRealtimeRoutes | S:5 秒内超过 50 条命令返回 RATE_LIMITED；缓冲未覆盖水位时退回全量快照，再补发 hydrate 期间事件；被踢连接发 session:kicked 后以 4000 关闭
 
 ===/home/arcat/Develop/CallofGM/apps/server/src/modules/sessions/application/===
-ports.ts[CD5S]: F:团端口：会话/人物/认领/禁入记录类型与 SessionsRepository（会话 CRUD 与分页、模组人物校验、认领替换/GM 强制替换、快照查询、禁入记录）；SessionRecord 含立绘布局字段 | R:code:packages/shared/src/session.ts | A:- | S:认领替换与禁入记录由仓储保证唯一性；replacePlayerClaim 遇占位返回 false，forceReplacePlayerClaim 原子释放同角色持有人与目标玩家旧认领并返回被顶替玩家；部分方法接受可选事务客户端
+ports.ts[CD5M]: F:团端口：会话/人物快照/认领/禁入记录类型与 SessionsRepository（会话 CRUD 与分页、模组人物校验、认领替换/GM 强制替换、快照读写与同步、禁入记录）；SessionRecord 含立绘布局字段 | R:code:packages/shared/src/session.ts | A:- | S:认领替换与禁入记录由仓储保证唯一性；replacePlayerClaim 遇占位返回 false，forceReplacePlayerClaim 原子释放同角色持有人与目标玩家旧认领并返回被顶替玩家；部分方法接受可选事务客户端
 stage-commands.ts[AM7L]: F:舞台命令：scene:switch 切本模组场景、expression:set 切团内人物已有表情、stage:layout 更新全团立绘布局、audio:bgm 播放/暂停/seek/音量/循环（expectedVersion 乐观锁）、audio:se 直发全团、session:settings 更新共享设置 | R:code:packages/shared/src/session.ts,code:apps/server/src/modules/realtime/index.ts,code:apps/server/src/platform/db/schema/index.ts | A:导出各 Handler 与 createStageCommandHandlers | S:音频状态 version 不匹配返回 409；切歌从头播，同曲默认续播，restart 显式重播；stage:layout 仅 GM 可用并广播 stage:layout-changed
-use-cases.ts[DB7M]: F:团用例：建团（校验模组/人物规则一致与已关联，按规则初始化团内状态，写入默认立绘布局）、认领/离座（席位占用与禁入校验）、GM 指派（可顶替原认领）、状态机推进、阶段切换、改名、列表与快照 | R:code:apps/server/src/modules/sessions/application/ports.ts,code:apps/server/src/rules/registry.ts,code:apps/server/src/modules/realtime/index.ts | A:导出十个 UseCase（含 GmAssignClaimUseCase） | S:状态只能 waiting→preparing→active→ended 单向推进；阶段仅在 active 可改；重复认领同一席位 400，替换自己旧认领先释放；GM 指派校验 PC 且结团/禁入玩家不可指派
+use-cases.ts[DB7L]: F:团用例：建团（校验模组/人物规则一致与已关联，按规则初始化团内状态，写入默认立绘布局）、追加团内人物、认领/离座（席位占用与禁入校验）、GM 指派（可顶替原认领）、状态机推进、阶段切换、改名、软删、列表与快照 | R:code:apps/server/src/modules/sessions/application/ports.ts,code:apps/server/src/rules/registry.ts,code:apps/server/src/modules/realtime/index.ts | A:导出十一个 UseCase（含 AddSessionCharacter/GmAssignClaim/SoftDeleteSession） | S:状态只能 waiting→preparing→active→ended 单向推进；阶段仅在 active 可改；重复认领同一席位 400，替换自己旧认领先释放；GM 指派校验 PC 且结团/禁入玩家不可指派
 
 ===/home/arcat/Develop/CallofGM/apps/server/src/modules/sessions/domain/===
 errors.ts[DB4T]: F:团域错误：会话不存在/状态非法/阶段禁止该动作、席位已被认领、被 GM 禁入、人物已在团中、人物未关联模组 | R:code:apps/server/src/platform/errors/app-error.ts | A:导出七个错误类 | S:SESSION_KICKED 为 403（认领握手即拒），其余状态类错误多为 400
 
 ===/home/arcat/Develop/CallofGM/apps/server/src/modules/sessions/===
-index.ts[AM3T]: F:会话模块出口：导出路由、域错误、用例、舞台命令、Drizzle 仓储与会话禁入类型 | R:code:apps/server/src/modules/sessions/transport/routes.ts | A:- | S:-
+index.ts[AM3T]: F:会话模块出口：导出路由、域错误、用例、舞台命令、holderKeyOf/holderMatches、Drizzle 仓储与会话禁入类型 | R:code:apps/server/src/modules/sessions/transport/routes.ts | A:- | S:-
 
 ===/home/arcat/Develop/CallofGM/apps/server/src/modules/sessions/infrastructure/===
-drizzle-sessions-repository.ts[PD7M]: F:会话仓储：会话建改查与 keyset 分页、团内人物与认领快照联查、认领事务替换（占位检查+释放旧认领+插入）、GM 强制替换、禁入记录（幂等插入/解除） | R:code:apps/server/src/modules/sessions/application/ports.ts,code:apps/server/src/platform/db/schema/index.ts | A:导出 DrizzleSessionsRepository | S:replacePlayerClaim 在事务内先查同角色未释放认领，命中即返回 false；forceReplacePlayerClaim 在同一事务释放同角色与目标玩家的旧认领后插入并返回被顶替玩家；recordSessionKick 用 onConflictDoNothing
+drizzle-sessions-repository.ts[PD7L]: F:会话仓储：会话建改查/软删与 keyset 分页、团内人物快照读写与同步更新、认领事务替换（占位检查+释放旧认领+插入）、GM 强制替换、禁入记录（幂等插入/解除） | R:code:apps/server/src/modules/sessions/application/ports.ts,code:apps/server/src/platform/db/schema/index.ts | A:导出 DrizzleSessionsRepository | S:replacePlayerClaim 在事务内先查同角色未释放认领，命中即返回 false；forceReplacePlayerClaim 在同一事务释放同角色与目标玩家的旧认领后插入并返回被顶替玩家；snapshot 写入用 onConflictDoUpdate 复活软删行
 
 ===/home/arcat/Develop/CallofGM/apps/server/src/modules/sessions/transport/===
-routes.ts[AN7M]: F:会话 HTTP 路由：GM 建团/改名/列表/详情/状态/阶段/指派与解除认领，公开 join-info 与主题，玩家 handouts/my-claim/claim/release | R:code:apps/server/src/modules/sessions/application/use-cases.ts,code:apps/server/src/modules/identity/index.ts | A:导出 createSessionsRoutes | S:结团时清空环形缓冲与回执缓存并以 1001 'session ended' 关闭连接；认领替换会以 claimReplaced 关闭旧连接；GM 指派/解除后广播 presence 并 sendToSession session:refresh；GM 演员认领返回 403 GM_SESSION_ACTIVE
+routes.ts[AN7L]: F:会话 HTTP 路由：GM 建团/改名/列表/详情/状态/阶段/指派/解除与人物同步，公开 join-info 与主题，PL 团列表，玩家 handouts/my-claim/claim/release | R:code:apps/server/src/modules/sessions/application/use-cases.ts,code:apps/server/src/modules/identity/index.ts | A:导出 createSessionsRoutes | S:结团时清空环形缓冲与回执缓存并以 1001 'session ended' 关闭连接；认领替换会以 claimReplaced 关闭旧连接；GM 指派/解除后广播 presence 并 sendToSession session:refresh；GM 演员认领返回 403 GM_SESSION_ACTIVE
 
 ===/home/arcat/Develop/CallofGM/apps/server/src/platform/db/===
 client.ts[CD5T]: F:创建 bun:sqlite + Drizzle 客户端：自动建目录并启用 WAL、外键与 busy_timeout | R:code:apps/server/src/platform/db/schema/index.ts | A:- | S:PRAGMA foreign_keys/WAL/busy_timeout=5000 在建连时执行，重建连接须重新生效
@@ -407,13 +422,15 @@ migration.ts[CD4T]: F:runMigrations：以 drizzle migrator 应用 apps/server/mi
 transaction.ts[CD4T]: F:TransactionRunner 端口与 Drizzle 实现：包装 db.transaction | R:- | A:- | S:-
 
 ===/home/arcat/Develop/CallofGM/apps/server/src/platform/db/schema/===
-catalog.ts[PD7T]: F:目录表定义：media_assets（purpose/storage_key/sha256/metadata）、modules（rule_id/theme_id）、scenes（sort_order/背景资产可空）、tracks（audio 资产、bgm|se、duration）、handouts（正文与配图可空） | R:code:apps/server/migrations/meta/0012_snapshot.json | A:- | S:场景/曲目/情报随模组级联删除；背景与配图删除时置 null，音频资产不置空
-characters.ts[PD4T]: F:角色域表：characters、character_portraits、module_characters、import_stagings | R:- | A:- | S:-
-gameplay.ts[PD7T]: F:玩法表定义：session_messages（sender/channel/status/queue_order/expression/event_id）、check_requests、handout_grants（is_public）、发放接收者与已读记录（各带唯一索引） | R:code:apps/server/migrations/meta/0012_snapshot.json | A:- | S:接收者与已读均以 (grant, character/player) 唯一索引防重复；消息随团级联删除，人物外键不级联
-identity.ts[PD7T]: F:身份表定义：gm_login_sessions、anonymous_players、player_tokens、blacklist_entries、gm_credentials；令牌与指纹哈希均唯一 | R:code:apps/server/migrations/meta/0012_snapshot.json | A:- | S:expires_at 为空的黑名单即永久封禁；凭据表只存 password_hash，禁止存明文
-index.ts[PD6T]: F:schema 汇总出口：按域再导出 identity/catalog/characters/sessions/gameplay/settings | R:code:apps/server/src/platform/db/schema/settings.ts | A:- | S:新增域文件必须在此挂载，否则仓储导入会缺失表对象
-sessions.ts[PD7T]: F:会话表定义：sessions（状态/阶段/当前场景/last_event_id/两个共享开关/立绘布局与大小）、session_characters、session_claims（两项部分唯一索引）、session_kicks、session_audio_state、session_outbox | R:code:apps/server/migrations/meta/0013_snapshot.json | A:- | S:认领索引保证同团同角色与同团同玩家各只有一条未释放记录；禁入索引保证同团同人只有一条未解除；outbox 以 (session,eventId) 唯一
+catalog.ts[PD7T]: F:目录表定义：media_assets、modules（owner/rule/theme）、scenes（背景可空）、tracks（bgm|se、时长）、handouts（配图可空），各带归属或软删索引 | R:code:apps/server/migrations/meta/0000_snapshot.json | A:- | S:场景/曲目/情报随模组级联删除；背景与配图删除时置 null，音频资产不置空
+characters.ts[PD7M]: F:人物域表：characters（owner/version/sheetVersion/profileVersion/软删）、版本、成长、审计、立绘、模组关联、导入暂存、邀请与审核 | R:code:apps/server/migrations/meta/0000_snapshot.json | A:- | S:版本号按 (character,version) 唯一；立绘按 (character,expression_key) 唯一；邀请 token 哈希唯一；软删用 deletedAt 而非物理删除
+gameplay.ts[PD7S]: F:玩法表定义：session_messages（sender/channel/status/queue_order/expression/event_id）、check_requests、handout_grants（is_public）、发放接收者与已读记录（各带唯一索引） | R:code:apps/server/migrations/meta/0000_snapshot.json | A:- | S:接收者与已读均以 (grant, character/player) 唯一索引防重复；消息随团级联删除，人物外键不级联
+identity.ts[PD7T]: F:身份表定义：users（username_normalized/role/disabled_at/deleted_at）、user_sessions、anonymous_players、player_tokens、blacklist_entries；令牌与指纹哈希均唯一 | R:code:apps/server/migrations/meta/0000_snapshot.json | A:- | S:expires_at 为空的黑名单即永久封禁；凭据表只存 password_hash，禁止存明文；用户名归一后唯一
+index.ts[PD6T]: F:schema 汇总出口：按域再导出 identity/catalog/characters/sessions/gameplay/history/templates/settings | R:code:apps/server/src/platform/db/schema/settings.ts | A:- | S:新增域文件必须在此挂载，否则仓储导入会缺失表对象
+sessions.ts[PD7S]: F:会话表定义：sessions（owner/状态/阶段/当前场景/last_event_id/共享开关/立绘布局/软删）、session_characters、session_claims（三项部分唯一索引）、session_kicks、session_audio_state、session_outbox | R:code:apps/server/migrations/meta/0000_snapshot.json | A:- | S:认领索引保证同团同角色、同团同玩家、同团同账号各只有一条未释放记录；禁入同理；outbox 以 (session,eventId) 唯一
 settings.ts[PD5T]: F:界面设置表定义：ui_settings 单例行的 gm_theme_id 与 updated_at | R:code:apps/server/src/platform/db/schema/index.ts | A:- | S:gm_theme_id 可空表示默认主题；updated_at 由时钟注入写入
+history.ts[PD7T]: F:历史与回溯表：session_history_events（payload/visibility/playerVisible/anchorable/archived 标记）、session_runtime_checkpoints（stateJson）、session_rewinds（锚点/前后水位/动作/撤销） | R:code:apps/server/src/platform/db/schema/sessions.ts | A:- | S:事件按 (session,eventId) 唯一；检查点按 (session,eventId) 唯一；归档只打标记不删行，撤销靠 targetRewindId
+templates.ts[PD7S]: F:模板表：templates（owner/rule_id/current_version/软删）、template_versions、template_scenes/tracks/handouts、template_characters 关联 | R:code:apps/server/src/platform/db/schema/index.ts | A:- | S:版本按 (template,version) 唯一；人物关联按 (template,character) 唯一；全部子件随模板级联删除
 
 ===/home/arcat/Develop/CallofGM/apps/server/src/platform/errors/===
 app-error.ts[CD5T]: F:统一应用错误基类：稳定 code、HTTP 状态码与附加 metadata | R:- | A:- | S:-
@@ -436,24 +453,25 @@ request-ip.ts[CS3T]: F:解析客户端 IP：信任代理时取 X-Forwarded-For �
 
 ===/home/arcat/Develop/CallofGM/apps/server/src/rules/coc7e/===
 excel-parser.ts[DB6M]: F:CoC 人物卡 Excel 解析：多表扫描姓名（含模糊匹配与警告）、按属性/技能别名就近取数，校验 1–99 并产出 errors/warnings 与 sheetData | R:code:packages/shared/src/rules/coc7e/sheet.ts,code:packages/shared/src/rules/coc7e/skills.ts,code:apps/server/src/rules/rule-system.ts | A:导出 parseCoc7eCharacterSheet | S:解析错误以单元格坐标返回而非抛错；姓名模糊命中会生成警告；玩家姓名类标签被显式排除以免误取
-index.ts[DB8M]: F:CoC 7e 规则实现：团内状态初始化（HP=(CON+SIZ)/10、MP=POW/5、SAN=POW）、技能检定判级（大成功/极难/困难/常规/失败/大失败、奖惩骰取十位、难度阈值）、理智检定与损失、GM 状态编辑（0–99 钳制与阈值提示）、成长标记与可见性裁剪 | R:code:apps/server/src/rules/rule-system.ts,code:packages/shared/src/rules/coc7e/check.ts,code:packages/shared/src/rules/coc7e/state.ts,code:packages/shared/src/rules/coc7e/skills.ts | A:导出 Coc7eRuleSystem | S:随机数经注入的 RandomSource 生成以便测试断言；SAN 自动扣减后只加提示不自动挂疯狂状态；暗骰成长写入 hiddenGrowthMarks
+index.ts[DB8L]: F:CoC 7e 规则实现：团内状态初始化（HP=(CON+SIZ)/10、MP=POW/5、SAN=POW）、技能检定判级（大成功/极难/困难/常规/失败/大失败、奖惩骰取十位、难度阈值）、理智检定与损失、GM 状态编辑（0–99 钳制与阈值提示）、成长标记与可见性裁剪 | R:code:apps/server/src/rules/rule-system.ts,code:packages/shared/src/rules/coc7e/check.ts,code:packages/shared/src/rules/coc7e/state.ts,code:packages/shared/src/rules/coc7e/skills.ts | A:导出 Coc7eRuleSystem | S:随机数经注入的 RandomSource 生成以便测试断言；SAN 自动扣减后只加提示不自动挂疯狂状态；暗骰成长写入 hiddenGrowthMarks
 
 ===/home/arcat/Develop/CallofGM/apps/server/src/rules/===
 dice-engine.ts[KB6S]: F:受限骰点表达式引擎：解析 XdY±Z、掷骰求值、损失表达式求值与格式化输出，带防滥用上限 | R:code:apps/server/src/platform/ports.ts,code:apps/server/src/rules/coc7e/index.ts | A:- | S:表达式仅支持单项骰加修正，长度≤32、骰数≤50、面数≤1000；随机数经注入的 RandomSource 产生
-registry.ts[DB4T]: F:RuleId→RuleSystem 注册表：规则实现的唯一取用点 | R:code:apps/server/src/rules/rule-system.ts,code:apps/server/src/rules/coc7e/index.ts | A:- | S:-
-rule-system.ts[DB8T]: F:规则系统抽象：定义人物卡/团状态 schema、检定与 SAN 输入输出、状态变更结果（含仅提示的 hints），以及初始化、判级、目标值、GM 编辑、SAN 扣减、可见性裁剪、成长标记等抽象方法 | R:code:packages/shared/src/rules/rule-id.ts,code:apps/server/src/platform/ports.ts | A:导出 RuleSystem 抽象类与相关类型 | S:通用业务不得绕过此抽象硬编码具体规则；随机数由调用方注入；未实现的规则动作应抛 RULE_ACTION_UNSUPPORTED
+registry.ts[DB4T]: F:RuleId→RuleSystem 注册表：规则实现的唯一取用点，并提供兼容规则列表 | R:code:apps/server/src/rules/rule-system.ts,code:apps/server/src/rules/coc7e/index.ts | A:- | S:-
+rule-system.ts[DB8S]: F:规则系统抽象：定义人物卡/团状态 schema、检定与 SAN 输入输出、状态变更结果（含仅提示的 hints），以及初始化、判级、目标值、GM 编辑、SAN 扣减、可见性裁剪、成长标记等抽象方法 | R:code:packages/shared/src/rules/rule-id.ts,code:apps/server/src/platform/ports.ts | A:导出 RuleSystem 抽象类与相关类型 | S:通用业务不得绕过此抽象硬编码具体规则；随机数由调用方注入；未实现的规则动作应抛 RULE_ACTION_UNSUPPORTED
 
 ===/home/arcat/Develop/CallofGM/config/===
 mcporter.json[FC3T]: F:项目级 mcporter 配置：注册 AOCI MCP 服务器（aoci --repo … mcp） | R:- | A:- | S:-
 
 ===/home/arcat/Develop/CallofGM/docs/===
 DESIGN.md[SU8M]: F:UI/UX 设计规范单一事实来源：M3 Expressive 方向与官方资源、组件策略、字阶/动效约束，以及 B2 导演工作台的浮岛布局规范 | R:code:docs/design-system/README.md,code:apps/client/src/styles/theme.css | A:- | S:UI 工作前必读；设计 token 只能落在 theme.css，自定义字阶须在 tailwind-merge 的 text 分组注册
-architecture.md[SG8S]: F:架构总纲：monorepo 布局、主题系统边界、服务端权威清单、WS 事件/补发/时间线协议、演绎发言队列、规则系统抽象与掷骰引擎 | R:code:docs/product.md,code:docs/theme-system.md,code:packages/shared/src/policy.ts | A:- | S:规则判定与可见性必须服务端权威；发言权限矩阵单源于 shared 的 policy.ts，前后端共用避免漂移；改协议要同步 packages/shared
+architecture.md[SG8M]: F:架构总纲：monorepo 布局、主题系统边界、账号与角色模型、服务端权威清单、WS 事件/补发/时间线回溯协议、演绎发言队列、规则系统抽象与掷骰引擎 | R:code:docs/product.md,code:docs/theme-system.md,code:packages/shared/src/policy.ts | A:- | S:规则判定与可见性必须服务端权威；发言权限矩阵单源于 shared 的 policy.ts，前后端共用避免漂移；改协议要同步 packages/shared
 backend-engineering-plan.md[SG6L]: F:后端工程计划：质量目标与非目标、模块化单体分层（domain/application/infrastructure/transport）、模块职责表、推荐目录、Phase 0–10 实施清单与验收 | R:code:docs/architecture.md,code:apps/server/src/bootstrap/container.ts | A:- | S:方案文档而非运行代码；Phase 0–9 已完成、Phase 10 待实施，改实现后应同步进度备注
-product.md[SG8S]: F:产品需求 v1：角色与入团方式、模组/团与状态阶段、场景、人物与可见性设置、掷骰鉴定与 SAN、团内状态、音频、情报、在线/黑名单、UI 与主题 | R:code:docs/architecture.md,code:packages/shared/src/policy.ts | A:- | S:是功能语义的最终依据；发言权限与情报可见性等判定必须服务端执行，前端只做展示与禁用
+product.md[SG8S]: F:产品需求 v1：账号与角色（admin/gm/pl）、人物归属/版本/成长与邀请审核、模组/团与状态阶段、场景、掷骰鉴定与 SAN、团内状态、音频、情报、在线/黑名单、模板与快速开团、UI 与主题 | R:code:docs/architecture.md,code:packages/shared/src/policy.ts | A:- | S:是功能语义的最终依据；发言权限与情报可见性等判定必须服务端执行，前端只做展示与禁用
 security.md[SS7T]: F:安全姿态与事件记录：bunfig 三道供应链闸（minimumReleaseAge/frozenLockfile/registry 固定）、主题包安装威胁模型与限制、审计门禁与事件日志 | R:code:bunfig.toml,code:docs/theme-system.md,code:bun.lock | A:- | S:CI 必须 bun install --frozen-lockfile；主题是完整权限浏览器代码，安装等同装插件，逃生开关是 ?theme=default
 tech-stack.md[SG7T]: F:定稿技术栈：Bun 全栈、Elysia+Eden、Bun 原生 WS、React 19+Vite+TanStack Router+Zustand、Tailwind v4+shadcn、Drizzle+bun:sqlite、zod、SheetJS、Howler、运行时主题、Docker | R:code:package.json,code:docs/architecture.md | A:- | S:选型以本表为准，禁止引入已否决方案（Socket.IO、React Router、Next/Nuxt）
-theme-system.md[SE8S]: F:运行时主题系统规范：作用域、.cogmtheme 包、安装安全、theme-cli 流程、回退与还原；含更新后的 GM Console ctx 节点 | R:code:docs/architecture.md,code:packages/shared/src/themes.ts,code:packages/theme-cli/src/index.ts | A:- | S:apiVersion 必须等于核心值，同 id 只能装更高 semver 且保留两版；主题插槽抛错逐级回退到内置 default；GM 主题浮钮刻意不走主题 token
+theme-system.md[SE8S]: F:运行时主题系统规范：作用域、.cogmtheme 包、安装安全、theme-cli 流程、回退与还原；含更新后的 GM Console ctx 节点与主题管理权归属 | R:code:docs/architecture.md,code:packages/shared/src/themes.ts,code:packages/theme-cli/src/index.ts | A:- | S:apiVersion 必须等于核心值，同 id 只能装更高 semver 且保留两版；主题插槽抛错逐级回退到内置 default；主题安装/删除仅 admin 可操作
+redesign-multi-ruleset-accounts.md[SG8M]: F:多规则与账号改造设计：账号角色与归属模型、全局软删与回收站、人物版本/成长/邀请/审核流程、模组模板与快速开团，以及分阶段实施与协议变更范围 | R:code:docs/architecture.md,code:docs/product.md | A:- | S:明确不做兼容层，允许破坏性重构；本文与 product/architecture 同步后以那两份为权威；软删统一靠 deleted_at，恢复需先恢复父资源
 
 ===/home/arcat/Develop/CallofGM/docs/design-system/===
 README.md[SU6T]: F:Expressive 组件库说明：来源固定版本与许可、design-system 开发入口、形状导出脚本、token/expressive.css 职责与已落实范围/平台差异 | R:code:docs/DESIGN.md,code:apps/client/src/dev/design-system-demo.tsx | A:- | S:组件按 40/40 族覆盖但非 Flutter 逐帧一比一；上游源码版本与 SHA-256 记录在 upstream.lock.json
@@ -479,30 +497,32 @@ package.json[FV5T]: F:@cogm/shared 包：以 src/index.ts 直接作为 main/type
 tsconfig.json[FV3T]: F:shared 包 TS 配置：继承根配置，仅类型检查不产出 | R:- | A:- | S:-
 
 ===/home/arcat/Develop/CallofGM/packages/shared/src/===
-catalog.ts[CD5S]: F:目录协议：模组/场景/曲目/情报的创建更新请求、DTO、模块汇总与模块-人物关联，themeId 复用 ThemeId 校验 | R:code:packages/shared/src/themes.ts,code:packages/shared/src/handouts.ts | A:- | S:ruleId 与 themeId 都必经 shared 枚举/格式校验；曲目 DTO 额外带资产大小与上传时间（服务端联表补充）
-characters.ts[CD5T]: F:人物协议：创建/更新/导入确认/立绘请求与人物、立绘、导入预览 DTO（导入含 errors 与 warnings） | R:code:packages/shared/src/session.ts,code:packages/shared/src/rules/rule-id.ts | A:- | S:sheetData 仅做 unknown 透传，具体结构由对应规则 schema 在服务端校验
+catalog.ts[CD5S]: F:目录协议：模组/场景/曲目/情报的创建更新请求、DTO、模块汇总与模块-人物关联，ruleId 与 themeId 复用 shared 校验 | R:code:packages/shared/src/themes.ts,code:packages/shared/src/handouts.ts | A:- | S:ruleId 与 themeId 都必经 shared 枚举/格式校验；曲目 DTO 额外带资产大小与上传时间（服务端联表补充）
+characters.ts[CD6M]: F:人物协议：GM/PL 建人物、更新、改属主、导入确认、立绘增删改、永久字段编辑，以及版本/成长/审计/历史 DTO与邀请/审核 DTO | R:code:packages/shared/src/session.ts,code:packages/shared/src/rules/rule-id.ts | A:- | S:sheetData 仅做 unknown 透传，具体结构由对应规则 schema 在服务端校验；更新携带 expectedVersion 防并发
 chat.ts[CD5T]: F:聊天协议：发送/放行/丢弃/重排/恢复命令，消息状态与 ChatMessageDto，以及 chat:message 事件和 GM 专用 chat:queue 控制消息 | R:code:packages/shared/src/session.ts | A:- | S:消息正文上限 2000 字；重排一次最多 200 条；待呈现与已丢弃消息不进事件日志，只走 GM 定向消息
 dice.ts[DB3T]: F:DiceRollResult schema：表达式、明细与总值 | R:- | A:- | S:-
 gameplay.ts[DB6S]: F:掷骰/鉴定/理智检定/状态编辑命令与对应事件 payload schema | R:code:packages/shared/src/rules/rule-id.ts | A:- | S:CheckResolvedEvent.result 与 CharacterStateChangedEvent.state 为规则专属 JSON，通用层不做结构校验
 handouts.ts[CD4T]: F:情报协议：发放/追加接收者/已读命令，HandoutDto 与 GrantedHandoutDto（含 isPublic、read），以及 handout:granted 事件 | R:code:packages/shared/src/session.ts | A:- | S:接收者上限 50；空数组表示公开发放；已读状态随 DTO 下发而非事件
-identity.ts[CI5T]: F:身份协议：GM 登录请求、玩家/自身响应、封禁与解封请求（playerId 或 fingerprintHash 二选一）、黑名单条目 DTO | R:- | A:- | S:封禁时长最少 60 秒，缺省为永久；token 字段仅在非生产响应中出现
-index.ts[CG4T]: F:shared 包出口：按域再导出 session/dice/rule-id、coc7e 命名空间，及 identity/catalog/websocket/chat/history/gameplay/stage/handouts 等协议 | R:code:packages/shared/src/session.ts | A:- | S:规则专属 schema 只经 coc7e 命名空间导出，避免跨规则命名冲突
+identity.ts[CI5T]: F:身份协议：玩家/自身响应、封禁与解封请求（playerId 或 fingerprintHash 二选一）、黑名单条目 DTO；账号登录协议已拆到 auth.ts | R:code:packages/shared/src/auth.ts | A:- | S:封禁时长最少 60 秒，缺省为永久；token 字段仅在非生产响应中出现
+index.ts[CG4T]: F:shared 包出口：按域再导出 session/dice/rule-id、coc7e 命名空间，及 auth/identity/catalog/characters/templates/websocket/chat/history/gameplay/stage/handouts 等协议 | R:code:packages/shared/src/session.ts | A:- | S:规则专属 schema 只经 coc7e 命名空间导出，避免跨规则命名冲突
 media.ts[CD3T]: F:媒体协议：用途枚举（general/portrait/scene/audio/handout）、上传查询与 MediaAssetDto | R:- | A:- | S:purpose 决定服务端类型校验：音频须 purpose=audio 且 audio/*
 moderation.ts[CS5T]: F:管理协议：踢出/解除/封禁/解封命令，在线与禁入玩家 DTO，presence:updated 与 session:kicked 消息 | R:- | A:- | S:SessionKickedMessage 的 code 固定 SESSION_KICKED；封禁时长最少 60 秒，缺省永久
 pagination.ts[DC3T]: F:CursorPageQuery 与泛型 CursorPageResponse 工厂 | R:- | A:- | S:-
-session.ts[CG7S]: F:团核心协议：状态/阶段/角色/席位/频道枚举与标签、团设置、建团/改名/认领/GM 指派与解除/状态/阶段请求、团与认领 DTO、快照式详情、join-info，以及 WS 关闭码 4000/4001/4002 | R:code:packages/shared/src/chat.ts | A:- | S:SessionCloseCode 4000 被踢、4001 席位被取代、4002 席位被主持人收回，重连逻辑依赖该约定；GM 指派只能指定 PC 与玩家 id
+session.ts[CG7M]: F:团核心协议：状态/阶段/角色/席位/频道枚举与标签、团设置、建团/改名/认领/GM 指派与解除/状态/阶段/人物同步请求、团与认领 DTO、快照式详情、join-info，以及 WS 关闭码 | R:code:packages/shared/src/chat.ts | A:- | S:关闭码 4000 被踢、4001 席位被取代、4002 席位被主持人收回，重连逻辑依赖该约定；GM 指派只能指定 PC 与玩家/账号 id
 snapshot.ts[CD7T]: F:WS 快照协议：人物快照（state 可为 null、sheet 按可见性裁剪）、SessionSnapshotPayload（会话/场景/观看者/人物/BGM/最近历史/可见情报/待处理鉴定/GM 专属队列与在线），会话含可选立绘布局 | R:code:packages/shared/src/history.ts,code:packages/shared/src/stage.ts,code:packages/shared/src/moderation.ts | A:- | S:payload 假定已按请求者过滤，客户端不得再假设字段齐全；GM 专属字段与 portraitLayout/Scale 为 optional，缺省由客户端回退
-stage.ts[CD6T]: F:舞台协议：切场景/切表情/立绘布局（位置与大小）/BGM 控制（expectedVersion 与 transitionMs）/SE 播放命令，场景、表情与布局变更事件，BgmState 与 audio:se 事件 | R:- | A:- | S:expectedVersion 用于乐观并发，陈旧指令必须被服务端拒绝；audio:se 为 fire-and-forget；PortraitLayout/Scale 是布局枚举的唯一来源
-websocket.ts[CN7T]: F:WS 协议：26 种客户端命令、ClientCommand 信封、SessionEvent（eventId/occurredAt）、CommandReply、SessionSnapshot 与 DirectControlMessage 的 ServerMessage 联合 | R:code:packages/shared/src/chat.ts,code:packages/shared/src/session.ts | A:- | S:未注册 type 一律拒绝；test:command 仅测试注入；DirectControlMessage 无 eventId、不写事件日志；session:refresh 用于认领变更后触发全量快照
-history.ts[CD6T]: F:历史时间线协议：HistoryPageQuery（beforeEventId 排他、limit 默认 50/上限 100）、chat/activity 两种 HistoryItem 的判别联合、游标与分页回复 | R:code:packages/shared/src/chat.ts | A:- | S:chat 与 activity 用 kind 判别，客户端不得靠字段猜测；beforeEventId 为排他上界，无更多时为 null
+stage.ts[CD6S]: F:舞台协议：切场景/切表情/立绘布局（位置与大小）/BGM 控制（expectedVersion 与 transitionMs）/SE 播放命令，场景、表情与布局变更事件，BgmState 与 audio:se 事件 | R:- | A:- | S:expectedVersion 用于乐观并发，陈旧指令必须被服务端拒绝；audio:se 为 fire-and-forget；PortraitLayout/Scale 是布局枚举的唯一来源
+websocket.ts[CN7S]: F:WS 协议：客户端命令（聊天/历史分页与回溯归档审计/骰点检定/舞台/情报/团设置/管理）、ClientCommand 信封、SessionEvent、CommandReply、SessionSnapshot 与 DirectControlMessage 的 ServerMessage 联合 | R:code:packages/shared/src/chat.ts,code:packages/shared/src/session.ts | A:- | S:未注册 type 一律拒绝；test:command 仅测试注入；DirectControlMessage 无 eventId、不写事件日志；session:refresh 用于认领变更后触发全量快照
+history.ts[CD6S]: F:历史时间线协议：HistoryPageQuery（beforeEventId 排他、limit 默认 50/上限 100）、chat/activity 两种 HistoryItem 的判别联合、游标与分页回复 | R:code:packages/shared/src/chat.ts | A:- | S:chat 与 activity 用 kind 判别，客户端不得靠字段猜测；beforeEventId 为排他上界，无更多时为 null
 policy.ts[DB7T]: F:通用权限策略：decideChatMessage 按阶段×身份×席位×频道裁决 immediate/queued/forbidden，canPlayerInitiateDiceRoll 复用同一矩阵判定自主掷骰 | R:code:packages/shared/src/session.ts | A:- | S:服务端用它拒绝命令、前端用它禁用输入，两处必须同一实现；OB 不能自主掷骰，自由讨论阶段 PC 消息一律记场外
 themes.ts[CE6T]: F:主题协议：API/格式版本常量、id（author.theme，default 保留）、semver 版本、相对路径校验、ThemeManifest、ThemeSummaryDto/列表与 GM 界面设置 DTO | R:code:packages/theme-sdk/src/index.ts | A:- | S:ThemeId 排除 default；bundleHash 必须是 sha256:<64 hex>；路径禁用绝对路径与 ..
+auth.ts[CD6S]: F:账号协议：UserRole、用户名/密码规则、登录/改密请求与响应、建号/改号/重置密码请求、UserDto，以及回收站实体类型与条目 DTO | R:- | A:- | S:用户名 3–32 位且限字母数字下划线汉字连字符；密码 8–128；UpdateUserRequest 用 strict 拒绝未声明字段
+templates.ts[CD6S]: F:模板协议：创建（可指定源模组/主题）/改名/保存版本/实例化请求，以及模板、版本、场景、曲目、情报、人物关联与详情 DTO | R:code:packages/shared/src/session.ts,code:packages/shared/src/rules/rule-id.ts | A:- | S:实例化响应 moduleId 必有、sessionId 可空，quickStart 为 true 才直接开团
 
 ===/home/arcat/Develop/CallofGM/packages/shared/src/rules/coc7e/===
 check.ts[DB6T]: F:CoC 检定结果协议：难度枚举与中文标签、六种结果与标签、难度阈值换算，及技能/理智检定结果 schema | R:- | A:- | S:growthEligible 只看常规成功及以上，与 GM 指定难度的 success 是两回事，不可混用
 index.ts[EG4T]: F:coc7e 命名空间出口：聚合 check/state/sheet/skills | R:- | A:- | S:-
 sheet.ts[DB4T]: F:CoC 人物卡 schema：九属性（1-99）与技能表（0-99） | R:- | A:- | S:-
-skills.ts[DB7S]: F:CoC 技能目录：46 个标准技能的规范键/别名/基础值，属性别名与标签，技能名规范化、目标值推导（闪避=DEX/2、母语=EDU、其余基础值）与标签回退 | R:code:packages/shared/src/rules/coc7e/sheet.ts | A:导出 COC7E_SKILL_CATALOG/ATTRIBUTE_ALIASES/LABELS 与四个函数 | S:人物卡存中文规范键；别名只用于导入与展示，落库前必须经 canonicalize 规范化
+skills.ts[DB7M]: F:CoC 技能目录：46 个标准技能的规范键/别名/基础值，属性别名与标签，技能名规范化、目标值推导（闪避=DEX/2、母语=EDU、其余基础值）与标签回退 | R:code:packages/shared/src/rules/coc7e/sheet.ts | A:导出 COC7E_SKILL_CATALOG/ATTRIBUTE_ALIASES/LABELS 与四个函数 | S:人物卡存中文规范键；别名只用于导入与展示，落库前必须经 canonicalize 规范化
 state.ts[DB7T]: F:CoC 团内状态协议：六种状态旗标与标签、CharacterSessionState（HP/MP/SAN 及上限、tags、成长与隐藏成长标记）、GM 编辑入参（增量/绝对值/标记/标签） | R:- | A:- | S:HP/MP/SAN 均限定 0–99；hiddenGrowthMarks 仅 GM 可见，普通视图必须裁剪
 
 ===/home/arcat/Develop/CallofGM/packages/shared/src/rules/===
@@ -534,7 +554,7 @@ labels.ts[CL3T]: F:会话枚举文案：sessionStatusLabel 与 sessionPhaseLabel
 zh-CN.ts[CL6L]: F:简体中文文案字典（1184 条扁平点号 key）：common/gm/play/chat/check/handout/stage/error 等命名空间，含导演工作台、认领、导入与历史回溯文案 | R:code:apps/client/src/i18n/index.ts | A:导出 zhCN | S:这是 t() 的最终兜底字典，删除或改名 key 会让界面直接显示 key；主题覆盖只能补缺不能替换
 
 ===/home/arcat/Develop/CallofGM/apps/client/src/themes/default/===
-index.ts[EE4T]: F:默认主题定义：把 13 个内置插槽组件注册为 defineTheme 的 slots，是 ThemeSlot 的回退主题 | R:code:packages/theme-sdk/src/index.ts | A:导出 defaultTheme | S:插槽名必须属于 THEME_SLOT_NAMES，新增插槽需同时在此补默认实现
+index.ts[EE4T]: F:默认主题定义：把 14 个内置插槽组件注册为 defineTheme 的 slots，是 ThemeSlot 的回落主题 | R:code:packages/theme-sdk/src/index.ts | A:导出 defaultTheme | S:插槽名必须属于 THEME_SLOT_NAMES，新增插槽需同时在此补默认实现
 
 ===/home/arcat/Develop/CallofGM/apps/client/src/themes/default/slots/===
 gm-admin-nav.tsx[EU4T]: F:默认 GM 导航轨：Logo+六项导航图标（active 用 primary-container 胶囊，aria-current）+底部 KP 头像与退出按钮 | R:code:apps/client/src/themes/runtime/theme-slot.tsx | A:导出 GmAdminNav | S:退出走 onLogout 回调，不直接调 API；active 与 GM 工具/阶段统一 moss primary，避免 teal secondary 泄漏
@@ -543,28 +563,29 @@ gm-console-layout.tsx[EU3T]: F:默认 B2 GM 控制台布局：场景铺满全屏
 gm-console-stage.tsx[EU4T]: F:默认 B2 GM 舞台：全屏场景背景（object-top）、上下可读性渐变、全高立绘层与覆盖在底部的 DialogueBox；不再渲染场景字幕 | R:code:apps/client/src/features/session-stage/scene-backdrop.tsx | A:导出 GmConsoleStage | S:sceneInfo 节点不再渲染；立绘层 absolute 铺满，对话 absolute bottom-6 覆盖立绘；内容区左右让出侧栏宽度
 join-header.tsx[EU3T]: F:默认入团页头部：状态徽标+标题+副标题，按加载中/已结束/无效链接切换文案 | R:code:apps/client/src/i18n/labels.ts | A:导出 JoinHeader | S:加载错误优先于已结束判定
 join-layout.tsx[EU3T]: F:默认入团页布局：纵向居中排列 header/notice/seats/spectator/action 五个节点 | R:- | A:导出 JoinLayout | S:-
-join-seat-card.tsx[EU4S]: F:默认席位卡片：card 变体为竖向大卡、row 变体为横向行，含头像/名称/说明与已占-已选-可用-不限状态徽标 | R:code:apps/client/src/components/ui/badge.tsx | A:导出 JoinSeatCard | S:已占席位 disabled 且 50% 透明；role=radio + aria-checked 只在未占时反映选中
+join-seat-card.tsx[EU4S]: F:默认席位卡片：card 变体为竖向大卡、row 变体为横向行，含头像/名称/说明与已占-已选-可用-不限状态徽标 | R:code:apps/client/src/components/ui/badge.tsx | A:导出 JoinSeatCard | S:已占席位 disabled 且 65% 透明；role=radio + aria-checked 只在未占时反映选中
 play-chat-message.tsx[EU3T]: F:默认聊天消息渲染：系统消息居中窄排，普通消息带头像/角色徽标，自身右对齐、连续发言省略头部 | R:code:apps/client/src/components/ui/avatar.tsx | A:导出 PlayChatMessage | S:showRoleBadge 为 false 时隐藏角色徽标
 play-chat-panel.tsx[EU2T]: F:默认玩家聊天面板插槽：把 sessionId/variant/compact/onCollapse 透传给 PlayerChatPanel | R:code:apps/client/src/features/play/player-chat-panel.tsx | A:导出 PlayChatPanel | S:-
 play-dialogue.tsx[EU2T]: F:默认对话框插槽：把 speaker/roleLabel/text/size 转给 DialogueBox | R:code:apps/client/src/features/session-stage/dialogue-box.tsx | A:导出 PlayDialogue | S:-
-play-layout.tsx[EU5T]: F:默认玩家布局：portrait 上下分栏、landscape 舞台+可收起聊天侧栏（右缘半圆把手）、desktop 舞台+392px 聊天栏 | R:code:apps/client/src/components/ui/button.tsx | A:导出 PlayLayout | S:横屏收起后由 actions.setLandscapeChatOpen 恢复；侧栏宽度硬编码在插槽内
+play-layout.tsx[EU5S]: F:默认玩家布局：portrait 上舞台下聊天、landscape 舞台+300px 可收起聊天浮层（右缘半圆把手）、desktop 舞台+clamp(344px,26vw,400px) 聊天栏 | R:code:apps/client/src/components/ui/button.tsx | A:导出 PlayLayout | S:chatOpen 回落 landscapeChatOpen，setChatOpen 回落 setLandscapeChatOpen；portrait 舞台高 clamp(280px,46dvh,430px)
 play-scene-info.tsx[EU2T]: F:默认场景信息插槽：按 variant 渲染 SceneInfo | R:code:apps/client/src/features/session-stage/scene-info.tsx | A:导出 PlaySceneInfo | S:-
 play-stage.tsx[EU4T]: F:默认玩家舞台：三种视口各一套尺寸与叠层（portrait 固定高度、landscape 顶栏、desktop 全屏），均含背景/场景信息/音频/立绘/对话 | R:code:apps/client/src/features/session-stage/scene-backdrop.tsx | A:导出 PlayStage | S:portrait 舞台高度用 clamp(340px,48dvh,440px)，与立绘定位常量耦合
+play-history.tsx[EU2T]: F:默认历史回放插槽：把 PlayHistoryCtx 原样透传给 PlayerHistoryOverlay | R:code:apps/client/src/features/history/player-history-overlay.tsx | A:导出 PlayHistory | S:-
 
 ===/home/arcat/Develop/CallofGM/apps/client/src/themes/runtime/===
 bootstrap.ts[EV2T]: F:主题启动引导：引入默认主题并注册到 registry，供 ThemeSlot 兜底 | R:code:apps/client/src/themes/default/index.ts,code:apps/client/src/themes/runtime/registry.ts | A:- | S:由 main.tsx 在渲染前静态引入，缺这一步默认插槽全部不渲染
-gm-theme-control.tsx[EU4S]: F:GM 主题控件：后台右下角浮钮（原生下拉）与 B2 顶栏菜单用的 GmThemeDialog，两者共享 GM UI 设置 store 与主题列表 | R:code:apps/client/src/stores/gm-settings-store.ts,code:apps/client/src/themes/themes-api.ts | A:导出 GmThemeControl/GmThemeDialog | S:浮钮刻意保留暗色固定样式、不走主题 token；对话框每次打开重拉主题列表
+gm-theme-control.tsx[EU4S]: F:GM 主题对话框：下拉选择默认或已安装主题，应用时写入 GM UI 设置 store，失败展示回滚后的 error | R:code:apps/client/src/stores/gm-settings-store.ts,code:apps/client/src/themes/themes-api.ts | A:导出 GmThemeDialog | S:每次 open 重新拉主题列表；选中 default 时以 null 提交表示清除覆盖
 gm-theme-scope.tsx[EU3T]: F:GM 主题作用域：加载 GM 界面设置后以其 gmThemeId 打开 ThemeScope | R:code:apps/client/src/stores/gm-settings-store.ts,code:apps/client/src/themes/runtime/theme-scope.tsx | A:导出 GmThemeScope | S:每次挂载都会触发 load()，store 内做 loading 去重
 loader.ts[EE5S]: F:主题加载器：取并校验 manifest（id、apiVersion 与 ThemeManifest）、按 base URL 动态 import bundle、校验 slots/messages，按 id@version 缓存 Promise | R:code:packages/shared/src/themes.ts,code:packages/theme-sdk/src/index.ts,code:apps/client/src/lib/api.ts | A:导出 loadTheme/fetchThemeManifest/themeFileUrl/clearThemeCache 与 ThemeLoadError | S:缓存按 id@version；加载失败从缓存删除以便重试；未知插槽名或非组件都会拒绝整个主题
 registry.ts[EE3T]: F:默认主题注册表：保存/读取默认 ThemeDefinition | R:code:packages/theme-sdk/src/index.ts | A:导出 registerDefaultTheme/getDefaultTheme | S:只保存一份，后注册覆盖先前
-sdk.ts[EE5T]: F:主题运行时 SDK：向 globalThis.__COGM_THEME_SDK__ 注入 React/JSX/createPortal/defineTheme/cn/t/assetUrl/navigate/useLocale，并管理主题资源基址与文案覆盖 | R:code:apps/client/src/i18n/index.ts,code:packages/theme-sdk/src/index.ts | A:导出 installThemeSdk/setThemeAssetBase/setThemeMessages 及对应 reset 与 ThemeRuntime 类型 | S:assetUrl 对绝对/协议相对路径原样返回；注入前 navigate 回退 location.assign；setThemeMessages 会重置基础文案运行态
+sdk.ts[EE5S]: F:主题运行时 SDK：向 globalThis.__COGM_THEME_SDK__ 注入 React/JSX/createPortal/defineTheme/cn/t/assetUrl/navigate/useLocale，并管理主题资源基址与文案覆盖 | R:code:apps/client/src/i18n/index.ts,code:packages/theme-sdk/src/index.ts | A:导出 installThemeSdk/setThemeAssetBase/setThemeMessages 及对应 reset 与 ThemeRuntime 类型 | S:assetUrl 对绝对/协议相对路径原样返回；注入前 navigate 回退 location.assign；setThemeMessages 会重置基础文案运行态
 theme-context.ts[EE3T]: F:主题 React Context：提供 theme/error/loading 与 useTheme | R:code:apps/client/src/themes/runtime/loader.ts | A:导出 ThemeContext 与 useTheme | S:默认值为空主题，未包 ThemeScope 时插槽走默认实现
 theme-dom.ts[EE5S]: F:主题 DOM 应用：写入 data-cogm-theme、--color-* token、color-scheme、样式 link、favicon 与 theme-color，并在切换/卸载时精确回滚到基线 | R:code:packages/shared/src/themes.ts,code:apps/client/src/themes/runtime/loader.ts | A:导出 applyThemeDom/resetThemeDom | S:基线在首次应用时捕获；只移除本模块写入的 token/link/meta，恢复原 favicon 与 theme-color
 theme-scope.tsx[EE5T]: F:主题作用域组件：按 themeId 加载主题，成功后应用 DOM/token/文案，失败回退默认主题并暴露 error；支持 ?theme=default 强制默认 | R:code:apps/client/src/themes/runtime/loader.ts,code:apps/client/src/themes/runtime/theme-dom.ts,code:apps/client/src/themes/runtime/sdk.ts | A:导出 ThemeScope | S:用全局递增 token 防止旧请求覆盖新主题；卸载或换主题时 reset DOM/资源基址/文案
 theme-slot.tsx[EE5T]: F:插槽渲染器：优先用当前主题插槽，缺失时用默认主题插槽，再退 fallback；每个插槽外包错误边界 | R:code:apps/client/src/themes/runtime/registry.ts,code:apps/client/src/themes/runtime/theme-context.ts,code:packages/theme-sdk/src/index.ts | A:导出 ThemeSlot | S:主题插槽崩溃时回落到默认插槽而非空白；resetKey 为主题版本+插槽名，换主题后自动复位错误态
 
 ===/home/arcat/Develop/CallofGM/apps/client/src/themes/===
-themes-api.ts[AE4T]: F:主题与 GM 界面设置 API 封装：列表/上传/删除/重扫主题，读取与更新 gmThemeId | R:code:apps/client/src/lib/api.ts | A:导出 listThemes/uploadTheme/deleteTheme/rescanThemes/fetchGmUiSettings/updateGmUiSettings | S:上传用 FormData 直接传文件；重扫为 POST /gm/themes/rescan
+themes-api.ts[AE4T]: F:主题与 GM 界面设置 API 封装：列表/上传/删除/重扫主题（/admin/themes），读取公开 UI 设置并更新 gmThemeId（/admin/ui-settings） | R:code:apps/client/src/lib/api.ts | A:导出 listThemes/uploadTheme/deleteTheme/rescanThemes/fetchGmUiSettings/updateGmUiSettings | S:上传用 FormData 直接传文件；全部写操作走 admin 前缀，读取 UI 设置走 /public
 
 ===/home/arcat/Develop/CallofGM/apps/server/src/modules/themes/application/===
 use-cases.ts[AE6S]: F:主题用例：列表/安装/重扫返回含模组使用数与 GM 界面占用标记的摘要；删除前拒绝仍被模组或 GM 界面引用的主题 | R:code:apps/server/src/modules/themes/infrastructure/theme-registry.ts,code:apps/server/src/platform/db/schema/index.ts | A:导出四个 UseCase | S:usage 统计只算非空 modules.theme_id 与 ui_settings.gmThemeId；主题仍在使用时抛 409 并附带占用明细
@@ -579,7 +600,7 @@ index.ts[AE3T]: F:主题模块出口：导出路由、ThemeRegistry/InstalledThe
 theme-registry.ts[EE8L]: F:主题注册表：扫描 THEMES_DIR 装载 theme.json，解压安装 .cogmtheme（条目白名单/路径穿越与大小上限、bundleHash 校验、API 版本与版本递增、原子落盘、保留最近两版），提供 manifest/文件只读访问 | R:code:packages/shared/src/themes.ts,code:apps/server/src/modules/themes/domain/errors.ts | A:导出 ThemeRegistry 与 InstalledTheme，含 contentType 静态方法 | S:解压限制 50MB/单文件 20MB/总计 200MB/2000 条目；文件名白名单只允许 manifest、bundle、样式、图标、字体与图片；bundle 哈希必须与 manifest 一致
 
 ===/home/arcat/Develop/CallofGM/apps/server/src/modules/themes/transport/===
-routes.ts[AN6T]: F:主题路由：公开 manifest 与版本内静态文件（immutable 缓存+nosniff），GM 列表/上传（限流+来源校验+50MB 上限）/删除（禁删 default）/重扫 | R:code:apps/server/src/modules/themes/application/use-cases.ts,code:apps/server/src/modules/identity/index.ts | A:导出 createThemeRoutes | S:manifest 响应 no-cache，静态文件长缓存且不可变；路径解析经 registry.filePath 防穿越
+routes.ts[AN6S]: F:主题路由：公开 manifest 与版本内静态文件（immutable 缓存+nosniff），admin 列表/上传（限流+来源校验+50MB 上限）/删除（禁删 default）/重扫 | R:code:apps/server/src/modules/themes/application/use-cases.ts,code:apps/server/src/modules/identity/index.ts | A:导出 createThemeRoutes | S:manifest 响应 no-cache，静态文件长缓存且不可变；路径解析经 registry.filePath 防穿越；写操作仅 admin 可用
 
 ===/home/arcat/Develop/CallofGM/apps/server/src/modules/ui-settings/application/===
 ports.ts[CC3T]: F:界面设置端口：UiSettings（gmThemeId/updatedAt）与 UiSettingsRepository 的单例读写 | R:code:apps/server/src/platform/db/schema/settings.ts | A:- | S:仅单例行，gmThemeId 可空表示默认主题
@@ -592,7 +613,7 @@ index.ts[AC2T]: F:界面设置模块出口：导出路由、Drizzle 仓储与两
 drizzle-ui-settings-repository.ts[PC3T]: F:界面设置仓储：按 id=singleton 读取，写入用 upsert 覆盖 gmThemeId/updatedAt | R:code:apps/server/src/modules/ui-settings/application/ports.ts,code:apps/server/src/platform/db/schema/settings.ts | A:导出 DrizzleUiSettingsRepository | S:固定单例行 id=singleton，避免多行歧义
 
 ===/home/arcat/Develop/CallofGM/apps/server/src/modules/ui-settings/transport/===
-routes.ts[AN4T]: F:界面设置路由（GM 专用 /api/v1/gm/ui-settings）：GET 读取、PUT 更新 gmThemeId 并写审计日志 | R:code:apps/server/src/modules/ui-settings/application/use-cases.ts | A:导出 createUiSettingsRoutes | S:非法主题在更新时 404，读取时静默回落 null
+routes.ts[AN4T]: F:界面设置路由：公开 GET /api/v1/public/ui-settings，admin 前缀下 GET/PUT 读写 gmThemeId 并写审计日志 | R:code:apps/server/src/modules/ui-settings/application/use-cases.ts | A:导出 createUiSettingsRoutes | S:公开读无需登录；admin 组在 onBeforeHandle 统一要求 admin 账号；非法主题在更新时 404，读取时静默回落 null
 
 ===/home/arcat/Develop/CallofGM/docs/qa/===
 findings-2026-11-01.md[TQ6L]: F:2026-11-01 全量验证报告：87 项发现（F1–F87），逐项含文件定位、复现与证据、严重度速览与截图包索引 | R:code:docs/product.md,code:docs/architecture.md | A:截图证据为同目录 screenshots-2026-11-01.tar.zst | S:历史报告，修复后不应据此改代码；部分发现（如 message-policy.ts 路径）已被后续重构移除，引用前需核对当前代码
@@ -610,7 +631,7 @@ package.json[FE4T]: F:theme-sdk 清单：以 src/index.ts 为 main/types 的私�
 tsconfig.json[FC2T]: F:theme-sdk 的 TS 配置：继承 base，DOM lib 与 react-jsx，types 为空，noEmit，仅覆盖 src | R:code:tsconfig.base.json | A:- | S:types 置空以避免把 bun/node 全局类型带进主题作者可见的 SDK 面
 
 ===/home/arcat/Develop/CallofGM/packages/theme-sdk/src/===
-index.ts[EE6M]: F:主题 SDK：13 个插槽名与 ctx 类型、视图模型、defineTheme 与运行时 API；GmConsoleLayoutCtx 新增可选 topbar/dock 节点 | R:code:packages/shared/src/themes.ts | A:导出 THEME_SLOT_NAMES/ThemeSlotCtxMap/defineTheme 与运行时函数 | S:新增插槽必须同时进 THEME_SLOT_NAMES、CtxMap 与默认主题；运行时函数未注入时会抛错
+index.ts[EE6M]: F:主题 SDK：14 个插槽名与 ctx 类型、视图模型、defineTheme 与运行时 API；含 play.history 与 GM 控制台 topbar/dock 节点 | R:code:packages/shared/src/themes.ts | A:导出 THEME_SLOT_NAMES/ThemeSlotCtxMap/defineTheme 与运行时函数 | S:新增插槽必须同时进 THEME_SLOT_NAMES、CtxMap 与默认主题；运行时函数未注入时会抛错
 
 ===/home/arcat/Develop/CallofGM/apps/client/public/demo/scenes/===
 library.png[ZU2L]: F:场景背景素材（1376×768）：夜间图书馆内景，木质书架环绕、临窗书桌与油灯，用作演示场景整幅背景 | R:- | A:- | S:代码无直接引用；与 images/generated-1783950920511.png 字节相同
@@ -653,3 +674,42 @@ player-history-overlay.tsx[AU6M]: F:玩家历史浮层：全屏会话记录，�
 
 ===/home/arcat/Develop/CallofGM/apps/client/src/routes/admin/===
 themes.tsx[AU5M]: F:Admin 主题管理页：列出主题卡片（版本/占用/摘要），支持上传 .cogmtheme、重扫目录与删除；被模块或 GM UI 占用时禁止删除 | R:code:apps/client/src/features/admin/admin-shell.tsx,code:apps/client/src/components/shared/page-header.tsx,code:apps/client/src/themes/themes-api.ts,code:apps/client/src/components/shared/confirm-dialog.tsx | A:导出 Route；requireAccount([admin]) 在 beforeLoad 校验 | S:删除需二次确认；usedByModules>0 或 usedByGmUi 时删除钮禁用；上传后自动刷新
+users.tsx[AU5M]: F:admin 账号管理页：用户表格（用户名/角色/状态/创建时间）+搜索过滤，支持新建账号、改角色、禁用、软删除与重置密码，可切换显示已删账号 | R:code:apps/client/src/lib/identity.ts,code:apps/client/src/lib/api.ts,code:apps/client/src/components/shared/confirm-dialog.tsx | A:导出 Route（requireAccount(["admin"])）；GET /admin/users?includeDeleted=true，PATCH /admin/users/:id（disabled/deleted），POST /admin/users/:id/password | S:角色枚举仅 admin/gm/pl；当前账号 id 取自 identity store 用于标注自身行；删除走 PATCH {deleted} 而非 DELETE
+
+===/home/arcat/Develop/CallofGM/apps/client/src/routes/pl/===
+characters.tsx[AU5M]: F:PL 人物库：分页列出自己的人物，支持新建（选规则并生成空卡）、编辑名称/背景、删除确认；编辑携带 expectedVersion 做乐观并发 | R:code:apps/client/src/rules/registry.ts,code:apps/client/src/lib/api.ts,code:apps/client/src/components/shared/confirm-dialog.tsx | A:导出 Route（requireAccount(["pl"])）；GET/POST /pl/characters，PATCH/DELETE /pl/characters/:id | S:创建时才可选规则，编辑不可改规则；PATCH 必须带 expectedVersion；列表用 fetchAllPages 全量拉取
+
+===/home/arcat/Develop/CallofGM/apps/client/src/rules/===
+registry.ts[DB6M]: F:客户端规则注册表：以 RuleComponent 接口暴露各规则的卡面解析、属性/技能标签、难度、判级与状态摘要，getRuleComponent 按 ruleId 取实现并回落 coc7e | R:code:packages/shared/src/rules/coc7e/index.ts | A:导出 RuleComponent/getRuleComponent/registerRuleComponent/listRuleComponents，FALLBACK_RULE_ID="coc7e" | S:未知 ruleId 一律回落 coc7e 而不抛错；registerRuleComponent 可在运行时替换实现，列表按注册顺序
+
+===/home/arcat/Develop/CallofGM/apps/server/migrations/===
+0000_initial_multi_ruleset.sql[FD8L]: F:唯一初始迁移：一次性建 40 张表（身份/账号、模组/场景/曲目/情报/媒体、人物/版本/成长/邀请/审核、团/席位/音频/历史、模板、回收与设置）及其索引与软删索引 | R:code:apps/server/src/platform/db/schema/index.ts | A:- | S:多规则与账号改造后已合并为单一迁移，无增量补丁；人物版本、邀请 token、用户会话等关键唯一索引均在此建立；改为增量时须新建迁移而非改动本文件
+
+===/home/arcat/Develop/CallofGM/apps/server/src/modules/admin/application/===
+trash-repository.ts[PD7L]: F:回收站仓储：按属主列出模块/人物/团/模板及其子件与立绘的软删项，管理员列出已删用户；恢复时逐表清 deleted_at，并校验父资源是否仍在回收站 | R:code:apps/server/src/platform/db/schema/index.ts | A:导出 TrashRepository 与 TrashItemNotFoundError | S:恢复必须先恢复父资源，否则 PARENT_DELETED；子件恢复会连带清父级关联行的软删标记；列表统一按 deletedAt 降序
+
+===/home/arcat/Develop/CallofGM/apps/server/src/modules/admin/===
+index.ts[AE2T]: F:admin 模块出口：重导出 admin 与回收站路由工厂 | R:code:apps/server/src/modules/admin/transport/routes.ts,code:apps/server/src/modules/admin/transport/trash-routes.ts | A:导出 createAdminRoutes/createTrashRoutes | S:-
+
+===/home/arcat/Develop/CallofGM/apps/server/src/modules/admin/transport/===
+routes.ts[AN7S]: F:admin 账号路由：仅 admin 可列出/新建/查看用户，更新禁用或软删、重置密码；更新与重置会踢掉目标用户现有连接 | R:code:apps/server/src/modules/identity/index.ts,code:packages/shared/src/auth.ts | A:导出 createAdminRoutes；GET/POST /api/v1/admin/users，GET/PATCH /:id，POST /:id/password | S:requireAdmin 要求 actor.type=user 且 role=admin；includeDeleted 仅在 query=true 时包含软删用户；写操作均需 assertTrustedOrigin
+trash-routes.ts[AN6T]: F:回收站路由：管理员看全部软删用户，GM/PL 看自己拥有的软删资源，并按 entityType+id 恢复 | R:code:apps/server/src/modules/admin/application/trash-repository.ts | A:导出 createTrashRoutes；GET /api/v1/trash，POST /api/v1/trash/restore | S:匿名玩家不可访问；user 类型仅 admin 可恢复，其余类型仅非 admin 恢复；父资源未恢复时返回 409 PARENT_DELETED
+
+===/home/arcat/Develop/CallofGM/apps/server/src/modules/rules/===
+index.ts[AN3T]: F:规则路由：公开 GET /api/v1/rules 返回注册表中与当前服务兼容的规则列表 | R:code:packages/shared/src/rules/rule-id.ts,code:apps/server/src/rules/registry.ts | A:导出 createRulesRoutes | S:-
+
+===/home/arcat/Develop/CallofGM/apps/server/src/modules/templates/application/===
+ports.ts[CD5S]: F:模板端口：模板/版本/场景/曲目/情报/人物关联记录、模板快照与计数，及 TemplatesRepository（按 owner 分页、软删、版本与子件读写、人物关联） | R:code:packages/shared/src/templates.ts | A:- | S:模板以 ownerId 归属，软删以 deletedAt 非空表达；子件重名不合并，实例化时逐条复制
+use-cases.ts[DB7L]: F:模板用例：从模组快照创建模板、列表/详情/改名软删，保存新版本，以及实例化为新模组或快速开团（复制场景/曲目/情报/人物关联并重建子资源） | R:code:apps/server/src/modules/templates/application/ports.ts,code:apps/server/src/modules/catalog/index.ts,code:apps/server/src/modules/sessions/index.ts | A:导出七个 UseCase | S:模板规则在创建时由源模组确定，实例化出来的人物需与模板 ruleId 一致；版本只追加不覆盖，立即化读取指定版本而非当前指针
+
+===/home/arcat/Develop/CallofGM/apps/server/src/modules/templates/domain/===
+errors.ts[DB3T]: F:模板域错误：模板/模板版本/源模组不存在、人物规则与模板不一致 | R:code:apps/server/src/platform/errors/app-error.ts | A:导出四个错误类 | S:规则不一致为 400，其余均为 404
+
+===/home/arcat/Develop/CallofGM/apps/server/src/modules/templates/===
+index.ts[DB2T]: F:templates 模块出口：重导出端口类型、用例、域错误、Drizzle 仓储与路由工厂 | R:- | A:- | S:-
+
+===/home/arcat/Develop/CallofGM/apps/server/src/modules/templates/infrastructure/===
+drizzle-templates-repository.ts[PD6M]: F:模板仓储：模板行与 keyset 分页、软删、场景/曲目/情报/人物关联的读写与计数、版本追加与查询 | R:code:apps/server/src/modules/templates/application/ports.ts,code:apps/server/src/platform/db/schema/templates.ts | A:导出 DrizzleTemplatesRepository | S:列表固定 limit+1 判有无下页；人物关联写入幂等；计数只统计未软删的子件
+
+===/home/arcat/Develop/CallofGM/apps/server/src/modules/templates/transport/===
+routes.ts[AN6M]: F:模板 HTTP 路由（GM 专用 /api/v1/gm/templates）：列表/创建/详情/改名/删除、版本列表与保存、以及 instantiate 实例化 | R:code:apps/server/src/modules/templates/application/use-cases.ts,code:apps/server/src/modules/identity/index.ts | A:导出 createTemplatesRoutes | S:所有操作限定当前 GM 为 owner；instance 要么建模组要么直接开团，由请求体区分
