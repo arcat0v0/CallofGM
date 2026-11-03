@@ -190,9 +190,7 @@ export interface CharactersRepository {
 	): Promise<void>;
 	listAudits(characterId: string): Promise<CharacterAuditRecord[]>;
 
-	findMediaAsset(
-		id: string,
-	): Promise<{
+	findMediaAsset(id: string): Promise<{
 		id: string;
 		purpose: string;
 		mimeType: string;
@@ -229,17 +227,13 @@ export interface CharactersRepository {
 	consumeStaging(id: string, consumedAt: number): Promise<void>;
 
 	moduleExists(moduleId: string): Promise<boolean>;
-	findModule(
-		id: string,
-	): Promise<{
+	findModule(id: string): Promise<{
 		id: string;
 		ownerId: string;
 		name: string;
 		ruleId: string;
 	} | null>;
-	findSession(
-		id: string,
-	): Promise<{
+	findSession(id: string): Promise<{
 		id: string;
 		ownerId: string;
 		name: string | null;

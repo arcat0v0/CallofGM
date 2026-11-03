@@ -1,14 +1,16 @@
+import { AppError } from "@/platform/errors/app-error";
 import {
 	RULE_API_VERSION,
 	type RuleMetadata,
 	type RuleSystem,
 } from "./rule-system";
 
-export class RuleNotFoundError extends Error {
-	readonly code = "RULE_NOT_FOUND";
+export class RuleNotFoundError extends AppError {
+	readonly ruleId: string;
 
-	constructor(public readonly ruleId: string) {
-		super(`Rule system not found: ${ruleId}`);
+	constructor(ruleId: string) {
+		super("RULE_NOT_FOUND", `Rule system not found: ${ruleId}`, 400);
+		this.ruleId = ruleId;
 	}
 }
 

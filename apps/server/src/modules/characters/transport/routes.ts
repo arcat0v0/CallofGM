@@ -11,6 +11,7 @@ import {
 	CharacterSyncDiffDto,
 	CreateCharacterInviteRequest,
 	CreateCharacterRequest,
+	CreatePlCharacterRequest,
 	CursorPageQuery,
 	CursorPageResponse,
 	DecideReviewRequest,
@@ -520,7 +521,7 @@ export function createCharactersRoutes(container: Container) {
 		})
 		.post("/", async ({ actor, body }) => {
 			const user = requireUser(actor);
-			const data = parseBody(CreateCharacterRequest, body);
+			const data = parseBody(CreatePlCharacterRequest, body);
 			return CharacterDto.parse(
 				await createCharacter.execute({
 					ownerId: user.userId,

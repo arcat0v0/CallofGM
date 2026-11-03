@@ -148,9 +148,7 @@ export interface SessionsRepository {
 	findCharactersByIds(ids: string[]): Promise<CharacterItem[]>;
 	findLinkedCharacterIds(moduleId: string, ids: string[]): Promise<string[]>;
 	moduleExists(moduleId: string): Promise<boolean>;
-	findModuleById(
-		moduleId: string,
-	): Promise<{
+	findModuleById(moduleId: string): Promise<{
 		id: string;
 		ownerId: string;
 		name: string;

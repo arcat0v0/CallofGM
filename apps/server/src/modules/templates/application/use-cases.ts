@@ -3,7 +3,7 @@ import type { CatalogRepository } from "@/modules/catalog";
 import type { CharactersRepository } from "@/modules/characters";
 import type { SessionsRepository } from "@/modules/sessions";
 import type { Clock, IdGenerator } from "@/platform/ports";
-import type { RuleRegistry } from "@/rules/registry";
+import { RuleNotFoundError, type RuleRegistry } from "@/rules/registry";
 import {
 	TemplateNotFoundError,
 	TemplateSourceNotFoundError,
@@ -20,6 +20,7 @@ export class CreateTemplateUseCase {
 		private readonly repo: TemplatesRepository,
 		private readonly catalog: CatalogRepository,
 		private readonly characters: CharactersRepository,
+		private readonly ruleRegistry: RuleRegistry,
 		private readonly idGenerator: IdGenerator,
 		private readonly clock: Clock,
 	) {}
@@ -32,6 +33,9 @@ export class CreateTemplateUseCase {
 		themeId?: string | null;
 		sourceModuleId?: string;
 	}) {
+		if (!this.ruleRegistry.has(input.ruleId)) {
+			throw new RuleNotFoundError(input.ruleId);
+		}
 		const now = this.clock.nowEpochMs();
 		const templateId = this.idGenerator.nextId();
 

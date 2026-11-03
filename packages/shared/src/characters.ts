@@ -14,6 +14,11 @@ export const CreateCharacterRequest = z.object({
 });
 export type CreateCharacterRequest = z.infer<typeof CreateCharacterRequest>;
 
+export const CreatePlCharacterRequest = CreateCharacterRequest.omit({
+	kind: true,
+});
+export type CreatePlCharacterRequest = z.infer<typeof CreatePlCharacterRequest>;
+
 export const UpdateCharacterRequest = z.object({
 	name: z.string().trim().min(1).max(100).optional(),
 	background: z.string().max(4000).optional(),

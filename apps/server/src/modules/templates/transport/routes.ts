@@ -70,6 +70,7 @@ export function createTemplatesRoutes(container: Container) {
 		repo,
 		catalog,
 		characters,
+		container.ruleRegistry,
 		container.idGenerator,
 		container.clock,
 	);
