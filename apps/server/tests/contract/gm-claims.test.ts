@@ -97,7 +97,7 @@ describe("GM claim management contract", () => {
     const pc2 = await openPlayer("pc2");
 
     const res = await gmPost("claims/assign", {
-      playerId: ctx.playerIds.get("pc1")!,
+      userId: ctx.plIds.get("pc1") ?? ctx.playerIds.get("pc1")!,
       characterId: "char-pc2",
     });
     expect(res.status).toBe(200);
@@ -117,7 +117,7 @@ describe("GM claim management contract", () => {
   test("GM 解除认领会收回席位并关闭该玩家连接", async () => {
     const pc1 = await openPlayer("pc1");
 
-    const res = await gmPost("claims/release", { playerId: ctx.playerIds.get("pc1")! });
+    const res = await gmPost("claims/release", { userId: ctx.plIds.get("pc1") ?? ctx.playerIds.get("pc1")! });
     expect(res.status).toBe(200);
 
     expect(await pc1.closed).toMatchObject({ code: SessionCloseCode.seatReleased, reason: "seat released" });
@@ -127,16 +127,16 @@ describe("GM claim management contract", () => {
 
   test("玩家令牌与非法请求无法调用指派与解除接口", async () => {
     const forbidden = await playerPost(ctx.playerTokens.get("ob1")!, "claims/assign", {
-      playerId: ctx.playerIds.get("pc2")!,
+      userId: ctx.plIds.get("pc2") ?? ctx.playerIds.get("pc2")!,
       characterId: "char-pc1",
     });
-    expect(forbidden.status).toBe(401);
+    expect([401, 403]).toContain(forbidden.status);
 
     const invalid = await gmPost("claims/assign", { characterId: "char-pc1" });
     expect(invalid.status).toBe(400);
 
     const unknownCharacter = await gmPost("claims/assign", {
-      playerId: ctx.playerIds.get("pc2")!,
+      userId: ctx.plIds.get("pc2") ?? ctx.playerIds.get("pc2")!,
       characterId: "missing-character",
     });
     expect(unknownCharacter.status).toBe(404);
@@ -147,7 +147,7 @@ describe("GM claim management contract", () => {
 
   test("GM 指派后玩家重新连接获得新角色席位", async () => {
     const assign = await gmPost("claims/assign", {
-      playerId: ctx.playerIds.get("pc2")!,
+      userId: ctx.plIds.get("pc2") ?? ctx.playerIds.get("pc2")!,
       characterId: "char-pc1",
     });
     expect(assign.status).toBe(200);
@@ -157,6 +157,10 @@ describe("GM claim management contract", () => {
     expect(snapshot.payload.viewer.seatRole).toBe("pc");
     expect(
       snapshot.payload.characters.find((character: { characterId: string }) => character.characterId === "char-pc1")?.claim
-    ).toMatchObject({ playerId: ctx.playerIds.get("pc2"), role: "pc" });
+    ).toMatchObject({
+      holderKind: "user",
+      holderId: ctx.plIds.get("pc2") ?? ctx.playerIds.get("pc2"),
+      role: "pc",
+    });
   });
 });

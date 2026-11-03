@@ -3,6 +3,9 @@ import { Elysia } from "elysia";
 import { Container } from "@/bootstrap/container";
 import { buildCommandHandlers } from "@/bootstrap/handlers";
 import { createIdentityRoutes } from "@/modules/identity";
+import { createAdminRoutes } from "@/modules/admin";
+import { createRulesRoutes } from "@/modules/rules";
+import { createTemplatesRoutes } from "@/modules/templates";
 import { createMediaRoutes } from "@/modules/media";
 import { createCatalogRoutes } from "@/modules/catalog";
 import { createCharactersRoutes } from "@/modules/characters";
@@ -24,7 +27,7 @@ import {
   type CatalogHandoutDto,
   type ModuleDto,
 } from "@cogm/shared";
-import { listenTestApp, connectWs, closeWs, sendCommand, seedGmPassword, type TestWebSocket } from "../helpers/setup";
+import { listenTestApp, connectWs, closeWs, sendCommand, seedAccounts, type TestWebSocket } from "../helpers/setup";
 
 describe("End-to-End TRPG Session Flow (GM Hosting & Player TRPG)", () => {
   let container: Container;
@@ -34,6 +37,7 @@ describe("End-to-End TRPG Session Flow (GM Hosting & Player TRPG)", () => {
 
   const gmPassword = "trpg-test-gm-password";
   let gmToken = "";
+  let adminToken = "";
   let p1Token = "";
   let p2Token = "";
   let obToken = "";
@@ -65,7 +69,7 @@ describe("End-to-End TRPG Session Flow (GM Hosting & Player TRPG)", () => {
 
     container = new Container();
     await container.startupService.startup();
-    await seedGmPassword(container.db, gmPassword);
+    await seedAccounts(container.db, gmPassword);
     container.sessionCommandExecutor.registerHandlers(buildCommandHandlers(container));
 
     const app = new Elysia()
@@ -86,7 +90,10 @@ describe("End-to-End TRPG Session Flow (GM Hosting & Player TRPG)", () => {
       .use(createCatalogRoutes(container))
       .use(createCharactersRoutes(container))
       .use(createSessionsRoutes(container))
-      .use(createRealtimeRoutes(container));
+      .use(createRealtimeRoutes(container))
+      .use(createAdminRoutes(container))
+      .use(createRulesRoutes(container))
+      .use(createTemplatesRoutes(container));
 
     server = listenTestApp(app);
     baseUrl = `http://127.0.0.1:${server.server.port}`;
@@ -107,7 +114,7 @@ describe("End-to-End TRPG Session Flow (GM Hosting & Player TRPG)", () => {
   });
 
   test("Phase 1: GM logs in and manages module assets (Characters, Portraits, Scenes, Tracks, Handouts, Sessions)", async () => {
-    const loginRes = await fetch(`${baseUrl}/api/v1/gm/auth/login`, {
+    const loginRes = await fetch(`${baseUrl}/api/v1/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username: "gm", password: gmPassword }),
@@ -116,6 +123,14 @@ describe("End-to-End TRPG Session Flow (GM Hosting & Player TRPG)", () => {
     const loginData = (await loginRes.json()) as { sessionToken: string };
     gmToken = loginData.sessionToken;
     expect(gmToken.length).toBeGreaterThan(0);
+
+    const adminLogin = await fetch(`${baseUrl}/api/v1/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username: "admin", password: gmPassword }),
+    });
+    expect(adminLogin.status).toBe(200);
+    adminToken = ((await adminLogin.json()) as { sessionToken: string }).sessionToken;
 
     const pngBytes = new Uint8Array([
       0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52,
@@ -335,25 +350,31 @@ describe("End-to-End TRPG Session Flow (GM Hosting & Player TRPG)", () => {
   });
 
   test("Phase 2: Players acquire identity, join session, and claim seats", async () => {
-    const p1IdentRes = await fetch(`${baseUrl}/api/v1/player/identity`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ fingerprint: "fp-player-alice" }),
-    });
-    expect(p1IdentRes.status).toBe(200);
-    const p1Ident = (await p1IdentRes.json()) as { playerId: string; token: string };
-    p1Id = p1Ident.playerId;
-    p1Token = p1Ident.token;
+    // PC 席位必须由 PL 账号持有：这里建立两个玩家账号并登录。
+    const plTokenOf = async (username: string) => {
+      const created = await fetch(`${baseUrl}/api/v1/admin/users`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${adminToken}` },
+        body: JSON.stringify({ username, password: "player-password-1", role: "pl" }),
+      });
+      expect([200, 409]).toContain(created.status);
+      const login = await fetch(`${baseUrl}/api/v1/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password: "player-password-1" }),
+      });
+      expect(login.status).toBe(200);
+      const body = (await login.json()) as { sessionToken: string; userId: string };
+      return { token: body.sessionToken, userId: body.userId };
+    };
 
-    const p2IdentRes = await fetch(`${baseUrl}/api/v1/player/identity`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ fingerprint: "fp-player-bob" }),
-    });
-    expect(p2IdentRes.status).toBe(200);
-    const p2Ident = (await p2IdentRes.json()) as { playerId: string; token: string };
-    p2Id = p2Ident.playerId;
-    p2Token = p2Ident.token;
+    const alice = await plTokenOf("e2e-alice");
+    p1Token = alice.token;
+    p1Id = alice.userId;
+
+    const bob = await plTokenOf("e2e-bob");
+    p2Token = bob.token;
+    p2Id = bob.userId;
 
     const obIdentRes = await fetch(`${baseUrl}/api/v1/player/identity`, {
       method: "POST",
@@ -634,7 +655,8 @@ describe("End-to-End TRPG Session Flow (GM Hosting & Player TRPG)", () => {
 
   test("Phase 10: Player moderation and Session completion", async () => {
     sendCommand(gmWs, "player:kick", {
-      playerId: obId,
+      holderKind: "anonymous",
+      holderId: obId,
       reason: "违反观战规则",
     });
 

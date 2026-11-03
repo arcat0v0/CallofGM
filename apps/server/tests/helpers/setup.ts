@@ -9,14 +9,18 @@ import { createCharactersRoutes } from "@/modules/characters/transport/routes";
 import { createMediaRoutes } from "@/modules/media";
 import { createCatalogRoutes } from "@/modules/catalog/transport/routes";
 import { createThemeRoutes } from "@/modules/themes";
+import { createAdminRoutes, createTrashRoutes } from "@/modules/admin";
+import { createRulesRoutes } from "@/modules/rules";
+import { createTemplatesRoutes } from "@/modules/templates";
 import { createUiSettingsRoutes } from "@/modules/ui-settings";
 import { routes as realtimeRoutes } from "@/modules/realtime";
 import type { CommandHandler } from "@/modules/realtime";
 import { buildCommandHandlers } from "@/bootstrap/handlers";
 import type { RandomSource } from "@/platform/ports";
 import { AppError } from "@/platform/errors/app-error";
-import { modules, characters, characterPortraits, moduleCharacters } from "@/platform/db/schema";
-import { DrizzleIdentityRepository } from "@/modules/identity";
+import { modules, characters, characterPortraits, moduleCharacters, users } from "@/platform/db/schema";
+import { CreateUserUseCase, DrizzleIdentityRepository } from "@/modules/identity";
+import { SystemClock, UuidGenerator } from "@/platform/ports";
 import type { DbClient } from "@/platform/db/client";
 import { CreateSessionUseCase, ClaimSeatUseCase } from "@/modules/sessions/application/use-cases";
 import { DrizzleSessionsRepository } from "@/modules/sessions/infrastructure/drizzle-sessions-repository";
@@ -164,9 +168,14 @@ export interface TestContext {
   container: Container;
   app: any;
   gmToken: string;
+  gmUserId: string;
+  adminToken: string;
   sessionId: string;
+  moduleId: string;
   playerTokens: Map<string, string>;
   playerIds: Map<string, string>;
+  plTokens: Map<string, string>;
+  plIds: Map<string, string>;
   themesDir: string;
 }
 
@@ -183,6 +192,8 @@ export interface TestSetupOptions {
   }>;
   claims?: Array<{ player: string; role: "pc" | "ob"; characterId?: string }>;
   players?: string[];
+  /** 需要创建 PL 账号的玩家名；每个名字会得到一个账号与其 token */
+  plAccounts?: string[];
   themesDir?: string;
 }
 
@@ -206,8 +217,37 @@ export class ScriptedRandomSource implements RandomSource {
   }
 }
 
-export async function seedGmPassword(db: DbClient, password: string): Promise<void> {
-  await new DrizzleIdentityRepository(db).saveGmPasswordHash(await Bun.password.hash(password), Date.now());
+/**
+ * 测试夹具里大量直接 insert 需要 owner_id。真正归属在 setup 内部已知，
+ * 但直接 insert 的用例拿不到它，这里用一个进程级回退值，与 setup 创建 GM 时一致。
+ */
+export function gmUserIdRef(): string {
+  return (globalThis as { __cogmTestGmUserId?: string }).__cogmTestGmUserId ?? "test-gm-user";
+}
+
+export function setGmUserIdRef(userId: string): void {
+  (globalThis as { __cogmTestGmUserId?: string }).__cogmTestGmUserId = userId;
+}
+
+export interface SeededAccounts {
+  gmUserId: string;
+  adminUserId: string;
+}
+
+export async function seedAccounts(db: DbClient, password: string): Promise<SeededAccounts> {
+  const repo = new DrizzleIdentityRepository(db);
+  const clock = new SystemClock();
+  const createUser = new CreateUserUseCase(new UuidGenerator(), clock, repo);
+
+  const existingAdmin = await repo.findUserByUsernameNormalized("admin");
+  const admin =
+    existingAdmin ??
+    (await createUser.execute({ username: "admin", password, role: "admin" }));
+
+  const existingGm = await repo.findUserByUsernameNormalized("gm");
+  const gm = existingGm ?? (await createUser.execute({ username: "gm", password, role: "gm" }));
+
+  return { gmUserId: gm.id, adminUserId: admin.id };
 }
 
 /** 搭建带真实数据库与 WS 的测试应用（随机端口，无需手工 listen） */
@@ -219,7 +259,8 @@ export async function setupTestApp(options: TestSetupOptions = {}): Promise<Test
 
   const container = new Container([], { randomSource: options.randomSource });
   await container.startupService.startup();
-  await seedGmPassword(container.db, gmPassword);
+  const seeded = await seedAccounts(container.db, gmPassword);
+  setGmUserIdRef(seeded.gmUserId);
   container.sessionCommandExecutor.registerHandlers([
     ...buildCommandHandlers(container),
     ...(options.extraHandlers ?? []),
@@ -245,23 +286,39 @@ export async function setupTestApp(options: TestSetupOptions = {}): Promise<Test
     .use(createCatalogRoutes(container))
     .use(createThemeRoutes(container))
     .use(createUiSettingsRoutes(container))
+    .use(createAdminRoutes(container))
+    .use(createTrashRoutes(container))
+    .use(createRulesRoutes(container))
+    .use(createTemplatesRoutes(container))
     .use(realtimeRoutes(container));
 
-  const loginRes = await app.handle(
-    new Request("http://localhost/api/v1/gm/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username: "gm", password: gmPassword }),
-    })
-  );
-  const { sessionToken: gmToken } = (await loginRes.json()) as { sessionToken: string };
+  const login = async (username: string) => {
+    const res = await app.handle(
+      new Request("http://localhost/api/v1/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password: gmPassword }),
+      })
+    );
+    return ((await res.json()) as { sessionToken: string }).sessionToken;
+  };
 
+  const gmToken = await login("gm");
+  const adminToken = await login("admin");
+
+  const now = Date.now();
   await container.db.insert(modules).values({
     id: "module-test",
+    ownerId: seeded.gmUserId,
     name: "Test Module",
     description: "",
     ruleId: "coc7e",
-    createdAt: Date.now(),
+    themeId: null,
+    sourceTemplateId: null,
+    sourceTemplateVersion: null,
+    deletedAt: null,
+    createdAt: now,
+    updatedAt: now,
   });
 
   const defaultSheet = {
@@ -272,16 +329,27 @@ export async function setupTestApp(options: TestSetupOptions = {}): Promise<Test
   for (const char of options.characters ?? []) {
     await container.db.insert(characters).values({
       id: char.id,
+      ownerId: seeded.gmUserId,
+      ownerKind: "gm",
       name: char.name,
+      background: "",
       kind: char.kind,
       ruleId: "coc7e",
       sheetJson: JSON.stringify(char.sheet ?? defaultSheet),
+      sheetVersion: 1,
+      profileVersion: 1,
+      version: 1,
+      originType: null,
+      originRefId: null,
+      deletedAt: null,
       createdAt: Date.now(),
+      updatedAt: Date.now(),
     });
     if ((char.portraits ?? []).length > 0) {
       const { mediaAssets } = await import("@/platform/db/schema");
       await container.db.insert(mediaAssets).values({
         id: "asset-placeholder",
+        ownerId: seeded.gmUserId,
         purpose: "portrait",
         storageKey: "test-placeholder",
         filename: "placeholder.png",
@@ -289,6 +357,7 @@ export async function setupTestApp(options: TestSetupOptions = {}): Promise<Test
         size: 1,
         sha256: "placeholder",
         metadataJson: "{}",
+        deletedAt: null,
         createdAt: Date.now(),
       }).onConflictDoNothing();
     }
@@ -297,8 +366,11 @@ export async function setupTestApp(options: TestSetupOptions = {}): Promise<Test
         id: `portrait-${char.id}-${expressionKey}`,
         characterId: char.id,
         expressionKey,
+        label: null,
         portraitAssetId: "asset-placeholder",
         isDefault: expressionKey === "default" ? 1 : 0,
+        sortOrder: 0,
+        deletedAt: null,
         createdAt: Date.now(),
       });
     }
@@ -306,6 +378,7 @@ export async function setupTestApp(options: TestSetupOptions = {}): Promise<Test
       id: `link-${char.id}`,
       moduleId: "module-test",
       characterId: char.id,
+      deletedAt: null,
       createdAt: Date.now(),
     });
   }
@@ -325,6 +398,8 @@ export async function setupTestApp(options: TestSetupOptions = {}): Promise<Test
     playerTokens.set(player, body.token);
   }
 
+  const plTokens = new Map<string, string>();
+  const plIds = new Map<string, string>();
   const sessionsRepo = new DrizzleSessionsRepository(container.db);
   const createSession = new CreateSessionUseCase(
     sessionsRepo,
@@ -333,22 +408,87 @@ export async function setupTestApp(options: TestSetupOptions = {}): Promise<Test
     container.clock
   );
   const sessionRes = await createSession.execute({
+    ownerId: seeded.gmUserId,
     moduleId: "module-test",
     characterIds: (options.characters ?? []).map((c) => c.id),
   });
   const sessionId = sessionRes.session.id;
 
-  const claimSeat = new ClaimSeatUseCase(sessionsRepo, container.idGenerator, container.clock);
-  for (const claim of options.claims ?? []) {
-    await claimSeat.execute({
-      sessionId,
-      playerId: playerIds.get(claim.player)!,
-      role: claim.role,
-      characterId: claim.characterId,
+  for (const name of options.plAccounts ?? []) {
+    const repo = new DrizzleIdentityRepository(container.db);
+    const clock = new SystemClock();
+    await new CreateUserUseCase(new UuidGenerator(), clock, repo).execute({
+      username: name,
+      password: gmPassword,
+      role: "pl",
     });
+    const token = await login(name);
+    plTokens.set(name, token);
+    const record = await repo.findUserByUsernameNormalized(name.toLowerCase());
+    if (record) {
+      plIds.set(name, record.id);
+    }
   }
 
-  return { container, app, gmToken, sessionId, playerTokens, playerIds, themesDir };
+  const claimSeat = new ClaimSeatUseCase(sessionsRepo, container.idGenerator, container.clock);
+  for (const claim of options.claims ?? []) {
+    let userId = plIds.get(claim.player);
+    // PC 席位必须由 PL 账号持有：未显式声明 plAccounts 的用例自动补一个账号。
+    if (!userId && claim.role === "pc") {
+      const accountName = `pl-${claim.player}`.slice(0, 32);
+      const repo = new DrizzleIdentityRepository(container.db);
+      const existingAccount = await repo.findUserByUsernameNormalized(accountName.toLowerCase());
+      if (!existingAccount) {
+        await new CreateUserUseCase(new UuidGenerator(), new SystemClock(), repo).execute({
+          username: accountName,
+          password: gmPassword,
+          role: "pl",
+        });
+      }
+      const record = await repo.findUserByUsernameNormalized(accountName.toLowerCase());
+      if (record) {
+        userId = record.id;
+        plIds.set(claim.player, record.id);
+        plTokens.set(claim.player, await login(accountName));
+      }
+    }
+    if (userId) {
+      await claimSeat.execute({
+        sessionId,
+        holder: { holderKind: "user", userId, playerId: null },
+        role: claim.role,
+        characterId: claim.characterId,
+      });
+    } else {
+      await claimSeat.execute({
+        sessionId,
+        holder: { holderKind: "anonymous", userId: null, playerId: playerIds.get(claim.player)! },
+        role: claim.role,
+        characterId: claim.characterId,
+      });
+    }
+  }
+
+  // PC 席位改由 PL 账号持有；把席位令牌并回 playerTokens，
+  // 使既有用例继续用 ctx.playerTokens.get(name) 取得"能进这个团的令牌"。
+  for (const [name, token] of plTokens) {
+    playerTokens.set(name, token);
+  }
+
+  return {
+    container,
+    app,
+    gmToken,
+    gmUserId: seeded.gmUserId,
+    adminToken,
+    sessionId,
+    moduleId: "module-test",
+    playerTokens,
+    playerIds,
+    plTokens,
+    plIds,
+    themesDir,
+  };
 }
 
 /** 将团推进到 active 并切换到指定阶段 */
@@ -364,17 +504,19 @@ export async function setSessionPhase(
   const { eq } = await import("drizzle-orm");
   const rows = await ctx.container.db.select().from(sessions).where(eq(sessions.id, ctx.sessionId));
   const current = rows[0]?.status;
-  const next = transitions[current ?? ""];
-  if (next) {
-    await ctx.app.handle(
-      new Request(`http://localhost/api/v1/gm/sessions/${ctx.sessionId}/status`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${ctx.gmToken}` },
-        body: JSON.stringify({ status: next }),
-      })
-    );
-    await setSessionPhase(ctx, phase);
-    return;
+  if (current !== "active") {
+    const next = transitions[current ?? ""];
+    if (next) {
+      await ctx.app.handle(
+        new Request(`http://localhost/api/v1/gm/sessions/${ctx.sessionId}/status`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${ctx.gmToken}` },
+          body: JSON.stringify({ status: next }),
+        })
+      );
+      await setSessionPhase(ctx, phase);
+      return;
+    }
   }
   await ctx.app.handle(
     new Request(`http://localhost/api/v1/gm/sessions/${ctx.sessionId}/phase`, {

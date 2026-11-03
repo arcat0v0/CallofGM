@@ -5,7 +5,7 @@ import { Container } from "@/bootstrap/container";
 import { createIdentityRoutes } from "@/modules/identity/transport/routes";
 import { createCharactersRoutes } from "@/modules/characters/transport/routes";
 import { AppError } from "@/platform/errors/app-error";
-import { seedGmPassword } from "../helpers/setup";
+import { seedAccounts, gmUserIdRef } from "../helpers/setup";
 import {
   mediaAssets,
   gmLoginSessions,
@@ -30,7 +30,7 @@ describe("Characters contract tests", () => {
     process.env.DATABASE_URL = ":memory:";
     container = new Container();
     await container.startupService.startup();
-    await seedGmPassword(container.db, gmPassword);
+    await seedAccounts(container.db, gmPassword);
 
     app = new Elysia()
       .onError(({ error, code, set }) => {
@@ -59,7 +59,7 @@ describe("Characters contract tests", () => {
       .use(createCharactersRoutes(container));
 
     const loginRes = await app.handle(
-      new Request("http://localhost/api/v1/gm/auth/login", {
+      new Request("http://localhost/api/v1/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username: "gm", password: gmPassword })
@@ -76,7 +76,9 @@ describe("Characters contract tests", () => {
       mimeType: "image/png",
       size: 100,
       sha256: "dummy-hash",
-      createdAt: Date.now()
+      createdAt: Date.now(),
+      ownerId: gmUserIdRef(),
+      deletedAt: null,
     });
   });
 
@@ -259,6 +261,9 @@ describe("Characters contract tests", () => {
       description: "",
       ruleId: "coc7e",
       createdAt: Date.now(),
+      ownerId: gmUserIdRef(),
+      deletedAt: null,
+      updatedAt: Date.now(),
     }).onConflictDoNothing();
     await container.db.insert(sessions).values({
       id: "sess-ref-test",

@@ -31,6 +31,9 @@ describe("Stage control contract tests", () => {
       description: "",
       ruleId: "coc7e",
       createdAt: Date.now(),
+      ownerId: gmUserIdRef(),
+      deletedAt: null,
+      updatedAt: Date.now(),
     });
     await db.insert(scenes).values([
       { id: "scene-1", moduleId: "module-test", name: "图书馆", sortOrder: 1, bgAssetId: null, createdAt: Date.now() },

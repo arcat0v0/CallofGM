@@ -4,7 +4,10 @@ import { DrizzleIdentityRepository } from "../infrastructure/drizzle-identity-re
 import { PlayerIdentityUseCase } from "../application/player-identity";
 import { LoginUseCase, LogoutUseCase, ChangeOwnPasswordUseCase } from "../application/user-accounts";
 import { createAuthPlugin, SESSION_COOKIE, PLAYER_COOKIE, readBearer, readCookie } from "./auth-middleware";
-import { ChangePasswordRequest, LoginRequest } from "@cogm/shared";
+import { ChangePasswordRequest, LoginRequest, BanPlayerRequest, UnbanFingerprintRequest, BlacklistEntryDto } from "@cogm/shared";
+import { z } from "zod";
+import { requireGm } from "../application/guards";
+import { DrizzleModerationRepository, PlayerNotFoundError } from "@/modules/moderation";
 import { AppError } from "@/platform/errors/app-error";
 import { validationFailed } from "@/platform/errors/validation";
 import { AuthRequiredError } from "../domain/errors";
@@ -99,6 +102,72 @@ export function createIdentityRoutes(container: Container) {
       logger.audit("auth.password.changed", { userId: actor.userId });
       void cookie;
       return { success: true };
+    })
+    .get("/api/v1/gm/blacklist", async ({ actor }) => {
+      requireGm(actor);
+      return z.array(BlacklistEntryDto).parse(await repo.listBlacklistEntries());
+    })
+    .post("/api/v1/gm/blacklist", async ({ actor, body, request }) => {
+      assertTrustedOrigin(request, allowedOrigins);
+      requireGm(actor);
+      const parsed = BanPlayerRequest.safeParse(body);
+      if (!parsed.success) {
+        throw validationFailed(parsed.error);
+      }
+      const moderationRepo = new DrizzleModerationRepository(container.db);
+      let fingerprintHash: string;
+      let playerId: string | null = null;
+      let userId: string | null = null;
+      let displayName: string | null = null;
+      if (parsed.data.userId) {
+        const context = await moderationRepo.findUserBanContext(parsed.data.userId);
+        if (!context) {
+          throw new PlayerNotFoundError();
+        }
+        fingerprintHash = context.fingerprintHash || `user:${parsed.data.userId}`;
+        userId = parsed.data.userId;
+        displayName = context.displayName;
+      } else if (parsed.data.playerId) {
+        const context = await moderationRepo.findPlayerBanContext(parsed.data.playerId);
+        if (!context) {
+          throw new PlayerNotFoundError();
+        }
+        fingerprintHash = context.fingerprintHash;
+        playerId = parsed.data.playerId;
+        displayName = context.displayName;
+      } else if (parsed.data.fingerprintHash) {
+        fingerprintHash = parsed.data.fingerprintHash;
+      } else {
+        throw new AppError("VALIDATION_FAILED", "playerId, userId or fingerprintHash is required", 400);
+      }
+      const now = container.clock.nowEpochMs();
+      const expiresAt = parsed.data.durationSeconds ? now + parsed.data.durationSeconds * 1000 : null;
+      await moderationRepo.upsertBlacklistEntry({
+        id: container.idGenerator.nextId(),
+        fingerprintHash,
+        playerId,
+        userId,
+        displayName,
+        reason: parsed.data.reason,
+        expiresAt,
+        createdAt: now,
+      });
+      if (playerId) container.connectionRegistry.closePlayerConnections(playerId);
+      if (userId) container.connectionRegistry.closeUserConnections(userId, undefined, 4000, "banned");
+      logger.audit("gm.blacklist.ban", { playerId, userId });
+      return { banned: userId ?? playerId, permanent: expiresAt === null, fingerprintHash };
+    })
+    .post("/api/v1/gm/blacklist/unban", async ({ actor, body, request }) => {
+      assertTrustedOrigin(request, allowedOrigins);
+      requireGm(actor);
+      const parsed = UnbanFingerprintRequest.safeParse(body);
+      if (!parsed.success) {
+        throw validationFailed(parsed.error);
+      }
+      const moderationRepo = new DrizzleModerationRepository(container.db);
+      const removed = await moderationRepo.deleteBlacklistEntry(parsed.data.fingerprintHash);
+      logger.audit("gm.blacklist.unban", { fingerprintHash: parsed.data.fingerprintHash, removed });
+      return { removed };
     })
     .get("/api/v1/player/me", ({ actor }) => {
       if (!actor || actor.type !== "player") {

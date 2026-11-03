@@ -5,7 +5,7 @@ import { createIdentityRoutes } from "@/modules/identity/transport/routes";
 import { AppError } from "@/platform/errors/app-error";
 import { blacklistEntries } from "@/platform/db/schema";
 import { createHash } from "crypto";
-import { seedGmPassword } from "../helpers/setup";
+import { seedAccounts } from "../helpers/setup";
 
 describe("Identity and Auth contract tests", () => {
   let container: Container;
@@ -16,7 +16,7 @@ describe("Identity and Auth contract tests", () => {
     process.env.DATABASE_URL = ":memory:";
     container = new Container();
     await container.startupService.startup();
-    await seedGmPassword(container.db, gmPassword);
+    await seedAccounts(container.db, gmPassword);
 
     app = new Elysia()
       .onError(({ error, code, set }) => {
@@ -50,7 +50,7 @@ describe("Identity and Auth contract tests", () => {
 
   test("GM Login - Success", async () => {
     const response = await app.handle(
-      new Request("http://localhost/api/v1/gm/auth/login", {
+      new Request("http://localhost/api/v1/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username: "gm", password: gmPassword }),
@@ -67,7 +67,7 @@ describe("Identity and Auth contract tests", () => {
 
   test("GM Login - Wrong Password", async () => {
     const response = await app.handle(
-      new Request("http://localhost/api/v1/gm/auth/login", {
+      new Request("http://localhost/api/v1/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username: "gm", password: "wrong-password" }),
@@ -80,7 +80,7 @@ describe("Identity and Auth contract tests", () => {
 
   test("GM Login - Validation Failure", async () => {
     const response = await app.handle(
-      new Request("http://localhost/api/v1/gm/auth/login", {
+      new Request("http://localhost/api/v1/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username: "", password: "" }),
@@ -93,7 +93,7 @@ describe("Identity and Auth contract tests", () => {
 
   test("GM Logout - Revoke Session", async () => {
     const loginRes = await app.handle(
-      new Request("http://localhost/api/v1/gm/auth/login", {
+      new Request("http://localhost/api/v1/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username: "gm", password: gmPassword }),
@@ -102,7 +102,7 @@ describe("Identity and Auth contract tests", () => {
     const { sessionToken } = await loginRes.json();
 
     const logoutRes = await app.handle(
-      new Request("http://localhost/api/v1/gm/auth/logout", {
+      new Request("http://localhost/api/v1/auth/logout", {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${sessionToken}`,
@@ -114,7 +114,7 @@ describe("Identity and Auth contract tests", () => {
     expect(logoutBody.success).toBe(true);
 
     const logoutRes2 = await app.handle(
-      new Request("http://localhost/api/v1/gm/auth/logout", {
+      new Request("http://localhost/api/v1/auth/logout", {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${sessionToken}`,
@@ -235,7 +235,7 @@ describe("Identity and Auth contract tests", () => {
 
   test("Player Me - a GM session cookie does not resolve a player", async () => {
     const login = await app.handle(
-      new Request("http://localhost/api/v1/gm/auth/login", {
+      new Request("http://localhost/api/v1/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username: "gm", password: gmPassword }),

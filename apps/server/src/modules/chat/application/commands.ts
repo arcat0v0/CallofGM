@@ -15,7 +15,7 @@ import type {
   StagedEvents,
 } from "@/modules/realtime";
 import { AppError } from "@/platform/errors/app-error";
-import { ForbiddenError } from "@/modules/identity";
+import { ForbiddenError, holderOfActor } from "@/modules/identity";
 import { SessionPhaseForbidsActionError } from "@/modules/sessions";
 import { MessageNotFoundError, MessageNotPendingError, ExpressionNotFoundError } from "../domain/errors";
 import type { DbClient } from "@/platform/db/client";
@@ -106,7 +106,9 @@ export class SendChatMessageHandler implements CommandHandler {
     const isGm = ctx.actor.type === "user" && ctx.actor.role === "gm";
     const speakerRole = isGm ? "gm" : "player";
     const characterId = isGm ? null : (ctx.seat?.characterId ?? null);
-    const senderId = ctx.actor.type === "player" ? ctx.actor.playerId : null;
+    const senderHolder = ctx.actor.type === "user" && ctx.actor.role === "gm" ? null : holderOfActor(ctx.actor);
+    const senderId = senderHolder?.playerId ?? null;
+    const senderUserId = senderHolder?.userId ?? null;
 
     const decision = decideChatMessage(
       ctx.session.phase as SessionPhase,
@@ -139,6 +141,7 @@ export class SendChatMessageHandler implements CommandHandler {
         id: messageId,
         sessionId: ctx.sessionId,
         senderId,
+        senderUserId,
         senderType: isGm ? "gm" : "player",
         characterId,
         channel: decision.channel,
@@ -177,6 +180,7 @@ export class SendChatMessageHandler implements CommandHandler {
       id: messageId,
       sessionId: ctx.sessionId,
       senderId,
+      senderUserId,
       senderType: "player",
       characterId,
       channel: decision.channel,
@@ -195,11 +199,12 @@ export class SendChatMessageHandler implements CommandHandler {
 
     return {
       directToGms: [await queueUpdate(ctx, repo)],
-      ...(senderId
+      ...(senderHolder
         ? {
-            directToPlayers: [
+            directToHolders: [
               {
-                playerId: senderId,
+                holderKind: senderHolder.holderKind,
+                holderId: senderHolder.holderKind === "user" ? senderHolder.userId! : senderHolder.playerId!,
                 message: { type: "chat:pending", payload: { message: dto } },
               },
             ],
@@ -300,11 +305,12 @@ export class DiscardChatMessageHandler implements CommandHandler {
 
     return {
       directToGms: [await queueUpdate(ctx, repo)],
-      ...(row.senderId
+      ...(row.senderUserId || row.senderId
         ? {
-            directToPlayers: [
+            directToHolders: [
               {
-                playerId: row.senderId,
+                holderKind: row.senderUserId ? ("user" as const) : ("anonymous" as const),
+                holderId: (row.senderUserId ?? row.senderId)!,
                 message: { type: "chat:rejected", payload: { messageId: row.id, reason } },
               },
             ],
@@ -349,11 +355,12 @@ export class RestoreChatMessageHandler implements CommandHandler {
 
     return {
       directToGms: [await queueUpdate(ctx, repo)],
-      ...(row.senderId
+      ...(row.senderUserId || row.senderId
         ? {
-            directToPlayers: [
+            directToHolders: [
               {
-                playerId: row.senderId,
+                holderKind: row.senderUserId ? ("user" as const) : ("anonymous" as const),
+                holderId: (row.senderUserId ?? row.senderId)!,
                 message: { type: "chat:pending", payload: { message: dto } },
               },
             ],

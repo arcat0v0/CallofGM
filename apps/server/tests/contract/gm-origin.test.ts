@@ -5,7 +5,7 @@ import { createIdentityRoutes } from "@/modules/identity/transport/routes";
 import { createCatalogRoutes } from "@/modules/catalog/transport/routes";
 import { createMediaRoutes } from "@/modules/media";
 import { AppError } from "@/platform/errors/app-error";
-import { seedGmPassword } from "../helpers/setup";
+import { seedAccounts } from "../helpers/setup";
 
 type TestApp = { handle(request: Request): Promise<Response> };
 
@@ -20,7 +20,7 @@ describe("GM write endpoints reject untrusted origins", () => {
     process.env.DATABASE_URL = ":memory:";
     container = new Container();
     await container.startupService.startup();
-    await seedGmPassword(container.db, gmPassword);
+    await seedAccounts(container.db, gmPassword);
 
     app = new Elysia()
       .onError(({ error, set }) => {
@@ -62,7 +62,7 @@ describe("GM write endpoints reject untrusted origins", () => {
 
   beforeAll(async () => {
     const login = await app.handle(
-      new Request("http://localhost/api/v1/gm/auth/login", {
+      new Request("http://localhost/api/v1/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username: "gm", password: gmPassword }),

@@ -12,7 +12,7 @@ import {
   handouts
 } from "@/platform/db/schema";
 import { eq } from "drizzle-orm";
-import { seedGmPassword } from "../helpers/setup";
+import { seedAccounts, gmUserIdRef } from "../helpers/setup";
 
 describe("Catalog contract tests", () => {
   let container: Container;
@@ -25,7 +25,7 @@ describe("Catalog contract tests", () => {
     process.env.DATABASE_URL = ":memory:";
     container = new Container();
     await container.startupService.startup();
-    await seedGmPassword(container.db, gmPassword);
+    await seedAccounts(container.db, gmPassword);
 
     app = new Elysia()
       .onError(({ error, code, set }) => {
@@ -54,7 +54,7 @@ describe("Catalog contract tests", () => {
       .use(createCatalogRoutes(container));
 
     const loginRes = await app.handle(
-      new Request("http://localhost/api/v1/gm/auth/login", {
+      new Request("http://localhost/api/v1/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username: "gm", password: gmPassword })
@@ -81,7 +81,9 @@ describe("Catalog contract tests", () => {
       mimeType: "image/png",
       size: 100,
       sha256: "dummy-hash",
-      createdAt: Date.now()
+      createdAt: Date.now(),
+      ownerId: gmUserIdRef(),
+      deletedAt: null,
     });
     await container.db.insert(mediaAssets).values({
       id: "audio-asset-id",
@@ -91,7 +93,9 @@ describe("Catalog contract tests", () => {
       mimeType: "audio/mpeg",
       size: 100,
       sha256: "dummy-audio-hash",
-      createdAt: Date.now()
+      createdAt: Date.now(),
+      ownerId: gmUserIdRef(),
+      deletedAt: null,
     });
   });
 

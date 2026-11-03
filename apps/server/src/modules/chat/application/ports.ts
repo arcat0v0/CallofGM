@@ -4,6 +4,7 @@ export interface MessageRow {
   id: string;
   sessionId: string;
   senderId: string | null;
+  senderUserId: string | null;
   senderType: string;
   characterId: string | null;
   channel: string;
@@ -21,6 +22,7 @@ export interface NewMessageRow {
   id: string;
   sessionId: string;
   senderId: string | null;
+  senderUserId: string | null;
   senderType: string;
   characterId: string | null;
   channel: MessageChannel;

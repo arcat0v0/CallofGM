@@ -19,7 +19,7 @@ import {
 } from "@/platform/db/schema";
 import { rm } from "fs/promises";
 import { existsSync } from "fs";
-import { seedGmPassword } from "../helpers/setup";
+import { seedAccounts, gmUserIdRef } from "../helpers/setup";
 
 describe("Media Storage contract tests", () => {
   let container: Container;
@@ -33,7 +33,7 @@ describe("Media Storage contract tests", () => {
     process.env.DATABASE_URL = ":memory:";
     container = new Container();
     await container.startupService.startup();
-    await seedGmPassword(container.db, gmPassword);
+    await seedAccounts(container.db, gmPassword);
 
     app = new Elysia()
       .onError(({ error, code, set }) => {
@@ -62,13 +62,16 @@ describe("Media Storage contract tests", () => {
       .use(createMediaRoutes(container));
 
     const loginRes = await app.handle(
-      new Request("http://localhost/api/v1/gm/auth/login", {
+      new Request("http://localhost/api/v1/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username: "gm", password: gmPassword })
       })
     );
     const loginBody = await loginRes.json();
+    if (!loginBody.sessionToken) {
+      throw new Error(`media test login failed: ${loginRes.status} ${JSON.stringify(loginBody)}`);
+    }
     gmToken = loginBody.sessionToken;
 
     const playerRes = await app.handle(
@@ -348,7 +351,10 @@ describe("Media Storage contract tests", () => {
       name: "Media Test Module",
       description: "Desc",
       ruleId: "coc7e",
-      createdAt: Date.now()
+      createdAt: Date.now(),
+      ownerId: gmUserIdRef(),
+      deletedAt: null,
+      updatedAt: Date.now(),
     });
 
     await container.db.insert(scenes).values({
@@ -357,7 +363,8 @@ describe("Media Storage contract tests", () => {
       name: "Media Test Scene",
       sortOrder: 1,
       bgAssetId: bgAsset.id,
-      createdAt: Date.now()
+      createdAt: Date.now(),
+      deletedAt: null,
     });
 
     await container.db.insert(sessions).values({
@@ -384,7 +391,10 @@ describe("Media Storage contract tests", () => {
       expressionKey: "default",
       portraitAssetId: portraitAsset.id,
       isDefault: 1,
-      createdAt: Date.now()
+      createdAt: Date.now(),
+      deletedAt: null,
+      sortOrder: 0,
+      label: null,
     });
 
     await container.db.insert(sessionCharacters).values({
@@ -413,7 +423,8 @@ describe("Media Storage contract tests", () => {
       audioAssetId: audioAsset.id,
       type: "bgm",
       duration: 120,
-      createdAt: Date.now()
+      createdAt: Date.now(),
+      deletedAt: null,
     });
 
     await container.db.insert(sessionAudioState).values({
@@ -431,7 +442,8 @@ describe("Media Storage contract tests", () => {
       title: "Media Test Handout",
       content: "Handout Content",
       imageAssetId: handoutAsset.id,
-      createdAt: Date.now()
+      createdAt: Date.now(),
+      deletedAt: null,
     });
 
     const checkDownload = async (assetId: string) => {

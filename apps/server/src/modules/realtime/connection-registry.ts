@@ -224,6 +224,26 @@ export class ConnectionRegistry {
     }
   }
 
+  /** 仅向某账号在本团的连接发送 DirectControlMessage */
+  sendToUser(sessionId: string, userId: string, message: { type: string; payload: unknown }): void {
+    const ids = this.byUser.get(userId);
+    if (!ids) {
+      return;
+    }
+    const serialized = JSON.stringify({ protocolVersion: 1, type: message.type, payload: message.payload });
+    for (const connectionId of ids) {
+      const conn = this.connections.get(connectionId);
+      if (!conn || conn.sessionId !== sessionId) {
+        continue;
+      }
+      try {
+        conn.ws.send(serialized);
+      } catch {
+        // 发送失败的连接由 close 流程回收
+      }
+    }
+  }
+
   /** 关闭所有活跃连接（优雅退出用） */
   closeAll(code = 1001, reason = "server shutdown"): void {
     for (const conn of [...this.connections.values()]) {

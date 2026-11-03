@@ -45,6 +45,7 @@ describe("Command dedupe by actor contract", () => {
       type: "se",
       duration: 500,
       createdAt: Date.now(),
+      deletedAt: null,
     });
   });
 

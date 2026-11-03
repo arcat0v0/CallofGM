@@ -5,7 +5,7 @@ import { createIdentityRoutes } from "@/modules/identity/transport/routes";
 import { createCharactersRoutes } from "@/modules/characters/transport/routes";
 import { createSessionsRoutes } from "@/modules/sessions/transport/routes";
 import { AppError } from "@/platform/errors/app-error";
-import { seedGmPassword } from "../helpers/setup";
+import { seedAccounts, gmUserIdRef } from "../helpers/setup";
 import { CreateSessionResponse, MyClaimResponse } from "@cogm/shared";
 import { modules, characters, sessions, moduleCharacters } from "@/platform/db/schema";
 
@@ -23,7 +23,7 @@ describe("Sessions contract tests", () => {
     process.env.DATABASE_URL = ":memory:";
     container = new Container();
     await container.startupService.startup();
-    await seedGmPassword(container.db, gmPassword);
+    await seedAccounts(container.db, gmPassword);
 
     app = new Elysia()
       .onError(({ error, code, set }) => {
@@ -53,7 +53,7 @@ describe("Sessions contract tests", () => {
       .use(createSessionsRoutes(container));
 
     const loginRes = await app.handle(
-      new Request("http://localhost/api/v1/gm/auth/login", {
+      new Request("http://localhost/api/v1/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username: "gm", password: gmPassword }),
@@ -68,6 +68,9 @@ describe("Sessions contract tests", () => {
       description: "Test Description",
       ruleId: "coc7e",
       createdAt: Date.now(),
+      ownerId: gmUserIdRef(),
+      deletedAt: null,
+      updatedAt: Date.now(),
     });
 
     await container.db.insert(characters).values({

@@ -6,7 +6,7 @@ import { createIdentityRoutes } from "@/modules/identity/transport/routes";
 import { createCatalogRoutes } from "@/modules/catalog/transport/routes";
 import { AppError } from "@/platform/errors/app-error";
 import { blacklistEntries } from "@/platform/db/schema";
-import { seedGmPassword } from "../helpers/setup";
+import { seedAccounts } from "../helpers/setup";
 
 describe("GM session takes precedence over fingerprint blacklist", () => {
   let container: Container;
@@ -19,7 +19,7 @@ describe("GM session takes precedence over fingerprint blacklist", () => {
     process.env.DATABASE_URL = ":memory:";
     container = new Container();
     await container.startupService.startup();
-    await seedGmPassword(container.db, gmPassword);
+    await seedAccounts(container.db, gmPassword);
 
     await container.db.insert(blacklistEntries).values({
       id: "ban-gm-device",
@@ -40,7 +40,7 @@ describe("GM session takes precedence over fingerprint blacklist", () => {
       .use(createCatalogRoutes(container));
 
     const login = await app.handle(
-      new Request("http://localhost/api/v1/gm/auth/login", {
+      new Request("http://localhost/api/v1/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username: "gm", password: gmPassword }),
@@ -57,7 +57,7 @@ describe("GM session takes precedence over fingerprint blacklist", () => {
 
   test("GM cookie plus banned fingerprint is allowed on /gm routes", async () => {
     const me = await app.handle(
-      new Request("http://localhost/api/v1/gm/auth/me", {
+      new Request("http://localhost/api/v1/auth/me", {
         headers: { cookie: gmCookie, "x-fingerprint": bannedFingerprint },
       })
     );
@@ -86,7 +86,7 @@ describe("GM session takes precedence over fingerprint blacklist", () => {
 
   test("banned fingerprint without a GM cookie is still rejected", async () => {
     const me = await app.handle(
-      new Request("http://localhost/api/v1/gm/auth/me", {
+      new Request("http://localhost/api/v1/auth/me", {
         headers: { "x-fingerprint": bannedFingerprint },
       })
     );

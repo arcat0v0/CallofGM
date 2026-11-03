@@ -15,7 +15,7 @@ async function execute(
   ctx: TestContext,
   type: ClientCommandType,
   payload: unknown,
-  actor: ActorContext = { type: "gm" }
+  actor: ActorContext = { type: "user", userId: "test-gm", role: "gm", loginSessionId: "s", username: "gm" }
 ): Promise<CommandReply> {
   return ctx.container.sessionCommandExecutor.execute(
     ctx.sessionId,
@@ -67,6 +67,7 @@ describe("History visibility contract", () => {
       sortOrder: 0,
       bgAssetId: null,
       createdAt: Date.now(),
+      deletedAt: null,
     });
     await ctx.container.db.insert(handouts).values({
       id: "handout-1",
@@ -75,6 +76,7 @@ describe("History visibility contract", () => {
       content: "潮水正在上涨。",
       imageAssetId: null,
       createdAt: Date.now(),
+      deletedAt: null,
     });
 
     await execute(ctx, "chat:send", { channel: "ooc", content: "开场" });
@@ -101,7 +103,7 @@ describe("History visibility contract", () => {
   });
 
   test("GM 历史包含全部时间线活动，包括仅 GM 可见的状态变更", async () => {
-    const page = await historyOf(ctx, { type: "gm" });
+    const page = await historyOf(ctx, { type: "user", userId: "test-gm", role: "gm", loginSessionId: "s", username: "gm" });
     const types = activityTypes(page);
     expect(types).toEqual(
       expect.arrayContaining([

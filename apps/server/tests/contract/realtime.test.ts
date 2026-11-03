@@ -12,7 +12,7 @@ import type { VisibilityScope } from "@/modules/realtime";
 import { CreateSessionUseCase, ClaimSeatUseCase } from "@/modules/sessions/application/use-cases";
 import { DrizzleSessionsRepository } from "@/modules/sessions/infrastructure/drizzle-sessions-repository";
 import { eq } from "drizzle-orm";
-import { listenTestApp, seedGmPassword, stopServer } from "../helpers/setup";
+import { listenTestApp, seedAccounts, stopServer, gmUserIdRef } from "../helpers/setup";
 import { SessionCloseCode } from "@cogm/shared";
 
 interface TestWebSocket extends WebSocket {
@@ -121,7 +121,7 @@ describe("Realtime contract tests", () => {
     process.env.DATABASE_URL = ":memory:";
     container = new Container([new TestEventProbeHandler()]);
     await container.startupService.startup();
-    await seedGmPassword(container.db, gmPassword);
+    await seedAccounts(container.db, gmPassword);
 
     app = new Elysia()
       .onError(({ error, code, set }) => {
@@ -151,7 +151,7 @@ describe("Realtime contract tests", () => {
       .use(realtimeRoutes(container));
 
     const loginRes = await app.handle(
-      new Request("http://localhost/api/v1/gm/auth/login", {
+      new Request("http://localhost/api/v1/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username: "gm", password: gmPassword }),
@@ -166,6 +166,9 @@ describe("Realtime contract tests", () => {
       description: "Realtime Description",
       ruleId: "coc7e",
       createdAt: Date.now(),
+      ownerId: gmUserIdRef(),
+      deletedAt: null,
+      updatedAt: Date.now(),
     });
 
     await container.db.insert(characters).values({
@@ -237,9 +240,7 @@ describe("Realtime contract tests", () => {
       container.idGenerator,
       container.clock
     );
-    const sessionRes = await createSession.execute({
-      moduleId: "module-rt",
-      characterIds: ["char-rt-1", "char-rt-2"],
+    const sessionRes = await createSession.execute({ ownerId: gmUserId, moduleId: "module-rt", characterIds: ["char-rt-1", "char-rt-2"],
     });
     sessionId = sessionRes.session.id;
 
@@ -413,7 +414,7 @@ describe("Realtime contract tests", () => {
   test("Outbox delivery status update", async () => {
     await container.sessionCommandExecutor.execute(
       sessionId,
-      { type: "gm" },
+      { type: "user", userId: "test-gm", role: "gm", loginSessionId: "s", username: "gm" },
       {
         protocolVersion: 1,
         commandId: crypto.randomUUID(),
@@ -578,9 +579,7 @@ describe("Realtime contract tests", () => {
       container.idGenerator,
       container.clock
     );
-    const created = await createSession.execute({
-      moduleId: "module-rt",
-      characterIds: ["char-rt-1"],
+    const created = await createSession.execute({ ownerId: gmUserId, moduleId: "module-rt", characterIds: ["char-rt-1"],
     });
     const testSessionId = created.session.id;
 
@@ -642,7 +641,7 @@ describe("Realtime contract tests", () => {
 
     const gmSnapshot = await container.snapshotBuilder.execute({
       sessionId,
-      actor: { type: "gm" },
+      actor: { type: "user", userId: "test-gm", role: "gm", loginSessionId: "s", username: "gm" },
       claimedCharacterId: null,
     });
     expect(gmSnapshot.viewer).toEqual({ isGm: true, seatRole: null });
@@ -669,9 +668,7 @@ describe("Realtime contract tests", () => {
       container.idGenerator,
       container.clock
     );
-    const created = await createSession.execute({
-      moduleId: "module-rt",
-      characterIds: ["char-rt-1", "char-rt-2"],
+    const created = await createSession.execute({ ownerId: gmUserId, moduleId: "module-rt", characterIds: ["char-rt-1", "char-rt-2"],
     });
     const freshSessionId = created.session.id;
     const claimSeat = new ClaimSeatUseCase(sessionsRepo, container.idGenerator, container.clock);

@@ -43,6 +43,17 @@ describe("Session kick exclusion contract", () => {
     ctx.container.dbContext.sqlite.close();
   });
 
+  /** 席位持有者：PC 席位由 PL 账号持有，OB 席位由匿名玩家持有 */
+  function userId(name: string): string {
+    return ctx.plIds.get(name) ?? ctx.playerIds.get(name)!;
+  }
+
+  function holderOf(name: string): { holderKind: "user" | "anonymous"; holderId: string } {
+    return ctx.plIds.has(name)
+      ? { holderKind: "user", holderId: ctx.plIds.get(name)! }
+      : { holderKind: "anonymous", holderId: ctx.playerIds.get(name)! };
+  }
+
   function playerId(name: string): string {
     return ctx.playerIds.get(name)!;
   }
@@ -88,9 +99,9 @@ describe("Session kick exclusion contract", () => {
     const pc1 = await connectWs(wsUrl(), ctx.playerTokens.get("pc1")!);
     await pc1.waitFor((m) => m.type === "snapshot");
 
-    const reply = await command(gm, "player:kick", { playerId: playerId("pc1"), reason: "干扰他人发言" });
+    const reply = await command(gm, "player:kick", { ...holderOf("pc1"), reason: "干扰他人发言" });
     expect(reply.type).toBe("command:accepted");
-    expect(reply.payload).toMatchObject({ kicked: playerId("pc1"), alreadyKicked: false });
+    expect(reply.payload).toMatchObject({ kicked: ctx.plIds.get("pc1")!, alreadyKicked: false });
 
     expect(await waitForClose(pc1)).toMatchObject({ code: 4000, reason: "kicked" });
 
@@ -100,7 +111,7 @@ describe("Session kick exclusion contract", () => {
       .where(
         and(
           eq(sessionKicks.sessionId, ctx.sessionId),
-          eq(sessionKicks.playerId, playerId("pc1")),
+          eq(sessionKicks.userId, ctx.plIds.get("pc1")!),
           isNull(sessionKicks.liftedAt)
         )
       );
@@ -131,7 +142,8 @@ describe("Session kick exclusion contract", () => {
     const gmSnapshot = gm2.messages.find((m) => m.type === "snapshot");
     expect(gmSnapshot.payload.kickedPlayers).toHaveLength(1);
     expect(gmSnapshot.payload.kickedPlayers[0]).toMatchObject({
-      playerId: playerId("pc1"),
+      holderKind: "user",
+      holderId: ctx.plIds.get("pc1")!,
       displayName: "调查员甲",
       reason: "干扰他人发言",
     });
@@ -140,7 +152,7 @@ describe("Session kick exclusion contract", () => {
     const presence = await gm2.waitFor(
       (m) => m.type === "presence:updated" && Array.isArray(m.payload.kickedPlayers)
     );
-    expect(presence.payload.kickedPlayers.map((k: { playerId: string }) => k.playerId)).toContain(playerId("pc1"));
+    expect(presence.payload.kickedPlayers.map((k: { holderId: string }) => k.holderId)).toContain(ctx.plIds.get("pc1")!);
 
     const pc2 = await connectWs(wsUrl(), ctx.playerTokens.get("pc2")!);
     const playerSnapshot = await pc2.waitFor((m) => m.type === "snapshot");
@@ -151,14 +163,14 @@ describe("Session kick exclusion contract", () => {
   });
 
   test("重复踢出幂等：仍只有一条生效中的禁入记录", async () => {
-    const reply = await command(gm, "player:kick", { playerId: playerId("pc1") });
+    const reply = await command(gm, "player:kick", { ...holderOf("pc1") });
     expect(reply.type).toBe("command:accepted");
-    expect(reply.payload).toMatchObject({ kicked: playerId("pc1"), alreadyKicked: true });
+    expect(reply.payload).toMatchObject({ kicked: ctx.plIds.get("pc1")!, alreadyKicked: true });
 
     const rows = await ctx.container.db
       .select()
       .from(sessionKicks)
-      .where(and(eq(sessionKicks.sessionId, ctx.sessionId), eq(sessionKicks.playerId, playerId("pc1"))));
+      .where(and(eq(sessionKicks.sessionId, ctx.sessionId), eq(sessionKicks.userId, ctx.plIds.get("pc1")!)));
     expect(rows).toHaveLength(1);
     expect(rows[0]!.reason).toBe("干扰他人发言");
   });
@@ -176,9 +188,7 @@ describe("Session kick exclusion contract", () => {
       ctx.container.idGenerator,
       ctx.container.clock
     );
-    const other = await createSession.execute({
-      moduleId: "module-test",
-      characterIds: ["char-pc1"],
+    const other = await createSession.execute({ ownerId: ctx.gmUserId, moduleId: "module-test", characterIds: ["char-pc1"],
     });
     const otherRes = await ctx.app.handle(
       new Request(`http://localhost/api/v1/sessions/${other.session.id}/claim`, {
@@ -194,22 +204,22 @@ describe("Session kick exclusion contract", () => {
     const pc2 = await connectWs(wsUrl(), ctx.playerTokens.get("pc2")!);
     await pc2.waitFor((m) => m.type === "snapshot");
 
-    const kickReply = await command(pc2, "player:kick", { playerId: playerId("pc1") });
+    const kickReply = await command(pc2, "player:kick", { ...holderOf("pc1") });
     expect(kickReply).toMatchObject({ type: "command:rejected", payload: { code: "FORBIDDEN" } });
 
-    const unkickReply = await command(pc2, "player:unkick", { playerId: playerId("pc1") });
+    const unkickReply = await command(pc2, "player:unkick", { ...holderOf("pc1") });
     expect(unkickReply).toMatchObject({ type: "command:rejected", payload: { code: "FORBIDDEN" } });
 
     await closeWs(pc2);
   });
 
   test("GM 解除禁入后玩家恢复进入，重复解除返回 lifted=false", async () => {
-    const reply = await command(gm, "player:unkick", { playerId: playerId("pc1") });
+    const reply = await command(gm, "player:unkick", { ...holderOf("pc1") });
     expect(reply.type).toBe("command:accepted");
-    expect(reply.payload).toMatchObject({ playerId: playerId("pc1"), lifted: true });
+    expect(reply.payload).toMatchObject({ holderId: ctx.plIds.get("pc1")!, lifted: true });
 
-    const again = await command(gm, "player:unkick", { playerId: playerId("pc1") });
-    expect(again.payload).toMatchObject({ playerId: playerId("pc1"), lifted: false });
+    const again = await command(gm, "player:unkick", { ...holderOf("pc1") });
+    expect(again.payload).toMatchObject({ holderId: ctx.plIds.get("pc1")!, lifted: false });
 
     const obRes = await claim(ctx.playerTokens.get("pc1")!, { role: "ob" });
     expect(obRes.status).toBe(200);
@@ -235,10 +245,10 @@ describe("Session kick exclusion contract", () => {
     expect(ended[0]!.status).toBe("ended");
 
     const gmEnded = await openGm();
-    const kickReply = await command(gmEnded, "player:kick", { playerId: playerId("pc2") });
+    const kickReply = await command(gmEnded, "player:kick", { ...holderOf("pc2") });
     expect(kickReply.type).toBe("command:accepted");
 
-    const unkickReply = await command(gmEnded, "player:unkick", { playerId: playerId("pc2") });
+    const unkickReply = await command(gmEnded, "player:unkick", { ...holderOf("pc2") });
     expect(unkickReply.type).toBe("command:accepted");
     expect(unkickReply.payload).toMatchObject({ lifted: true });
 

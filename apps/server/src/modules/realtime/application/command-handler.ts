@@ -36,6 +36,12 @@ export interface CommandHandlerResult {
   directToSession?: Array<{ type: string; payload: unknown }>;
   /** 仅向指定玩家在本团的在线连接发送（DirectControlMessage）。 */
   directToPlayers?: Array<{ playerId: string; message: { type: string; payload: unknown } }>;
+  /** 按席位持有者定向投递：PL 账号与匿名 OB 都能收到自己的私密回执 */
+  directToHolders?: Array<{
+    holderKind: "user" | "anonymous";
+    holderId: string;
+    message: { type: string; payload: unknown };
+  }>;
   /** 提交后需要强制关闭的玩家连接（踢出/拉黑） */
   closeConnectionsOfHolders?: string[];
   /** 为 true 时关闭该玩家全部团的连接（拉黑）；默认只关本团 */

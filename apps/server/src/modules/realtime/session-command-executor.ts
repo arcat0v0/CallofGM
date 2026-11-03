@@ -1,4 +1,5 @@
 import { and, eq, isNull } from "drizzle-orm";
+import { holderOfActor } from "@/modules/identity";
 import type { ActorContext } from "@/modules/identity";
 import type { ClientCommand, CommandReply, ClientCommandType } from "@cogm/shared";
 import type { DbClient } from "@/platform/db/client";
@@ -19,7 +20,9 @@ import { logger } from "@/platform/logging/logger";
 const MAX_CACHED_REPLIES_PER_SESSION = 500;
 
 function actorKey(actor: ActorContext): string {
-  return actor.type === "player" ? `player:${actor.playerId}` : `gm:${actor.loginSessionId ?? ""}`;
+  return actor.type === "player"
+    ? `player:${actor.playerId}`
+    : `user:${actor.userId}:${actor.loginSessionId}`;
 }
 
 /**
@@ -201,16 +204,19 @@ export class SessionCommandExecutor {
     sessionId: string,
     actor: ActorContext
   ): Promise<CommandHandlerContext["seat"]> {
-    if (actor.type !== "player") {
+    if (actor.type === "user" && actor.role !== "pl") {
       return null;
     }
+    const holder = holderOfActor(actor);
     const claims = await tx
       .select()
       .from(sessionClaims)
       .where(
         and(
           eqCol(sessionClaims.sessionId, sessionId),
-          eqCol(sessionClaims.playerId, actor.playerId),
+          holder.holderKind === "user"
+            ? eqCol(sessionClaims.userId, holder.userId!)
+            : eqCol(sessionClaims.playerId, holder.playerId!),
           isNull(sessionClaims.releasedAt)
         )
       );
@@ -246,6 +252,13 @@ export class SessionCommandExecutor {
     }
     for (const target of result.directToPlayers ?? []) {
       this.connectionRegistry.sendToPlayer(sessionId, target.playerId, target.message);
+    }
+    for (const target of result.directToHolders ?? []) {
+      if (target.holderKind === "user") {
+        this.connectionRegistry.sendToUser(sessionId, target.holderId, target.message);
+      } else {
+        this.connectionRegistry.sendToPlayer(sessionId, target.holderId, target.message);
+      }
     }
 
     for (const holderId of result.closeConnectionsOfHolders ?? []) {

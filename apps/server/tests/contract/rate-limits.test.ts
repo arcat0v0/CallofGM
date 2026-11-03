@@ -6,7 +6,7 @@ import { createIdentityRoutes } from "@/modules/identity/transport/routes";
 import { RateLimiter } from "@/platform/security/rate-limiter";
 import { HttpLimits } from "@/platform/security/http-limits";
 import { AppError } from "@/platform/errors/app-error";
-import { seedGmPassword } from "../helpers/setup";
+import { seedAccounts } from "../helpers/setup";
 
 function buildApp(container: Container) {
   return new Elysia()
@@ -21,7 +21,7 @@ function buildApp(container: Container) {
 
 function login(app: { handle(request: Request): Promise<Response> }, password: string) {
   return app.handle(
-    new Request("http://localhost/api/v1/gm/auth/login", {
+    new Request("http://localhost/api/v1/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username: "gm", password }),
@@ -40,8 +40,8 @@ describe("HTTP rate limits", () => {
     isolatedContainer = new Container();
     await limitedContainer.startupService.startup();
     await isolatedContainer.startupService.startup();
-    await seedGmPassword(limitedContainer.db, gmPassword);
-    await seedGmPassword(isolatedContainer.db, gmPassword);
+    await seedAccounts(limitedContainer.db, gmPassword);
+    await seedAccounts(isolatedContainer.db, gmPassword);
   });
 
   afterAll(() => {

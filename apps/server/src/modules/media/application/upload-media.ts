@@ -57,6 +57,7 @@ export class UploadMediaUseCase {
       size,
       sha256,
       metadataJson: JSON.stringify({}),
+      deletedAt: null,
       createdAt: now,
     };
 

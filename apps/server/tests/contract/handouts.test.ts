@@ -9,6 +9,7 @@ import {
   setSessionPhase,
   type TestContext,
   type TestWebSocket,
+  gmUserIdRef,
 } from "../helpers/setup";
 import { handouts, mediaAssets } from "@/platform/db/schema";
 import {
@@ -45,6 +46,7 @@ describe("Handouts & moderation contract tests", () => {
 
     await ctx.container.db.insert(mediaAssets).values({
       id: "asset-handout-img",
+      ownerId: gmUserIdRef(),
       purpose: "handout",
       storageKey: "handout-img-key",
       filename: "map.png",
@@ -52,7 +54,7 @@ describe("Handouts & moderation contract tests", () => {
       size: 4,
       sha256: "hash",
       metadataJson: "{}",
-      createdAt: Date.now(),
+      deletedAt: null,
     }).onConflictDoNothing();
 
     const { modules } = await import("@/platform/db/schema");
@@ -62,6 +64,9 @@ describe("Handouts & moderation contract tests", () => {
       description: "",
       ruleId: "coc7e",
       createdAt: Date.now(),
+      ownerId: gmUserIdRef(),
+      deletedAt: null,
+      updatedAt: Date.now(),
     }).onConflictDoNothing();
 
     await ctx.container.db.insert(handouts).values([

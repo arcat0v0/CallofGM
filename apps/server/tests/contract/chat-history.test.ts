@@ -46,7 +46,7 @@ describe("Chat history pagination contract tests", () => {
   async function seedPresentedMessage(content: string): Promise<string> {
     const reply = await ctx.container.sessionCommandExecutor.execute(
       ctx.sessionId,
-      { type: "gm" },
+      { type: "user", userId: "test-gm", role: "gm", loginSessionId: "s", username: "gm" },
       {
         protocolVersion: 1,
         commandId: `seed-${crypto.randomUUID()}`,

@@ -39,7 +39,7 @@ async function execute(
   ctx: TestContext,
   type: ClientCommandType,
   payload: unknown,
-  actor: ActorContext = { type: "gm" }
+  actor: ActorContext = { type: "user", userId: "test-gm", role: "gm", loginSessionId: "s", username: "gm" }
 ): Promise<CommandReply> {
   return ctx.container.sessionCommandExecutor.execute(
     ctx.sessionId,
@@ -69,7 +69,7 @@ function rejectedCode(reply: CommandReply): string | null {
 }
 
 function playerActor(ctx: TestContext, name: string): ActorContext {
-  return { type: "player", playerId: ctx.playerIds.get(name)! };
+  return { type: "player", holder: { holderKind: "anonymous", userId: null, playerId: ctx.playerIds.get(name)! } };
 }
 
 async function fetchHistory(ctx: TestContext): Promise<HistoryPage> {
