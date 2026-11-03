@@ -10,6 +10,7 @@ import { createThemeRoutes } from "./modules/themes";
 import { createUiSettingsRoutes } from "./modules/ui-settings";
 import { createAdminRoutes, createTrashRoutes } from "./modules/admin";
 import { createRulesRoutes } from "./modules/rules";
+import { createTemplatesRoutes } from "./modules/templates";
 import { AppError } from "./platform/errors/app-error";
 import { logger } from "./platform/logging/logger";
 import { corsOriginsFor } from "./config/env";
@@ -123,6 +124,7 @@ export function createApp(container: Container) {
     .use(createAdminRoutes(container))
     .use(createTrashRoutes(container))
     .use(createRulesRoutes(container))
+    .use(createTemplatesRoutes(container))
     .use(createUiSettingsRoutes(container))
     .get("/api/health/live", () => ({ status: "live" }))
     .get("/api/health/ready", ({ set }) => {

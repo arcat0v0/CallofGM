@@ -73,6 +73,8 @@ export const ModuleDto = z.object({
   description: z.string(),
   ruleId: RuleId,
   themeId: ThemeId.nullable(),
+  sourceTemplateId: z.string().nullable().optional(),
+  sourceTemplateVersion: z.number().int().nullable().optional(),
   createdAt: z.number().int(),
 });
 export type ModuleDto = z.infer<typeof ModuleDto>;

@@ -85,6 +85,7 @@ export type TemplateHandoutDto = z.infer<typeof TemplateHandoutDto>;
 
 export const TemplateCharacterDto = z.object({
   id: z.string(),
+  characterId: z.string(),
   name: z.string(),
   kind: z.enum(["pc", "npc"]),
   ruleId: RuleId,
