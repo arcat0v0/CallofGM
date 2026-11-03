@@ -8,6 +8,8 @@ import { createSessionsRoutes } from "./modules/sessions";
 import { createRealtimeRoutes } from "./modules/realtime";
 import { createThemeRoutes } from "./modules/themes";
 import { createUiSettingsRoutes } from "./modules/ui-settings";
+import { createAdminRoutes, createTrashRoutes } from "./modules/admin";
+import { createRulesRoutes } from "./modules/rules";
 import { AppError } from "./platform/errors/app-error";
 import { logger } from "./platform/logging/logger";
 import { corsOriginsFor } from "./config/env";
@@ -118,6 +120,9 @@ export function createApp(container: Container) {
     .use(createSessionsRoutes(container))
     .use(createRealtimeRoutes(container))
     .use(createThemeRoutes(container))
+    .use(createAdminRoutes(container))
+    .use(createTrashRoutes(container))
+    .use(createRulesRoutes(container))
     .use(createUiSettingsRoutes(container))
     .get("/api/health/live", () => ({ status: "live" }))
     .get("/api/health/ready", ({ set }) => {

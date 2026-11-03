@@ -11,6 +11,8 @@ import {
   type ActorContext,
 } from "@/modules/identity";
 import { ClientCommand, type CommandReply, type SessionSnapshot, type SessionKickedMessage } from "@cogm/shared";
+import { requireSeatHolder, holderOfActor } from "@/modules/identity";
+import type { SeatHolderInput } from "@/modules/sessions";
 import { checkVisibility } from "../domain/visibility";
 import { logger } from "@/platform/logging/logger";
 
@@ -26,7 +28,7 @@ interface KickNotice {
 async function findActiveKick(
   container: Container,
   sessionId: string,
-  playerId: string
+  holder: SeatHolderInput
 ): Promise<KickNotice | null> {
   const rows = await container.db
     .select({ reason: sessionKicks.reason, createdAt: sessionKicks.createdAt })
@@ -34,7 +36,9 @@ async function findActiveKick(
     .where(
       and(
         eq(sessionKicks.sessionId, sessionId),
-        eq(sessionKicks.playerId, playerId),
+        holder.holderKind === "user"
+          ? eq(sessionKicks.userId, holder.userId!)
+          : eq(sessionKicks.playerId, holder.playerId!),
         isNull(sessionKicks.liftedAt)
       )
     )
@@ -45,18 +49,17 @@ async function findActiveKick(
 async function resolveClaimedCharacterId(
   container: Container,
   sessionId: string,
-  actor: ActorContext
+  holder: SeatHolderInput
 ): Promise<string | null> {
-  if (actor.type !== "player") {
-    return null;
-  }
   const rows = await container.db
     .select({ characterId: sessionClaims.characterId })
     .from(sessionClaims)
     .where(
       and(
         eq(sessionClaims.sessionId, sessionId),
-        eq(sessionClaims.playerId, actor.playerId),
+        holder.holderKind === "user"
+          ? eq(sessionClaims.userId, holder.userId!)
+          : eq(sessionClaims.playerId, holder.playerId!),
         isNull(sessionClaims.releasedAt)
       )
     );
@@ -103,17 +106,20 @@ export function createRealtimeRoutes(container: Container) {
           throw new SessionNotFoundError();
         }
 
-        if (actor.type === "player") {
-          const kick = await findActiveKick(container, id, actor.playerId);
-          if (kick) {
-            Object.assign(context, { kick });
-            return;
-          }
-          const claimedCharacterId = await resolveClaimedCharacterId(container, id, actor);
-          const hasClaim = claimedCharacterId !== null || (await hasObClaim(container, id, actor.playerId));
-          if (!hasClaim) {
-            throw new ForbiddenError("No active claim in this session");
-          }
+        if (actor.type === "user" && actor.role === "gm") {
+          return;
+        }
+        const holder = requireSeatHolder(actor);
+        const kick = await findActiveKick(container, id, holder);
+        if (kick) {
+          Object.assign(context, { kick, holder });
+          return;
+        }
+        const claimedCharacterId = await resolveClaimedCharacterId(container, id, holder);
+        const hasClaim = claimedCharacterId !== null || (await hasObClaim(container, id, holder));
+        Object.assign(context, { holder });
+        if (!hasClaim) {
+          throw new ForbiddenError("No active claim in this session");
         }
       },
       async open(ws) {
@@ -144,6 +150,9 @@ export function createRealtimeRoutes(container: Container) {
         (ws.data as Record<string, unknown>).connectionId = connectionId;
         (ws.data as Record<string, unknown>).commandTimestamps = [] as number[];
 
+        const holder: SeatHolderInput | null =
+          actor.type === "user" && actor.role === "gm" ? null : holderOfActor(actor);
+
         const connection = {
           connectionId,
           ws: {
@@ -158,13 +167,16 @@ export function createRealtimeRoutes(container: Container) {
             },
           },
           sessionId,
-          playerId: actor.type === "player" ? actor.playerId : null,
+          holderKind: holder?.holderKind ?? ("user" as const),
+          holderId: holder ? (holder.holderKind === "user" ? holder.userId! : holder.playerId!) : actor.type === "user" ? actor.userId : "",
+          playerId: holder?.playerId ?? null,
+          userId: holder?.userId ?? (actor.type === "user" ? actor.userId : null),
           actor,
           state: "hydrating" as const,
           hydrateBuffer: [],
         };
 
-        const claimedCharacterId = await resolveClaimedCharacterId(container, sessionId, actor);
+        const claimedCharacterId = holder ? await resolveClaimedCharacterId(container, sessionId, holder) : null;
         const lastEventId = parseLastEventId(ws.data.query.lastEventId);
 
         connectionRegistry.register(connection);
@@ -177,7 +189,7 @@ export function createRealtimeRoutes(container: Container) {
                 ws.send(JSON.stringify(event));
               }
             }
-            if (actor.type === "gm") {
+            if (actor.type === "user" && actor.role === "gm") {
               const [queueMessages, discardedMessages] = await Promise.all([
                 snapshotBuilder.listPendingQueue(sessionId),
                 snapshotBuilder.listDiscardedQueue(sessionId),
@@ -287,14 +299,16 @@ export function createRealtimeRoutes(container: Container) {
     });
 }
 
-async function hasObClaim(container: Container, sessionId: string, playerId: string): Promise<boolean> {
+async function hasObClaim(container: Container, sessionId: string, holder: SeatHolderInput): Promise<boolean> {
   const rows = await container.db
     .select({ id: sessionClaims.id })
     .from(sessionClaims)
     .where(
       and(
         eq(sessionClaims.sessionId, sessionId),
-        eq(sessionClaims.playerId, playerId),
+        holder.holderKind === "user"
+          ? eq(sessionClaims.userId, holder.userId!)
+          : eq(sessionClaims.playerId, holder.playerId!),
         isNull(sessionClaims.releasedAt),
         isNull(sessionClaims.characterId)
       )

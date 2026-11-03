@@ -130,12 +130,12 @@ function stateVisibilityScope(
 }
 
 function assertPlayerCanRoll(ctx: CommandHandlerContext): void {
-  if (ctx.actor.type === "gm") {
+  if (ctx.actor.type === "user" && ctx.actor.role === "gm") {
     return;
   }
   const allowed = canPlayerInitiateDiceRoll(
     ctx.session.phase as SessionPhase,
-    ctx.actor.type,
+    ctx.actor.type === "user" && ctx.actor.role === "gm" ? "gm" : "player",
     ctx.seat?.role ?? null
   );
   if (!allowed) {
@@ -189,7 +189,7 @@ export class RollDiceHandler implements CommandHandler {
     }
     const input = parsed.data;
 
-    const isGm = ctx.actor.type === "gm";
+    const isGm = ctx.actor.type === "user" && ctx.actor.role === "gm";
     if (!isGm && input.hidden) {
       throw new ForbiddenError("Only the GM can roll hidden dice");
     }
@@ -239,7 +239,7 @@ export class PerformCheckHandler implements CommandHandler {
     }
     const input = parsed.data;
 
-    const isGm = ctx.actor.type === "gm";
+    const isGm = ctx.actor.type === "user" && ctx.actor.role === "gm";
     if (!isGm) {
       if (input.hidden) {
         throw new ForbiddenError("Only the GM can roll hidden checks");
@@ -324,7 +324,7 @@ export class PerformSanCheckHandler implements CommandHandler {
   ) {}
 
   async execute(ctx: CommandHandlerContext, payload: unknown): Promise<CommandHandlerResult> {
-    if (ctx.actor.type !== "gm") {
+    if (ctx.actor.type !== "user" || ctx.actor.role !== "gm") {
       throw new ForbiddenError("Only the GM can perform SAN checks");
     }
     const parsed = PerformSanCheckCommand.safeParse(payload);
@@ -397,7 +397,7 @@ export class CreateCheckRequestHandler implements CommandHandler {
   ) {}
 
   async execute(ctx: CommandHandlerContext, payload: unknown): Promise<CommandHandlerResult> {
-    if (ctx.actor.type !== "gm") {
+    if (ctx.actor.type !== "user" || ctx.actor.role !== "gm") {
       throw new ForbiddenError("Only the GM can create check requests");
     }
     const parsed = CreateCheckRequestCommand.safeParse(payload);
@@ -487,7 +487,7 @@ export class RespondCheckRequestHandler implements CommandHandler {
       throw new CheckRequestAlreadyResolvedError();
     }
 
-    const isGm = ctx.actor.type === "gm";
+    const isGm = ctx.actor.type === "user" && ctx.actor.role === "gm";
     if (!isGm && ctx.seat?.characterId !== request.characterId) {
       throw new ForbiddenError("Only the targeted player can respond to this request");
     }
@@ -572,7 +572,7 @@ export class EditCharacterStateHandler implements CommandHandler {
   ) {}
 
   async execute(ctx: CommandHandlerContext, payload: unknown): Promise<CommandHandlerResult> {
-    if (ctx.actor.type !== "gm") {
+    if (ctx.actor.type !== "user" || ctx.actor.role !== "gm") {
       throw new ForbiddenError("Only the GM can edit character state");
     }
     const parsed = EditCharacterStateCommand.safeParse(payload);

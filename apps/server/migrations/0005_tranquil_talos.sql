@@ -1,2 +1,0 @@
-CREATE UNIQUE INDEX `session_claims_active_character_uq` ON `session_claims` (`session_id`,`character_id`) WHERE "session_claims"."released_at" is null and "session_claims"."character_id" is not null;--> statement-breakpoint
-CREATE UNIQUE INDEX `session_claims_active_player_uq` ON `session_claims` (`session_id`,`player_id`) WHERE "session_claims"."released_at" is null;

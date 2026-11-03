@@ -16,7 +16,7 @@ export function createUiSettingsRoutes(container: Container) {
   return new Elysia({ prefix: "/api/v1/gm/ui-settings" })
     .use(authPlugin)
     .onBeforeHandle(({ actor }) => {
-      if (!actor || actor.type !== "gm") {
+      if (!actor || actor.type !== "user" || actor.role !== "gm") {
         throw new AuthRequiredError();
       }
     })

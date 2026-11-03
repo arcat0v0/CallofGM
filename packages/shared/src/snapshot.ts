@@ -4,7 +4,7 @@ import { ChatMessageDto } from "./chat";
 import { CheckRequestDto } from "./gameplay";
 import { GrantedHandoutDto } from "./handouts";
 import { HistoryCursor, HistoryItem, SnapshotRewindNotice } from "./history";
-import { KickedPlayerDto, OnlinePlayerDto } from "./moderation";
+import { KickedPlayerDto, OnlinePlayerDto, SeatHolderKindDto } from "./moderation";
 import { BgmState, PortraitLayout, PortraitScale } from "./stage";
 
 export const SnapshotPortrait = z.object({
@@ -24,7 +24,9 @@ export const SnapshotCharacter = z.object({
   portraits: z.array(SnapshotPortrait).default([]),
   claim: z
     .object({
-      playerId: z.string(),
+      holderKind: SeatHolderKindDto,
+      holderId: z.string(),
+      displayName: z.string().nullable(),
       role: z.enum(["pc", "ob"]),
     })
     .nullable(),
@@ -40,6 +42,7 @@ export const SessionSnapshotPayload = z.object({
     name: z.string().nullable(),
     moduleId: z.string(),
     moduleName: z.string(),
+    ruleId: z.string(),
     themeId: z.string().nullable(),
     status: SessionStatus,
     phase: SessionPhase,
@@ -59,6 +62,8 @@ export const SessionSnapshotPayload = z.object({
   viewer: z.object({
     isGm: z.boolean(),
     seatRole: SeatRole.nullable(),
+    holderKind: SeatHolderKindDto.nullable().optional(),
+    holderId: z.string().nullable().optional(),
   }),
   characters: z.array(SnapshotCharacter),
   bgm: BgmState.nullable(),

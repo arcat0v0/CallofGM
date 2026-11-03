@@ -10,6 +10,8 @@ import { AppError } from "@/platform/errors/app-error";
 import { ForbiddenError } from "@/modules/identity";
 import type { DbClient } from "@/platform/db/client";
 import type { ModerationRepository, SessionKickStore } from "./ports";
+import type { SeatHolderInput } from "@/modules/sessions";
+import { holderKeyOf } from "@/modules/sessions";
 
 export class PlayerNotFoundError extends AppError {
   constructor(message = "Player not found") {
@@ -25,16 +27,19 @@ export class KickPlayerHandler implements CommandHandler {
   constructor(private readonly kickStoreFactory: (tx: DbClient) => SessionKickStore) {}
 
   async execute(ctx: CommandHandlerContext, payload: unknown): Promise<CommandHandlerResult> {
-    if (ctx.actor.type !== "gm") {
+    if (ctx.actor.type !== "user" || ctx.actor.role !== "gm") {
       throw new ForbiddenError("Only the GM can kick players");
     }
     const parsed = KickPlayerCommand.safeParse(payload);
     if (!parsed.success) {
       throw new AppError("VALIDATION_FAILED", parsed.error.message, 400);
     }
-    const playerId = parsed.data.playerId;
+    const holder: SeatHolderInput =
+      parsed.data.holderKind === "user"
+        ? { holderKind: "user", userId: parsed.data.holderId, playerId: null }
+        : { holderKind: "anonymous", userId: null, playerId: parsed.data.holderId };
     const store = this.kickStoreFactory(ctx.tx);
-    const existing = await store.findActiveSessionKick(ctx.sessionId, playerId);
+    const existing = await store.findActiveSessionKick(ctx.sessionId, holder);
 
     if (!existing) {
       const claims = await ctx.tx
@@ -43,7 +48,9 @@ export class KickPlayerHandler implements CommandHandler {
         .where(
           and(
             eq(sessionClaims.sessionId, ctx.sessionId),
-            eq(sessionClaims.playerId, playerId),
+            holder.holderKind === "user"
+              ? eq(sessionClaims.userId, holder.userId!)
+              : eq(sessionClaims.playerId, holder.playerId!),
             isNull(sessionClaims.releasedAt)
           )
         );
@@ -54,16 +61,18 @@ export class KickPlayerHandler implements CommandHandler {
       await store.recordSessionKick({
         id: ctx.idGenerator.nextId(),
         sessionId: ctx.sessionId,
-        playerId,
+        holderKind: holder.holderKind,
+        playerId: holder.playerId,
+        userId: holder.userId,
         reason: reason.length > 0 ? reason : null,
         createdAt: ctx.clock.nowEpochMs(),
       });
     }
 
     return {
-      closeConnectionsOfPlayerIds: [playerId],
+      closeConnectionsOfHolders: [holderKeyOf(holder)],
       refreshPresence: true,
-      replyPayload: { kicked: playerId, alreadyKicked: existing !== null },
+      replyPayload: { kicked: parsed.data.holderId, alreadyKicked: existing !== null },
     };
   }
 }
@@ -75,7 +84,7 @@ export class UnkickPlayerHandler implements CommandHandler {
   constructor(private readonly kickStoreFactory: (tx: DbClient) => SessionKickStore) {}
 
   async execute(ctx: CommandHandlerContext, payload: unknown): Promise<CommandHandlerResult> {
-    if (ctx.actor.type !== "gm") {
+    if (ctx.actor.type !== "user" || ctx.actor.role !== "gm") {
       throw new ForbiddenError("Only the GM can lift a kick");
     }
     const parsed = UnkickPlayerCommand.safeParse(payload);
@@ -83,15 +92,19 @@ export class UnkickPlayerHandler implements CommandHandler {
       throw new AppError("VALIDATION_FAILED", parsed.error.message, 400);
     }
 
+    const holder: SeatHolderInput =
+      parsed.data.holderKind === "user"
+        ? { holderKind: "user", userId: parsed.data.holderId, playerId: null }
+        : { holderKind: "anonymous", userId: null, playerId: parsed.data.holderId };
     const lifted = await this.kickStoreFactory(ctx.tx).liftSessionKick(
       ctx.sessionId,
-      parsed.data.playerId,
+      holder,
       ctx.clock.nowEpochMs()
     );
 
     return {
       refreshPresence: true,
-      replyPayload: { playerId: parsed.data.playerId, lifted },
+      replyPayload: { holderId: parsed.data.holderId, lifted },
     };
   }
 }
@@ -104,7 +117,7 @@ export class BanFingerprintHandler implements CommandHandler {
   constructor(private readonly repoFactory: (tx: DbClient) => ModerationRepository) {}
 
   async execute(ctx: CommandHandlerContext, payload: unknown): Promise<CommandHandlerResult> {
-    if (ctx.actor.type !== "gm") {
+    if (ctx.actor.type !== "user" || ctx.actor.role !== "gm") {
       throw new ForbiddenError("Only the GM can ban players");
     }
     const parsed = BanFingerprintCommand.safeParse(payload);
@@ -116,8 +129,17 @@ export class BanFingerprintHandler implements CommandHandler {
     const repo = this.repoFactory(ctx.tx);
     let fingerprintHash: string;
     let playerId: string | null = null;
+    let userId: string | null = null;
     let displayName: string | null = null;
-    if (input.playerId) {
+    if (input.userId) {
+      const context = await repo.findUserBanContext(input.userId);
+      if (!context) {
+        throw new PlayerNotFoundError();
+      }
+      fingerprintHash = context.fingerprintHash;
+      userId = input.userId;
+      displayName = context.displayName;
+    } else if (input.playerId) {
       const context = await repo.findPlayerBanContext(input.playerId);
       if (!context) {
         throw new PlayerNotFoundError();
@@ -139,6 +161,7 @@ export class BanFingerprintHandler implements CommandHandler {
       id: ctx.idGenerator.nextId(),
       fingerprintHash,
       playerId,
+      userId,
       displayName,
       reason: input.reason,
       expiresAt,
@@ -146,10 +169,11 @@ export class BanFingerprintHandler implements CommandHandler {
     });
 
     return {
-      ...(input.playerId ? { closeConnectionsOfPlayerIds: [input.playerId] } : {}),
+      ...(input.playerId ? { closeConnectionsOfHolders: [`player:${input.playerId}`] } : {}),
+      ...(input.userId ? { closeConnectionsOfHolders: [`user:${input.userId}`] } : {}),
       refreshPresence: true,
       replyPayload: {
-        banned: playerId,
+        banned: userId ?? playerId,
         fingerprintHash,
         permanent: expiresAt === null,
       },
@@ -165,7 +189,7 @@ export class UnbanFingerprintHandler implements CommandHandler {
   constructor(private readonly repoFactory: (tx: DbClient) => ModerationRepository) {}
 
   async execute(ctx: CommandHandlerContext, payload: unknown): Promise<CommandHandlerResult> {
-    if (ctx.actor.type !== "gm") {
+    if (ctx.actor.type !== "user" || ctx.actor.role !== "gm") {
       throw new ForbiddenError("Only the GM can unban players");
     }
     const parsed = UnbanFingerprintCommand.safeParse(payload);

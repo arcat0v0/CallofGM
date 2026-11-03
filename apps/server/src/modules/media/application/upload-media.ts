@@ -9,6 +9,7 @@ import {
 } from "../domain/media-errors";
 
 export interface UploadMediaInput {
+  ownerId: string;
   blob: Blob;
   filename: string;
   purpose: string;
@@ -48,6 +49,7 @@ export class UploadMediaUseCase {
 
     const asset = {
       id,
+      ownerId: input.ownerId,
       purpose: input.purpose || "general",
       storageKey,
       filename: input.filename,

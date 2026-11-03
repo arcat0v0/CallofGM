@@ -70,13 +70,13 @@ export const ClaimSeatRequest = z.object({
 export type ClaimSeatRequest = z.infer<typeof ClaimSeatRequest>;
 
 export const GmAssignClaimRequest = z.object({
-  playerId: z.string().min(1),
+  userId: z.string().min(1),
   characterId: z.string().min(1),
 });
 export type GmAssignClaimRequest = z.infer<typeof GmAssignClaimRequest>;
 
 export const GmReleaseClaimRequest = z.object({
-  playerId: z.string().min(1),
+  userId: z.string().min(1),
 });
 export type GmReleaseClaimRequest = z.infer<typeof GmReleaseClaimRequest>;
 
@@ -94,6 +94,7 @@ export const SessionDto = z.object({
   id: z.string(),
   name: z.string().nullable(),
   moduleId: z.string(),
+  ruleId: z.string(),
   themeId: z.string().nullable().optional(),
   status: SessionStatus,
   phase: SessionPhase,
@@ -103,8 +104,15 @@ export const SessionDto = z.object({
 });
 export type SessionDto = z.infer<typeof SessionDto>;
 
+export const ClaimHolderKind = z.enum(["user", "anonymous"]);
+export type ClaimHolderKind = z.infer<typeof ClaimHolderKind>;
+
 export const SessionCharacterClaimDto = z.object({
-  playerId: z.string(),
+  holderKind: ClaimHolderKind,
+  holderId: z.string(),
+  playerId: z.string().nullable(),
+  userId: z.string().nullable(),
+  displayName: z.string().nullable(),
   role: SeatRole,
 });
 export type SessionCharacterClaimDto = z.infer<typeof SessionCharacterClaimDto>;
@@ -113,12 +121,22 @@ export const SessionCharacterDto = z.object({
   id: z.string(),
   characterId: z.string(),
   name: z.string(),
+  background: z.string(),
   kind: CharacterRole,
+  ruleId: z.string(),
+  sheetJson: z.string(),
+  sheetVersion: z.number().int(),
+  baseSheetVersion: z.number().int(),
+  baseProfileVersion: z.number().int(),
+  reviewStale: z.boolean(),
   currentExpressionKey: z.string().nullable(),
   state: z.unknown(),
   claim: SessionCharacterClaimDto.nullable(),
 });
 export type SessionCharacterDto = z.infer<typeof SessionCharacterDto>;
+
+export const ReviewStatus = z.enum(["pending", "approved", "rejected"]);
+export type ReviewStatus = z.infer<typeof ReviewStatus>;
 
 export const SessionDetailResponse = z.object({
   session: SessionDto,
@@ -146,7 +164,9 @@ export type CreateSessionResponse = z.infer<typeof CreateSessionResponse>;
 export const ClaimDto = z.object({
   id: z.string(),
   sessionId: z.string(),
-  playerId: z.string(),
+  holderKind: ClaimHolderKind,
+  playerId: z.string().nullable(),
+  userId: z.string().nullable(),
   role: SeatRole,
   characterId: z.string().nullable(),
   releasedAt: z.number().int().nullable(),
@@ -165,6 +185,7 @@ export const MyClaimResponse = z.object({
   claim: ClaimDto.nullable(),
   sessionStatus: SessionStatus,
   isGm: z.boolean(),
+  canAutoClaimCharacterId: z.string().nullable().default(null),
 });
 export type MyClaimResponse = z.infer<typeof MyClaimResponse>;
 
@@ -176,6 +197,7 @@ export const JoinInfoResponse = z.object({
     phase: SessionPhase,
     moduleId: z.string(),
     moduleName: z.string(),
+    ruleId: z.string(),
     themeId: z.string().nullable(),
   }),
   characters: z.array(
@@ -184,7 +206,9 @@ export const JoinInfoResponse = z.object({
       name: z.string(),
       kind: CharacterRole,
       claimed: z.boolean(),
+      claimable: z.boolean(),
     }),
   ),
+  requiresLogin: z.boolean(),
 });
 export type JoinInfoResponse = z.infer<typeof JoinInfoResponse>;

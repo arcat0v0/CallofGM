@@ -1,7 +1,7 @@
-import type { RuleId } from "@cogm/shared";
 import type { IdGenerator, Clock } from "@/platform/ports";
 import type { RuleRegistry } from "@/rules/registry";
-import type { SessionsRepository } from "./ports";
+import type { SessionsRepository, SeatHolderInput, HolderKind } from "./ports";
+import { holderKeyOf } from "./ports";
 import { CharacterNotFoundError } from "@/modules/characters";
 import { ModuleNotFoundError } from "@/modules/catalog";
 import {
@@ -23,6 +23,14 @@ function normaliseSessionName(name: string | null | undefined): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
+function resolvedHolder(holder: SeatHolderInput) {
+  return {
+    holderKind: holder.holderKind,
+    playerId: holder.holderKind === "anonymous" ? holder.playerId : null,
+    userId: holder.holderKind === "user" ? holder.userId : null,
+  };
+}
+
 export class CreateSessionUseCase {
   constructor(
     private readonly repo: SessionsRepository,
@@ -31,9 +39,15 @@ export class CreateSessionUseCase {
     private readonly clock: Clock
   ) {}
 
-  async execute(input: { moduleId: string; characterIds: string[]; name?: string }) {
+  async execute(input: {
+    ownerId: string;
+    moduleId: string;
+    characterIds: string[];
+    name?: string;
+    status?: "waiting" | "preparing";
+  }) {
     const moduleRecord = await this.repo.findModuleById(input.moduleId);
-    if (!moduleRecord) {
+    if (!moduleRecord || moduleRecord.ownerId !== input.ownerId) {
       throw new ModuleNotFoundError();
     }
 
@@ -60,9 +74,11 @@ export class CreateSessionUseCase {
 
     const session = {
       id: sessionId,
+      ownerId: input.ownerId,
       name: normaliseSessionName(input.name),
       moduleId: input.moduleId,
-      status: "waiting" as const,
+      ruleId: moduleRecord.ruleId,
+      status: input.status ?? ("waiting" as const),
       phase: "free_discussion" as const,
       currentSceneId: null,
       lastEventId: 0,
@@ -70,14 +86,16 @@ export class CreateSessionUseCase {
       obSeePcState: 1,
       portraitLayout: "auto",
       portraitScale: "md",
+      growthConfirmedAt: null,
+      deletedAt: null,
       createdAt: now,
     };
 
+    const ruleSystem = this.ruleRegistry.get(moduleRecord.ruleId);
+
     const sessionChars = loadedCharacters.map((char) => {
-      const ruleSystem = this.ruleRegistry.get(moduleRecord.ruleId as RuleId);
       const parsedSheet = ruleSystem.characterSheetSchema.parse(JSON.parse(char.sheetJson));
       const initialState = ruleSystem.initializeSessionState(parsedSheet) as Record<string, unknown>;
-
       initialState.sessionId = sessionId;
       initialState.characterId = char.id;
 
@@ -86,6 +104,12 @@ export class CreateSessionUseCase {
         sessionId,
         characterId: char.id,
         kind: char.kind,
+        name: char.name,
+        background: char.background,
+        ruleId: char.ruleId,
+        sheetJson: char.sheetJson,
+        baseSheetVersion: char.sheetVersion,
+        baseProfileVersion: char.profileVersion,
         currentExpressionKey: null,
         stateJson: JSON.stringify(initialState),
         createdAt: now,
@@ -100,6 +124,11 @@ export class CreateSessionUseCase {
         kind: character.kind,
         currentExpressionKey: character.currentExpressionKey,
         stateJson: character.stateJson,
+        name: character.name,
+        background: character.background,
+        sheetJson: character.sheetJson,
+        baseSheetVersion: character.baseSheetVersion,
+        baseProfileVersion: character.baseProfileVersion,
       })),
       checkRequests: [],
       handoutGrants: [],
@@ -112,10 +141,7 @@ export class CreateSessionUseCase {
       createdAt: now,
     });
 
-    return {
-      session,
-      characters: sessionChars,
-    };
+    return { session, characters: sessionChars };
   }
 }
 
@@ -124,12 +150,12 @@ export class ClaimSeatUseCase {
     private readonly repo: SessionsRepository,
     private readonly idGenerator: IdGenerator,
     private readonly clock: Clock,
-    private readonly onClaimReplaced?: (input: { sessionId: string; playerId: string }) => void
+    private readonly onClaimReplaced?: (input: { sessionId: string; holder: SeatHolderInput }) => void
   ) {}
 
   async execute(input: {
     sessionId: string;
-    playerId: string;
+    holder: SeatHolderInput;
     role: "pc" | "ob";
     characterId?: string;
   }) {
@@ -137,7 +163,7 @@ export class ClaimSeatUseCase {
     if (!session) {
       throw new SessionNotFoundError();
     }
-    const activeKick = await this.repo.findActiveSessionKick(input.sessionId, input.playerId);
+    const activeKick = await this.repo.findActiveSessionKick(input.sessionId, input.holder);
     if (activeKick) {
       throw new SessionKickedError();
     }
@@ -148,6 +174,9 @@ export class ClaimSeatUseCase {
     }
 
     if (input.role === "pc") {
+      if (input.holder.holderKind !== "user") {
+        throw new SessionStateInvalidError("PC seats require a player account");
+      }
       if (!input.characterId) {
         throw new SessionStateInvalidError("Character ID is required for pc role");
       }
@@ -161,31 +190,35 @@ export class ClaimSeatUseCase {
       }
 
       const activeClaim = await this.repo.findActiveClaimByCharacterId(input.sessionId, input.characterId);
-      if (activeClaim && activeClaim.playerId !== input.playerId) {
-        throw new SeatAlreadyClaimedError("This character's seat is already claimed");
+      if (activeClaim) {
+        const sameHolder = input.holder.holderKind === "user"
+          ? activeClaim.userId === input.holder.userId
+          : activeClaim.playerId === input.holder.playerId;
+        if (!sameHolder) {
+          throw new SeatAlreadyClaimedError("This character's seat is already claimed");
+        }
       }
     }
 
     const now = this.clock.nowEpochMs();
-
-    const previousClaim = await this.repo.findActiveClaimByPlayer(input.sessionId, input.playerId);
+    const previousClaim = await this.repo.findActiveClaimByHolder(input.sessionId, input.holder);
 
     const claim = {
       id: this.idGenerator.nextId(),
       sessionId: input.sessionId,
-      playerId: input.playerId,
+      ...resolvedHolder(input.holder),
       role: input.role,
       characterId: input.role === "pc" ? input.characterId || null : null,
       releasedAt: null,
       createdAt: now,
     };
 
-    const claimed = await this.repo.replacePlayerClaim(claim, now);
+    const claimed = await this.repo.replaceHolderClaim(claim, now);
     if (!claimed) {
       throw new SeatAlreadyClaimedError("This character's seat is already claimed");
     }
     if (previousClaim) {
-      this.onClaimReplaced?.({ sessionId: input.sessionId, playerId: input.playerId });
+      this.onClaimReplaced?.({ sessionId: input.sessionId, holder: input.holder });
     }
     return claim;
   }
@@ -198,15 +231,15 @@ export class GmAssignClaimUseCase {
     private readonly clock: Clock
   ) {}
 
-  async execute(input: { sessionId: string; playerId: string; characterId: string }) {
+  async execute(input: { ownerId: string; sessionId: string; holder: SeatHolderInput; characterId: string }) {
     const session = await this.repo.findSessionById(input.sessionId);
-    if (!session) {
+    if (!session || session.ownerId !== input.ownerId) {
       throw new SessionNotFoundError();
     }
     if (session.status === "ended") {
       throw new SessionStateInvalidError("Cannot assign PC seat in an ended session");
     }
-    const activeKick = await this.repo.findActiveSessionKick(input.sessionId, input.playerId);
+    const activeKick = await this.repo.findActiveSessionKick(input.sessionId, input.holder);
     if (activeKick) {
       throw new SessionKickedError();
     }
@@ -223,15 +256,15 @@ export class GmAssignClaimUseCase {
     const claim = {
       id: this.idGenerator.nextId(),
       sessionId: input.sessionId,
-      playerId: input.playerId,
+      ...resolvedHolder(input.holder),
       role: "pc" as const,
       characterId: input.characterId,
       releasedAt: null,
       createdAt: now,
     };
 
-    const { displacedPlayerIds } = await this.repo.forceReplacePlayerClaim(claim, now);
-    return { claim, displacedPlayerIds };
+    const { displacedHolderKeys } = await this.repo.forceReplaceHolderClaim(claim, now);
+    return { claim, displacedHolderKeys };
   }
 }
 
@@ -241,13 +274,13 @@ export class ReleaseSeatUseCase {
     private readonly clock: Clock
   ) {}
 
-  async execute(input: { sessionId: string; playerId: string }) {
+  async execute(input: { sessionId: string; holder: SeatHolderInput }) {
     const session = await this.repo.findSessionById(input.sessionId);
     if (!session) {
       throw new SessionNotFoundError();
     }
     const now = this.clock.nowEpochMs();
-    await this.repo.releasePlayerClaims(input.sessionId, input.playerId, now);
+    await this.repo.releaseHolderClaims(input.sessionId, input.holder, now);
     return { success: true };
   }
 }
@@ -260,7 +293,11 @@ export class UpdateSessionStatusUseCase {
     private readonly afterEnded?: (sessionId: string) => void
   ) {}
 
-  async execute(input: { sessionId: string; status: "waiting" | "preparing" | "active" | "ended" }) {
+  async execute(input: {
+    ownerId: string;
+    sessionId: string;
+    status: "waiting" | "preparing" | "active" | "ended";
+  }) {
     const allowedTransition: Record<string, string> = {
       waiting: "preparing",
       preparing: "active",
@@ -269,7 +306,7 @@ export class UpdateSessionStatusUseCase {
 
     const { session, staged, ended } = await this.transactionRunner.run(async (tx) => {
       const current = await this.repo.findSessionById(input.sessionId, tx);
-      if (!current) {
+      if (!current || current.ownerId !== input.ownerId) {
         throw new SessionNotFoundError();
       }
       if (current.status === input.status) {
@@ -313,12 +350,13 @@ export class UpdateSessionPhaseUseCase {
   ) {}
 
   async execute(input: {
+    ownerId: string;
     sessionId: string;
     phase: "free_discussion" | "performance_time" | "forced_cg" | "free_performance";
   }) {
     const { session, staged } = await this.transactionRunner.run(async (tx) => {
       const current = await this.repo.findSessionById(input.sessionId, tx);
-      if (!current) {
+      if (!current || current.ownerId !== input.ownerId) {
         throw new SessionNotFoundError();
       }
       if (current.status !== "active") {
@@ -346,22 +384,17 @@ export class GetSessionSnapshotUseCase {
     if (!session) {
       throw new SessionNotFoundError();
     }
-
     const characters = await this.repo.findSessionCharactersWithClaims(sessionId);
-
-    return {
-      session,
-      characters,
-    };
+    return { session, characters };
   }
 }
 
 export class RenameSessionUseCase {
   constructor(private readonly repo: SessionsRepository) {}
 
-  async execute(input: { sessionId: string; name: string | null }) {
+  async execute(input: { ownerId: string; sessionId: string; name: string | null }) {
     const session = await this.repo.findSessionById(input.sessionId);
-    if (!session) {
+    if (!session || session.ownerId !== input.ownerId) {
       throw new SessionNotFoundError();
     }
     const name = normaliseSessionName(input.name);
@@ -370,11 +403,28 @@ export class RenameSessionUseCase {
   }
 }
 
+export class SoftDeleteSessionUseCase {
+  constructor(
+    private readonly repo: SessionsRepository,
+    private readonly clock: Clock
+  ) {}
+
+  async execute(input: { ownerId: string; sessionId: string }) {
+    const session = await this.repo.findSessionById(input.sessionId);
+    if (!session || session.ownerId !== input.ownerId) {
+      throw new SessionNotFoundError();
+    }
+    await this.repo.softDeleteSession(input.sessionId, this.clock.nowEpochMs());
+    return { success: true };
+  }
+}
+
 export class ListSessionsUseCase {
   constructor(private readonly repo: SessionsRepository) {}
-  async execute(options: { limit: number; offset?: number; cursor?: string }) {
+  async execute(options: { ownerId?: string; limit: number; offset?: number; cursor?: string }) {
     return await this.repo.listSessions(options);
   }
 }
 
-export { CharacterAlreadyParticipatingError };
+export { CharacterAlreadyParticipatingError, holderKeyOf };
+export type { HolderKind, SeatHolderInput };

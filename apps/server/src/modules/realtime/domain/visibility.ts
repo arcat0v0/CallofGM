@@ -13,7 +13,7 @@ export function checkVisibility(
   scope: VisibilityScope,
   connectionId: string
 ): boolean {
-  if (actor.type === "gm") {
+  if (actor.type === "user" && actor.role === "gm") {
     return true;
   }
   switch (scope.type) {

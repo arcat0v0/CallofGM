@@ -5,7 +5,10 @@ import type { IdentityRepository } from "../application/ports";
 import { hashToken } from "../application/token";
 import { BlacklistedFingerprintError } from "../domain/errors";
 
-function parseCookie(cookieHeader: string, name: string): string | null {
+export const SESSION_COOKIE = "cogm_session";
+export const PLAYER_COOKIE = "player_token";
+
+export function parseCookie(cookieHeader: string, name: string): string | null {
   const pairs = cookieHeader.split(";");
   for (const pair of pairs) {
     const splitIndex = pair.indexOf("=");
@@ -21,6 +24,16 @@ function parseCookie(cookieHeader: string, name: string): string | null {
   return null;
 }
 
+export function readBearer(request: Request): string | null {
+  const authHeader = request.headers.get("authorization") || request.headers.get("Authorization");
+  return authHeader && authHeader.startsWith("Bearer ") ? authHeader.substring(7) : null;
+}
+
+export function readCookie(request: Request, name: string): string | null {
+  const cookieHeader = request.headers.get("cookie") || "";
+  return parseCookie(cookieHeader, name);
+}
+
 function readFingerprint(request: Request): string | null {
   return (
     request.headers.get("x-fingerprint") ||
@@ -31,50 +44,48 @@ function readFingerprint(request: Request): string | null {
 
 export function createAuthPlugin(repo: IdentityRepository) {
   return new Elysia({ name: "identity-auth" })
-    .derive({ as: "global" }, async ({ request, cookie }): Promise<{ actor: ActorContext | null }> => {
-      let token: string | null = null;
-      const authHeader = request.headers.get("authorization") || request.headers.get("Authorization");
-      if (authHeader && authHeader.startsWith("Bearer ")) {
-        token = authHeader.substring(7);
-      } else {
-        const cookieHeader = request.headers.get("cookie") || "";
-        const gmCookieVal = cookie?.gm_session?.value;
-        const playerCookieVal = cookie?.player_token?.value;
-        const gmCookie = typeof gmCookieVal === "string" ? gmCookieVal : parseCookie(cookieHeader, "gm_session");
-        const playerCookie = typeof playerCookieVal === "string" ? playerCookieVal : parseCookie(cookieHeader, "player_token");
-        token = gmCookie || playerCookie;
-      }
-
+    .derive({ as: "global" }, async ({ request }): Promise<{ actor: ActorContext | null }> => {
       const now = Date.now();
+      const sessionToken = readBearer(request) ?? readCookie(request, SESSION_COOKIE);
 
-      if (token) {
-        const tokenHash = hashToken(token);
-        const gmSession = await repo.findGmSessionByTokenHash(tokenHash);
-        if (gmSession && gmSession.revokedAt === null && gmSession.expiresAt > now) {
-          return { actor: { type: "gm", loginSessionId: gmSession.id } };
+      if (sessionToken) {
+        const session = await repo.findUserSessionByTokenHash(hashToken(sessionToken));
+        if (session && session.revokedAt === null && session.expiresAt > now) {
+          const user = await repo.findUserById(session.userId);
+          if (user && user.disabledAt === null && user.deletedAt === null) {
+            return {
+              actor: {
+                type: "user",
+                userId: user.id,
+                role: user.role,
+                loginSessionId: session.id,
+                username: user.username,
+              },
+            };
+          }
         }
       }
 
       const fingerprint = readFingerprint(request);
       if (fingerprint) {
         const fingerprintHash = createHash("sha256").update(fingerprint).digest("hex");
-        const isBlacklisted = await repo.isFingerprintBlacklisted(fingerprintHash);
-        if (isBlacklisted) {
+        if (await repo.isFingerprintBlacklisted(fingerprintHash)) {
           throw new BlacklistedFingerprintError();
         }
       }
 
-      if (!token) {
+      const playerToken = readBearer(request) ?? readCookie(request, PLAYER_COOKIE);
+      if (!playerToken) {
         return { actor: null };
       }
 
-      const playerToken = await repo.findPlayerTokenByTokenHash(hashToken(token));
-      if (playerToken && playerToken.revokedAt === null && playerToken.expiresAt > now) {
-        const player = await repo.findAnonymousPlayerById(playerToken.playerId);
+      const record = await repo.findPlayerTokenByTokenHash(hashToken(playerToken));
+      if (record && record.revokedAt === null && record.expiresAt > now) {
+        const player = await repo.findAnonymousPlayerById(record.playerId);
         if (!player || (await repo.isFingerprintBlacklisted(player.fingerprintHash))) {
           throw new BlacklistedFingerprintError();
         }
-        return { actor: { type: "player", playerId: playerToken.playerId } };
+        return { actor: { type: "player", playerId: record.playerId } };
       }
 
       return { actor: null };

@@ -248,11 +248,13 @@ export class SessionCommandExecutor {
       this.connectionRegistry.sendToPlayer(sessionId, target.playerId, target.message);
     }
 
-    for (const playerId of result.closeConnectionsOfPlayerIds ?? []) {
-      this.connectionRegistry.closePlayerConnections(
-        playerId,
-        result.closeConnectionsGlobally ? undefined : sessionId
-      );
+    for (const holderId of result.closeConnectionsOfHolders ?? []) {
+      const scope = result.closeConnectionsGlobally ? undefined : sessionId;
+      if (holderId.startsWith("user:")) {
+        this.connectionRegistry.closeUserConnections(holderId.slice(5), scope, 4000, "kicked");
+      } else if (holderId.startsWith("player:")) {
+        this.connectionRegistry.closePlayerConnections(holderId.slice(7), scope);
+      }
       result.refreshPresence = true;
     }
 

@@ -9,7 +9,10 @@ export interface ActiveConnection {
   connectionId: string;
   ws: { send(data: string): void; close(code?: number, reason?: string): void };
   sessionId: string;
+  holderKind: "user" | "anonymous";
+  holderId: string;
   playerId: string | null;
+  userId: string | null;
   actor: ActorContext;
   state?: "hydrating" | "active";
   hydrateBuffer?: Array<{ event: SessionEvent; visibility: VisibilityScope }>;
@@ -23,6 +26,7 @@ export class ConnectionRegistry {
   private connections = new Map<string, ActiveConnection>();
   private bySession = new Map<string, Set<string>>();
   private byPlayer = new Map<string, Set<string>>();
+  private byUser = new Map<string, Set<string>>();
 
   constructor(private readonly db: DbClient) {}
 
@@ -41,6 +45,12 @@ export class ConnectionRegistry {
         this.byPlayer.set(conn.playerId, new Set());
       }
       this.byPlayer.get(conn.playerId)!.add(conn.connectionId);
+    }
+    if (conn.userId) {
+      if (!this.byUser.has(conn.userId)) {
+        this.byUser.set(conn.userId, new Set());
+      }
+      this.byUser.get(conn.userId)!.add(conn.connectionId);
     }
   }
 
@@ -78,6 +88,16 @@ export class ConnectionRegistry {
         }
       }
     }
+
+    if (conn.userId) {
+      const userSet = this.byUser.get(conn.userId);
+      if (userSet) {
+        userSet.delete(connectionId);
+        if (userSet.size === 0) {
+          this.byUser.delete(conn.userId);
+        }
+      }
+    }
   }
 
   getConnectionsBySession(sessionId: string): ActiveConnection[] {
@@ -93,12 +113,12 @@ export class ConnectionRegistry {
     return result;
   }
 
-  /** 同一玩家多连接的聚合计数 */
+  /** 同一席位持有者多连接的聚合计数，键为 `${holderKind}:${holderId}` */
   countConnectionsByPlayer(sessionId: string): Map<string, number> {
     const counts = new Map<string, number>();
     for (const conn of this.getConnectionsBySession(sessionId)) {
-      if (!conn.playerId) continue;
-      counts.set(conn.playerId, (counts.get(conn.playerId) ?? 0) + 1);
+      const key = `${conn.holderKind}:${conn.holderId}`;
+      counts.set(key, (counts.get(key) ?? 0) + 1);
     }
     return counts;
   }
@@ -121,18 +141,21 @@ export class ConnectionRegistry {
       )
       .execute();
 
-    const playerToCharacterMap = new Map<string, string>();
+    const characterByHolder = new Map<string, string>();
     for (const claim of claims) {
-      if (claim.characterId) {
-        playerToCharacterMap.set(claim.playerId, claim.characterId);
+      if (!claim.characterId) continue;
+      if (claim.userId) {
+        characterByHolder.set(`user:${claim.userId}`, claim.characterId);
+      }
+      if (claim.playerId) {
+        characterByHolder.set(`player:${claim.playerId}`, claim.characterId);
       }
     }
 
     const serialized = JSON.stringify(event);
 
     for (const conn of sessionConnections) {
-      const claimedCharacterId =
-        conn.playerId ? playerToCharacterMap.get(conn.playerId) || null : null;
+      const claimedCharacterId = characterByHolder.get(`${conn.holderKind}:${conn.holderId}`) ?? null;
 
       if (checkVisibility(conn.actor, claimedCharacterId, visibility, conn.connectionId)) {
         if (conn.state === "hydrating") {
@@ -157,7 +180,7 @@ export class ConnectionRegistry {
       payload: message.payload,
     });
     for (const conn of this.getConnectionsBySession(sessionId)) {
-      if (conn.actor.type !== "gm") continue;
+      if (conn.actor.type !== "user" || conn.actor.role !== "gm") continue;
       try {
         conn.ws.send(serialized);
       } catch {
@@ -213,17 +236,49 @@ export class ConnectionRegistry {
     this.connections.clear();
     this.bySession.clear();
     this.byPlayer.clear();
+    this.byUser.clear();
+  }
+
+  /** 关闭某用户会话的全部连接（新登录顶替旧会话） */
+  closeLoginSessionConnections(loginSessionId: string, code = 401, reason = "session replaced"): number {
+    return this.closeMatching(
+      (conn) => conn.actor.type === "user" && conn.actor.loginSessionId === loginSessionId,
+      code,
+      reason
+    );
+  }
+
+  /** 关闭某账号的全部连接（禁用/删除账号/改密） */
+  closeUserConnections(
+    userId: string,
+    sessionId?: string,
+    code = 401,
+    reason = "session revoked"
+  ): number {
+    return this.closeMatching(
+      (conn) => conn.userId === userId && (!sessionId || conn.sessionId === sessionId),
+      code,
+      reason
+    );
   }
 
   /** 关闭某玩家在某团（或全部团）的全部连接，用于踢出/拉黑 */
   closePlayerConnections(playerId: string, sessionId?: string, code = 4000, reason = "kicked"): number {
-    const ids = this.byPlayer.get(playerId);
-    if (!ids) return 0;
+    return this.closeMatching(
+      (conn) => conn.playerId === playerId && (!sessionId || conn.sessionId === sessionId),
+      code,
+      reason
+    );
+  }
+
+  private closeMatching(
+    match: (conn: ActiveConnection) => boolean,
+    code: number,
+    reason: string
+  ): number {
     let closed = 0;
-    for (const connectionId of [...ids]) {
-      const conn = this.connections.get(connectionId);
-      if (!conn) continue;
-      if (sessionId && conn.sessionId !== sessionId) continue;
+    for (const [connectionId, conn] of [...this.connections.entries()]) {
+      if (!match(conn)) continue;
       // 必须在当前消息处理栈之外关闭：同步栈内调用 close 会让底层 socket 状态机卡死
       const ws = conn.ws;
       setTimeout(() => {

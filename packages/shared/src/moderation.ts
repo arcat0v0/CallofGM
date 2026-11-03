@@ -2,20 +2,26 @@ import { z } from "zod";
 
 // ---------- commands ----------
 
+export const SeatHolderKindDto = z.enum(["user", "anonymous"]);
+export type SeatHolderKindDto = z.infer<typeof SeatHolderKindDto>;
+
 export const KickPlayerCommand = z.object({
-  playerId: z.string().min(1),
+  holderKind: SeatHolderKindDto,
+  holderId: z.string().min(1),
   reason: z.string().max(500).optional(),
 });
 export type KickPlayerCommand = z.infer<typeof KickPlayerCommand>;
 
 export const UnkickPlayerCommand = z.object({
-  playerId: z.string().min(1),
+  holderKind: SeatHolderKindDto,
+  holderId: z.string().min(1),
 });
 export type UnkickPlayerCommand = z.infer<typeof UnkickPlayerCommand>;
 
 export const BanFingerprintCommand = z
   .object({
     playerId: z.string().min(1).optional(),
+    userId: z.string().min(1).optional(),
     fingerprintHash: z.string().min(1).optional(),
     reason: z.string().max(500).default(""),
     /** 封禁时长（秒）；不传表示永久 */
@@ -35,7 +41,9 @@ export type UnbanFingerprintCommand = z.infer<typeof UnbanFingerprintCommand>;
 // ---------- events & DTO ----------
 
 export const OnlinePlayerDto = z.object({
-  playerId: z.string(),
+  holderKind: SeatHolderKindDto,
+  holderId: z.string(),
+  displayName: z.string().nullable(),
   role: z.enum(["pc", "ob"]),
   characterId: z.string().nullable(),
   connectionCount: z.number().int().min(1),
@@ -43,7 +51,8 @@ export const OnlinePlayerDto = z.object({
 export type OnlinePlayerDto = z.infer<typeof OnlinePlayerDto>;
 
 export const KickedPlayerDto = z.object({
-  playerId: z.string(),
+  holderKind: SeatHolderKindDto,
+  holderId: z.string(),
   displayName: z.string().nullable(),
   reason: z.string().nullable(),
   createdAt: z.number().int(),

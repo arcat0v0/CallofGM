@@ -44,7 +44,7 @@ export class GrantHandoutHandler implements CommandHandler {
   constructor(private readonly repoFactory: (tx: DbClient) => HandoutsRepository) {}
 
   async execute(ctx: CommandHandlerContext, payload: unknown): Promise<CommandHandlerResult> {
-    if (ctx.actor.type !== "gm") {
+    if (ctx.actor.type !== "user" || ctx.actor.role !== "gm") {
       throw new ForbiddenError("Only the GM can grant handouts");
     }
     const parsed = GrantHandoutCommand.safeParse(payload);
@@ -116,7 +116,7 @@ export class AppendHandoutRecipientsHandler implements CommandHandler {
   constructor(private readonly repoFactory: (tx: DbClient) => HandoutsRepository) {}
 
   async execute(ctx: CommandHandlerContext, payload: unknown): Promise<CommandHandlerResult> {
-    if (ctx.actor.type !== "gm") {
+    if (ctx.actor.type !== "user" || ctx.actor.role !== "gm") {
       throw new ForbiddenError("Only the GM can append handout recipients");
     }
     const parsed = AppendHandoutRecipientsCommand.safeParse(payload);

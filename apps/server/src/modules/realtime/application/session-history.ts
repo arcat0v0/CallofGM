@@ -222,7 +222,7 @@ export class SessionHistoryPager {
       eq(sessionHistoryEvents.sessionId, input.sessionId),
       isNull(sessionHistoryEvents.archivedAt),
     ];
-    if (input.actor.type !== "gm") {
+    if (input.actor.type !== "user" || input.actor.role !== "gm") {
       eventConditions.push(eq(sessionHistoryEvents.playerVisible, 1));
     }
     if (beforeEventId !== null) {

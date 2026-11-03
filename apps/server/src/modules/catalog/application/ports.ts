@@ -1,10 +1,15 @@
 export interface CatalogModule {
   id: string;
+  ownerId: string;
   name: string;
   description: string;
   ruleId: string;
   themeId: string | null;
+  sourceTemplateId?: string | null;
+  sourceTemplateVersion?: number | null;
+  deletedAt?: number | null;
   createdAt: number;
+  updatedAt?: number;
 }
 
 export interface CatalogScene {
@@ -13,6 +18,7 @@ export interface CatalogScene {
   name: string;
   sortOrder: number;
   bgAssetId: string | null;
+  deletedAt?: number | null;
   createdAt: number;
 }
 
@@ -25,6 +31,7 @@ export interface CatalogTrack {
   duration: number;
   audioSize: number | null;
   audioUploadedAt: number | null;
+  deletedAt?: number | null;
   createdAt: number;
 }
 
@@ -44,6 +51,7 @@ export interface CatalogHandout {
   title: string;
   content: string;
   imageAssetId: string | null;
+  deletedAt?: number | null;
   createdAt: number;
 }
 
@@ -51,9 +59,10 @@ export interface CatalogRepository {
   findModuleById(id: string): Promise<CatalogModule | null>;
   saveModule(module: CatalogModule): Promise<void>;
   updateModule(id: string, updates: Partial<Omit<CatalogModule, "id" | "createdAt">>): Promise<CatalogModule>;
-  deleteModule(id: string): Promise<void>;
+  softDeleteModule(id: string, deletedAt: number): Promise<void>;
   isModuleInUse(id: string): Promise<boolean>;
   listModules(options: {
+    ownerId?: string;
     limit: number;
     offset?: number;
     cursor?: string;

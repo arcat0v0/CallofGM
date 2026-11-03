@@ -16,6 +16,8 @@ import {
   handouts,
   tracks,
   characterPortraits,
+  users,
+  anonymousPlayers,
 } from "@/platform/db/schema";
 import type {
   SessionSnapshotPayload,
@@ -26,6 +28,8 @@ import type {
   BgmState,
 } from "@cogm/shared";
 import type { ActorContext } from "@/modules/identity";
+import { holderOfActor } from "@/modules/identity";
+import type { SeatHolderInput } from "@/modules/sessions";
 import { SessionNotFoundError } from "@/modules/sessions";
 import type { RuleRegistry } from "@/rules/registry";
 import type { RuleId } from "@cogm/shared";
@@ -40,6 +44,12 @@ const RECENT_HISTORY_LIMIT = 50;
  * 构建按请求者可见性过滤的全量快照。
  * 所有秘密数据（秘密情报、暗骰、NPC 状态、GM 队列）在此完成服务端裁剪。
  */
+function senderHolderCondition(holder: SeatHolderInput, table: typeof sessionMessages) {
+  return holder.holderKind === "user"
+    ? eq(table.senderUserId, holder.userId!)
+    : eq(table.senderId, holder.playerId!);
+}
+
 export class BuildSessionSnapshotUseCase {
   private readonly historyPager: SessionHistoryPager;
 
@@ -60,13 +70,36 @@ export class BuildSessionSnapshotUseCase {
     sessionId: string,
     isGm: boolean,
     claimedCharacterId: string | null,
-    playerId: string | null = null
+    holder: SeatHolderInput | null = null
   ): Promise<GrantedHandoutDto[]> {
-    return this.buildVisibleHandouts(sessionId, isGm, claimedCharacterId, playerId);
+    return this.buildVisibleHandouts(sessionId, isGm, claimedCharacterId, holder);
   }
 
   async listPendingQueue(sessionId: string): Promise<ChatMessageDto[]> {
     return this.buildPendingQueue(sessionId);
+  }
+
+  private async loadClaimHolderNames(
+    claims: Array<{ holderKind: string; userId: string | null; playerId: string | null }>
+  ): Promise<Map<string, string>> {
+    const names = new Map<string, string>();
+    const userIds = claims.map((c) => c.userId).filter((id): id is string => Boolean(id));
+    const playerIds = claims.map((c) => c.playerId).filter((id): id is string => Boolean(id));
+    if (userIds.length > 0) {
+      const rows = await this.db
+        .select({ id: users.id, username: users.username })
+        .from(users)
+        .where(inArray(users.id, userIds));
+      for (const row of rows) names.set(`user:${row.id}`, row.username);
+    }
+    if (playerIds.length > 0) {
+      const rows = await this.db
+        .select({ id: anonymousPlayers.id })
+        .from(anonymousPlayers)
+        .where(inArray(anonymousPlayers.id, playerIds));
+      for (const row of rows) names.set(`player:${row.id}`, `观战 ${row.id.slice(0, 8)}`);
+    }
+    return names;
   }
 
   async listDiscardedQueue(sessionId: string): Promise<ChatMessageDto[]> {
@@ -80,7 +113,8 @@ export class BuildSessionSnapshotUseCase {
     connectionId?: string;
   }): Promise<SessionSnapshotPayload> {
     const { sessionId, actor, claimedCharacterId } = input;
-    const isGm = actor.type === "gm";
+    const isGm = actor.type === "user" && actor.role === "gm";
+    const actorHolder = isGm ? null : holderOfActor(actor);
 
     const sessionRows = await this.db.select().from(sessions).where(eq(sessions.id, sessionId));
     const session = sessionRows[0];
@@ -125,12 +159,7 @@ export class BuildSessionSnapshotUseCase {
         connectionId: input.connectionId ?? "",
         limit: RECENT_HISTORY_LIMIT,
       }),
-      this.buildVisibleHandouts(
-        sessionId,
-        isGm,
-        claimedCharacterId,
-        actor.type === "player" ? actor.playerId : null
-      ),
+      this.buildVisibleHandouts(sessionId, isGm, claimedCharacterId, actorHolder),
       this.buildPendingCheckRequests(sessionId, isGm, claimedCharacterId),
       isGm ? this.buildPendingQueue(sessionId) : Promise.resolve(undefined),
       isGm ? Promise.resolve(undefined) : this.buildOwnPendingQueue(sessionId, actor),
@@ -142,11 +171,21 @@ export class BuildSessionSnapshotUseCase {
     ]);
 
     return {
-      viewer: { isGm, seatRole },
+      viewer: {
+        isGm,
+        seatRole,
+        holderKind: actorHolder?.holderKind ?? null,
+        holderId: actorHolder
+          ? actorHolder.holderKind === "user"
+            ? actorHolder.userId
+            : actorHolder.playerId
+          : null,
+      },
       session: {
         id: session.id,
         name: session.name ?? null,
         moduleId: session.moduleId,
+        ruleId: session.ruleId,
         moduleName,
         themeId: moduleRows[0]?.themeId ?? null,
         status: session.status as SessionSnapshotPayload["session"]["status"],
@@ -178,16 +217,19 @@ export class BuildSessionSnapshotUseCase {
   }
 
   private async resolveSeatRole(sessionId: string, actor: ActorContext): Promise<"pc" | "ob" | null> {
-    if (actor.type !== "player") {
+    if (actor.type === "user" && actor.role !== "pl") {
       return null;
     }
+    const holder = holderOfActor(actor);
     const rows = await this.db
       .select({ role: sessionClaims.role })
       .from(sessionClaims)
       .where(
         and(
           eq(sessionClaims.sessionId, sessionId),
-          eq(sessionClaims.playerId, actor.playerId),
+          holder.holderKind === "user"
+            ? eq(sessionClaims.userId, holder.userId!)
+            : eq(sessionClaims.playerId, holder.playerId!),
           isNull(sessionClaims.releasedAt)
         )
       );
@@ -206,24 +248,20 @@ export class BuildSessionSnapshotUseCase {
     seatRole: "pc" | "ob" | null,
     settings: { sharePcSheets: boolean; obSeePcState: boolean }
   ): Promise<SnapshotCharacter[]> {
-    const isGm = actor.type === "gm";
-    const playerId = actor.type === "player" ? actor.playerId : null;
+    const isGm = actor.type === "user" && actor.role === "gm";
+    const actorHolder = actor.type === "user" && actor.role === "gm" ? null : holderOfActor(actor);
+    const actorHolderKey = actorHolder
+      ? `${actorHolder.holderKind}:${actorHolder.holderKind === "user" ? actorHolder.userId : actorHolder.playerId}`
+      : null;
     const sessionChars = await this.db
       .select()
       .from(sessionCharacters)
-      .where(eq(sessionCharacters.sessionId, sessionId));
+      .where(and(eq(sessionCharacters.sessionId, sessionId), isNull(sessionCharacters.deletedAt)));
     if (sessionChars.length === 0) {
       return [];
     }
 
     const charIds = sessionChars.map((sc) => sc.characterId);
-    const charRows = await this.db
-      .select({ id: characters.id, name: characters.name, sheetJson: characters.sheetJson })
-      .from(characters)
-      .where(inArray(characters.id, charIds));
-    const nameMap = new Map(charRows.map((c) => [c.id, c.name]));
-    const sheetMap = new Map(charRows.map((c) => [c.id, c.sheetJson]));
-
     const portraitRows = await this.db
       .select({
         characterId: characterPortraits.characterId,
@@ -232,7 +270,7 @@ export class BuildSessionSnapshotUseCase {
         isDefault: characterPortraits.isDefault,
       })
       .from(characterPortraits)
-      .where(inArray(characterPortraits.characterId, charIds));
+      .where(and(inArray(characterPortraits.characterId, charIds), isNull(characterPortraits.deletedAt)));
     const portraitsByCharacter = new Map<string, SnapshotCharacter["portraits"]>();
     for (const portrait of portraitRows) {
       const list = portraitsByCharacter.get(portrait.characterId) ?? [];
@@ -248,11 +286,21 @@ export class BuildSessionSnapshotUseCase {
       .select()
       .from(sessionClaims)
       .where(and(eq(sessionClaims.sessionId, sessionId), isNull(sessionClaims.releasedAt)));
-    const claimMap = new Map<string, { playerId: string; role: string }>();
+    const holderNames = await this.loadClaimHolderNames(activeClaims);
+    const claimMap = new Map<
+      string,
+      { holderKind: "user" | "anonymous"; holderId: string; displayName: string | null; role: string }
+    >();
     for (const claim of activeClaims) {
-      if (claim.characterId) {
-        claimMap.set(claim.characterId, { playerId: claim.playerId, role: claim.role });
-      }
+      if (!claim.characterId) continue;
+      const holderKind = claim.holderKind as "user" | "anonymous";
+      const holderId = (holderKind === "user" ? claim.userId : claim.playerId) ?? "";
+      claimMap.set(claim.characterId, {
+        holderKind,
+        holderId,
+        displayName: holderNames.get(`${holderKind}:${holderId}`) ?? null,
+        role: claim.role,
+      });
     }
 
     const ruleSystem = this.ruleRegistry.get(ruleId);
@@ -277,32 +325,36 @@ export class BuildSessionSnapshotUseCase {
 
       const claim = claimMap.get(sc.characterId) ?? null;
       const ownPc =
-        playerId !== null &&
+        actorHolderKey !== null &&
         kind === "pc" &&
-        claim?.playerId === playerId &&
+        claim !== null &&
+        `${claim.holderKind}:${claim.holderId}` === actorHolderKey &&
         claim.role === "pc";
+      const isParticipant = actorHolderKey !== null;
       let sheet: unknown = null;
       const sheetVisible =
-        isGm || ownPc || (kind === "pc" && settings.sharePcSheets && actor.type === "player");
+        isGm || ownPc || (kind === "pc" && settings.sharePcSheets && isParticipant);
       if (sheetVisible) {
-        const raw = sheetMap.get(sc.characterId);
-        if (raw) {
-          try {
-            sheet = JSON.parse(raw);
-          } catch {
-            sheet = null;
-          }
+        try {
+          sheet = JSON.parse(sc.sheetJson);
+        } catch {
+          sheet = null;
         }
       }
       return {
         characterId: sc.characterId,
-        name: nameMap.get(sc.characterId) ?? "Unknown",
+        name: sc.name,
         kind,
         currentExpressionKey: sc.currentExpressionKey ?? null,
         state,
         portraits: portraitsByCharacter.get(sc.characterId) ?? [],
         claim: claim
-          ? { playerId: claim.playerId, role: claim.role === "pc" ? ("pc" as const) : ("ob" as const) }
+          ? {
+              holderKind: claim.holderKind,
+              holderId: claim.holderId,
+              displayName: claim.displayName,
+              role: claim.role === "pc" ? ("pc" as const) : ("ob" as const),
+            }
           : null,
         sheet,
       };
@@ -373,16 +425,17 @@ export class BuildSessionSnapshotUseCase {
     sessionId: string,
     actor: ActorContext
   ): Promise<ChatMessageDto[]> {
-    if (actor.type !== "player") {
+    if (actor.type === "user" && actor.role === "gm") {
       return [];
     }
+    const holder = holderOfActor(actor);
     const rows = await this.db
       .select()
       .from(sessionMessages)
       .where(
         and(
           eq(sessionMessages.sessionId, sessionId),
-          eq(sessionMessages.senderId, actor.playerId),
+          senderHolderCondition(holder, sessionMessages),
           eq(sessionMessages.status, "pending")
         )
       )
@@ -397,16 +450,17 @@ export class BuildSessionSnapshotUseCase {
     sessionId: string,
     actor: ActorContext
   ): Promise<ChatMessageDto[]> {
-    if (actor.type !== "player") {
+    if (actor.type === "user" && actor.role === "gm") {
       return [];
     }
+    const holder = holderOfActor(actor);
     const rows = await this.db
       .select()
       .from(sessionMessages)
       .where(
         and(
           eq(sessionMessages.sessionId, sessionId),
-          eq(sessionMessages.senderId, actor.playerId),
+          senderHolderCondition(holder, sessionMessages),
           eq(sessionMessages.status, "discarded")
         )
       )
@@ -434,7 +488,7 @@ export class BuildSessionSnapshotUseCase {
     sessionId: string,
     isGm: boolean,
     claimedCharacterId: string | null,
-    playerId: string | null
+    holder: SeatHolderInput | null
   ): Promise<GrantedHandoutDto[]> {
     const grants = await this.db
       .select()
@@ -451,13 +505,15 @@ export class BuildSessionSnapshotUseCase {
         .select()
         .from(handoutGrantRecipients)
         .where(inArray(handoutGrantRecipients.grantId, grantIds)),
-      playerId
+      holder
         ? this.db
             .select({ grantId: handoutReads.grantId })
             .from(handoutReads)
             .where(
               and(
-                eq(handoutReads.playerId, playerId),
+                holder.holderKind === "user"
+                  ? eq(handoutReads.userId, holder.userId!)
+                  : eq(handoutReads.playerId, holder.playerId!),
                 inArray(handoutReads.grantId, grantIds)
               )
             )

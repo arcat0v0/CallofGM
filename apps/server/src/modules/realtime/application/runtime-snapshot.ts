@@ -30,13 +30,19 @@ export interface RuntimeSnapshotCheckRequest {
   createdAt: number;
 }
 
+export interface RuntimeSnapshotHandoutRead {
+  playerId: string | null;
+  userId: string | null;
+  readAt: number;
+}
+
 export interface RuntimeSnapshotHandoutGrant {
   id: string;
   handoutId: string;
   isPublic: number;
   createdAt: number;
   recipients: string[];
-  reads: Array<{ playerId: string; readAt: number }>;
+  reads: RuntimeSnapshotHandoutRead[];
 }
 
 export interface RuntimeSnapshot {
@@ -91,6 +97,7 @@ export async function captureRuntimeSnapshot(db: DbClient, sessionId: string): P
           .select({
             grantId: handoutReads.grantId,
             playerId: handoutReads.playerId,
+            userId: handoutReads.userId,
             readAt: handoutReads.readAt,
           })
           .from(handoutReads)
@@ -104,10 +111,10 @@ export async function captureRuntimeSnapshot(db: DbClient, sessionId: string): P
     list.push(recipient.characterId);
     recipientsByGrant.set(recipient.grantId, list);
   }
-  const readsByGrant = new Map<string, Array<{ playerId: string; readAt: number }>>();
+  const readsByGrant = new Map<string, RuntimeSnapshotHandoutRead[]>();
   for (const read of readRows) {
     const list = readsByGrant.get(read.grantId) ?? [];
-    list.push({ playerId: read.playerId, readAt: read.readAt });
+    list.push({ playerId: read.playerId, userId: read.userId, readAt: read.readAt });
     readsByGrant.set(read.grantId, list);
   }
 

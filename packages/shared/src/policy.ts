@@ -5,9 +5,15 @@ export type MessageDecision =
   | { kind: "queued"; channel: MessageChannel }
   | { kind: "forbidden" };
 
+/**
+ * 发言裁决的观察者身份：GM、持 PC/OB 席位的玩家、以及不占座位的管理员。
+ * 判定与席位无关，服务端据此拒绝命令，前端用同一函数只做输入禁用。
+ */
+export type SpeakerRole = "gm" | "player" | "admin";
+
 export function decideChatMessage(
   phase: SessionPhase,
-  actorType: "gm" | "player",
+  actorType: SpeakerRole,
   seatRole: SeatRole | null,
   channel: MessageChannel,
 ): MessageDecision {
@@ -17,7 +23,7 @@ export function decideChatMessage(
 
   const role: SeatRole = seatRole ?? "ob";
 
-  if (role === "pc") {
+  if (actorType === "player" && role === "pc") {
     switch (phase) {
       case "free_discussion":
         return { kind: "immediate", channel: "ooc" };
@@ -44,9 +50,9 @@ export function decideChatMessage(
 
 export function canPlayerInitiateDiceRoll(
   phase: SessionPhase,
-  actorType: "gm" | "player",
+  actorType: SpeakerRole,
   seatRole: SeatRole | null,
 ): boolean {
-  if (actorType === "player" && seatRole === "ob") return false;
+  if (actorType !== "gm" && seatRole === "ob") return false;
   return decideChatMessage(phase, actorType, seatRole, "ooc").kind !== "forbidden";
 }

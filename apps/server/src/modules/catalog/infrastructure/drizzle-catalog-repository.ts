@@ -1,4 +1,4 @@
-import { eq, and, or, gt, asc, count, isNotNull, max } from "drizzle-orm";
+import { eq, and, or, gt, asc, count, isNotNull, max, isNull } from "drizzle-orm";
 import type { DbClient } from "@/platform/db/client";
 import {
   modules,
@@ -65,13 +65,13 @@ export class DrizzleCatalogRepository implements CatalogRepository {
     const result = await this.db
       .select()
       .from(modules)
-      .where(eq(modules.id, id))
+      .where(and(eq(modules.id, id), isNull(modules.deletedAt)))
       .limit(1);
-    return result[0] || null;
+    return (result[0] as CatalogModule | undefined) ?? null;
   }
 
   async saveModule(module: CatalogModule): Promise<void> {
-    await this.db.insert(modules).values(module);
+    await this.db.insert(modules).values(module as typeof modules.$inferInsert);
   }
 
   async updateModule(
@@ -91,15 +91,20 @@ export class DrizzleCatalogRepository implements CatalogRepository {
   }
 
   async isModuleInUse(id: string): Promise<boolean> {
-    const rows = await this.db.select({ id: sessions.id }).from(sessions).where(eq(sessions.moduleId, id)).limit(1);
+    const rows = await this.db
+      .select({ id: sessions.id })
+      .from(sessions)
+      .where(and(eq(sessions.moduleId, id), isNull(sessions.deletedAt)))
+      .limit(1);
     return rows.length > 0;
   }
 
-  async deleteModule(id: string): Promise<void> {
+  async softDeleteModule(id: string, deletedAt: number): Promise<void> {
     const result = await this.db
-      .delete(modules)
+      .update(modules)
+      .set({ deletedAt, updatedAt: deletedAt })
       .where(eq(modules.id, id))
-      .returning();
+      .returning({ id: modules.id });
     if (result.length === 0) {
       throw new ModuleNotFoundError();
     }
@@ -224,7 +229,7 @@ export class DrizzleCatalogRepository implements CatalogRepository {
   }
 
   async saveScene(scene: CatalogScene): Promise<void> {
-    await this.db.insert(scenes).values(scene);
+    await this.db.insert(scenes).values(scene as typeof scenes.$inferInsert);
   }
 
   async updateScene(
@@ -245,7 +250,8 @@ export class DrizzleCatalogRepository implements CatalogRepository {
 
   async deleteScene(id: string): Promise<void> {
     const result = await this.db
-      .delete(scenes)
+      .update(scenes)
+      .set({ deletedAt: Date.now() })
       .where(eq(scenes.id, id))
       .returning();
     if (result.length === 0) {
@@ -352,7 +358,8 @@ export class DrizzleCatalogRepository implements CatalogRepository {
 
   async deleteTrack(id: string): Promise<void> {
     const result = await this.db
-      .delete(tracks)
+      .update(tracks)
+      .set({ deletedAt: Date.now() })
       .where(eq(tracks.id, id))
       .returning();
     if (result.length === 0) {
@@ -417,7 +424,7 @@ export class DrizzleCatalogRepository implements CatalogRepository {
   }
 
   async saveHandout(handout: CatalogHandout): Promise<void> {
-    await this.db.insert(handouts).values(handout);
+    await this.db.insert(handouts).values(handout as typeof handouts.$inferInsert);
   }
 
   async updateHandout(
@@ -438,7 +445,8 @@ export class DrizzleCatalogRepository implements CatalogRepository {
 
   async deleteHandout(id: string): Promise<void> {
     const result = await this.db
-      .delete(handouts)
+      .update(handouts)
+      .set({ deletedAt: Date.now() })
       .where(eq(handouts.id, id))
       .returning();
     if (result.length === 0) {

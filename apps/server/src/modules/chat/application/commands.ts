@@ -103,13 +103,14 @@ export class SendChatMessageHandler implements CommandHandler {
     const input = parsed.data;
     const repo = this.repoFactory(ctx.tx);
 
-    const isGm = ctx.actor.type === "gm";
+    const isGm = ctx.actor.type === "user" && ctx.actor.role === "gm";
+    const speakerRole = isGm ? "gm" : "player";
     const characterId = isGm ? null : (ctx.seat?.characterId ?? null);
     const senderId = ctx.actor.type === "player" ? ctx.actor.playerId : null;
 
     const decision = decideChatMessage(
       ctx.session.phase as SessionPhase,
-      ctx.actor.type,
+      speakerRole,
       ctx.seat?.role ?? null,
       input.channel
     );
@@ -220,7 +221,7 @@ export class ReleaseChatMessageHandler implements CommandHandler {
   constructor(private readonly repoFactory: (tx: DbClient) => ChatRepository) {}
 
   async execute(ctx: CommandHandlerContext, payload: unknown): Promise<CommandHandlerResult> {
-    if (ctx.actor.type !== "gm") {
+    if (ctx.actor.type !== "user" || ctx.actor.role !== "gm") {
       throw new ForbiddenError("Only the GM can release queued messages");
     }
     const parsed = ReleaseChatMessageCommand.safeParse(payload);
@@ -278,7 +279,7 @@ export class DiscardChatMessageHandler implements CommandHandler {
   constructor(private readonly repoFactory: (tx: DbClient) => ChatRepository) {}
 
   async execute(ctx: CommandHandlerContext, payload: unknown): Promise<CommandHandlerResult> {
-    if (ctx.actor.type !== "gm") {
+    if (ctx.actor.type !== "user" || ctx.actor.role !== "gm") {
       throw new ForbiddenError("Only the GM can discard queued messages");
     }
     const parsed = DiscardChatMessageCommand.safeParse(payload);
@@ -321,7 +322,7 @@ export class RestoreChatMessageHandler implements CommandHandler {
   constructor(private readonly repoFactory: (tx: DbClient) => ChatRepository) {}
 
   async execute(ctx: CommandHandlerContext, payload: unknown): Promise<CommandHandlerResult> {
-    if (ctx.actor.type !== "gm") {
+    if (ctx.actor.type !== "user" || ctx.actor.role !== "gm") {
       throw new ForbiddenError("Only the GM can restore discarded messages");
     }
     const parsed = RestoreChatMessageCommand.safeParse(payload);
@@ -371,7 +372,7 @@ export class ReorderChatQueueHandler implements CommandHandler {
   constructor(private readonly repoFactory: (tx: DbClient) => ChatRepository) {}
 
   async execute(ctx: CommandHandlerContext, payload: unknown): Promise<CommandHandlerResult> {
-    if (ctx.actor.type !== "gm") {
+    if (ctx.actor.type !== "user" || ctx.actor.role !== "gm") {
       throw new ForbiddenError("Only the GM can reorder the queue");
     }
     const parsed = ReorderChatQueueCommand.safeParse(payload);

@@ -1,6 +1,19 @@
 import { z } from "zod";
-import { type RuleId } from "@cogm/shared";
 import { type RandomSource } from "@/platform/ports";
+
+export const RULE_API_VERSION = 1;
+
+export interface RuleMetadata {
+  id: string;
+  name: string;
+  /** 规则实现自身 semver */
+  version: string;
+  /** 与核心契约兼容的版本；不匹配的规则不出现在选择器 */
+  apiVersion: number;
+  description: string;
+  /** 本规则声明 GM 可跨团修正的终生字段 */
+  permanentSheetFields: string[];
+}
 
 export interface CharacterSheetPreview<T> {
   characterName: string;
@@ -39,12 +52,22 @@ export interface StateMutationResult<TSessionState> {
   hints: string[];
 }
 
+export interface PermanentFieldEditInput {
+  field: string;
+  value: number;
+}
+
 export abstract class RuleSystem<TSheet, TSessionState> {
-  abstract readonly id: RuleId;
+  abstract readonly id: string;
+  abstract readonly metadata: RuleMetadata;
   abstract readonly characterSheetSchema: z.ZodType<TSheet>;
   abstract readonly sessionStateSchema: z.ZodType<TSessionState>;
 
+  /** 新建人物时的规则空卡 */
+  abstract createEmptySheet(): TSheet;
+
   parseCharacterSheet?(input: ArrayBuffer): Promise<CharacterSheetPreview<TSheet>>;
+
   abstract initializeSessionState(sheet: TSheet): TSessionState;
   abstract evaluateSkillCheck(input: SkillCheckInput, random: RandomSource): unknown;
   abstract evaluateSanCheck(input: SanCheckInput, random: RandomSource): unknown;
@@ -70,4 +93,13 @@ export abstract class RuleSystem<TSheet, TSessionState> {
   abstract markSkillGrowth(state: TSessionState, skillKey: string): TSessionState;
 
   abstract markSkillGrowthHidden(state: TSessionState, skillKey: string): TSessionState;
+
+  /** 规则声明的终生字段当前取值，供 GM 修改审计比较 */
+  abstract readPermanentFields(sheet: TSheet): Record<string, number>;
+
+  /** GM 修改规则声明的终生字段；未知字段抛错 */
+  abstract applyPermanentFieldEdit(sheet: TSheet, edit: PermanentFieldEditInput): TSheet;
+
+  /** 增量成长写回人物卡技能（结团确认后调用）；不存在的技能按本次增量新建 */
+  abstract applySkillGrowth(sheet: TSheet, skillKey: string, delta: number): TSheet;
 }

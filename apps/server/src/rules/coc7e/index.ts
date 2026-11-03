@@ -1,21 +1,105 @@
-import { type RuleId } from "@cogm/shared";
 import { type RandomSource } from "@/platform/ports";
 import {
   RuleSystem,
+  RULE_API_VERSION,
+  type RuleMetadata,
   type CharacterSheetPreview,
   type SkillCheckInput,
   type SanCheckInput,
   type StateMutationResult,
+  type PermanentFieldEditInput,
 } from "@/rules/rule-system";
 import { evaluateLossExpression } from "@/rules/dice-engine";
 import { AppError } from "@/platform/errors/app-error";
 import { coc7e } from "@cogm/shared";
 import { parseCoc7eCharacterSheet } from "./excel-parser";
 
+const COC7E_PERMANENT_FIELDS = [
+  "str",
+  "con",
+  "siz",
+  "dex",
+  "app",
+  "int",
+  "pow",
+  "edu",
+  "luck",
+] as const;
+
+const COC7E_ATTRIBUTE_LABELS: Record<string, string> = {
+  str: "力量",
+  con: "体质",
+  siz: "体型",
+  dex: "敏捷",
+  app: "外貌",
+  int: "智力",
+  pow: "意志",
+  edu: "教育",
+  luck: "幸运",
+};
+
 export class Coc7eRuleSystem extends RuleSystem<coc7e.Coc7eCharacterSheet, coc7e.CharacterSessionState> {
-  readonly id: RuleId = "coc7e";
+  readonly id = "coc7e";
+  readonly metadata: RuleMetadata = {
+    id: "coc7e",
+    name: "克苏鲁的呼唤 第 7 版",
+    version: "1.0.0",
+    apiVersion: RULE_API_VERSION,
+    description: "Call of Cthulhu 7th Edition：九项属性、技能目录、理智检定与成长标记。",
+    permanentSheetFields: [...COC7E_PERMANENT_FIELDS],
+  };
   readonly characterSheetSchema = coc7e.Coc7eCharacterSheet;
   readonly sessionStateSchema = coc7e.CharacterSessionState;
+
+  createEmptySheet(): coc7e.Coc7eCharacterSheet {
+    return {
+      schemaVersion: 1,
+      attributes: { str: 50, con: 50, siz: 50, dex: 50, app: 50, int: 50, pow: 50, edu: 50, luck: 50 },
+      skills: {},
+    };
+  }
+
+  readPermanentFields(sheet: coc7e.Coc7eCharacterSheet): Record<string, number> {
+    const result: Record<string, number> = {};
+    for (const field of COC7E_PERMANENT_FIELDS) {
+      result[field] = sheet.attributes[field];
+    }
+    return result;
+  }
+
+  applyPermanentFieldEdit(
+    sheet: coc7e.Coc7eCharacterSheet,
+    edit: PermanentFieldEditInput
+  ): coc7e.Coc7eCharacterSheet {
+    if (!(COC7E_PERMANENT_FIELDS as readonly string[]).includes(edit.field)) {
+      throw new AppError(
+        "PERMANENT_FIELD_NOT_EDITABLE",
+        `${edit.field} is not a permanent field of coc7e`,
+        400
+      );
+    }
+    const label = COC7E_ATTRIBUTE_LABELS[edit.field] ?? edit.field;
+    return this.characterSheetSchema.parse({
+      ...sheet,
+      attributes: {
+        ...sheet.attributes,
+        [edit.field]: Math.min(99, Math.max(1, Math.trunc(edit.value))),
+      },
+    });
+  }
+
+  applySkillGrowth(
+    sheet: coc7e.Coc7eCharacterSheet,
+    skillKey: string,
+    delta: number
+  ): coc7e.Coc7eCharacterSheet {
+    const current = sheet.skills[skillKey] ?? coc7e.coc7eSkillTargetValue(sheet, skillKey) ?? 0;
+    const next = Math.min(99, Math.max(0, current + Math.max(0, Math.trunc(delta))));
+    return this.characterSheetSchema.parse({
+      ...sheet,
+      skills: { ...sheet.skills, [skillKey]: next },
+    });
+  }
 
   async parseCharacterSheet(input: ArrayBuffer): Promise<CharacterSheetPreview<coc7e.Coc7eCharacterSheet>> {
     return parseCoc7eCharacterSheet(input);

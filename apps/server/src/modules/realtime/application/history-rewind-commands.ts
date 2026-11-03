@@ -443,7 +443,7 @@ class HistoryPreviewRewindHandler implements CommandHandler {
   readonly skipHistoryCheckpoint = true;
 
   async execute(ctx: CommandHandlerContext, payload: unknown): Promise<CommandHandlerResult> {
-    if (ctx.actor.type !== "gm") {
+    if (ctx.actor.type !== "user" || ctx.actor.role !== "gm") {
       throw new ForbiddenError("Only the GM can preview a rewind");
     }
     const parsed = RewindPreviewQuery.safeParse(payload);
@@ -460,7 +460,7 @@ class HistoryRewindHandler implements CommandHandler {
   readonly allowedStatuses = ["active"] as const;
 
   async execute(ctx: CommandHandlerContext, payload: unknown): Promise<CommandHandlerResult> {
-    if (ctx.actor.type !== "gm") {
+    if (ctx.actor.type !== "user" || ctx.actor.role !== "gm") {
       throw new ForbiddenError("Only the GM can rewind history");
     }
     const parsed = RewindCommand.safeParse(payload);
@@ -543,7 +543,7 @@ class HistoryUndoRewindHandler implements CommandHandler {
   readonly allowedStatuses = ["active"] as const;
 
   async execute(ctx: CommandHandlerContext, payload: unknown): Promise<CommandHandlerResult> {
-    if (ctx.actor.type !== "gm") {
+    if (ctx.actor.type !== "user" || ctx.actor.role !== "gm") {
       throw new ForbiddenError("Only the GM can undo a rewind");
     }
     const parsed = UndoRewindCommand.safeParse(payload);
@@ -666,7 +666,7 @@ class HistoryArchiveHandler implements CommandHandler {
   readonly skipHistoryCheckpoint = true;
 
   async execute(ctx: CommandHandlerContext): Promise<CommandHandlerResult> {
-    if (ctx.actor.type !== "gm") {
+    if (ctx.actor.type !== "user" || ctx.actor.role !== "gm") {
       throw new ForbiddenError("Only the GM can view archived history");
     }
     const pager = new SessionHistoryPager(ctx.tx);
@@ -682,7 +682,7 @@ class HistoryArchiveItemsHandler implements CommandHandler {
   readonly skipHistoryCheckpoint = true;
 
   async execute(ctx: CommandHandlerContext, payload: unknown): Promise<CommandHandlerResult> {
-    if (ctx.actor.type !== "gm") {
+    if (ctx.actor.type !== "user" || ctx.actor.role !== "gm") {
       throw new ForbiddenError("Only the GM can view archived history");
     }
     const parsed = HistoryArchiveItemsQuery.safeParse(payload);
@@ -709,7 +709,7 @@ class HistoryAuditHandler implements CommandHandler {
   readonly skipHistoryCheckpoint = true;
 
   async execute(ctx: CommandHandlerContext, payload: unknown): Promise<CommandHandlerResult> {
-    if (ctx.actor.type !== "gm") {
+    if (ctx.actor.type !== "user" || ctx.actor.role !== "gm") {
       throw new ForbiddenError("Only the GM can view the audit log");
     }
     const parsed = HistoryAuditQuery.safeParse(payload ?? {});

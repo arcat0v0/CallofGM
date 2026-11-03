@@ -24,10 +24,10 @@ CallofGM/
 
 - **主题 = 编译产物插件**：`.cogmtheme`（zip）内为 `theme.json` + `bundle.js` + `bundle.css` + 静态资源；服务端不接收/不执行 TSX。作者用 `packages/theme-cli`（esbuild）本地构建，CLI 将 `react`/`react-dom`/`@cogm/theme-sdk` 替换为 `globalThis.__COGM_THEME_SDK__` 代理，主题与核心共享同一份 React。
 - **页面级插槽**：核心拥有路由、状态、WS 与服务端权威判定；主题只覆盖 `packages/theme-sdk` 声明的 14 个插槽（进团/玩家视图/GM 控制台/GM 后台）。未覆盖插槽、加载失败或插槽抛错均回退内置 `default` 主题；`?theme=default` 为强制逃生开关。
-- **作用域与服务端权威**：玩家进团/沉浸视图使用模组 `themeId`（由快照与进团信息下发，客户端不可自选）；GM 控制台与后台使用实例级 `ui_settings.gmThemeId`，由 GM 主题浮钮写入。入口与 GM 登录固定默认主题。
+- **作用域与服务端权威**：玩家进团/沉浸视图使用模组 `themeId`（由快照与进团信息下发，客户端不可自选）；GM 控制台与后台使用实例级 `ui_settings.gmThemeId`，由 admin 在实例设置中写入。入口与登录页固定默认主题。
 - **严格版本**：`apiVersion` 必须等于核心 `THEME_API_VERSION`（当前 1）；同一 id 只能安装更高 semver 版本，保留最近 2 个版本，静态文件按 `/themes/:id/versions/:version/*` 长期缓存。
 - **文案单一来源**：核心 UI 文案集中在 `apps/client/src/i18n/messages/zh-CN.ts`，主题可通过 `messages` 按 key 覆盖；系统消息使用稳定 `ChatMessage.isSystem` 字段，禁止文案匹配。
-- **安全边界**：主题 bundle 是完整权限的浏览器代码，仅 GM 可上传且需同源校验；安装时校验哈希、路径白名单、大小/条目限制并原子落盘。不引入签名校验，GM 上传等同安装可信插件。
+- **安全边界**：主题 bundle 是完整权限的浏览器代码，仅 admin 可上传且需同源校验；安装时校验哈希、路径白名单、大小/条目限制并原子落盘。不引入签名校验，admin 上传等同安装可信插件。
 
 ## 服务端权威原则
 
@@ -39,6 +39,7 @@ CallofGM/
 - 角色团内状态变更（HP/MP/SAN、状态标记；仅 GM 指令与理智检定自动扣减两个入口）
 - 情报可见性（秘密情报只推送给可见者，禁止全员广播后前端隐藏）
 - 团级可见性设置（公开队友人物卡 / OB 可见 PC 数值）对快照与事件的过滤，按查看者席位逐连接裁剪
+- 账号角色与资源所有权：登录、会话顶替、所有者过滤、管理员越权隔离
 
 发言与自主掷骰的权限矩阵定义在 `packages/shared` 的 `policy.ts`（`decideChatMessage` / `canPlayerInitiateDiceRoll`）：服务端据此拒绝命令，前端用同一函数只做输入禁用，避免两套规则漂移；席位（PC/OB）由快照的 `viewer.seatRole` 下发，前端不自行推断。
 - 踢人、黑名单校验（WS 握手时校验指纹）
@@ -66,18 +67,22 @@ CallofGM/
 
 ## 规则系统抽象
 
-v1 只实现 CoC 7e，但**所有规则相关逻辑必须通过统一的规则系统接口接入，通用业务代码禁止硬编码任何具体规则的判定**——这是永久原则（同见 `CLAUDE.md` / `AGENTS.md`）。
+本期只注册 CoC 7e，但**所有规则相关逻辑必须通过统一的规则系统接口接入，通用业务代码禁止硬编码任何具体规则的判定**——这是永久原则（同见 `CLAUDE.md` / `AGENTS.md`）。
 
-- 服务端以面向对象组织：`RuleSystem` 抽象类，每种规则一个实现类（`apps/server/src/rules/{ruleId}/`）。职责边界：
-  - 人物卡 schema 与 Excel 解析器
+- 服务端以面向对象组织：`RuleSystem` 抽象类 + 每种规则一个实现类（`apps/server/src/rules/{ruleId}/`）。职责边界：
+  - 不可变元数据：`id`、`name`、实现 `version`、核心兼容 `apiVersion`、`description`、`permanentSheetFields`
+  - 人物卡 schema、空卡构造、Excel 解析器与导入器
   - 技能鉴定判级（输入目标值/难度/奖惩骰 + 注入的 RNG，输出结果等级——RNG 注入以便 `bun test` 断言）
   - 规则特有检定（如 CoC 的理智检定）以规则自有动作暴露
   - 团内状态的 schema 定义与从人物卡的初始化推导（HP/MP/SAN 属于 CoC 7e 实现，不属于通用层）
-  - 供结构化 UI 调用的规则动作定义（技能鉴定、理智检定等）；v1 不解析聊天文本命令
-- 服务端维护规则注册表 `ruleId → RuleSystem 实例`；模组记录 `ruleId`，团继承模组的规则。
+  - 允许扩展项声明：CoC 允许自定义技能（名称/基础值/当前值），不允许自定义属性、公式、成功等级或特殊检定
+  - 供结构化 UI 调用的规则动作定义（技能鉴定、理智检定等）；不解析聊天文本命令
+- 服务端维护规则注册表 `ruleId → RuleSystem 实例`；模组、团、人物、模板各自记录 `ruleId`，创建时必须显式提交，创建后不可切换。服务端不提供默认规则。
+- `GET /api/v1/rules` 暴露已注册且 `apiVersion` 兼容的元数据；前端选择器只消费该接口，不硬编码规则列表。
+- 客户端维护规则组件注册表 `apps/client/src/rules/{ruleId}/`：建卡组件、人物卡编辑/展示组件、检定面板与团内状态视图按 `ruleId` 取用。业务页面不得直接 import 具体规则；目前 14 处直接 import `coc7e` 的页面需在实施中清理。
 - 通用层只保留规则无关能力：普通骰点表达式、事件广播与可见性、演绎队列、团状态机。
-- `packages/shared` 按规则命名空间组织：通用 schema 在 `src/` 顶层，规则专属 schema 在 `src/rules/{ruleId}/` 下，以 `export * as coc7e` 命名空间导出，避免跨规则命名冲突。
-- WS 消息中规则相关 payload 携带 `ruleId`，由对应规则模块的 zod schema 校验。
+- `packages/shared` 按规则命名空间组织：通用 schema 在 `src/` 顶层，规则专属 schema 在 `src/rules/{ruleId}/` 下，以 `export * as coc7e` 命名空间导出，避免跨规则命名冲突。`RuleId` 协议为受限字符串，具体合法性由服务端注册表校验。
+- 快照、日志与 WS 规则相关 payload 携带 `ruleId`，由对应规则模块的 zod schema 校验。
 - 骰点与鉴定入口统一使用 `packages/shared` 定义的结构化 WS command：普通骰点由骰点面板提交表达式，玩家自主鉴定由人物卡提交技能标识，GM 鉴定请求由控制台创建并由目标玩家确认响应。聊天消息只承载文本，不参与规则动作解析。
 
 ## 掷骰与鉴定引擎
@@ -144,31 +149,55 @@ BgmState = { trackId, playing, volume, loop, seekOffset, startedAt(服务器时�
 
 命令：`history:page` 对所有查看者开放（结团后只读可用）；`history:preview-rewind` / `history:rewind` / `history:undo-rewind` 仅 GM 且团未结束；`history:archive` / `history:archive-items` / `history:audit` 仅 GM，结团后仍可只读查询。`history:archive` 返回回溯/撤销分组，`history:archive-items` 分页返回某次操作移出的条目，`history:audit` 分页返回已驳回/已丢弃发言。
 
-## 身份、在线与黑名单
+## 账号、所有权与在线
 
-- GM：密码登录 → HttpOnly session cookie。
-- 玩家：首次进入由服务端签发匿名 token，仅存于 HttpOnly `player_token` cookie（不落 localStorage），同时上报 FingerprintJS 指纹。
-- 在线列表来自 WS 连接注册表（连接 ↔ 团 ↔ 所选 PC/OB）。
-- 踢出 = 团内禁入：`player:kick` 写入 `session_kicks`（按 `sessionId × playerId`，`lifted_at` 为空即生效）并关闭该玩家在本团的连接；生效期间认领席位返回 `SESSION_KICKED`（403），WS 握手直接下发 `session:kicked` 后以 4000 关闭。`player:unkick` 由 GM 解除禁入，玩家恢复进入；禁入只作用于该团，不涉及指纹。
-- 拉黑 = 指纹写入黑名单表（含过期时间，NULL 为永久），HTTP 与 WS 握手均校验；已通过 GM cookie 鉴权的请求优先于指纹黑名单。
-- GM 写接口（`/api/v1/gm/*` 的 POST/PATCH/PUT/DELETE）校验 Origin/Referer，命中允许来源才放行；GET 不受影响。
+- 统一账号表 `users`：`username_normalized` 全局唯一、`password_hash`、`role`（`admin` / `gm` / `pl`，创建后不可变）、`disabled_at`、`deleted_at`。角色之间无能力继承。
+- 统一会话表 `user_sessions`：只存 token 哈希；登录成功撤销该账号全部旧会话并签发新 HttpOnly Cookie `cogm_session`。同浏览器多标签页共享 Cookie；新浏览器登录会顶替并断开旧连接。密码修改保留当前会话、撤销其他会话；admin 重置密码和禁用账号撤销全部会话。
+- 无公开注册：`admin` 创建账号；首个 admin 由 `bun run setup:admin` 引导。至少保留一个可用 admin。软删除后用户名继续占用，可恢复。
+- 匿名 OB：保留 `anonymous_players` 与 `player_tokens`，指纹签发 30 天 HttpOnly `player_token`；只能认领 OB。PC 席位必须由 `pl` 账号持有。
+- 服务端 actor 为判别联合：`{ type: 'user', userId, role } | { type: 'anonymous', anonymousPlayerId }`。
+- **所有权**：模组、团、人物、模板、媒体均带 `owner_id`。GM 列表/详情只查自己的资源；他人资源与不存在资源都返回 404。admin 不进入任何 GM/PL 内容路径。PC 人物归 PL（GM 预建后分配时转移所有者），NPC 始终归 GM。
+- **软删除**：所有业务表带 `deleted_at`，运行时仓储不执行物理 `DELETE`；外键不使用运行时物理级联。已删除资源停止新引用，但旧团仍可读取当前已引用内容。每个所有者有隔离回收站与恢复接口；admin 回收站只含账号。实际媒体文件保留。
+- 在线列表来自 WS 连接注册表（连接 ↔ 团 ↔ 席位持有者）。账号被顶替或禁用时按 userId 关闭全部连接。
+- 踢出 = 团内禁入：`player:kick` 写入 `session_kicks`（按 `sessionId × 持有者`，`lifted_at` 为空即生效）并关闭该席位在本团的连接；生效期间认领返回 `SESSION_KICKED`（403），WS 握手直接下发 `session:kicked` 后以 4000 关闭。禁入只作用于该团。
+- 拉黑 = 指纹写入黑名单表（含过期时间，NULL 为永久），HTTP 与 WS 握手均校验；无 Origin/Referer 的非浏览器客户端按现有来源策略处理。已通过账号会话鉴权的请求优先于指纹黑名单。
+- 所有写接口（`/api/v1/{gm,pl,admin}/*` 的 POST/PATCH/PUT/DELETE）校验 Origin/Referer；GET 不受影响。
+
+## 人物版本、提交与团内快照
+
+- `characters` 保存当前姓名、背景、`sheet_json`、`owner_id`、`kind`、`rule_id`、`sheet_version`、`profile_version`、`version` 与来源字段；`character_versions` 保存追加式完整快照。
+- 审核记录绑定 `sheet_version`；规则数值/技能/终生字段变化提升 `sheet_version` 并使旧审核过期，资料/立绘变化只提升 `profile_version`。
+- 提交链接 `character_invites`：目标为模组或团，token 哈希存储，默认 7 天，可撤销；PL 登录后提交新建人物或已有同规则人物，生成 `character_reviews`。审核通过只建立模组关联或团内 PC 席位，不自动认领。
+- `session_characters` 保存入团快照（姓名、背景、`sheet_json`、`base_sheet_version`、`base_profile_version`），检定与状态初始化读取团内快照而非主卡。主卡变化不自动同步；GM 通过差异预览与显式同步更新所选字段，不覆盖团内状态/成长。
+- GM 修改规则声明的终生字段、结团成长确认都写入追加式 `character_audits` / `character_growth_entries`；成长确认对主卡技能做增量累加，历史团保持旧快照。
+- 并发更新携带 `expectedVersion`；同字段冲突返回 409 与最新版本，增量成长可累计，禁止整卡静默覆盖。
+
+## 模板
+
+- `templates` 是独立模组快照，含当前内容（`template_scenes` / `template_tracks` / `template_handouts` / 设置 / `template_characters`）与 `current_version`；`template_versions` 保存显式另存后的不可变 JSON 快照。
+- 直接编辑只改当前内容；实例化默认当前内容，也可指定历史版本。新建模组/团记录 `source_template_id` 与 `source_template_version`。
+- 实例化为源模组创建全新的场景/曲目/情报行与新的 NPC 人物行，媒体资产可复用同一存储但逻辑引用互不影响；NPC 副本记录模板来源。
+- “快速开团”在一个事务内创建模组 + 等待开始的团，允许暂无 PC；失败整体回滚。
 
 ## 前端路由（TanStack Router）
 
 | 路径 | 视图 |
 |---|---|
-| `/` | 入口：输入/选择团 |
-| `/join/$sessionId` | 玩家进团：选 PC 或 OB 位（标题优先显示团名，未命名时回退模组名） |
+| `/` | 入口：输入/选择团号或链接；已登录按角色进入对应工作台 |
+| `/login` | 统一登录（admin / gm / pl），成功后按角色跳转 |
+| `/admin` | admin 控制台：账号、主题包、实例设置 |
+| `/pl` | PL 工作台：我的人物、参与的团、提交记录、回收站、账号设置 |
+| `/submit/$token` | PL 通过 GM 提交链接建卡或选择已有任务 |
+| `/join/$sessionId` | 玩家进团：选 PC 或 OB 位（标题优先显示团名，未命名时回退模组名）；未登录 PC 先跳登录 |
 | `/play/$sessionId` | 玩家沉浸视图 |
-| `/gm/login` | GM 登录 |
-| `/gm` | GM 后台：模组/人物/场景/音乐/情报/团管理/主题管理 |
+| `/gm` | GM 后台：模组/人物/团/模板/审核待办/回收站 |
 | `/gm/session/$sessionId` | GM 控制台：控场、切场景/立绘/音乐、发放情报、演绎队列放行、历史与回溯、在线管理 |
 
-选 TanStack Router 而非 React Router：路由参数与 search params 全类型安全，`$sessionId` 这类参数不会出现手写字符串取参的运行时错误，与 Eden Treaty / Drizzle / zod 的端到端类型安全路线一致。
+选 TanStack Router 而非 React Router：路由参数与 search params 全类型安全，`$sessionId` 这类参数不会出现手写字符串取参的运行时错误，与 Eden Treaty / Drizzle / zod 的端到端类型安全路线一致。路由树按角色挂守卫：`/admin/*` 仅 admin，`/gm/*` 仅 gm，`/pl/*` 仅 pl；越权访问重定向到 `/login` 或 404。
 
 ## Excel 人物卡导入
 
-GM 后台上传 `.xlsx` → 服务端 SheetJS 解析 → 按 `packages/shared` 的人物卡 zod schema 校验映射 → 返回预览给 GM 确认 → 入库。解析器按"CoC 7e 人物卡模板"实现为独立模块，未来适配其他规则时新增解析器即可。
+GM 后台与 PL 工作台上传 `.xlsx` → 服务端 SheetJS 解析 → 按 `packages/shared` 的人物卡 zod schema 校验映射 → 返回预览确认 → 入库。解析器由 `RuleSystem` 按 `ruleId` 提供，未来适配其他规则时新增实现即可。上传与暂存记录带所有者；暂存记录软删除，不物理清理。
 
 ## 渲染与部署
 

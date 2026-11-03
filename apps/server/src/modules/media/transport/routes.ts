@@ -28,6 +28,7 @@ import { ForbiddenError } from "@/modules/identity";
 import { type ActorContext } from "@/modules/identity";
 import { clientIp } from "@/platform/security/request-ip";
 import { assertTrustedOrigin } from "@/platform/security/origin";
+import { holderOfActor } from "@/modules/identity";
 import { corsOriginsFor } from "@/config/env";
 import { validationFailed } from "@/platform/errors/validation";
 
@@ -36,11 +37,16 @@ async function checkMediaAccess(
   actor: ActorContext,
   assetId: string
 ): Promise<boolean> {
-  if (actor.type === "gm") {
-    return true;
+  if (actor.type === "user" && actor.role === "gm") {
+    const owned = await db
+      .select({ id: mediaAssets.id })
+      .from(mediaAssets)
+      .where(and(eq(mediaAssets.id, assetId), eq(mediaAssets.ownerId, actor.userId)))
+      .limit(1);
+    return owned.length > 0;
   }
 
-  const playerId = actor.playerId;
+  const holder = holderOfActor(actor);
 
   const bgAccess = await db
     .select({ id: sessions.id })
@@ -49,7 +55,9 @@ async function checkMediaAccess(
     .innerJoin(scenes, eq(sessions.currentSceneId, scenes.id))
     .where(
       and(
-        eq(sessionClaims.playerId, playerId),
+        holder.holderKind === "user"
+          ? eq(sessionClaims.userId, holder.userId!)
+          : eq(sessionClaims.playerId, holder.playerId!),
         isNull(sessionClaims.releasedAt),
         eq(scenes.bgAssetId, assetId)
       )
@@ -67,7 +75,9 @@ async function checkMediaAccess(
     .innerJoin(sessionClaims, eq(sessions.id, sessionClaims.sessionId))
     .where(
       and(
-        eq(sessionClaims.playerId, playerId),
+        holder.holderKind === "user"
+          ? eq(sessionClaims.userId, holder.userId!)
+          : eq(sessionClaims.playerId, holder.playerId!),
         isNull(sessionClaims.releasedAt),
         eq(tracks.audioAssetId, assetId)
       )
@@ -89,7 +99,9 @@ async function checkMediaAccess(
     )
     .where(
       and(
-        eq(sessionClaims.playerId, playerId),
+        holder.holderKind === "user"
+          ? eq(sessionClaims.userId, holder.userId!)
+          : eq(sessionClaims.playerId, holder.playerId!),
         isNull(sessionClaims.releasedAt),
         eq(characterPortraits.portraitAssetId, assetId)
       )
@@ -111,7 +123,9 @@ async function checkMediaAccess(
       sessionClaims,
       and(
         eq(sessionClaims.sessionId, handoutGrants.sessionId),
-        eq(sessionClaims.playerId, playerId),
+        holder.holderKind === "user"
+          ? eq(sessionClaims.userId, holder.userId!)
+          : eq(sessionClaims.playerId, holder.playerId!),
         isNull(sessionClaims.releasedAt)
       )
     )
@@ -131,7 +145,9 @@ async function checkMediaAccess(
       sessionClaims,
       and(
         eq(sessionClaims.sessionId, handoutGrants.sessionId),
-        eq(sessionClaims.playerId, playerId),
+        holder.holderKind === "user"
+          ? eq(sessionClaims.userId, holder.userId!)
+          : eq(sessionClaims.playerId, holder.playerId!),
         eq(sessionClaims.characterId, handoutGrantRecipients.characterId),
         isNull(sessionClaims.releasedAt)
       )
@@ -166,8 +182,8 @@ export function createMediaRoutes(container: Container) {
         if (!actor) {
           throw new AuthRequiredError();
         }
-        if (actor.type !== "gm") {
-          throw new ForbiddenError("Only the GM can upload media");
+        if (actor.type !== "user" || (actor.role !== "gm" && actor.role !== "pl")) {
+          throw new ForbiddenError("Only a game master or player account can upload media");
         }
         assertTrustedOrigin(request, corsOriginsFor(container.env));
         container.httpLimits.uploadRateLimiter.assert(clientIp(request, server, container.env.TRUST_PROXY));
@@ -180,6 +196,7 @@ export function createMediaRoutes(container: Container) {
         const filename = body.filename || "file";
 
         const asset = await uploadUseCase.execute({
+          ownerId: actor.userId,
           blob: file,
           filename,
           purpose

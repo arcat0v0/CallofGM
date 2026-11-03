@@ -43,7 +43,7 @@ export function createThemeRoutes(container: Container) {
     })
     .use(authPlugin)
     .get("/api/v1/gm/themes", async ({ actor }) => {
-      if (!actor || actor.type !== "gm") {
+      if (!actor || actor.type !== "user" || actor.role !== "gm") {
         throw new AuthRequiredError();
       }
       return { items: await listThemes.execute() };
@@ -51,7 +51,7 @@ export function createThemeRoutes(container: Container) {
     .post(
       "/api/v1/gm/themes",
       async ({ actor, body, request, server }) => {
-        if (!actor || actor.type !== "gm") {
+        if (!actor || actor.type !== "user" || actor.role !== "gm") {
           throw new AuthRequiredError();
         }
         assertTrustedOrigin(request, allowedOrigins);
@@ -72,7 +72,7 @@ export function createThemeRoutes(container: Container) {
       },
     )
     .delete("/api/v1/gm/themes/:id", async ({ actor, params }) => {
-      if (!actor || actor.type !== "gm") {
+      if (!actor || actor.type !== "user" || actor.role !== "gm") {
         throw new AuthRequiredError();
       }
       if (params.id === "default") {
@@ -82,7 +82,7 @@ export function createThemeRoutes(container: Container) {
       return { success: true };
     })
     .post("/api/v1/gm/themes/rescan", async ({ actor }) => {
-      if (!actor || actor.type !== "gm") {
+      if (!actor || actor.type !== "user" || actor.role !== "gm") {
         throw new AuthRequiredError();
       }
       return { items: await rescanThemes.execute() };

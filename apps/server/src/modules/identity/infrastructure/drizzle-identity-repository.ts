@@ -1,63 +1,108 @@
-import { eq, and, gt, isNull, or } from "drizzle-orm";
+import { eq, and, gt, isNull, or, ne, sql } from "drizzle-orm";
 import type { DbClient } from "@/platform/db/client";
-import { gmLoginSessions, gmCredentials, anonymousPlayers, playerTokens, blacklistEntries } from "@/platform/db/schema";
-import type { IdentityRepository, GmLoginSession, AnonymousPlayer, PlayerToken } from "../application/ports";
+import { users, userSessions, anonymousPlayers, playerTokens, blacklistEntries } from "@/platform/db/schema";
+import type { IdentityRepository, UserRecord, UserSessionRecord, AnonymousPlayer, PlayerToken } from "../application/ports";
 
 export class DrizzleIdentityRepository implements IdentityRepository {
   constructor(private readonly db: DbClient) {}
 
-  async findGmPasswordHash(): Promise<string | null> {
-    const result = await this.db
-      .select({ passwordHash: gmCredentials.passwordHash })
-      .from(gmCredentials)
-      .where(eq(gmCredentials.id, "gm"))
-      .limit(1);
-    return result[0]?.passwordHash ?? null;
+  async findUserById(id: string): Promise<UserRecord | null> {
+    const rows = await this.db.select().from(users).where(eq(users.id, id)).limit(1);
+    return (rows[0] as UserRecord | undefined) ?? null;
   }
 
-  async saveGmPasswordHash(passwordHash: string, updatedAt: number): Promise<void> {
-    await this.db
-      .insert(gmCredentials)
-      .values({ id: "gm", passwordHash, updatedAt })
-      .onConflictDoUpdate({ target: gmCredentials.id, set: { passwordHash, updatedAt } });
-  }
-
-  async findGmSessionByTokenHash(tokenHash: string): Promise<GmLoginSession | null> {
-    const result = await this.db
+  async findUserByUsernameNormalized(usernameNormalized: string): Promise<UserRecord | null> {
+    const rows = await this.db
       .select()
-      .from(gmLoginSessions)
-      .where(eq(gmLoginSessions.sessionTokenHash, tokenHash))
+      .from(users)
+      .where(eq(users.usernameNormalized, usernameNormalized))
       .limit(1);
-    return result[0] || null;
+    return (rows[0] as UserRecord | undefined) ?? null;
   }
 
-  async saveGmSession(session: GmLoginSession): Promise<void> {
-    await this.db.insert(gmLoginSessions).values(session);
+  async createUser(user: UserRecord): Promise<void> {
+    await this.db.insert(users).values(user);
   }
 
-  async revokeGmSession(id: string, revokedAt: number): Promise<void> {
+  async updateUser(
+    id: string,
+    patch: Partial<
+      Pick<
+        UserRecord,
+        "username" | "usernameNormalized" | "passwordHash" | "role" | "disabledAt" | "deletedAt" | "updatedAt"
+      >
+    >
+  ): Promise<void> {
+    await this.db.update(users).set(patch).where(eq(users.id, id));
+  }
+
+  async listUsers(includeDeleted: boolean): Promise<UserRecord[]> {
+    const rows = includeDeleted
+      ? await this.db.select().from(users)
+      : await this.db.select().from(users).where(isNull(users.deletedAt));
+    return rows as UserRecord[];
+  }
+
+  async countActiveAdmins(excludeUserId?: string): Promise<number> {
+    const conditions = [eq(users.role, "admin"), isNull(users.disabledAt), isNull(users.deletedAt)];
+    if (excludeUserId) {
+      conditions.push(ne(users.id, excludeUserId));
+    }
+    const rows = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(users)
+      .where(and(...conditions));
+    return Number(rows[0]?.count ?? 0);
+  }
+
+  async findUserSessionByTokenHash(tokenHash: string): Promise<UserSessionRecord | null> {
+    const rows = await this.db
+      .select()
+      .from(userSessions)
+      .where(eq(userSessions.sessionTokenHash, tokenHash))
+      .limit(1);
+    return (rows[0] as UserSessionRecord | undefined) ?? null;
+  }
+
+  async listSessionsByUser(userId: string): Promise<UserSessionRecord[]> {
+    const rows = await this.db.select().from(userSessions).where(eq(userSessions.userId, userId));
+    return rows as UserSessionRecord[];
+  }
+
+  async createUserSession(session: UserSessionRecord): Promise<void> {
+    await this.db.insert(userSessions).values(session);
+  }
+
+  async revokeSession(id: string, revokedAt: number, replacedBySessionId?: string | null): Promise<void> {
     await this.db
-      .update(gmLoginSessions)
+      .update(userSessions)
+      .set({ revokedAt, ...(replacedBySessionId !== undefined ? { replacedBySessionId } : {}) })
+      .where(eq(userSessions.id, id));
+  }
+
+  async revokeAllUserSessions(userId: string, revokedAt: number, keepSessionId?: string): Promise<void> {
+    const conditions = [eq(userSessions.userId, userId), isNull(userSessions.revokedAt)];
+    if (keepSessionId) {
+      conditions.push(ne(userSessions.id, keepSessionId));
+    }
+    await this.db
+      .update(userSessions)
       .set({ revokedAt })
-      .where(eq(gmLoginSessions.id, id));
+      .where(and(...conditions));
   }
 
   async findAnonymousPlayerById(id: string): Promise<AnonymousPlayer | null> {
-    const result = await this.db
-      .select()
-      .from(anonymousPlayers)
-      .where(eq(anonymousPlayers.id, id))
-      .limit(1);
-    return result[0] || null;
+    const rows = await this.db.select().from(anonymousPlayers).where(eq(anonymousPlayers.id, id)).limit(1);
+    return rows[0] ?? null;
   }
 
   async findAnonymousPlayerByFingerprintHash(fingerprintHash: string): Promise<AnonymousPlayer | null> {
-    const result = await this.db
+    const rows = await this.db
       .select()
       .from(anonymousPlayers)
       .where(eq(anonymousPlayers.fingerprintHash, fingerprintHash))
       .limit(1);
-    return result[0] || null;
+    return rows[0] ?? null;
   }
 
   async saveAnonymousPlayer(player: AnonymousPlayer): Promise<void> {
@@ -65,19 +110,12 @@ export class DrizzleIdentityRepository implements IdentityRepository {
   }
 
   async updateAnonymousPlayerActiveTime(id: string, lastActiveAt: number): Promise<void> {
-    await this.db
-      .update(anonymousPlayers)
-      .set({ lastActiveAt })
-      .where(eq(anonymousPlayers.id, id));
+    await this.db.update(anonymousPlayers).set({ lastActiveAt }).where(eq(anonymousPlayers.id, id));
   }
 
   async findPlayerTokenByTokenHash(tokenHash: string): Promise<PlayerToken | null> {
-    const result = await this.db
-      .select()
-      .from(playerTokens)
-      .where(eq(playerTokens.tokenHash, tokenHash))
-      .limit(1);
-    return result[0] || null;
+    const rows = await this.db.select().from(playerTokens).where(eq(playerTokens.tokenHash, tokenHash)).limit(1);
+    return rows[0] ?? null;
   }
 
   async savePlayerToken(token: PlayerToken): Promise<void> {
@@ -85,26 +123,22 @@ export class DrizzleIdentityRepository implements IdentityRepository {
   }
 
   async revokePlayerToken(id: string, revokedAt: number): Promise<void> {
-    await this.db
-      .update(playerTokens)
-      .set({ revokedAt })
-      .where(eq(playerTokens.id, id));
+    await this.db.update(playerTokens).set({ revokedAt }).where(eq(playerTokens.id, id));
   }
 
   async isFingerprintBlacklisted(fingerprintHash: string): Promise<boolean> {
     const now = Date.now();
-    const result = await this.db
-      .select()
+    const rows = await this.db
+      .select({ id: blacklistEntries.id })
       .from(blacklistEntries)
       .where(
         and(
           eq(blacklistEntries.fingerprintHash, fingerprintHash),
-          // expiresAt 为 NULL 表示永久封禁
           or(isNull(blacklistEntries.expiresAt), gt(blacklistEntries.expiresAt, now))
         )
       )
       .limit(1);
-    return result.length > 0;
+    return rows.length > 0;
   }
 
   async listBlacklistEntries() {

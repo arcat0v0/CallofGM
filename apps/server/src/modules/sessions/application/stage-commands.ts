@@ -79,7 +79,7 @@ export class SwitchSceneHandler implements CommandHandler {
   readonly allowedStatuses = ["preparing", "active"] as const;
 
   async execute(ctx: CommandHandlerContext, payload: unknown): Promise<CommandHandlerResult> {
-    if (ctx.actor.type !== "gm") {
+    if (ctx.actor.type !== "user" || ctx.actor.role !== "gm") {
       throw new ForbiddenError("Only the GM can switch scenes");
     }
     const parsed = SwitchSceneCommand.safeParse(payload);
@@ -115,7 +115,7 @@ export class SetExpressionHandler implements CommandHandler {
   readonly allowedStatuses = ["preparing", "active"] as const;
 
   async execute(ctx: CommandHandlerContext, payload: unknown): Promise<CommandHandlerResult> {
-    if (ctx.actor.type !== "gm") {
+    if (ctx.actor.type !== "user" || ctx.actor.role !== "gm") {
       throw new ForbiddenError("Only the GM can set expressions directly");
     }
     const parsed = SetExpressionCommand.safeParse(payload);
@@ -179,7 +179,7 @@ export class UpdateStageLayoutHandler implements CommandHandler {
   readonly allowedStatuses = ["preparing", "active"] as const;
 
   async execute(ctx: CommandHandlerContext, payload: unknown): Promise<CommandHandlerResult> {
-    if (ctx.actor.type !== "gm") {
+    if (ctx.actor.type !== "user" || ctx.actor.role !== "gm") {
       throw new ForbiddenError("Only the GM can change the stage layout");
     }
     const parsed = UpdateStageLayoutCommand.safeParse(payload);
@@ -217,7 +217,7 @@ export class UpdateBgmHandler implements CommandHandler {
   readonly allowedStatuses = ["preparing", "active"] as const;
 
   async execute(ctx: CommandHandlerContext, payload: unknown): Promise<CommandHandlerResult> {
-    if (ctx.actor.type !== "gm") {
+    if (ctx.actor.type !== "user" || ctx.actor.role !== "gm") {
       throw new ForbiddenError("Only the GM can control BGM");
     }
     const parsed = UpdateBgmCommand.safeParse(payload);
@@ -364,7 +364,7 @@ export class PlaySeHandler implements CommandHandler {
   readonly type = "audio:se" as const;
 
   async execute(ctx: CommandHandlerContext, payload: unknown): Promise<CommandHandlerResult> {
-    if (ctx.actor.type !== "gm") {
+    if (ctx.actor.type !== "user" || ctx.actor.role !== "gm") {
       throw new ForbiddenError("Only the GM can play sound effects");
     }
     const parsed = PlaySeCommand.safeParse(payload);
@@ -399,7 +399,7 @@ export class UpdateSessionSettingsHandler implements CommandHandler {
   readonly allowedStatuses = ["waiting", "preparing", "active"] as const;
 
   async execute(ctx: CommandHandlerContext, payload: unknown): Promise<CommandHandlerResult> {
-    if (ctx.actor.type !== "gm") {
+    if (ctx.actor.type !== "user" || ctx.actor.role !== "gm") {
       throw new ForbiddenError("Only the GM can change session settings");
     }
     const parsed = UpdateSessionSettingsCommand.safeParse(payload);

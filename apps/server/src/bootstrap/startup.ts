@@ -72,15 +72,17 @@ export class StartupService {
     }
   }
 
-  /** 过期黑名单在读取时视为无效，启动时物理清理 */
+  /**
+   * 过期黑名单在读取时即视为无效（isFingerprintBlacklisted 带 expiresAt 条件），
+   * 全局软删除约束下不再做物理清理，仅保留启动日志便于运维观察。
+   */
   private async cleanupExpiredBlacklist(): Promise<void> {
-    const now = Date.now();
-    const removed = await this.db
-      .delete(blacklistEntries)
-      .where(and(isNotNull(blacklistEntries.expiresAt), lt(blacklistEntries.expiresAt, now)))
-      .returning({ id: blacklistEntries.id });
-    if (removed.length > 0) {
-      logger.info("cleaned expired blacklist entries", { count: removed.length });
+    const rows = await this.db
+      .select({ id: blacklistEntries.id })
+      .from(blacklistEntries)
+      .where(and(isNotNull(blacklistEntries.expiresAt), lt(blacklistEntries.expiresAt, Date.now())));
+    if (rows.length > 0) {
+      logger.info("expired blacklist entries remain (soft delete policy)", { count: rows.length });
     }
   }
 

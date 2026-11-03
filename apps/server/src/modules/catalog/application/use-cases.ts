@@ -44,18 +44,27 @@ export class CreateModuleUseCase {
   ) {}
 
   async execute(input: {
+    ownerId: string;
     name: string;
     description: string;
     ruleId: string;
     themeId?: string | null;
+    sourceTemplateId?: string | null;
+    sourceTemplateVersion?: number | null;
   }): Promise<CatalogModule> {
+    const now = this.clock.nowEpochMs();
     const module: CatalogModule = {
       id: this.idGenerator.nextId(),
+      ownerId: input.ownerId,
       name: input.name,
       description: input.description,
       ruleId: input.ruleId,
       themeId: input.themeId ?? null,
-      createdAt: this.clock.nowEpochMs()
+      sourceTemplateId: input.sourceTemplateId ?? null,
+      sourceTemplateVersion: input.sourceTemplateVersion ?? null,
+      deletedAt: null,
+      createdAt: now,
+      updatedAt: now
     };
     await this.repo.saveModule(module);
     return module;
@@ -74,14 +83,17 @@ export class UpdateModuleUseCase {
 }
 
 export class DeleteModuleUseCase {
-  constructor(private readonly repo: CatalogRepository) {}
+  constructor(
+    private readonly repo: CatalogRepository,
+    private readonly clock: Clock
+  ) {}
 
   async execute(id: string): Promise<void> {
     const inUse = await this.repo.isModuleInUse(id);
     if (inUse) {
       throw new ModuleInUseError();
     }
-    await this.repo.deleteModule(id);
+    await this.repo.softDeleteModule(id, this.clock.nowEpochMs());
   }
 }
 
@@ -101,6 +113,7 @@ export class ListModulesUseCase {
   constructor(private readonly repo: CatalogRepository) {}
 
   async execute(options: {
+    ownerId?: string;
     limit: number;
     offset?: number;
     cursor?: string;

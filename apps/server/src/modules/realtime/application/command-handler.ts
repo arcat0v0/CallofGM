@@ -37,7 +37,7 @@ export interface CommandHandlerResult {
   /** 仅向指定玩家在本团的在线连接发送（DirectControlMessage）。 */
   directToPlayers?: Array<{ playerId: string; message: { type: string; payload: unknown } }>;
   /** 提交后需要强制关闭的玩家连接（踢出/拉黑） */
-  closeConnectionsOfPlayerIds?: string[];
+  closeConnectionsOfHolders?: string[];
   /** 为 true 时关闭该玩家全部团的连接（拉黑）；默认只关本团 */
   closeConnectionsGlobally?: boolean;
   /** 提交后向 GM 刷新在线列表 */

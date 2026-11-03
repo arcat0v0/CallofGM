@@ -2,7 +2,17 @@ import { Elysia } from "elysia";
 import { and, eq, isNull } from "drizzle-orm";
 import { type Container } from "@/bootstrap/container";
 import { DrizzleSessionsRepository } from "../infrastructure/drizzle-sessions-repository";
-import { DrizzleIdentityRepository, createAuthPlugin, AuthRequiredError, ForbiddenError } from "@/modules/identity";
+import { DrizzleCharactersRepository } from "@/modules/characters";
+import {
+  DrizzleIdentityRepository,
+  createAuthPlugin,
+  requireActor,
+  requireGm,
+  requireSeatHolder,
+  holderOfActor,
+  AuthRequiredError,
+  ForbiddenError,
+} from "@/modules/identity";
 import { AppError } from "@/platform/errors/app-error";
 import { validationFailed } from "@/platform/errors/validation";
 import { clientIp } from "@/platform/security/request-ip";
@@ -14,6 +24,7 @@ import {
   UpdateSessionStatusRequest,
   UpdateSessionPhaseRequest,
   RenameSessionRequest,
+  ConfirmGrowthRequest,
   CursorPageQuery,
   CursorPageResponse,
   CreateSessionResponse,
@@ -26,7 +37,10 @@ import {
   GmAssignClaimRequest,
   GmReleaseClaimRequest,
 } from "@cogm/shared";
-import { sessionClaims } from "@/platform/db/schema";
+import { sessionClaims, characters as charactersTable } from "@/platform/db/schema";
+import { ConfirmGrowthUseCase } from "@/modules/characters";
+import { SessionStateInvalidError } from "../domain/errors";
+import type { SeatHolderInput } from "../application/ports";
 import { SessionNotFoundError } from "../domain/errors";
 import {
   CreateSessionUseCase,
@@ -59,13 +73,23 @@ export function createSessionsRoutes(container: Container) {
     container.idGenerator,
     container.clock
   );
-  const claimSeat = new ClaimSeatUseCase(repo, container.idGenerator, container.clock, ({ sessionId, playerId }) => {
-    container.connectionRegistry.closePlayerConnections(
-      playerId,
-      sessionId,
-      SessionCloseCode.claimReplaced,
-      "claim replaced"
-    );
+  const claimSeat = new ClaimSeatUseCase(repo, container.idGenerator, container.clock, ({ sessionId, holder }) => {
+    const scope = sessionId;
+    if (holder.holderKind === "user") {
+      container.connectionRegistry.closeUserConnections(
+        holder.userId!,
+        scope,
+        SessionCloseCode.claimReplaced,
+        "claim replaced"
+      );
+    } else {
+      container.connectionRegistry.closePlayerConnections(
+        holder.playerId!,
+        scope,
+        SessionCloseCode.claimReplaced,
+        "claim replaced"
+      );
+    }
   });
   const updateSessionStatus = new UpdateSessionStatusUseCase(
     repo,
@@ -87,6 +111,12 @@ export function createSessionsRoutes(container: Container) {
   const renameSession = new RenameSessionUseCase(repo);
   const releaseSeat = new ReleaseSeatUseCase(repo, container.clock);
   const gmAssignClaim = new GmAssignClaimUseCase(repo, container.idGenerator, container.clock);
+  const confirmGrowth = new ConfirmGrowthUseCase(
+    new DrizzleCharactersRepository(container.db),
+    container.ruleRegistry,
+    container.idGenerator,
+    container.clock
+  );
 
   const allowedOrigins = corsOriginsFor(container.env);
 
@@ -94,91 +124,100 @@ export function createSessionsRoutes(container: Container) {
     .use(authPlugin)
     .post("/api/v1/gm/sessions", async ({ actor, body, request }) => {
       assertTrustedOrigin(request, allowedOrigins);
-      if (!actor || actor.type !== "gm") {
-        throw new AuthRequiredError();
-      }
+      const gm = requireGm(actor);
       const result = CreateSessionRequest.safeParse(body);
       if (!result.success) {
         throw validationFailed(result.error);
       }
-      return CreateSessionResponse.parse(await createSession.execute(result.data));
+      return CreateSessionResponse.parse(
+        await createSession.execute({ ...result.data, ownerId: requireGm(actor).userId })
+      );
     })
     .post("/api/v1/gm/sessions/:id/name", async ({ actor, params: { id }, body, request }) => {
       assertTrustedOrigin(request, allowedOrigins);
-      if (!actor || actor.type !== "gm") {
-        throw new AuthRequiredError();
-      }
+      const gm = requireGm(actor);
       const result = RenameSessionRequest.safeParse(body);
       if (!result.success) {
         throw validationFailed(result.error);
       }
-      return SessionDto.parse(await renameSession.execute({ sessionId: id, name: result.data.name }));
+      return SessionDto.parse(
+        await renameSession.execute({ ownerId: requireGm(actor).userId, sessionId: id, name: result.data.name })
+      );
     })
     .get("/api/v1/gm/sessions", async ({ actor, query }) => {
-      if (!actor || actor.type !== "gm") {
-        throw new AuthRequiredError();
-      }
+      const gm = requireGm(actor);
       const parsed = CursorPageQuery.safeParse(query ?? {});
       if (!parsed.success) {
         throw validationFailed(parsed.error);
       }
-      return CursorPageResponse(SessionDto).parse(await listSessions.execute(parsed.data));
+      return CursorPageResponse(SessionDto).parse(
+        await listSessions.execute({ ...parsed.data, ownerId: requireGm(actor).userId })
+      );
     })
     .get("/api/v1/gm/sessions/:id", async ({ actor, params: { id } }) => {
-      if (!actor || actor.type !== "gm") {
-        throw new AuthRequiredError();
+      const gm = requireGm(actor);
+      requireGm(actor);
+      const snapshot = await getSessionSnapshot.execute(id);
+      if (snapshot.session.ownerId !== requireGm(actor).userId) {
+        throw new SessionNotFoundError();
       }
-      return SessionDetailResponse.parse(await getSessionSnapshot.execute(id));
+      return SessionDetailResponse.parse(snapshot);
     })
     .post("/api/v1/gm/sessions/:id/status", async ({ actor, params: { id }, body, request }) => {
       assertTrustedOrigin(request, allowedOrigins);
-      if (!actor || actor.type !== "gm") {
-        throw new AuthRequiredError();
-      }
+      const gm = requireGm(actor);
       const result = UpdateSessionStatusRequest.safeParse(body);
       if (!result.success) {
         throw validationFailed(result.error);
       }
       return SessionDto.parse(await updateSessionStatus.execute({
+        ownerId: requireGm(actor).userId,
         sessionId: id,
         status: result.data.status,
       }));
     })
     .post("/api/v1/gm/sessions/:id/phase", async ({ actor, params: { id }, body, request }) => {
       assertTrustedOrigin(request, allowedOrigins);
-      if (!actor || actor.type !== "gm") {
-        throw new AuthRequiredError();
-      }
+      const gm = requireGm(actor);
       const result = UpdateSessionPhaseRequest.safeParse(body);
       if (!result.success) {
         throw validationFailed(result.error);
       }
       return SessionDto.parse(await updateSessionPhase.execute({
+        ownerId: requireGm(actor).userId,
         sessionId: id,
         phase: result.data.phase,
       }));
     })
     .post("/api/v1/gm/sessions/:id/claims/assign", async ({ actor, params: { id }, body, request }) => {
       assertTrustedOrigin(request, allowedOrigins);
-      if (!actor || actor.type !== "gm") {
-        throw new AuthRequiredError();
-      }
+      const gm = requireGm(actor);
       const result = GmAssignClaimRequest.safeParse(body);
       if (!result.success) {
         throw validationFailed(result.error);
       }
-      const { claim, displacedPlayerIds } = await gmAssignClaim.execute({
+      const { claim, displacedHolderKeys } = await gmAssignClaim.execute({
+        ownerId: requireGm(actor).userId,
         sessionId: id,
-        playerId: result.data.playerId,
+        holder: requireSeatHolder({ type: "user", userId: result.data.userId, role: "pl" } as never),
         characterId: result.data.characterId,
       });
-      for (const playerId of displacedPlayerIds) {
-        container.connectionRegistry.closePlayerConnections(
-          playerId,
-          id,
-          SessionCloseCode.seatReleased,
-          "seat released"
-        );
+      for (const holderKey of displacedHolderKeys) {
+        if (holderKey.startsWith("user:")) {
+          container.connectionRegistry.closeUserConnections(
+            holderKey.slice(5),
+            id,
+            SessionCloseCode.seatReleased,
+            "seat released"
+          );
+        } else if (holderKey.startsWith("player:")) {
+          container.connectionRegistry.closePlayerConnections(
+            holderKey.slice(7),
+            id,
+            SessionCloseCode.seatReleased,
+            "seat released"
+          );
+        }
       }
       await container.presenceService.broadcast(id);
       container.connectionRegistry.sendToSession(id, { type: "session:refresh", payload: {} });
@@ -186,16 +225,17 @@ export function createSessionsRoutes(container: Container) {
     })
     .post("/api/v1/gm/sessions/:id/claims/release", async ({ actor, params: { id }, body, request }) => {
       assertTrustedOrigin(request, allowedOrigins);
-      if (!actor || actor.type !== "gm") {
-        throw new AuthRequiredError();
-      }
+      const gm = requireGm(actor);
       const result = GmReleaseClaimRequest.safeParse(body);
       if (!result.success) {
         throw validationFailed(result.error);
       }
-      const released = await releaseSeat.execute({ sessionId: id, playerId: result.data.playerId });
-      container.connectionRegistry.closePlayerConnections(
-        result.data.playerId,
+      const released = await releaseSeat.execute({
+        sessionId: id,
+        holder: { holderKind: "user", userId: result.data.userId, playerId: null },
+      });
+      container.connectionRegistry.closeUserConnections(
+        result.data.userId,
         id,
         SessionCloseCode.seatReleased,
         "seat released"
@@ -204,9 +244,49 @@ export function createSessionsRoutes(container: Container) {
       container.connectionRegistry.sendToSession(id, { type: "session:refresh", payload: {} });
       return released;
     })
+    .post("/api/v1/gm/sessions/:id/growth/confirm", async ({ actor, params: { id }, body, request }) => {
+      assertTrustedOrigin(request, allowedOrigins);
+      const gm = requireGm(actor);
+      const parsed = ConfirmGrowthRequest.safeParse(body);
+      if (!parsed.success) {
+        throw validationFailed(parsed.error);
+      }
+      const session = await repo.findSessionById(id);
+      if (!session || session.ownerId !== gm.userId) {
+        throw new SessionNotFoundError();
+      }
+      if (session.status !== "ended") {
+        throw new SessionStateInvalidError("Growth can only be confirmed after the session ends");
+      }
+      if (session.growthConfirmedAt !== null) {
+        throw new SessionStateInvalidError("Growth has already been confirmed for this session");
+      }
+      const snapshots = await repo.findSessionCharactersWithClaims(id);
+      const results: Array<{ characterId: string; applied: Array<{ skillKey: string; oldValue: number; newValue: number }> }> = [];
+      for (const snapshot of snapshots) {
+        if (snapshot.kind !== "pc") continue;
+        const character = await container.db
+          .select()
+          .from(charactersTable)
+          .where(eq(charactersTable.id, snapshot.characterId))
+          .limit(1);
+        const row = character[0];
+        if (!row || row.deletedAt !== null) continue;
+        const applied = await confirmGrowth.execute({
+          ownerId: gm.userId,
+          characterId: snapshot.characterId,
+          sessionId: id,
+          gains: parsed.data.gains,
+        });
+        results.push({ characterId: snapshot.characterId, applied: applied.applied });
+      }
+      await repo.updateSession(id, { growthConfirmedAt: container.clock.nowEpochMs() });
+      return { sessionId: id, characters: results };
+    })
     .get("/api/v1/public/sessions/:id/join-info", async ({ params: { id } }) => {
       const snapshot = await getSessionSnapshot.execute(id);
       const moduleRecord = await repo.findModuleById(snapshot.session.moduleId);
+      const approvedIds = new Set(await repo.findApprovedReviewCharacters(id));
       const characters = snapshot.characters
         .filter((character) => character.kind === "pc")
         .map((character) => ({
@@ -214,6 +294,7 @@ export function createSessionsRoutes(container: Container) {
           name: character.name,
           kind: character.kind,
           claimed: character.claim !== null,
+          claimable: approvedIds.size === 0 || approvedIds.has(character.characterId),
         }));
       return JoinInfoResponse.parse({
         session: {
@@ -223,9 +304,11 @@ export function createSessionsRoutes(container: Container) {
           phase: snapshot.session.phase,
           moduleId: snapshot.session.moduleId,
           moduleName: moduleRecord?.name ?? "",
+          ruleId: snapshot.session.ruleId,
           themeId: await effectiveThemeId(container, moduleRecord?.themeId),
         },
         characters,
+        requiresLogin: characters.some((character) => character.claimable && !character.claimed),
       });
     })
     .get("/api/v1/public/sessions/:id/theme", async ({ params: { id } }) => {
@@ -240,21 +323,17 @@ export function createSessionsRoutes(container: Container) {
       if (!actor) {
         throw new AuthRequiredError();
       }
-      const claimedCharacterId =
-        actor.type === "player" ? await resolveClaimedCharacterId(container, id, actor.playerId) : null;
-      if (actor.type === "player") {
-        const hasOb = claimedCharacterId === null && (await hasObClaim(container, id, actor.playerId));
-        if (claimedCharacterId === null && !hasOb) {
-          throw new ForbiddenError("No active claim in this session");
-        }
+      const current = requireActor(actor);
+      const isGm = current.type === "user" && current.role === "gm";
+      const holder = current.type === "user" && current.role === "gm" ? null : holderOfActor(current);
+      const claimedCharacterId = holder
+        ? await resolveClaimedCharacterId(container, id, holder)
+        : null;
+      if (holder && claimedCharacterId === null && !(await hasObClaim(container, id, holder))) {
+        throw new ForbiddenError("No active claim in this session");
       }
       return {
-        items: await container.snapshotBuilder.listVisibleHandouts(
-          id,
-          actor.type === "gm",
-          claimedCharacterId,
-          actor.type === "player" ? actor.playerId : null
-        ),
+        items: await container.snapshotBuilder.listVisibleHandouts(id, isGm, claimedCharacterId, holder),
       };
     })
     .get("/api/v1/sessions/:id/my-claim", async ({ actor, params: { id } }) => {
@@ -265,16 +344,29 @@ export function createSessionsRoutes(container: Container) {
       if (!session) {
         throw new SessionNotFoundError();
       }
-      if (actor.type === "gm") {
+      if (actor.type === "user" && actor.role === "gm") {
         return MyClaimResponse.parse({ claim: null, sessionStatus: session.status, isGm: true });
       }
-      const claim = await repo.findActiveClaimByPlayer(id, actor.playerId);
+      const holder = requireSeatHolder(actor);
+      const claim = await repo.findActiveClaimByHolder(id, holder);
+      const approved = await repo.findApprovedReviewCharacters(id);
+      const claimableIds = new Set(approved);
+      const autoCandidate =
+        !claim && holder.holderKind === "user"
+          ? (await repo.findSessionCharactersWithClaims(id)).filter(
+              (entry) => entry.kind === "pc" && entry.claim === null && (
+                claimableIds.size === 0 || claimableIds.has(entry.characterId)
+              )
+            )
+          : [];
       return MyClaimResponse.parse({
         claim: claim
           ? {
               id: claim.id,
               sessionId: claim.sessionId,
+              holderKind: claim.holderKind,
               playerId: claim.playerId,
+              userId: claim.userId,
               role: claim.role,
               characterId: claim.characterId,
               releasedAt: claim.releasedAt,
@@ -283,13 +375,14 @@ export function createSessionsRoutes(container: Container) {
           : null,
         sessionStatus: session.status,
         isGm: false,
+        canAutoClaimCharacterId: autoCandidate.length === 1 ? autoCandidate[0]!.characterId : null,
       });
     })
     .post("/api/v1/sessions/:id/claim", async ({ actor, params: { id }, body, request, server }) => {
       if (!actor) {
         throw new AuthRequiredError();
       }
-      if (actor.type === "gm") {
+      if (actor.type === "user" && actor.role === "gm") {
         throw new AppError(
           "GM_SESSION_ACTIVE",
           "This browser is signed in as the GM. Log out of the GM console or use a private window to join as a player.",
@@ -303,7 +396,7 @@ export function createSessionsRoutes(container: Container) {
       }
       const claim = await claimSeat.execute({
         sessionId: id,
-        playerId: actor.playerId,
+        holder: requireSeatHolder(actor),
         role: result.data.role,
         characterId: result.data.characterId,
       });
@@ -314,10 +407,8 @@ export function createSessionsRoutes(container: Container) {
       if (!actor) {
         throw new AuthRequiredError();
       }
-      if (actor.type !== "player") {
-        throw new ForbiddenError("Only players can release seats");
-      }
-      const result = await releaseSeat.execute({ sessionId: id, playerId: actor.playerId });
+      const holder = requireSeatHolder(actor);
+      const result = await releaseSeat.execute({ sessionId: id, holder });
       await container.presenceService.broadcast(id);
       return result;
     });
@@ -326,7 +417,7 @@ export function createSessionsRoutes(container: Container) {
 async function resolveClaimedCharacterId(
   container: Container,
   sessionId: string,
-  playerId: string
+  holder: SeatHolderInput
 ): Promise<string | null> {
   const rows = await container.db
     .select({ characterId: sessionClaims.characterId })
@@ -334,21 +425,29 @@ async function resolveClaimedCharacterId(
     .where(
       and(
         eq(sessionClaims.sessionId, sessionId),
-        eq(sessionClaims.playerId, playerId),
+        holder.holderKind === "user"
+          ? eq(sessionClaims.userId, holder.userId!)
+          : eq(sessionClaims.playerId, holder.playerId!),
         isNull(sessionClaims.releasedAt)
       )
     );
   return rows[0]?.characterId ?? null;
 }
 
-async function hasObClaim(container: Container, sessionId: string, playerId: string): Promise<boolean> {
+async function hasObClaim(
+  container: Container,
+  sessionId: string,
+  holder: SeatHolderInput
+): Promise<boolean> {
   const rows = await container.db
     .select({ id: sessionClaims.id })
     .from(sessionClaims)
     .where(
       and(
         eq(sessionClaims.sessionId, sessionId),
-        eq(sessionClaims.playerId, playerId),
+        holder.holderKind === "user"
+          ? eq(sessionClaims.userId, holder.userId!)
+          : eq(sessionClaims.playerId, holder.playerId!),
         isNull(sessionClaims.releasedAt),
         isNull(sessionClaims.characterId)
       )

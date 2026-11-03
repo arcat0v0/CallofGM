@@ -1,9 +1,10 @@
-import type { SessionKickInput, SessionKickRecord } from "@/modules/sessions";
+import type { SessionKickInput, SessionKickRecord, SeatHolderInput } from "@/modules/sessions";
 
 export interface BlacklistEntryInput {
   id: string;
   fingerprintHash: string;
   playerId: string | null;
+  userId: string | null;
   displayName: string | null;
   reason: string;
   expiresAt: number | null;
@@ -16,13 +17,14 @@ export interface PlayerBanContext {
 }
 
 export interface SessionKickStore {
-  findActiveSessionKick(sessionId: string, playerId: string): Promise<SessionKickRecord | null>;
+  findActiveSessionKick(sessionId: string, holder: SeatHolderInput): Promise<SessionKickRecord | null>;
   recordSessionKick(kick: SessionKickInput): Promise<void>;
-  liftSessionKick(sessionId: string, playerId: string, liftedAt: number): Promise<boolean>;
+  liftSessionKick(sessionId: string, holder: SeatHolderInput, liftedAt: number): Promise<boolean>;
 }
 
 export interface ModerationRepository {
   findPlayerBanContext(playerId: string): Promise<PlayerBanContext | null>;
+  findUserBanContext(userId: string): Promise<PlayerBanContext | null>;
   upsertBlacklistEntry(entry: BlacklistEntryInput): Promise<void>;
   deleteBlacklistEntry(fingerprintHash: string): Promise<boolean>;
 }

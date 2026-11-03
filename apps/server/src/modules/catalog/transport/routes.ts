@@ -2,11 +2,12 @@ import { Elysia } from "elysia";
 import { z } from "zod";
 import { type Container } from "@/bootstrap/container";
 import { DrizzleCatalogRepository } from "../infrastructure/drizzle-catalog-repository";
-import { DrizzleIdentityRepository, createAuthPlugin, AuthRequiredError } from "@/modules/identity";
+import { DrizzleIdentityRepository, createAuthPlugin, AuthRequiredError, requireGm } from "@/modules/identity";
 import { validationFailed } from "@/platform/errors/validation";
 import { assertTrustedOrigin } from "@/platform/security/origin";
 import { corsOriginsFor } from "@/config/env";
 import { ThemeNotFoundError } from "@/modules/themes";
+import { ModuleNotFoundError } from "../domain/errors";
 import {
   CreateModuleRequest,
   UpdateModuleRequest,
@@ -78,7 +79,7 @@ export function createCatalogRoutes(container: Container) {
 
   const createModule = new CreateModuleUseCase(repo, container.idGenerator, container.clock);
   const updateModule = new UpdateModuleUseCase(repo);
-  const deleteModule = new DeleteModuleUseCase(repo);
+  const deleteModule = new DeleteModuleUseCase(repo, container.clock);
   const getModule = new GetModuleUseCase(repo);
   const listModules = new ListModulesUseCase(repo);
   const listModuleSummaries = new ListModuleSummariesUseCase(repo);
@@ -100,36 +101,51 @@ export function createCatalogRoutes(container: Container) {
 
   const allowedOrigins = corsOriginsFor(container.env);
 
+  const requireOwnedModule = async (moduleId: string, ownerId: string) => {
+    const record = await repo.findModuleById(moduleId);
+    if (!record || record.ownerId !== ownerId) {
+      throw new ModuleNotFoundError();
+    }
+    return record;
+  };
+
   return new Elysia({ prefix: "/api/v1/gm/modules" })
     .use(authPlugin)
     .onBeforeHandle(({ actor, request }) => {
-      if (!actor || actor.type !== "gm") {
+      if (!actor || actor.type !== "user" || actor.role !== "gm") {
         throw new AuthRequiredError();
       }
       if (request.method !== "GET" && request.method !== "HEAD") {
         assertTrustedOrigin(request, allowedOrigins);
       }
     })
-    .post("/", async ({ body }) => {
+    .post("/", async ({ body, actor }) => {
       const parsed = parseBody(CreateModuleRequest, body);
       await requireTheme(container, parsed.themeId);
-      return ModuleDto.parse(await createModule.execute(parsed));
+      return ModuleDto.parse(
+        await createModule.execute({ ...parsed, ownerId: requireGm(actor).userId })
+      );
     })
-    .get("/", async ({ query }) => {
-      return CursorPageResponse(ModuleDto).parse(await listModules.execute(parsePageQuery(query)));
+    .get("/", async ({ query, actor }) => {
+      return CursorPageResponse(ModuleDto).parse(
+        await listModules.execute({ ...parsePageQuery(query), ownerId: requireGm(actor).userId })
+      );
     })
     .get("/summaries", async () => {
       return z.array(ModuleSummaryDto).parse(await listModuleSummaries.execute());
     })
-    .get("/:id", async ({ params }) => {
+    .get("/:id", async ({ params, actor }) => {
+      await requireOwnedModule(params.id, requireGm(actor).userId);
       return ModuleDto.parse(await getModule.execute(params.id));
     })
-    .patch("/:id", async ({ params, body }) => {
+    .patch("/:id", async ({ params, body, actor }) => {
+      await requireOwnedModule(params.id, requireGm(actor).userId);
       const parsed = parseBody(UpdateModuleRequest, body);
       await requireTheme(container, parsed.themeId);
       return ModuleDto.parse(await updateModule.execute(params.id, parsed));
     })
-    .delete("/:id", async ({ params }) => {
+    .delete("/:id", async ({ params, actor }) => {
+      await requireOwnedModule(params.id, requireGm(actor).userId);
       await deleteModule.execute(params.id);
       return { success: true };
     })

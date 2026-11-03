@@ -6,6 +6,66 @@ export class CharacterNotFoundError extends AppError {
   }
 }
 
+export class CharacterVersionConflictError extends AppError {
+  constructor(message = "Character was modified concurrently") {
+    super("CHARACTER_VERSION_CONFLICT", message, 409);
+  }
+}
+
+export class CharacterSyncVersionConflictError extends AppError {
+  constructor(message = "Session snapshot is out of date; reload before syncing") {
+    super("CHARACTER_SYNC_CONFLICT", message, 409);
+  }
+}
+
+export class CharacterNotOwnedError extends AppError {
+  constructor(message = "Character does not belong to this account") {
+    super("CHARACTER_NOT_OWNED", message, 403);
+  }
+}
+
+export class PermanentFieldNotEditableError extends AppError {
+  constructor(message = "This field is not a rule-declared permanent field") {
+    super("PERMANENT_FIELD_NOT_EDITABLE", message, 400);
+  }
+}
+
+export class InviteNotFoundError extends AppError {
+  constructor(message = "Invite link not found") {
+    super("INVITE_NOT_FOUND", message, 404);
+  }
+}
+
+export class InviteExpiredError extends AppError {
+  constructor(message = "Invite link has expired or was revoked") {
+    super("INVITE_EXPIRED", message, 410);
+  }
+}
+
+export class ReviewNotFoundError extends AppError {
+  constructor(message = "Review not found") {
+    super("REVIEW_NOT_FOUND", message, 404);
+  }
+}
+
+export class ReviewAlreadyDecidedError extends AppError {
+  constructor(message = "Review has already been decided") {
+    super("REVIEW_ALREADY_DECIDED", message, 409);
+  }
+}
+
+export class CharacterAlreadySubmittedError extends AppError {
+  constructor(message = "This character is already submitted or linked") {
+    super("CHARACTER_ALREADY_SUBMITTED", message, 409);
+  }
+}
+
+export class NoReviewedCharacterError extends AppError {
+  constructor(message = "No approved character to claim") {
+    super("NO_REVIEWED_CHARACTER", message, 404);
+  }
+}
+
 export class PortraitNotFoundError extends AppError {
   constructor(message = "Portrait not found") {
     super("PORTRAIT_NOT_FOUND", message, 404);
