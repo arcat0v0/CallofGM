@@ -1,10 +1,12 @@
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 import {
 	AudioLines,
+	Layers,
 	Package,
 	Palette,
 	ShieldBan,
 	Swords,
+	Trash2,
 	VenetianMask,
 } from "lucide-react";
 import type { ComponentType, ReactNode } from "react";
@@ -17,10 +19,12 @@ import { ThemeSlot } from "@/themes/runtime/theme-slot";
 type AdminNavKey =
 	| "sessions"
 	| "modules"
+	| "templates"
 	| "characters"
 	| "music"
 	| "blacklist"
-	| "themes";
+	| "themes"
+	| "trash";
 
 const NAV_ITEMS: {
 	key: AdminNavKey;
@@ -36,6 +40,12 @@ const NAV_ITEMS: {
 		to: "/gm/modules",
 	},
 	{
+		key: "templates",
+		labelKey: "gm.nav.templates",
+		icon: Layers,
+		to: "/gm/templates",
+	},
+	{
 		key: "characters",
 		labelKey: "gm.nav.characters",
 		icon: VenetianMask,
@@ -49,6 +59,7 @@ const NAV_ITEMS: {
 		to: "/gm/blacklist",
 	},
 	{ key: "themes", labelKey: "gm.nav.themes", icon: Palette, to: "/gm/themes" },
+	{ key: "trash", labelKey: "gm.nav.trash", icon: Trash2, to: "/gm/trash" },
 ];
 
 export function adminNavCurrentKey(pathname: string): AdminNavKey | null {
@@ -73,6 +84,12 @@ export function adminNavCurrentKey(pathname: string): AdminNavKey | null {
 	}
 	if (path === "/gm/themes") {
 		return "themes";
+	}
+	if (path === "/gm/templates") {
+		return "templates";
+	}
+	if (path === "/gm/trash") {
+		return "trash";
 	}
 	return null;
 }

@@ -1,5 +1,4 @@
 import type { ThemeSummaryDto } from "@cogm/shared";
-import { Palette } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -110,27 +109,6 @@ function GmThemeDialog({
 				</DialogFooter>
 			</DialogContent>
 		</Dialog>
-	);
-}
-
-export function GmThemeControl() {
-	const [open, setOpen] = useState(false);
-
-	return (
-		<div className="fixed right-4 bottom-4 z-[20000]">
-			<Button
-				type="button"
-				variant="tertiary"
-				size="icon-sm"
-				className="bg-md-surface-container-high border-white/10 shadow-overlay border"
-				aria-label={t("gm.themeControl.aria")}
-				title={t("gm.themeControl.title")}
-				onClick={() => setOpen(true)}
-			>
-				<Palette />
-			</Button>
-			<GmThemeDialog open={open} onOpenChange={setOpen} />
-		</div>
 	);
 }
 
