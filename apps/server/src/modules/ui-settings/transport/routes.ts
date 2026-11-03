@@ -26,10 +26,10 @@ export function createUiSettingsRoutes(container: Container) {
 		container.clock,
 	);
 
-	return new Elysia({ prefix: "/api/v1/gm/ui-settings" })
+	return new Elysia({ prefix: "/api/v1/admin/ui-settings" })
 		.use(authPlugin)
 		.onBeforeHandle(({ actor }) => {
-			if (!actor || actor.type !== "user" || actor.role !== "gm") {
+			if (!actor || actor.type !== "user" || actor.role !== "admin") {
 				throw new AuthRequiredError();
 			}
 		})
@@ -40,7 +40,7 @@ export function createUiSettingsRoutes(container: Container) {
 				throw validationFailed(parsed.error);
 			}
 			const result = await updateSettings.execute(parsed.data);
-			logger.audit("gm.ui-settings.update", { gmThemeId: result.gmThemeId });
+			logger.audit("admin.ui-settings.update", { gmThemeId: result.gmThemeId });
 			return result;
 		});
 }

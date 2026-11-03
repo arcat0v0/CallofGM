@@ -10,6 +10,7 @@ import {
 	GmReleaseClaimRequest,
 	JoinInfoResponse,
 	MyClaimResponse,
+	PlSessionSummaryDto,
 	RenameSessionRequest,
 	SessionCloseCode,
 	SessionDetailResponse,
@@ -19,6 +20,7 @@ import {
 } from "@cogm/shared";
 import { and, eq, isNull } from "drizzle-orm";
 import { Elysia } from "elysia";
+import { z } from "zod";
 import type { Container } from "@/bootstrap/container";
 import { corsOriginsFor } from "@/config/env";
 import {
@@ -444,6 +446,13 @@ export function createSessionsRoutes(container: Container) {
 					holder,
 				),
 			};
+		})
+		.get("/api/v1/pl/sessions", async ({ actor }) => {
+			if (!actor || actor.type !== "user" || actor.role !== "pl") {
+				throw new ForbiddenError("Player accounts only");
+			}
+			const rows = await repo.listActiveSessionsForUser(actor.userId);
+			return z.array(PlSessionSummaryDto).parse(rows);
 		})
 		.get("/api/v1/sessions/:id/my-claim", async ({ actor, params: { id } }) => {
 			if (!actor) {

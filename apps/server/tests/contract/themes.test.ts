@@ -51,6 +51,10 @@ describe("Theme registry and API contract tests", () => {
 	let ctx: TestContext;
 
 	function authHeaders(): Record<string, string> {
+		return { Authorization: `Bearer ${ctx.adminToken}` };
+	}
+
+	function gmHeaders(): Record<string, string> {
 		return { Authorization: `Bearer ${ctx.gmToken}` };
 	}
 
@@ -61,7 +65,7 @@ describe("Theme registry and API contract tests", () => {
 			new File([archive], "theme.cogmtheme", { type: "application/zip" }),
 		);
 		return ctx.app.handle(
-			new Request("http://localhost/api/v1/gm/themes", {
+			new Request("http://localhost/api/v1/admin/themes", {
 				method: "POST",
 				headers: authHeaders(),
 				body: form,
@@ -77,11 +81,11 @@ describe("Theme registry and API contract tests", () => {
 		await rm(ctx.themesDir, { recursive: true, force: true });
 	});
 
-	test("GM theme routes require authentication", async () => {
+	test("Admin theme routes require authentication", async () => {
 		const res = await ctx.app.handle(
-			new Request("http://localhost/api/v1/gm/themes"),
+			new Request("http://localhost/api/v1/admin/themes"),
 		);
-		expect(res.status).toBe(401);
+		expect(res.status).toBe(403);
 	});
 
 	test("installs a valid theme and serves manifest and bundle", async () => {
@@ -93,7 +97,7 @@ describe("Theme registry and API contract tests", () => {
 		expect(body.version).toBe(manifest.version);
 
 		const listRes = await ctx.app.handle(
-			new Request("http://localhost/api/v1/gm/themes", {
+			new Request("http://localhost/api/v1/admin/themes", {
 				headers: authHeaders(),
 			}),
 		);
@@ -105,7 +109,7 @@ describe("Theme registry and API contract tests", () => {
 		expect(list.items[0]?.digest).toBe(manifest.bundleHash);
 
 		const rescanRes = await ctx.app.handle(
-			new Request("http://localhost/api/v1/gm/themes/rescan", {
+			new Request("http://localhost/api/v1/admin/themes/rescan", {
 				method: "POST",
 				headers: authHeaders(),
 			}),
@@ -194,7 +198,7 @@ describe("Theme registry and API contract tests", () => {
 		const patchRes = await ctx.app.handle(
 			new Request("http://localhost/api/v1/gm/modules/module-test", {
 				method: "PATCH",
-				headers: { ...authHeaders(), "Content-Type": "application/json" },
+				headers: { ...gmHeaders(), "Content-Type": "application/json" },
 				body: JSON.stringify({ themeId: manifest.id }),
 			}),
 		);
@@ -204,7 +208,7 @@ describe("Theme registry and API contract tests", () => {
 		);
 
 		const blocked = await ctx.app.handle(
-			new Request(`http://localhost/api/v1/gm/themes/${manifest.id}`, {
+			new Request(`http://localhost/api/v1/admin/themes/${manifest.id}`, {
 				method: "DELETE",
 				headers: authHeaders(),
 			}),
@@ -222,14 +226,14 @@ describe("Theme registry and API contract tests", () => {
 		const resetRes = await ctx.app.handle(
 			new Request("http://localhost/api/v1/gm/modules/module-test", {
 				method: "PATCH",
-				headers: { ...authHeaders(), "Content-Type": "application/json" },
+				headers: { ...gmHeaders(), "Content-Type": "application/json" },
 				body: JSON.stringify({ themeId: null }),
 			}),
 		);
 		expect(resetRes.status).toBe(200);
 
 		const deleted = await ctx.app.handle(
-			new Request(`http://localhost/api/v1/gm/themes/${manifest.id}`, {
+			new Request(`http://localhost/api/v1/admin/themes/${manifest.id}`, {
 				method: "DELETE",
 				headers: authHeaders(),
 			}),
@@ -242,7 +246,7 @@ describe("Theme registry and API contract tests", () => {
 		expect((await upload(archive)).status).toBe(200);
 
 		const invalid = await ctx.app.handle(
-			new Request("http://localhost/api/v1/gm/ui-settings", {
+			new Request("http://localhost/api/v1/admin/ui-settings", {
 				method: "PUT",
 				headers: { ...authHeaders(), "Content-Type": "application/json" },
 				body: JSON.stringify({ gmThemeId: "arcat.missing" }),
@@ -251,7 +255,7 @@ describe("Theme registry and API contract tests", () => {
 		expect(invalid.status).toBe(404);
 
 		const put = await ctx.app.handle(
-			new Request("http://localhost/api/v1/gm/ui-settings", {
+			new Request("http://localhost/api/v1/admin/ui-settings", {
 				method: "PUT",
 				headers: { ...authHeaders(), "Content-Type": "application/json" },
 				body: JSON.stringify({ gmThemeId: manifest.id }),
@@ -260,7 +264,7 @@ describe("Theme registry and API contract tests", () => {
 		expect(put.status).toBe(200);
 
 		const get = await ctx.app.handle(
-			new Request("http://localhost/api/v1/gm/ui-settings", {
+			new Request("http://localhost/api/v1/admin/ui-settings", {
 				headers: authHeaders(),
 			}),
 		);
@@ -269,7 +273,7 @@ describe("Theme registry and API contract tests", () => {
 		);
 
 		const blocked = await ctx.app.handle(
-			new Request(`http://localhost/api/v1/gm/themes/${manifest.id}`, {
+			new Request(`http://localhost/api/v1/admin/themes/${manifest.id}`, {
 				method: "DELETE",
 				headers: authHeaders(),
 			}),
@@ -283,7 +287,7 @@ describe("Theme registry and API contract tests", () => {
 		await ctx.app.handle(
 			new Request("http://localhost/api/v1/gm/modules/module-test", {
 				method: "PATCH",
-				headers: { ...authHeaders(), "Content-Type": "application/json" },
+				headers: { ...gmHeaders(), "Content-Type": "application/json" },
 				body: JSON.stringify({ themeId: manifest.id }),
 			}),
 		);

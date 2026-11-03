@@ -410,6 +410,59 @@ describe("PL character ownership, versions and growth", () => {
 		expect(rows?.deleted_at).not.toBeNull();
 	});
 
+	test("PL 只看到自己参团的团，且带席位与角色信息", async () => {
+		const character = await createPlCharacter("参团人物");
+		await api(`/api/v1/gm/modules/${moduleId}/characters`, {
+			method: "POST",
+			token: ctx.gmToken,
+			body: JSON.stringify({ characterId: character.id }),
+		});
+		const sessionRes = await api("/api/v1/gm/sessions", {
+			method: "POST",
+			token: ctx.gmToken,
+			body: JSON.stringify({ moduleId, characterIds: [character.id] }),
+		});
+		const sessionId = ((await sessionRes.json()) as { session: { id: string } })
+			.session.id;
+
+		const claim = await api(`/api/v1/sessions/${sessionId}/claim`, {
+			method: "POST",
+			token: plToken,
+			body: JSON.stringify({ role: "pc", characterId: character.id }),
+		});
+		expect(claim.status).toBe(200);
+
+		const mineRes = await api("/api/v1/pl/sessions", { token: plToken });
+		expect(mineRes.status).toBe(200);
+		const mine = (await mineRes.json()) as Array<{
+			sessionId: string;
+			role: string;
+			characterName: string | null;
+			ruleId: string;
+		}>;
+		const entry = mine.find((item) => item.sessionId === sessionId);
+		expect(entry?.role).toBe("pc");
+		expect(entry?.characterName).toBe("参团人物");
+		expect(entry?.ruleId).toBe("coc7e");
+
+		const otherView = await api("/api/v1/pl/sessions", { token: otherToken });
+		const otherList = (await otherView.json()) as Array<{ sessionId: string }>;
+		expect(otherList.some((item) => item.sessionId === sessionId)).toBe(false);
+
+		const gmView = await api("/api/v1/pl/sessions", { token: ctx.gmToken });
+		expect(gmView.status).toBe(403);
+	});
+
+	test("admin 拥有主题管理，GM 不再能访问", async () => {
+		const adminRes = await api("/api/v1/admin/themes", {
+			token: ctx.adminToken,
+		});
+		expect(adminRes.status).toBe(200);
+
+		const gmRes = await api("/api/v1/admin/themes", { token: ctx.gmToken });
+		expect(gmRes.status).toBe(403);
+	});
+
 	test("规则未注册时拒绝建卡", async () => {
 		const res = await api("/api/v1/pl/characters", {
 			method: "POST",

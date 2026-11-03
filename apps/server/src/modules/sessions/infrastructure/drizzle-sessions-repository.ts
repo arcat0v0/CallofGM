@@ -1,4 +1,4 @@
-import { and, asc, eq, gt, inArray, isNull, or } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, isNull, or } from "drizzle-orm";
 import type { DbClient } from "@/platform/db/client";
 import {
 	anonymousPlayers,
@@ -188,6 +188,38 @@ export class DrizzleSessionsRepository implements SessionsRepository {
 			)
 			.limit(1);
 		return (result[0] as ClaimRecord | undefined) ?? null;
+	}
+
+	async listActiveSessionsForUser(userId: string) {
+		const rows = await this.db
+			.select({
+				sessionId: sessions.id,
+				name: sessions.name,
+				status: sessions.status,
+				phase: sessions.phase,
+				ruleId: sessions.ruleId,
+				role: sessionClaims.role,
+				characterId: sessionClaims.characterId,
+				characterName: sessionCharacters.name,
+			})
+			.from(sessionClaims)
+			.innerJoin(sessions, eq(sessionClaims.sessionId, sessions.id))
+			.leftJoin(
+				sessionCharacters,
+				and(
+					eq(sessionCharacters.sessionId, sessions.id),
+					eq(sessionCharacters.characterId, sessionClaims.characterId),
+				),
+			)
+			.where(
+				and(
+					eq(sessionClaims.userId, userId),
+					isNull(sessionClaims.releasedAt),
+					isNull(sessions.deletedAt),
+				),
+			)
+			.orderBy(desc(sessions.createdAt));
+		return rows;
 	}
 
 	async findActiveClaimByHolder(

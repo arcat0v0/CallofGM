@@ -179,6 +179,18 @@ export const CreateSessionResponse = z.object({
 });
 export type CreateSessionResponse = z.infer<typeof CreateSessionResponse>;
 
+export const PlSessionSummaryDto = z.object({
+	sessionId: z.string(),
+	name: z.string().nullable(),
+	status: SessionStatus,
+	phase: SessionPhase,
+	ruleId: z.string(),
+	role: SeatRole,
+	characterId: z.string().nullable(),
+	characterName: z.string().nullable(),
+});
+export type PlSessionSummaryDto = z.infer<typeof PlSessionSummaryDto>;
+
 export const ClaimDto = z.object({
 	id: z.string(),
 	sessionId: z.string(),

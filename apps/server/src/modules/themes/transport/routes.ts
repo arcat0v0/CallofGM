@@ -25,6 +25,13 @@ export function createThemeRoutes(container: Container) {
 	const authPlugin = createAuthPlugin(
 		new DrizzleIdentityRepository(container.db),
 	);
+	const requireAdmin = (
+		actor: { type: string; role?: string } | null,
+	): void => {
+		if (!actor || actor.type !== "user" || actor.role !== "admin") {
+			throw new ForbiddenError("Administrators only");
+		}
+	};
 	const listThemes = new ListThemesUseCase(registry, container.db);
 	const installTheme = new InstallThemeUseCase(registry, container.db);
 	const deleteTheme = new DeleteThemeUseCase(registry, container.db);
@@ -58,18 +65,14 @@ export function createThemeRoutes(container: Container) {
 			});
 		})
 		.use(authPlugin)
-		.get("/api/v1/gm/themes", async ({ actor }) => {
-			if (!actor || actor.type !== "user" || actor.role !== "gm") {
-				throw new AuthRequiredError();
-			}
+		.get("/api/v1/admin/themes", async ({ actor }) => {
+			requireAdmin(actor);
 			return { items: await listThemes.execute() };
 		})
 		.post(
-			"/api/v1/gm/themes",
+			"/api/v1/admin/themes",
 			async ({ actor, body, request, server }) => {
-				if (!actor || actor.type !== "user" || actor.role !== "gm") {
-					throw new AuthRequiredError();
-				}
+				requireAdmin(actor);
 				assertTrustedOrigin(request, allowedOrigins);
 				container.httpLimits.uploadRateLimiter.assert(
 					clientIp(request, server, container.env.TRUST_PROXY),
@@ -92,20 +95,16 @@ export function createThemeRoutes(container: Container) {
 				}),
 			},
 		)
-		.delete("/api/v1/gm/themes/:id", async ({ actor, params }) => {
-			if (!actor || actor.type !== "user" || actor.role !== "gm") {
-				throw new AuthRequiredError();
-			}
+		.delete("/api/v1/admin/themes/:id", async ({ actor, params }) => {
+			requireAdmin(actor);
 			if (params.id === "default") {
 				throw new ForbiddenError("默认主题不可删除");
 			}
 			await deleteTheme.execute(params.id);
 			return { success: true };
 		})
-		.post("/api/v1/gm/themes/rescan", async ({ actor }) => {
-			if (!actor || actor.type !== "user" || actor.role !== "gm") {
-				throw new AuthRequiredError();
-			}
+		.post("/api/v1/admin/themes/rescan", async ({ actor }) => {
+			requireAdmin(actor);
 			return { items: await rescanThemes.execute() };
 		});
 }

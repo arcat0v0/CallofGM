@@ -167,6 +167,18 @@ export interface SessionsRepository {
 		sessionId: string,
 		characterId: string,
 	): Promise<ClaimRecord | null>;
+	listActiveSessionsForUser(userId: string): Promise<
+		Array<{
+			sessionId: string;
+			name: string | null;
+			status: string;
+			phase: string;
+			ruleId: string;
+			role: string;
+			characterId: string | null;
+			characterName: string | null;
+		}>
+	>;
 	findActiveClaimByHolder(
 		sessionId: string,
 		holder: SeatHolderInput,
