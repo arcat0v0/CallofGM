@@ -10,11 +10,13 @@ import {
 } from "../src/features/gm-console/gm-state";
 import type { parseCocState } from "../src/lib/coc-live";
 
-type CharacterState = NonNullable<ReturnType<typeof parseCocState>>;
+type CharacterState = NonNullable<ReturnType<typeof parseCocState>> & {
+	sessionId: string;
+	characterId: string;
+};
 
 function state(overrides: Partial<CharacterState> = {}): CharacterState {
 	return {
-		schemaVersion: 1,
 		sessionId: "s1",
 		characterId: "c1",
 		hp: 9,
@@ -38,6 +40,7 @@ function character(
 		characterId: "c1",
 		name: "远野 澪",
 		kind: "pc",
+		ruleId: "coc7e",
 		currentExpressionKey: "default",
 		state: state(),
 		portraits: [],

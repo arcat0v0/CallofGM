@@ -1,7 +1,8 @@
-import { coc7e, type SnapshotCharacter } from "@cogm/shared";
+import type { SnapshotCharacter } from "@cogm/shared";
 import { parseCocState } from "@/lib/coc-live";
+import { getRuleComponent, type RuleSessionState } from "@/rules/registry";
 
-type CharacterState = NonNullable<ReturnType<typeof parseCocState>>;
+type CharacterState = RuleSessionState;
 
 export type CharacterStateEntry = {
 	character: SnapshotCharacter;
@@ -31,7 +32,7 @@ export function stateEntries(
 	characters: SnapshotCharacter[],
 ): CharacterStateEntry[] {
 	return characters.flatMap((character) => {
-		const state = parseCocState(character.state);
+		const state = parseCocState(character.state, character.ruleId);
 		return state ? [{ character, state }] : [];
 	});
 }
@@ -48,10 +49,11 @@ export function hpLine(state: CharacterState): string {
 	return `HP ${state.hp} / ${state.maxHp}`;
 }
 
-export function statusLine(state: CharacterState): string {
-	const labels = state.statuses.map(
-		(flag) => coc7e.CharacterStatusFlagLabel[flag],
-	);
+export function statusLine(
+	state: CharacterState,
+	ruleId?: string | null,
+): string {
+	const labels = getRuleComponent(ruleId).statusLabels(state.statuses);
 	const resources = `${hpLine(state)} · SAN ${state.san} / ${state.maxSan}`;
 	return labels.length > 0 ? `${labels.join(" · ")} · ${resources}` : resources;
 }

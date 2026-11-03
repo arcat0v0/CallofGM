@@ -3,7 +3,6 @@ import {
 	type CatalogHandoutDto,
 	type ChatMessageDto,
 	type CheckRequestDto,
-	coc7e,
 	type GrantedHandoutDto,
 	HISTORY_DEFAULT_LIMIT,
 	type HistoryArchiveGroup,
@@ -52,6 +51,7 @@ import {
 	writeLocalMuted,
 	writeLocalVolume,
 } from "@/lib/storage";
+import { getRuleComponent } from "@/rules/registry";
 
 export type ConnectionTerminal =
 	| "kicked"
@@ -63,6 +63,7 @@ type PlayState = {
 	sessionId: string | null;
 	moduleId: string | null;
 	moduleName: string | null;
+	ruleId: string | null;
 	sessionName: string | null;
 	themeId: string | null;
 	status: SessionStatus | null;
@@ -156,6 +157,7 @@ const empty = {
 	sessionId: null as string | null,
 	moduleId: null as string | null,
 	moduleName: null as string | null,
+	ruleId: null as string | null,
 	sessionName: null as string | null,
 	themeId: null as string | null,
 	status: null as SessionStatus | null,
@@ -603,6 +605,7 @@ export const usePlayStore = create<PlayState>((set, get) => ({
 			sessionId: payload.session.id,
 			moduleId: payload.session.moduleId,
 			moduleName: payload.session.moduleName,
+			ruleId: payload.session.ruleId,
 			sessionName: payload.session.name,
 			themeId: payload.session.themeId,
 			status: payload.session.status,
@@ -794,7 +797,7 @@ export const usePlayStore = create<PlayState>((set, get) => ({
 				? get().pendingChecks.find((item) => item.id === requestId)
 				: undefined;
 			const skillKey = pending
-				? coc7e.coc7eSkillLabel(pending.skillKey)
+				? getRuleComponent(get().ruleId).skillLabel(pending.skillKey)
 				: t("chat.role.check");
 			const hiddenRolled = payload.rolled === true && payload.hidden === true;
 			if (requestId && hiddenRolled) {

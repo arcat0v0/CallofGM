@@ -7,6 +7,27 @@ export type RuleSheetEditorProps = {
 	readOnly?: boolean;
 };
 
+export type RuleDerivedStats = {
+	hp: { current: number; max: number };
+	mp: { current: number; max: number };
+	san: { current: number; max: number };
+	luck: number;
+	mov: number;
+};
+
+export type RuleSessionState = {
+	hp: number;
+	maxHp: number;
+	mp: number;
+	maxMp: number;
+	san: number;
+	maxSan: number;
+	statuses: string[];
+	tags: string[];
+	growthMarks: string[];
+	hiddenGrowthMarks: string[];
+};
+
 export type RuleComponent = {
 	metadata: RuleMetadata;
 	createEmptySheet: () => unknown;
@@ -14,16 +35,33 @@ export type RuleComponent = {
 	parseSheetJson: (json: string) => unknown | null;
 	skillLabel: (key: string) => string;
 	skillKeys: (sheet: unknown) => string[];
+	skillTarget: (sheet: unknown, skillKey: string) => number | null;
 	attributeEntries: (sheet: unknown) => Array<{
 		key: string;
 		label: string;
 		value: number;
 	}>;
+	attributeLabel: (key: string) => string | null;
+	attributeKeys: (sheet: unknown) => string[];
+	attributeValues: (sheet: unknown) => Record<string, number>;
+	attributePair: (
+		key: string,
+	) => { key: string; label: string; abbr: string } | null;
+	skillEntries: (sheet: unknown) => Array<{ key: string; value: number }>;
+	attributePairs: () => Array<{ key: string; label: string; abbr: string }>;
 	difficultyLabel: (difficulty: string) => string;
+	difficultyThreshold: (target: number, difficulty: string) => number | null;
+	parseDifficulty: (value: unknown) => string | null;
 	outcomeLabel: (outcome: string) => string;
-	statusLabels: (statuses: string[]) => string[];
-	statusOptions: () => Array<{ value: string; label: string }>;
 	checkOutcome: (check: unknown) => boolean | null;
+	stateSummary: (state: unknown) => string | null;
+	parseState: (state: unknown) => RuleSessionState | null;
+	statusLabels: (statuses: string[]) => string[];
+	statusLabelsOfState: (state: unknown) => string[];
+	statusOptions: () => Array<{ value: string; label: string }>;
+	skillCatalog: ReadonlyArray<{ key: string; base: number }>;
+	deriveStats: (sheet: unknown) => RuleDerivedStats;
+	attributeOrder: () => string[];
 };
 
 const COC7E_STATUS_LABELS = coc7e.CharacterStatusFlagLabel as Record<
@@ -78,21 +116,64 @@ const coc7eComponent: RuleComponent = {
 	},
 	skillLabel: (key) => coc7e.coc7eSkillLabel(key),
 	skillKeys: (sheet) => Object.keys(readSkills(sheet)),
+	skillTarget: (sheet, skillKey) => {
+		const parsed = coc7e.Coc7eCharacterSheet.safeParse(sheet);
+		return parsed.success
+			? coc7e.coc7eSkillTargetValue(parsed.data, skillKey)
+			: null;
+	},
 	attributeEntries: (sheet) => {
 		const attributes = readAttributes(sheet);
-		return ATTRIBUTE_ORDER.map(({ key, label }) => ({
+		return COC7E_ATTRIBUTE_ORDER.map(({ key }) => ({
 			key,
-			label,
+			label: coc7e.COC7E_ATTRIBUTE_LABELS[key]?.label ?? key,
 			value: attributes[key] ?? 0,
 		}));
 	},
+	attributeLabel: (key) => coc7e.COC7E_ATTRIBUTE_LABELS[key]?.label ?? null,
+	attributeKeys: (sheet) => Object.keys(readAttributes(sheet)),
+	attributeValues: (sheet) => readAttributes(sheet),
+	attributePair: (key) => {
+		const entry = coc7e.COC7E_ATTRIBUTE_LABELS[key];
+		return entry ? { key, label: entry.label, abbr: entry.abbr } : null;
+	},
+	skillEntries: (sheet) =>
+		Object.entries(readSkills(sheet)).map(([key, value]) => ({
+			key,
+			value,
+		})),
+	attributePairs: () =>
+		COC7E_ATTRIBUTE_ORDER.map(({ key }) => ({
+			key,
+			label: coc7e.COC7E_ATTRIBUTE_LABELS[key]?.label ?? key,
+			abbr: coc7e.COC7E_ATTRIBUTE_LABELS[key]?.abbr ?? key.toUpperCase(),
+		})),
 	difficultyLabel: (difficulty) =>
 		(coc7e.CheckDifficultyLabel as Record<string, string>)[difficulty] ??
 		difficulty,
+	difficultyThreshold: (target, difficulty) => {
+		const parsed = coc7e.CheckDifficulty.safeParse(difficulty);
+		return parsed.success
+			? coc7e.coc7eDifficultyThreshold(target, parsed.data)
+			: null;
+	},
+	parseDifficulty: (value) => {
+		const parsed = coc7e.CheckDifficulty.safeParse(value);
+		return parsed.success ? parsed.data : null;
+	},
 	outcomeLabel: (outcome) =>
 		(coc7e.CheckOutcomeLabel as Record<string, string>)[outcome] ?? outcome,
 	statusLabels: (statuses) =>
 		statuses.map((flag) => COC7E_STATUS_LABELS[flag] ?? flag),
+	statusLabelsOfState: (state) => {
+		const parsed = coc7e.CharacterSessionState.safeParse(state);
+		if (!parsed.success) {
+			return [];
+		}
+		return parsed.data.statuses.map(
+			(flag) => COC7E_STATUS_LABELS[flag] ?? flag,
+		);
+	},
 	statusOptions: () =>
 		Object.entries(COC7E_STATUS_LABELS).map(([value, label]) => ({
 			value,
@@ -105,18 +186,70 @@ const coc7eComponent: RuleComponent = {
 		const success = (check as { success?: unknown }).success;
 		return typeof success === "boolean" ? success : null;
 	},
+	stateSummary: (state) => coc7e.coc7eStateSummary(state),
+	parseState: (state) => {
+		const parsed = coc7e.CharacterSessionState.safeParse(state);
+		if (!parsed.success) {
+			return null;
+		}
+		const value = parsed.data;
+		return {
+			hp: value.hp,
+			maxHp: value.maxHp,
+			mp: value.mp,
+			maxMp: value.maxMp,
+			san: value.san,
+			maxSan: value.maxSan,
+			statuses: value.statuses,
+			tags: value.tags,
+			growthMarks: value.growthMarks,
+			hiddenGrowthMarks: value.hiddenGrowthMarks,
+		};
+	},
+	skillCatalog: coc7e.COC7E_SKILL_CATALOG.map(({ key, base }) => ({
+		key,
+		base,
+	})),
+	deriveStats: (sheet) => {
+		const attributes = readAttributes(sheet);
+		const con = attributes.con ?? 0;
+		const siz = attributes.siz ?? 0;
+		const pow = attributes.pow ?? 0;
+		const str = attributes.str ?? 0;
+		const dex = attributes.dex ?? 0;
+		const hpMax = Math.max(1, Math.floor((con + siz) / 10));
+		const mpMax = Math.max(0, Math.floor(pow / 5));
+		return {
+			hp: { current: hpMax, max: hpMax },
+			mp: { current: mpMax, max: mpMax },
+			san: { current: pow, max: pow },
+			luck: attributes.luck ?? 0,
+			mov: coc7eMovement(str, dex, siz),
+		};
+	},
+	attributeOrder: () => COC7E_ATTRIBUTE_ORDER.map(({ key }) => key),
 };
 
-const ATTRIBUTE_ORDER: ReadonlyArray<{ key: string; label: string }> = [
-	{ key: "str", label: "力量" },
-	{ key: "con", label: "体质" },
-	{ key: "siz", label: "体型" },
-	{ key: "dex", label: "敏捷" },
-	{ key: "app", label: "外貌" },
-	{ key: "int", label: "智力" },
-	{ key: "pow", label: "意志" },
-	{ key: "edu", label: "教育" },
-	{ key: "luck", label: "幸运" },
+function coc7eMovement(str: number, dex: number, siz: number): number {
+	if (str >= siz && dex >= siz) {
+		return 9;
+	}
+	if (str >= siz || dex >= siz) {
+		return 8;
+	}
+	return 7;
+}
+
+const COC7E_ATTRIBUTE_ORDER: ReadonlyArray<{ key: string }> = [
+	{ key: "str" },
+	{ key: "con" },
+	{ key: "siz" },
+	{ key: "dex" },
+	{ key: "app" },
+	{ key: "int" },
+	{ key: "pow" },
+	{ key: "edu" },
+	{ key: "luck" },
 ];
 
 function readAttributes(sheet: unknown): Record<string, number> {

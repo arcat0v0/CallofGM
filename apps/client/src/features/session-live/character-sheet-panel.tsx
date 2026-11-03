@@ -1,4 +1,3 @@
-import { coc7e } from "@cogm/shared";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -24,6 +23,7 @@ import {
 	skillValue,
 } from "@/lib/coc-live";
 import { sendSessionCommand } from "@/lib/session-socket";
+import { getRuleComponent } from "@/rules/registry";
 import { useIdentityStore } from "@/stores/identity-store";
 import { useBlockingDialog } from "@/stores/modal-store";
 import { usePlayStore } from "@/stores/play-store";
@@ -60,15 +60,19 @@ export function CharacterSheetPanel({
 	const target =
 		options.find((character) => character.characterId === selectedId) ??
 		options[0];
-	const sheet = parseCocSheet(target?.sheet);
+	const rule = getRuleComponent(target?.ruleId);
+	const sheet = parseCocSheet(target?.sheet, target?.ruleId);
+	const attributeKeys = useMemo(
+		() => (sheet ? rule.attributeKeys(sheet) : []),
+		[rule, sheet],
+	);
 	const state = parseCocState(target?.state);
 	const canPerform =
 		isGm ||
 		(claimed !== undefined && target?.characterId === claimed.characterId);
 	const skillKeys = useMemo(
-		() =>
-			skillKeysFor(target).filter((key) => !(key in (sheet?.attributes ?? {}))),
-		[target, sheet],
+		() => skillKeysFor(target).filter((key) => !attributeKeys.includes(key)),
+		[target, attributeKeys],
 	);
 
 	function perform(skillKey: string) {
@@ -86,9 +90,7 @@ export function CharacterSheetPanel({
 			toast.error(t("chat.notConnected"));
 			return;
 		}
-		toast.success(
-			t("check.submitted", { skill: coc7e.coc7eSkillLabel(skillKey) }),
-		);
+		toast.success(t("check.submitted", { skill: rule.skillLabel(skillKey) }));
 	}
 
 	return (
@@ -142,7 +144,7 @@ export function CharacterSheetPanel({
 							</div>
 						) : null}
 						<div className="grid grid-cols-2 gap-x-2 gap-y-1">
-							{Object.entries(sheet.attributes).map(([key, value]) => (
+							{rule.attributeEntries(sheet).map(({ key, label, value }) => (
 								<Button
 									key={key}
 									type="button"
@@ -151,7 +153,7 @@ export function CharacterSheetPanel({
 									disabled={!canPerform}
 									onClick={() => perform(key)}
 								>
-									<span>{coc7e.coc7eSkillLabel(key)}</span>
+									<span>{label}</span>
 									<span>{value}</span>
 								</Button>
 							))}
@@ -168,7 +170,7 @@ export function CharacterSheetPanel({
 										disabled={!canPerform || value === null}
 										onClick={() => perform(key)}
 									>
-										<span>{coc7e.coc7eSkillLabel(key)}</span>
+										<span>{rule.skillLabel(key)}</span>
 										<span>{value ?? "—"}</span>
 									</Button>
 								);
@@ -178,15 +180,15 @@ export function CharacterSheetPanel({
 							<p className="text-foreground-tertiary text-label-small select-text">
 								{t("sheet.growthMarks", {
 									marks: state.growthMarks
-										.map((key) => coc7e.coc7eSkillLabel(key))
+										.map((key) => rule.skillLabel(key))
 										.join(t("common.listSeparator")),
 								})}
 							</p>
 						) : null}
 						{state && state.statuses.length > 0 ? (
 							<p className="text-warning text-label-small select-text">
-								{state.statuses
-									.map((flag) => coc7e.CharacterStatusFlagLabel[flag])
+								{rule
+									.statusLabels(state.statuses)
 									.join(t("common.listSeparator"))}
 							</p>
 						) : null}

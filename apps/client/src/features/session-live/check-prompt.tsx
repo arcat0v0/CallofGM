@@ -1,4 +1,4 @@
-import { type CheckRequestDto, coc7e } from "@cogm/shared";
+import type { CheckRequestDto } from "@cogm/shared";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,22 +9,25 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog";
 import { t } from "@/i18n";
+import { getRuleComponent } from "@/rules/registry";
 import { useBlockingDialog } from "@/stores/modal-store";
 
 const ROLL_TIMEOUT_MS = 8_000;
 
 export function CheckPrompt({
 	request,
+	ruleId,
 	onRespond,
 	onDismiss,
 }: {
 	request: CheckRequestDto;
+	ruleId: string | null;
 	onRespond: () => void;
 	onDismiss: () => void;
 }) {
-	const skill = coc7e.coc7eSkillLabel(request.skillKey);
-	const difficulty =
-		coc7e.CheckDifficultyLabel[request.difficulty] ?? request.difficulty;
+	const rule = getRuleComponent(ruleId);
+	const skill = rule.skillLabel(request.skillKey);
+	const difficulty = rule.difficultyLabel(request.difficulty);
 	const [rolling, setRolling] = useState(false);
 	const dialog = useBlockingDialog("check", true, () => onDismiss());
 

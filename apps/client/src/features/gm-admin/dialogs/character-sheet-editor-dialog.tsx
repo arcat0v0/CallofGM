@@ -1,4 +1,4 @@
-import { type CharacterDetailDto, coc7e } from "@cogm/shared";
+import type { CharacterDetailDto } from "@cogm/shared";
 import { Plus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -24,6 +24,7 @@ import { LoadingIndicator } from "@/components/ui/loading-indicator";
 import { t } from "@/i18n";
 import { api } from "@/lib/api";
 import { errorText } from "@/lib/errors";
+import { FALLBACK_RULE_ID, getRuleComponent } from "@/rules/registry";
 
 const ATTRIBUTE_KEYS = [
 	"str",
@@ -52,13 +53,8 @@ const DEFAULT_ATTRIBUTES: Record<AttributeKey, number> = {
 	luck: 50,
 };
 
-function parseSheet(json: string): coc7e.Coc7eCharacterSheet | null {
-	try {
-		const parsed = coc7e.Coc7eCharacterSheet.safeParse(JSON.parse(json));
-		return parsed.success ? parsed.data : null;
-	} catch {
-		return null;
-	}
+function SheetAttributes({ sheet }: { sheet: unknown }) {
+	return sheet;
 }
 
 function CharacterSheetEditorDialog({
@@ -80,6 +76,8 @@ function CharacterSheetEditorDialog({
 		useState<Record<AttributeKey, number>>(DEFAULT_ATTRIBUTES);
 	const [skills, setSkills] = useState<SkillEntry[]>([]);
 	const [customSkill, setCustomSkill] = useState("");
+	const [ruleId, setRuleId] = useState(FALLBACK_RULE_ID);
+	const rule = getRuleComponent(ruleId);
 
 	useEffect(() => {
 		if (!open || !characterId) {
@@ -94,22 +92,17 @@ function CharacterSheetEditorDialog({
 				if (cancelled) {
 					return;
 				}
-				const sheet = parseSheet(row.sheetJson);
+				const rowRule = getRuleComponent(row.ruleId);
+				const sheet = rowRule.parseSheetJson(row.sheetJson);
+				setRuleId(row.ruleId);
 				setName(row.name);
 				setKind(row.kind);
 				setAttributes(
 					sheet
-						? { ...DEFAULT_ATTRIBUTES, ...sheet.attributes }
+						? { ...DEFAULT_ATTRIBUTES, ...rowRule.attributeValues(sheet) }
 						: DEFAULT_ATTRIBUTES,
 				);
-				setSkills(
-					sheet
-						? Object.entries(sheet.skills).map(([key, value]) => ({
-								key,
-								value,
-							}))
-						: [],
-				);
+				setSkills(sheet ? rowRule.skillEntries(sheet) : []);
 				setCustomSkill("");
 			})
 			.catch((error) => {
@@ -170,7 +163,7 @@ function CharacterSheetEditorDialog({
 		}
 		for (const key of ATTRIBUTE_KEYS) {
 			const value = attributes[key];
-			const label = coc7e.COC7E_ATTRIBUTE_LABELS[key]?.label ?? key;
+			const label = rule.attributeLabel(key) ?? key;
 			if (!Number.isInteger(value) || value < 1 || value > 99) {
 				toast.error(t("gm.editSheet.invalidAttribute", { name: label }));
 				return;
@@ -213,7 +206,7 @@ function CharacterSheetEditorDialog({
 		}
 	}
 
-	const catalog = coc7e.COC7E_SKILL_CATALOG.filter(
+	const catalog = rule.skillCatalog.filter(
 		(skill) => !skills.some((entry) => entry.key === skill.key),
 	);
 
@@ -269,7 +262,7 @@ function CharacterSheetEditorDialog({
 							</div>
 							<div className="grid grid-cols-3 gap-2.5">
 								{ATTRIBUTE_KEYS.map((key) => {
-									const label = coc7e.COC7E_ATTRIBUTE_LABELS[key];
+									const label = rule.attributePair(key);
 									return (
 										<label
 											key={key}

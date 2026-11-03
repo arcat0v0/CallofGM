@@ -42,27 +42,30 @@ function HandoutPanel({ onClose }: { onClose: () => void }) {
 		.join(t("common.listSeparator"));
 	const groupedGrants = [
 		...grants
-			.reduce((map, item) => {
-				const current = map.get(item.handout.id);
-				if (current) {
-					current.items.push(item);
-					current.isPublic = current.isPublic || item.isPublic;
-				} else {
-					map.set(item.handout.id, {
-						handout: item.handout,
-						items: [item],
-						isPublic: item.isPublic,
-					});
-				}
-				return map;
-			}, new Map<
-				string,
-				{
-					handout: (typeof grants)[number]["handout"];
-					items: Array<(typeof grants)[number]>;
-					isPublic: boolean;
-				}
-			>())
+			.reduce(
+				(map, item) => {
+					const current = map.get(item.handout.id);
+					if (current) {
+						current.items.push(item);
+						current.isPublic = current.isPublic || item.isPublic;
+					} else {
+						map.set(item.handout.id, {
+							handout: item.handout,
+							items: [item],
+							isPublic: item.isPublic,
+						});
+					}
+					return map;
+				},
+				new Map<
+					string,
+					{
+						handout: (typeof grants)[number]["handout"];
+						items: Array<(typeof grants)[number]>;
+						isPublic: boolean;
+					}
+				>(),
+			)
 			.values(),
 	];
 	const grantDisabled =

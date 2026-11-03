@@ -1,7 +1,8 @@
-import { type CharacterDetailDto, coc7e } from "@cogm/shared";
+import type { CharacterDetailDto } from "@cogm/shared";
 import { t } from "@/i18n";
 import { mediaUrl } from "@/lib/api";
 import { expressionLabel, initialsOf } from "@/lib/format";
+import { getRuleComponent } from "@/rules/registry";
 
 export type CharacterKind = "PC" | "NPC";
 
@@ -35,7 +36,7 @@ export type GameCharacter = {
 	portrait?: string;
 	expressions: string[];
 	portraits: CharacterPortrait[];
-	sheet: coc7e.Coc7eCharacterSheet | null;
+	sheet: unknown;
 	derived: DerivedStats;
 	attributes: Attribute[];
 	skills: Skill[];
@@ -48,31 +49,9 @@ export type CharacterRow = Pick<
 	portraits?: CharacterDetailDto["portraits"];
 };
 
-const ATTR_ORDER = [
-	"str",
-	"con",
-	"siz",
-	"dex",
-	"app",
-	"int",
-	"pow",
-	"edu",
-] as const;
-
-function movement(str: number, dex: number, siz: number): number {
-	if (str >= siz && dex >= siz) return 9;
-	if (str >= siz || dex >= siz) return 8;
-	return 7;
-}
-
 export function mapCharacterRow(row: CharacterRow): GameCharacter {
-	const parsed = coc7e.Coc7eCharacterSheet.safeParse(JSON.parse(row.sheetJson));
-	const sheet = parsed.success ? parsed.data : null;
-	const attributes = sheet?.attributes;
-	const hpMax = attributes
-		? Math.max(1, Math.floor((attributes.con + attributes.siz) / 10))
-		: 1;
-	const mpMax = attributes ? Math.max(0, Math.floor(attributes.pow / 5)) : 0;
+	const rule = getRuleComponent(row.ruleId);
+	const sheet = rule.parseSheetJson(row.sheetJson);
 	const portraits: CharacterPortrait[] = (row.portraits ?? []).map((item) => ({
 		id: item.id,
 		expressionKey: item.expressionKey,
@@ -81,9 +60,14 @@ export function mapCharacterRow(row: CharacterRow): GameCharacter {
 	}));
 	const defaultPortrait =
 		portraits.find((item) => item.isDefault) ?? portraits[0];
-	const skills = Object.entries(sheet?.skills ?? {})
-		.sort((a, b) => b[1] - a[1])
-		.map(([label, value], index) => ({ label, value, highlighted: index < 6 }));
+	const skills = (sheet ? rule.skillEntries(sheet) : [])
+		.map(({ key, value }) => ({ key, value }))
+		.sort((a, b) => b.value - a.value)
+		.map(({ key, value }, index) => ({
+			label: rule.skillLabel(key),
+			value,
+			highlighted: index < 6,
+		}));
 
 	return {
 		id: row.id,
@@ -99,19 +83,19 @@ export function mapCharacterRow(row: CharacterRow): GameCharacter {
 				: [t("expression.default")],
 		portraits,
 		sheet,
-		derived: {
-			hp: { current: hpMax, max: hpMax },
-			mp: { current: mpMax, max: mpMax },
-			san: { current: attributes?.pow ?? 0, max: attributes?.pow ?? 0 },
-			luck: attributes?.luck ?? 0,
-			mov: attributes
-				? movement(attributes.str, attributes.dex, attributes.siz)
-				: 8,
-		},
-		attributes: ATTR_ORDER.map((key) => ({
-			label: coc7e.COC7E_ATTRIBUTE_LABELS[key]!.label,
-			abbr: coc7e.COC7E_ATTRIBUTE_LABELS[key]!.abbr,
-			value: attributes?.[key] ?? 0,
+		derived: sheet
+			? rule.deriveStats(sheet)
+			: {
+					hp: { current: 1, max: 1 },
+					mp: { current: 0, max: 0 },
+					san: { current: 0, max: 0 },
+					luck: 0,
+					mov: 8,
+				},
+		attributes: rule.attributeEntries(sheet).map(({ key, label, value }) => ({
+			label,
+			abbr: rule.attributePair(key)?.abbr ?? key.toUpperCase(),
+			value,
 		})),
 		skills,
 	};

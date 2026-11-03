@@ -28,6 +28,7 @@ export const SnapshotCharacter = z.object({
 	characterId: z.string(),
 	name: z.string(),
 	kind: z.enum(["pc", "npc"]),
+	ruleId: z.string(),
 	currentExpressionKey: z.string().nullable(),
 	state: z.unknown().nullable(),
 	portraits: z.array(SnapshotPortrait).default([]),

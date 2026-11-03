@@ -1,4 +1,4 @@
-import { coc7e, type SnapshotCharacter } from "@cogm/shared";
+import type { SnapshotCharacter } from "@cogm/shared";
 import {
 	ChevronDown,
 	ContactRound,
@@ -25,6 +25,7 @@ import { errorText } from "@/lib/errors";
 import { expressionLabel, initialsOf } from "@/lib/format";
 import { sendSessionCommand } from "@/lib/session-socket";
 import { cn } from "@/lib/utils";
+import { getRuleComponent } from "@/rules/registry";
 import { usePlayStore } from "@/stores/play-store";
 import { GmPanelShell, GmSelectField, GmValueField } from "./gm-panel-fields";
 import { GmStateEditor } from "./gm-state-editor";
@@ -35,8 +36,9 @@ function characterStatusLine(character: SnapshotCharacter): string {
 	if (character.kind === "npc") {
 		return `${kind} · ${t("gm.workbench.npcHidden")}`;
 	}
-	const statuses =
-		state?.statuses.map((flag) => coc7e.CharacterStatusFlagLabel[flag]) ?? [];
+	const statuses = getRuleComponent(character.ruleId).statusLabelsOfState(
+		character.state,
+	);
 	if (statuses.length > 0) {
 		return `${kind} · ${statuses.join(t("common.listSeparator"))}`;
 	}

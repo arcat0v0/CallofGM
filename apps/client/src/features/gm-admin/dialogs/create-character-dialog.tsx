@@ -1,4 +1,4 @@
-import type { CharacterDto, coc7e } from "@cogm/shared";
+import type { CharacterDto } from "@cogm/shared";
 import { useState } from "react";
 import { toast } from "sonner";
 import { SegmentedControl } from "@/components/shared/segmented-control";
@@ -13,25 +13,18 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
 import { t } from "@/i18n";
 import { api } from "@/lib/api";
 import { errorText } from "@/lib/errors";
-
-const DEFAULT_SHEET: coc7e.Coc7eCharacterSheet = {
-	schemaVersion: 1,
-	attributes: {
-		str: 50,
-		con: 50,
-		siz: 50,
-		dex: 50,
-		app: 50,
-		int: 50,
-		pow: 50,
-		edu: 50,
-		luck: 50,
-	},
-	skills: {},
-};
+import { useRuleOptions } from "@/lib/rules-api";
+import { getRuleComponent } from "@/rules/registry";
 
 export function CreateCharacterDialog({
 	open,
@@ -45,6 +38,7 @@ export function CreateCharacterDialog({
 	const [name, setName] = useState("");
 	const [kind, setKind] = useState<"pc" | "npc">("pc");
 	const [pending, setPending] = useState(false);
+	const { rules, ruleId, setRuleId, loading: rulesLoading } = useRuleOptions();
 
 	async function submit() {
 		const trimmed = name.trim();
@@ -59,8 +53,8 @@ export function CreateCharacterDialog({
 				body: JSON.stringify({
 					name: trimmed,
 					kind,
-					ruleId: "coc7e",
-					sheetData: DEFAULT_SHEET,
+					ruleId,
+					sheetData: getRuleComponent(ruleId).createEmptySheet(),
 				}),
 			});
 			onOpenChange(false);
@@ -101,6 +95,30 @@ export function CreateCharacterDialog({
 						]}
 						onValueChange={(value) => setKind(value as "pc" | "npc")}
 					/>
+					<div className="flex flex-col gap-1.5">
+						<span className="text-md-on-surface-variant text-label-medium">
+							{t("rules.label")}
+							<span className="text-foreground-tertiary ml-1.5 text-label-small">
+								{t("rules.hint")}
+							</span>
+						</span>
+						<Select
+							value={ruleId}
+							onValueChange={setRuleId}
+							disabled={rulesLoading}
+						>
+							<SelectTrigger className="w-full">
+								<SelectValue placeholder={t("rules.loading")} />
+							</SelectTrigger>
+							<SelectContent>
+								{rules.map((rule) => (
+									<SelectItem key={rule.id} value={rule.id}>
+										{rule.name}
+									</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
+					</div>
 				</div>
 				<DialogFooter>
 					<Button

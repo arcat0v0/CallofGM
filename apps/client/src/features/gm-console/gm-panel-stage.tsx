@@ -648,7 +648,7 @@ function CharacterStateCard() {
 									: "text-md-on-surface-variant",
 							)}
 						>
-							{statusLine(featured.state)}
+							{statusLine(featured.state, featured.character.ruleId)}
 						</span>
 					</span>
 					<HeartPulse

@@ -24,6 +24,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { t } from "@/i18n";
 import { api } from "@/lib/api";
 import { errorText } from "@/lib/errors";
+import { useRuleOptions } from "@/lib/rules-api";
 
 function CreateModuleDialog({
 	open,
@@ -40,6 +41,7 @@ function CreateModuleDialog({
 	const [description, setDescription] = useState("");
 	const [themeId, setThemeId] = useState("");
 	const [pending, setPending] = useState(false);
+	const { rules, ruleId, setRuleId, loading: rulesLoading } = useRuleOptions();
 
 	async function submit() {
 		const trimmed = name.trim();
@@ -54,7 +56,7 @@ function CreateModuleDialog({
 				body: JSON.stringify({
 					name: trimmed,
 					description: description.trim(),
-					ruleId: "coc7e",
+					ruleId,
 					themeId: themeId || null,
 				}),
 			});
@@ -100,6 +102,30 @@ function CreateModuleDialog({
 							placeholder={t("gm.modules.descriptionPlaceholder")}
 							onChange={(event) => setDescription(event.target.value)}
 						/>
+					</div>
+					<div className="flex flex-col gap-1.5">
+						<span className="text-md-on-surface-variant text-label-medium">
+							{t("rules.label")}
+							<span className="text-foreground-tertiary ml-1.5 text-label-small">
+								{t("rules.hint")}
+							</span>
+						</span>
+						<Select
+							value={ruleId}
+							onValueChange={setRuleId}
+							disabled={rulesLoading}
+						>
+							<SelectTrigger className="w-full">
+								<SelectValue placeholder={t("rules.loading")} />
+							</SelectTrigger>
+							<SelectContent>
+								{rules.map((rule) => (
+									<SelectItem key={rule.id} value={rule.id}>
+										{rule.name}
+									</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
 					</div>
 					<div className="flex flex-col gap-1.5">
 						<span className="text-md-on-surface-variant text-label-medium">

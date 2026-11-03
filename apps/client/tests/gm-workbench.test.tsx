@@ -14,6 +14,7 @@ function character(
 		characterId: "c1",
 		name: "远野 澪",
 		kind: "pc",
+		ruleId: "coc7e",
 		currentExpressionKey: "default",
 		state: {
 			schemaVersion: 1,

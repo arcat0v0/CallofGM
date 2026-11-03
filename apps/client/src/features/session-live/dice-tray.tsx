@@ -1,4 +1,3 @@
-import { coc7e } from "@cogm/shared";
 import { Dices, EyeOff } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -16,6 +15,7 @@ import { t } from "@/i18n";
 import { skillKeysFor, skillValue } from "@/lib/coc-live";
 import { sendSessionCommand } from "@/lib/session-socket";
 import { cn } from "@/lib/utils";
+import { getRuleComponent } from "@/rules/registry";
 import { usePlayStore } from "@/stores/play-store";
 
 const DICE_PRESETS = ["1d100", "1d6", "1d4", "1d8", "1d10", "3d6"];
@@ -46,6 +46,7 @@ function DiceTray({
 		? selectedId || characterId || characters[0]?.characterId
 		: characterId;
 	const character = characters.find((item) => item.characterId === resolvedId);
+	const rule = getRuleComponent(character?.ruleId);
 	const skills = useMemo(() => skillKeysFor(character), [character]);
 	const [expression, setExpression] = useState("1d100");
 	const [comment, setComment] = useState("");
@@ -221,7 +222,7 @@ function DiceTray({
 							<SelectContent>
 								{skills.map((skill) => (
 									<SelectItem key={skill} value={skill}>
-										{coc7e.coc7eSkillLabel(skill)}
+										{rule.skillLabel(skill)}
 										{skillValue(character, skill) !== null
 											? ` ${skillValue(character, skill)}`
 											: ""}
@@ -246,7 +247,7 @@ function DiceTray({
 							<SelectContent>
 								{(["regular", "hard", "extreme"] as const).map((item) => (
 									<SelectItem key={item} value={item}>
-										{coc7e.CheckDifficultyLabel[item]}
+										{rule.difficultyLabel(item)}
 									</SelectItem>
 								))}
 							</SelectContent>

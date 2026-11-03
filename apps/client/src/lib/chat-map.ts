@@ -1,6 +1,5 @@
 import {
 	type ChatMessageDto,
-	coc7e,
 	type HistoryItem,
 	RewindEvent,
 	SessionPhase,
@@ -10,6 +9,7 @@ import {
 import type { ChatMessage } from "@/features/chat/types";
 import { t } from "@/i18n";
 import { formatClock, initialsOf } from "@/lib/format";
+import { getRuleComponent } from "@/rules/registry";
 
 export function obSpeakerLabel(playerId: string | null | undefined): string {
 	return playerId
@@ -110,9 +110,10 @@ export function mapActivityEvent(
 		return null;
 	}
 	const time = formatClock(occurredAt ?? Date.now());
+	const characterOf = (characterId: unknown): SnapshotCharacter | undefined =>
+		characters.find((character) => character.characterId === characterId);
 	const characterNameOf = (characterId: unknown): string =>
-		characters.find((character) => character.characterId === characterId)
-			?.name ?? t("chat.role.character");
+		characterOf(characterId)?.name ?? t("chat.role.character");
 	const systemMessage = (
 		speakerName: string,
 		body: string,
@@ -178,9 +179,8 @@ export function mapActivityEvent(
 				: t("chat.role.character");
 		const skillKey =
 			typeof payload.skillKey === "string" ? payload.skillKey : "";
-		const skill = skillKey
-			? coc7e.coc7eSkillLabel(skillKey)
-			: t("chat.role.check");
+		const rule = getRuleComponent(characterOf(payload.characterId)?.ruleId);
+		const skill = skillKey ? rule.skillLabel(skillKey) : t("chat.role.check");
 		const hidden = payload.hidden === true ? t("message.diceHidden") : "";
 		if (skillKey === "san") {
 			const roll = result.roll;
@@ -221,25 +221,22 @@ export function mapActivityEvent(
 			};
 		}
 		const outcome = typeof result.outcome === "string" ? result.outcome : "";
-		const label =
-			(coc7e.CheckOutcomeLabel as Record<string, string>)[outcome] ??
-			(result.success === true
+		const label = outcome
+			? rule.outcomeLabel(outcome)
+			: result.success === true
 				? t("message.outcome.success")
-				: t("message.outcome.failure"));
+				: t("message.outcome.failure");
 		const roll = result.roll;
 		const target = result.targetValue;
-		const parsedDifficulty = coc7e.CheckDifficulty.safeParse(result.difficulty);
-		const difficulty = parsedDifficulty.success
-			? parsedDifficulty.data
-			: "regular";
+		const difficulty = rule.parseDifficulty(result.difficulty) ?? "regular";
 		const context =
 			typeof target === "number"
 				? difficulty === "regular"
 					? t("message.checkTarget", { target })
 					: t("message.checkThreshold", {
 							target,
-							label: coc7e.CheckDifficultyLabel[difficulty],
-							threshold: coc7e.coc7eDifficultyThreshold(target, difficulty),
+							label: rule.difficultyLabel(difficulty),
+							threshold: rule.difficultyThreshold(target, difficulty) ?? target,
 						})
 				: null;
 		return {
@@ -301,8 +298,8 @@ export function mapActivityEvent(
 	}
 	if (type === "state:changed") {
 		const characterName = characterNameOf(payload.characterId);
-		const body =
-			coc7e.coc7eStateSummary(payload.state) ?? t("history.event.state");
+		const rule = getRuleComponent(characterOf(payload.characterId)?.ruleId);
+		const body = rule.stateSummary(payload.state) ?? t("history.event.state");
 		return systemMessage(characterName, body, true);
 	}
 	if (type === "session:rewound") {

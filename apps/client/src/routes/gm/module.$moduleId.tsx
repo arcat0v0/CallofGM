@@ -30,6 +30,7 @@ import { api, fetchAllPages, mediaUrl } from "@/lib/api";
 import { audioDurationMs } from "@/lib/audio-duration";
 import { errorText } from "@/lib/errors";
 import { requireGmAuth } from "@/lib/identity";
+import { FALLBACK_RULE_ID } from "@/rules/registry";
 
 export const Route = createFileRoute("/gm/module/$moduleId")({
 	beforeLoad: requireGmAuth,
@@ -350,7 +351,7 @@ function ModuleDetailPage() {
 						<span className="flex items-center gap-1.5">
 							<span>{module?.name ?? t("gm.module.moduleFallback")}</span>
 							<Badge tone="success" variant="soft" size="sm">
-								{module?.ruleId ?? "coc7e"}
+								{module?.ruleId ?? FALLBACK_RULE_ID}
 							</Badge>
 						</span>
 					}

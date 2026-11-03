@@ -151,6 +151,7 @@ function character(
 		characterId: "c1",
 		name: "陈默",
 		kind: "pc",
+		ruleId: "coc7e",
 		currentExpressionKey: null,
 		state: null,
 		portraits: [],

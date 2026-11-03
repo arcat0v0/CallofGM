@@ -434,6 +434,7 @@ export class BuildSessionSnapshotUseCase {
 				characterId: sc.characterId,
 				name: sc.name,
 				kind,
+				ruleId: sc.ruleId,
 				currentExpressionKey: sc.currentExpressionKey ?? null,
 				state,
 				portraits: portraitsByCharacter.get(sc.characterId) ?? [],

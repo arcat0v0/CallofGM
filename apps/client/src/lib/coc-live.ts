@@ -1,4 +1,5 @@
-import { coc7e, type SnapshotCharacter } from "@cogm/shared";
+import type { SnapshotCharacter } from "@cogm/shared";
+import { getRuleComponent } from "@/rules/registry";
 
 const ATTR_KEYS = [
 	"str",
@@ -12,22 +13,20 @@ const ATTR_KEYS = [
 	"luck",
 ] as const;
 
-export function parseCocSheet(sheet: unknown) {
-	const parsed = coc7e.Coc7eCharacterSheet.safeParse(sheet);
-	return parsed.success ? parsed.data : null;
+export function parseCocSheet(sheet: unknown, ruleId?: string | null) {
+	return getRuleComponent(ruleId).parseSheet(sheet);
 }
 
-export function parseCocState(state: unknown) {
-	const parsed = coc7e.CharacterSessionState.safeParse(state);
-	return parsed.success ? parsed.data : null;
+export function parseCocState(state: unknown, ruleId?: string | null) {
+	return getRuleComponent(ruleId).parseState(state);
 }
 
 export function skillKeysFor(
 	character: SnapshotCharacter | undefined,
 ): string[] {
-	const sheet = parseCocSheet(character?.sheet);
-	const catalogKeys = coc7e.COC7E_SKILL_CATALOG.map((skill) => skill.key);
-	const sheetKeys = sheet ? Object.keys(sheet.skills) : [];
+	const rule = getRuleComponent(character?.ruleId);
+	const catalogKeys = rule.skillCatalog.map((skill) => skill.key);
+	const sheetKeys = character?.sheet ? rule.skillKeys(character.sheet) : [];
 	const extras = sheetKeys.filter(
 		(key) =>
 			!catalogKeys.includes(key) &&
@@ -40,6 +39,11 @@ export function skillValue(
 	character: SnapshotCharacter | undefined,
 	skillKey: string,
 ): number | null {
-	const sheet = parseCocSheet(character?.sheet);
-	return sheet ? coc7e.coc7eSkillTargetValue(sheet, skillKey) : null;
+	if (!character?.sheet) {
+		return null;
+	}
+	return getRuleComponent(character.ruleId).skillTarget(
+		character.sheet,
+		skillKey,
+	);
 }

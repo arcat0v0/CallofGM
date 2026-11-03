@@ -1,8 +1,8 @@
-import { coc7e } from "@cogm/shared";
 import { t } from "@/i18n";
 import { mediaUrl } from "@/lib/api";
 import { parseCocState } from "@/lib/coc-live";
 import { cn } from "@/lib/utils";
+import { getRuleComponent } from "@/rules/registry";
 import { usePlayStore } from "@/stores/play-store";
 import { portraitSlots, portraitSlotWidths } from "./portrait-layout";
 
@@ -226,8 +226,8 @@ function PortraitLayer({
 										/>
 										{state.statuses.length > 0 ? (
 											<div className="text-warning text-label-small">
-												{state.statuses
-													.map((flag) => coc7e.CharacterStatusFlagLabel[flag])
+												{getRuleComponent(character.ruleId)
+													.statusLabels(state.statuses)
 													.join(" ")}
 											</div>
 										) : null}

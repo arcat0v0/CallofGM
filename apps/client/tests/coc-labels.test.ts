@@ -58,6 +58,7 @@ describe("skill list shared by dice tray and character sheet", () => {
 		characterId: "c1",
 		name: "陈默",
 		kind: "pc" as const,
+		ruleId: "coc7e",
 		currentExpressionKey: null,
 		state: null,
 		portraits: [],

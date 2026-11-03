@@ -38,6 +38,7 @@ function PlayOverlays({
 	const dismissedChecks = usePlayStore((state) => state.dismissedChecks);
 	const dismissCheck = usePlayStore((state) => state.dismissCheck);
 	const handouts = usePlayStore((state) => state.handouts);
+	const ruleId = usePlayStore((state) => state.ruleId);
 	const check =
 		pendingChecks.find((item) => !dismissedChecks.includes(item.id)) ?? null;
 	const endDialog = useBlockingDialog("end", endDialogOpen, onEndDialogChange);
@@ -48,6 +49,7 @@ function PlayOverlays({
 			{check ? (
 				<CheckPrompt
 					request={check}
+					ruleId={ruleId}
 					onRespond={() =>
 						sendSessionCommand("check:respond", { requestId: check.id })
 					}

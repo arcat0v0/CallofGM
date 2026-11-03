@@ -1,5 +1,4 @@
 import type { SnapshotCharacter } from "@cogm/shared";
-import { coc7e } from "@cogm/shared";
 import { Check } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -10,6 +9,7 @@ import { t } from "@/i18n";
 import { parseCocState } from "@/lib/coc-live";
 import { sendSessionCommand } from "@/lib/session-socket";
 import { cn } from "@/lib/utils";
+import { getRuleComponent } from "@/rules/registry";
 import { GmPanelShell } from "./gm-panel-fields";
 
 type StatKey = "hp" | "mp" | "san";
@@ -46,7 +46,8 @@ function GmStateEditor({
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 }) {
-	const state = parseCocState(character?.state);
+	const rule = getRuleComponent(character?.ruleId);
+	const state = parseCocState(character?.state, character?.ruleId);
 	const [values, setValues] = useState<Record<string, string>>({});
 	const [delta, setDelta] = useState("1");
 	const [tag, setTag] = useState("");
@@ -55,7 +56,7 @@ function GmStateEditor({
 		if (!open) {
 			return;
 		}
-		const next = parseCocState(character?.state);
+		const next = parseCocState(character?.state, character?.ruleId);
 		setValues(
 			next
 				? {
@@ -236,32 +237,30 @@ function GmStateEditor({
 									{t("gm.workbench.statusFlags")}
 								</span>
 								<div className="flex flex-wrap gap-1.5">
-									{Object.entries(coc7e.CharacterStatusFlagLabel).map(
-										([flag, label]) => {
-											const on = Boolean(
-												state?.statuses.some((item) => item === flag),
-											);
-											return (
-												<Button
-													key={flag}
-													type="button"
-													size="sm"
-													variant={on ? "dangerSoft" : "tertiary"}
-													className={cn(
-														"h-8 gap-1.5",
-														on
-															? "border-danger/30 border"
-															: "border-md-outline-variant/50 border",
-													)}
-													aria-pressed={on}
-													onClick={() => toggleStatus(flag, on)}
-												>
-													{on ? <Check className="size-3" /> : null}
-													{label}
-												</Button>
-											);
-										},
-									)}
+									{rule.statusOptions().map(({ value: flag, label }) => {
+										const on = Boolean(
+											state?.statuses.some((item) => item === flag),
+										);
+										return (
+											<Button
+												key={flag}
+												type="button"
+												size="sm"
+												variant={on ? "dangerSoft" : "tertiary"}
+												className={cn(
+													"h-8 gap-1.5",
+													on
+														? "border-danger/30 border"
+														: "border-md-outline-variant/50 border",
+												)}
+												aria-pressed={on}
+												onClick={() => toggleStatus(flag, on)}
+											>
+												{on ? <Check className="size-3" /> : null}
+												{label}
+											</Button>
+										);
+									})}
 								</div>
 							</div>
 

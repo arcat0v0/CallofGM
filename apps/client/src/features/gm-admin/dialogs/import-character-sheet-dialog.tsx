@@ -1,4 +1,4 @@
-import type { CharacterImportPreviewResponse, coc7e } from "@cogm/shared";
+import type { CharacterImportPreviewResponse } from "@cogm/shared";
 import {
 	ArrowLeft,
 	Check,
@@ -26,17 +26,20 @@ import { api } from "@/lib/api";
 import { parseCocSheet } from "@/lib/coc-live";
 import { errorText } from "@/lib/errors";
 import { cn } from "@/lib/utils";
+import { FALLBACK_RULE_ID, getRuleComponent } from "@/rules/registry";
 
 function ImportCharacterSheetDialog({
 	open,
 	onOpenChange,
 	onImported,
 	updateCharacterId,
+	ruleId = FALLBACK_RULE_ID,
 }: {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	onImported?: () => void;
 	updateCharacterId?: string | null;
+	ruleId?: string;
 }) {
 	const [file, setFile] = useState<File | null>(null);
 	const [preview, setPreview] = useState<CharacterImportPreviewResponse | null>(
@@ -50,7 +53,7 @@ function ImportCharacterSheetDialog({
 		try {
 			const body = new FormData();
 			body.append("file", next);
-			body.append("ruleId", "coc7e");
+			body.append("ruleId", ruleId);
 			const result = await api<CharacterImportPreviewResponse>(
 				"/gm/characters/import/preview",
 				{ method: "POST", body },
@@ -98,9 +101,12 @@ function ImportCharacterSheetDialog({
 		}
 	}
 
-	const sheet = preview ? parseCocSheet(preview.preview.sheetData) : null;
-	const attributes: Partial<coc7e.Coc7eAttributes> = sheet?.attributes ?? {};
-	const skills = Object.entries(sheet?.skills ?? {}).slice(0, 6);
+	const rule = getRuleComponent(ruleId);
+	const sheet = preview ? rule.parseSheet(preview.preview.sheetData) : null;
+	const attributes = Object.fromEntries(
+		rule.attributeEntries(sheet).map(({ key, value }) => [key, value]),
+	);
+	const skills = (sheet ? rule.skillEntries(sheet) : []).slice(0, 6);
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
@@ -177,7 +183,9 @@ function ImportCharacterSheetDialog({
 								{attributes.int ?? "—"}
 							</p>
 							<p className="text-foreground-secondary text-body-small">
-								{skills.map(([name, value]) => `${name} ${value}`).join(" · ")}
+								{skills
+									.map(({ key, value }) => `${rule.skillLabel(key)} ${value}`)
+									.join(" · ")}
 							</p>
 							{preview.preview.errors.length > 0 ? (
 								<Alert>

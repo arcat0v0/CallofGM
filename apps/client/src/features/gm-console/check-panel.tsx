@@ -1,4 +1,3 @@
-import { coc7e } from "@cogm/shared";
 import { Dices, EyeOff, Send } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -9,6 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { t } from "@/i18n";
 import { skillKeysFor, skillValue } from "@/lib/coc-live";
 import { sendSessionCommand } from "@/lib/session-socket";
+import { getRuleComponent } from "@/rules/registry";
 import { usePlayStore } from "@/stores/play-store";
 import { GmField, GmPanelShell, GmSelectField } from "./gm-panel-fields";
 
@@ -42,6 +42,7 @@ function CheckPanel({ onClose }: { onClose: () => void }) {
 		characters.find((character) => character.kind === "pc") ??
 		characters[0] ??
 		null;
+	const rule = getRuleComponent(selected?.ruleId);
 	const skills = skillKeysFor(selected ?? undefined);
 	const resolvedSkill = skills.includes(skillKey)
 		? skillKey
@@ -56,8 +57,8 @@ function CheckPanel({ onClose }: { onClose: () => void }) {
 				selected.name,
 				type === "san"
 					? t("gm.workbench.sanCheck")
-					: coc7e.coc7eSkillLabel(resolvedSkill),
-				...(type === "skill" ? [coc7e.CheckDifficultyLabel[difficulty]] : []),
+					: rule.skillLabel(resolvedSkill),
+				...(type === "skill" ? [rule.difficultyLabel(difficulty)] : []),
 				...(hidden ? [t("gm.workbench.hiddenShort")] : []),
 			].join(" · ")
 		: t("gm.console.targetPlaceholder");
@@ -216,7 +217,7 @@ function CheckPanel({ onClose }: { onClose: () => void }) {
 						>
 							{skills.map((key) => (
 								<SelectItem key={key} value={key}>
-									{coc7e.coc7eSkillLabel(key)}
+									{rule.skillLabel(key)}
 								</SelectItem>
 							))}
 						</GmSelectField>
@@ -231,7 +232,7 @@ function CheckPanel({ onClose }: { onClose: () => void }) {
 							>
 								{(["regular", "hard", "extreme"] as const).map((item) => (
 									<SelectItem key={item} value={item}>
-										{coc7e.CheckDifficultyLabel[item]}
+										{rule.difficultyLabel(item)}
 									</SelectItem>
 								))}
 							</GmSelectField>
