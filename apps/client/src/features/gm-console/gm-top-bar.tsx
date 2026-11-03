@@ -8,6 +8,7 @@ import {
 	Palette,
 	Settings2,
 	SquarePower,
+	UserPlus,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -21,6 +22,7 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { InviteLinksDialog } from "@/features/gm-admin/invite-links-dialog";
 import { t } from "@/i18n";
 import { sessionStatusLabel } from "@/i18n/labels";
 import { api } from "@/lib/api";
@@ -46,6 +48,7 @@ function GmTopBar() {
 	const [endOpen, setEndOpen] = useState(false);
 	const [settingsOpen, setSettingsOpen] = useState(false);
 	const [themeOpen, setThemeOpen] = useState(false);
+	const [invitesOpen, setInvitesOpen] = useState(false);
 	const nextStatus = status ? nextSessionStatus(status) : null;
 	const title = moduleName ?? sessionName ?? scene?.name ?? sessionId;
 	const subtitleBase =
@@ -142,6 +145,10 @@ function GmTopBar() {
 							<LinkIcon />
 							{t("play.copyLink")}
 						</DropdownMenuItem>
+						<DropdownMenuItem onSelect={() => setInvitesOpen(true)}>
+							<UserPlus />
+							{t("gm.invites.open")}
+						</DropdownMenuItem>
 						<DropdownMenuItem onSelect={() => setThemeOpen(true)}>
 							<Palette />
 							{t("gm.workbench.theme")}
@@ -183,6 +190,13 @@ function GmTopBar() {
 				onOpenChange={setSettingsOpen}
 			/>
 			<GmThemeDialog open={themeOpen} onOpenChange={setThemeOpen} />
+			<InviteLinksDialog
+				open={invitesOpen}
+				onOpenChange={setInvitesOpen}
+				scope="session"
+				targetId={sessionId}
+				targetName={title}
+			/>
 		</div>
 	);
 }

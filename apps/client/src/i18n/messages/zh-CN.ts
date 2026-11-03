@@ -56,6 +56,17 @@ export const zhCN: Record<string, string> = {
 	"submit.doneBody": "主持人审核通过后即可入团。你可以继续在人物库中完善角色。",
 	"submit.backToLibrary": "回到人物库",
 
+	"gm.invites.title": "人物提交链接",
+	"gm.invites.create": "生成链接",
+	"gm.invites.empty": "还没有链接",
+	"gm.invites.created": "链接已生成",
+	"gm.invites.revoked": "链接已撤销",
+	"gm.invites.copy": "复制链接",
+	"gm.invites.copied": "链接已复制",
+	"gm.invites.copyFailed": "复制失败",
+	"gm.invites.revoke": "撤销链接",
+	"gm.invites.open": "提交链接",
+
 	"gm.reviews.title": "提交审核",
 	"gm.reviews.description": "PL 通过团链接或模组链接提交的人物",
 	"gm.reviews.empty": "没有待审核的提交",
