@@ -298,7 +298,7 @@ function GmDashboardPage() {
                   </Button>
                 </div>
                 {module.description ? (
-                  <p className="text-foreground-secondary line-clamp-1 text-label-small">{module.description}</p>
+                  <p className="text-foreground-secondary line-clamp-1 text-label-small select-text">{module.description}</p>
                 ) : null}
                 {summaryFor(module.id) ? (
                   <span className="text-foreground-secondary text-label-small">

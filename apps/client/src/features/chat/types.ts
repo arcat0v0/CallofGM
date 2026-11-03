@@ -1,6 +1,9 @@
 type ChatMessage = {
   id: string;
   sortKey: number;
+  eventId?: number;
+  anchorable?: boolean;
+  activityType?: string;
   speakerName: string;
   speakerRoleLabel: string;
   avatarInitials: string;

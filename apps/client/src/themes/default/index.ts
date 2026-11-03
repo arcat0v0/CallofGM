@@ -9,6 +9,7 @@ import { JoinSeatCard } from "./slots/join-seat-card";
 import { PlayChatMessage } from "./slots/play-chat-message";
 import { PlayChatPanel } from "./slots/play-chat-panel";
 import { PlayDialogue } from "./slots/play-dialogue";
+import { PlayHistory } from "./slots/play-history";
 import { PlayLayout } from "./slots/play-layout";
 import { PlaySceneInfo } from "./slots/play-scene-info";
 import { PlayStage } from "./slots/play-stage";
@@ -28,5 +29,6 @@ export const defaultTheme = defineTheme({
     "play.dialogue": PlayDialogue,
     "play.chat-panel": PlayChatPanel,
     "play.chat-message": PlayChatMessage,
+    "play.history": PlayHistory,
   },
 });

@@ -35,7 +35,7 @@
 - v1 不拆分微服务，不引入分布式事务。
 - v1 不引入 Socket.IO、React Router、Next.js、Nuxt 或其他已否决方案。
 - v1 不自动化对抗鉴定和成长鉴定。
-- v1 不支持撤回已发放情报。
+- v1 不提供独立的情报撤回操作；回溯到锚点时会按时间线撤回其后的发放记录。
 - v1 不假设浏览器指纹是可靠身份；玩家匿名 token 才是会话身份主依据。
 - 转场动画、玩家本地立绘预览、浏览器音频解锁手势和本地静音属于客户端职责；后端只提供所需素材、权威状态和事件。
 - 不为了“看起来分层”给每个简单函数创建 interface/class。
@@ -591,7 +591,7 @@ trackId, playing, volume, loop, seekOffsetMs, startedAtMs, version
 - 公开情报使用 `public`；秘密情报使用 `selectedPcIds`。
 - 追加发放对象只计算新增 PC，避免已有玩家重复弹窗。
 - REST 列表、实时推送、补发、快照和图片读取全部复用相同可见性查询。
-- v1 没有撤回 API。
+- v1 没有独立的情报撤回 API；回溯到锚点会按时间线撤回其后的发放记录。
 
 ### 12.8 在线、踢出与黑名单
 
@@ -886,6 +886,7 @@ bun audit --audit-level=high
 - 人物为可复用实体，通过 `module_characters` 和 `session_characters` 关联，团内状态永远独立。
 - 玩家 claim 在断线后保留，只有 GM、主动退出或明确超时策略释放。
 - 聊天和已发放情报随团持久保存；ring buffer 只负责近期实时补发。
+- 历史与回溯使用独立的 `session_history_events` / `session_runtime_checkpoints` / `session_rewinds` 表；`session_outbox` 保持投递语义，不改造为永久事件溯源。
 - 本地磁盘是唯一媒体实现，但 application 只依赖 `MediaStorage`。
 - 单进程内存连接注册和 per-session executor；未来多进程扩展必须先写 ADR，不能破坏现有用例接口。
 - 所有新增功能从验收矩阵和测试开始，再补实现。

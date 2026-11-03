@@ -9,6 +9,7 @@ export class HistoryPageHandler implements CommandHandler {
   readonly allowedStatuses = ["waiting", "preparing", "active"] as const;
   readonly allowWhenEnded = true;
   readonly transientReply = true;
+  readonly skipHistoryCheckpoint = true;
 
   constructor(private readonly pagerFactory: (db: DbClient) => SessionHistoryPager = (db) => new SessionHistoryPager(db)) {}
 

@@ -73,7 +73,7 @@ function HandoutPreview({
           ) : null}
         </div>
       ) : null}
-      <p className={cn("text-md-on-surface-variant whitespace-pre-wrap", CONTENT_CLASS[variant])}>
+      <p className={cn("text-md-on-surface-variant whitespace-pre-wrap select-text", CONTENT_CLASS[variant])}>
         {content}
       </p>
     </div>

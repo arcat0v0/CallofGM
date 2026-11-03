@@ -76,6 +76,8 @@ function buildChatMessages(
     const previous = messages[index - 1];
     return {
       id: message.id,
+      eventId: message.eventId,
+      anchorable: message.anchorable,
       speakerName: message.speakerName,
       speakerRoleLabel: message.speakerRoleLabel,
       avatarInitials: message.avatarInitials,
@@ -136,10 +138,14 @@ function PlaySession({ sessionId }: { sessionId: string }) {
   const playerId = useIdentityStore((state) => state.playerId);
   const snapshotReady = usePlayStore((state) => state.snapshotReady);
   const storeSessionId = usePlayStore((state) => state.sessionId);
+  const historyHasMore = usePlayStore((state) => state.historyHasMore);
+  const historyLoading = usePlayStore((state) => state.historyLoading);
+  const loadOlderHistory = usePlayStore((state) => state.loadOlderHistory);
   const display = usePlayDisplayStore((state) => state.settings);
   const setDisplayVisible = usePlayDisplayStore((state) => state.setVisible);
   const [showRotateSuggestion, setShowRotateSuggestion] = useState(() => !readRotateSuggestionDismissed());
   const [endDialogOpen, setEndDialogOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   const claimed = characters.find((character) => character.claim?.playerId === playerId && character.claim.role === "pc");
   const isOb =
@@ -154,6 +160,24 @@ function PlaySession({ sessionId }: { sessionId: string }) {
     }
   }, [status]);
 
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key.toLowerCase() !== "h" || event.metaKey || event.ctrlKey || event.altKey) {
+        return;
+      }
+      const target = event.target;
+      if (target instanceof HTMLElement) {
+        const tag = target.tagName.toLowerCase();
+        if (tag === "input" || tag === "textarea" || target.isContentEditable) {
+          return;
+        }
+      }
+      setHistoryOpen((value) => !value);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
   if (!snapshotReady || storeSessionId !== sessionId) {
     return (
       <main className="bg-background relative h-dvh w-full overflow-hidden">
@@ -167,6 +191,7 @@ function PlaySession({ sessionId }: { sessionId: string }) {
           endDialogOpen={endDialogOpen}
           onEndDialogChange={setEndDialogOpen}
           handoutPromptEnabled={display.handoutPrompt}
+          onOpenHistory={() => setHistoryOpen(true)}
         />
       </main>
     );
@@ -230,6 +255,7 @@ function PlaySession({ sessionId }: { sessionId: string }) {
         messages: buildChatMessages(messages, selfName),
         selfName,
         onCollapse: viewport === "portrait" ? undefined : () => setDisplayVisible("chat", false),
+        onOpenHistory: () => setHistoryOpen(true),
       }}
     />
   );
@@ -258,6 +284,7 @@ function PlaySession({ sessionId }: { sessionId: string }) {
                   endDialogOpen={endDialogOpen}
                   onEndDialogChange={setEndDialogOpen}
                   handoutPromptEnabled={display.handoutPrompt}
+                  onOpenHistory={() => setHistoryOpen(true)}
                 />
               ),
               connection: <ConnectionBanner />,
@@ -273,6 +300,18 @@ function PlaySession({ sessionId }: { sessionId: string }) {
               setLandscapeChatOpen: (open) => setDisplayVisible("chat", open),
               setChatOpen: (open) => setDisplayVisible("chat", open),
             },
+          }}
+        />
+        <ThemeSlot
+          name="play.history"
+          ctx={{
+            open: historyOpen,
+            onClose: () => setHistoryOpen(false),
+            messages: buildChatMessages(messages, selfName),
+            selfName,
+            hasOlder: historyHasMore,
+            loadingOlder: historyLoading,
+            onLoadOlder: loadOlderHistory,
           }}
         />
       </div>

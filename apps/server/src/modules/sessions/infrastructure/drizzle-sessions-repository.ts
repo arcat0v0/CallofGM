@@ -5,6 +5,7 @@ import {
   sessionCharacters,
   sessionClaims,
   sessionKicks,
+  sessionRuntimeCheckpoints,
   characters,
   modules,
   moduleCharacters,
@@ -40,12 +41,27 @@ export class DrizzleSessionsRepository implements SessionsRepository {
 
   async createSession(
     session: typeof sessions.$inferInsert,
-    charactersToSave: (typeof sessionCharacters.$inferInsert)[]
+    charactersToSave: (typeof sessionCharacters.$inferInsert)[],
+    checkpoint?: {
+      id: string;
+      eventId: number;
+      stateJson: string;
+      createdAt: number;
+    }
   ): Promise<void> {
     await this.db.transaction(async (tx) => {
       await tx.insert(sessions).values(session);
       if (charactersToSave.length > 0) {
         await tx.insert(sessionCharacters).values(charactersToSave);
+      }
+      if (checkpoint) {
+        await tx.insert(sessionRuntimeCheckpoints).values({
+          id: checkpoint.id,
+          sessionId: session.id,
+          eventId: checkpoint.eventId,
+          stateJson: checkpoint.stateJson,
+          createdAt: checkpoint.createdAt,
+        });
       }
     });
   }

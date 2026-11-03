@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { LogOut } from "lucide-react";
+import { History, LogOut } from "lucide-react";
 import { toast } from "sonner";
 import type { PlayViewport } from "@cogm/theme-sdk";
+import { Button } from "@/components/ui/button";
 import { SegmentedControl } from "@/components/shared/segmented-control";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { filterChatMessages, type ChatChannel } from "@/features/chat/channel-filter";
@@ -29,12 +30,14 @@ function PlayerChatPanel({
   variant,
   compact,
   onCollapse,
+  onOpenHistory,
   className,
 }: {
   sessionId: string;
   variant: PlayViewport;
   compact: boolean;
   onCollapse?: () => void;
+  onOpenHistory?: () => void;
   className?: string;
 }) {
   const navigate = useNavigate();
@@ -100,6 +103,21 @@ function PlayerChatPanel({
         compact={compact}
         onCollapse={onCollapse}
         onLeaveSeat={() => setLeaveOpen(true)}
+        actions={
+          onOpenHistory ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              className="text-md-on-surface-variant size-8"
+              aria-label={t("history.title")}
+              title={t("history.title")}
+              onClick={onOpenHistory}
+            >
+              <History className="size-4" />
+            </Button>
+          ) : undefined
+        }
       >
         <SegmentedControl
           value={channel}

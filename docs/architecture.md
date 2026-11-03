@@ -23,7 +23,7 @@ CallofGM/
 自部署者可通过运行时 React 主题插件替换页面布局、视觉与站点文案，核心代码不参与构建。完整格式、SDK、安全与验证流程见 `docs/theme-system.md`；本节只记录架构约束。
 
 - **主题 = 编译产物插件**：`.cogmtheme`（zip）内为 `theme.json` + `bundle.js` + `bundle.css` + 静态资源；服务端不接收/不执行 TSX。作者用 `packages/theme-cli`（esbuild）本地构建，CLI 将 `react`/`react-dom`/`@cogm/theme-sdk` 替换为 `globalThis.__COGM_THEME_SDK__` 代理，主题与核心共享同一份 React。
-- **页面级插槽**：核心拥有路由、状态、WS 与服务端权威判定；主题只覆盖 `packages/theme-sdk` 声明的 13 个插槽（进团/玩家视图/GM 控制台/GM 后台）。未覆盖插槽、加载失败或插槽抛错均回退内置 `default` 主题；`?theme=default` 为强制逃生开关。
+- **页面级插槽**：核心拥有路由、状态、WS 与服务端权威判定；主题只覆盖 `packages/theme-sdk` 声明的 14 个插槽（进团/玩家视图/GM 控制台/GM 后台）。未覆盖插槽、加载失败或插槽抛错均回退内置 `default` 主题；`?theme=default` 为强制逃生开关。
 - **作用域与服务端权威**：玩家进团/沉浸视图使用模组 `themeId`（由快照与进团信息下发，客户端不可自选）；GM 控制台与后台使用实例级 `ui_settings.gmThemeId`，由 GM 主题浮钮写入。入口与 GM 登录固定默认主题。
 - **严格版本**：`apiVersion` 必须等于核心 `THEME_API_VERSION`（当前 1）；同一 id 只能安装更高 semver 版本，保留最近 2 个版本，静态文件按 `/themes/:id/versions/:version/*` 长期缓存。
 - **文案单一来源**：核心 UI 文案集中在 `apps/client/src/i18n/messages/zh-CN.ts`，主题可通过 `messages` 按 key 覆盖；系统消息使用稳定 `ChatMessage.isSystem` 字段，禁止文案匹配。
@@ -49,10 +49,10 @@ CallofGM/
 - **定向消息**（如秘密情报）不走 topic，服务端按连接注册表向可见者逐连接推送。
 - 消息信封：`{ eventId: number, type: string, payload: T }`，eventId 为团内单调递增序号。
 - 事件可见范围 `visibility` 四种以上：`public`（全员）、`gmOnly`（仅 GM）、`pcPlayers`（GM + 有 PC 席位的玩家，用于 OB 不可见但 PC 可见的状态同步）、`selectedPcIds`（指定 PC）与 `connectionOnly`（单连接）。投递、补发与快照共用同一套 `checkVisibility` 判定。
-- **断线补发**：服务端为每个进行中的团在内存维护一个环形事件日志（近 N 条），日志条目带可见范围（全体 / 指定 PC 集合 / GM + PC 席位）。客户端（partysocket 自动重连）重连时携带 `lastEventId`，服务端按请求者身份过滤后补发缺失事件；缺口超出日志范围则下发全量快照（团名与可见性设置、请求者身份 `viewer`（是否 GM、席位 PC/OB）、当前场景、在场立绘及表情、阶段、音频状态、对该玩家可见的情报及其已读状态、对该玩家可见的各角色团内状态与人物卡、待其响应的鉴定请求、最近聊天区时间线及回看游标）。
+- **断线补发**：服务端为每个进行中的团在内存维护一个环形事件日志（近 N 条），日志条目带可见范围（全体 / 指定 PC 集合 / GM + PC 席位）。客户端（partysocket 自动重连）重连时携带 `lastEventId`，服务端按请求者身份过滤后补发缺失事件；缺口超出日志范围则下发全量快照（团名与可见性设置、请求者身份 `viewer`（是否 GM、席位 PC/OB）、当前场景、在场立绘及表情、阶段、音频状态、对该玩家可见的情报及其已读状态、对该玩家可见的各角色团内状态与人物卡、待其响应的鉴定请求、最近聊天区时间线及回看游标、最近一次回溯提示 `lastRewind`）。
 - 新加入者直接走全量快照路径。
-- **聊天区时间线**：快照与回看共用同一条时间线——已呈现的聊天消息与骰点/鉴定记录按 `eventId` 升序合并（`packages/shared` 的 `HistoryItem`）。快照下发最近 50 条，并附游标 `history: { beforeEventId, hasMore }`。
-- **历史回看分页**：客户端以命令 `history:page`（`HistoryPageQuery { beforeEventId?, limit? }`，limit 默认 50、上限 100）请求更早的记录，回执在 `command:accepted` 的 `payload.history` 中返回 `{ items, hasMore, beforeEventId }`。`beforeEventId` 为排他上界，`hasMore=false` 时为 null。分页与实时事件共用同一套按请求者身份的可见性过滤（秘密/暗骰事件永不外泄，待呈现与已丢弃消息不进入时间线），因此 OB/GM/PC 各自看到同一位置的不同切片；结团后该命令仍可用（只读回看）。
+- **聊天区时间线**：快照与回看共用同一条持久化时间线——已呈现的聊天消息（`session_messages`）与时间线活动事件（`session_history_events`，含掷骰/已完成鉴定、场景切换、阶段变化、情报发放、表情变化与回溯事件）按 `eventId` 升序合并（`packages/shared` 的 `HistoryItem`）。活动事件逐条按 `visibility` 与 `playerVisible` 过滤，状态变更仅 GM 历史可见。快照下发最近 50 条，并附游标 `history: { beforeEventId, hasMore }`。
+- **历史回看分页**：客户端以命令 `history:page`（`HistoryPageQuery { beforeEventId?, limit? }`，limit 默认 50、上限 100）请求更早的记录，回执在 `command:accepted` 的 `payload.history` 中返回 `{ items, hasMore, beforeEventId }`。`beforeEventId` 为排他上界，`hasMore=false` 时为 null。分页与实时事件共用同一套按请求者身份的可见性过滤（秘密/暗骰事件永不外泄，待呈现与已丢弃消息不进入时间线），因此 OB/GM/PC 各自看到同一位置的不同切片；玩家历史不按加入时间截断（含加入前的公开记录），不包含自己的待审/未通过发言与因回溯归档的内容；结团后该命令仍可用（只读回看）。
 
 ## 演绎发言队列（隐式审核）
 
@@ -117,6 +117,33 @@ BgmState = { trackId, playing, volume, loop, seekOffset, startedAt(服务器时�
 - 已读状态存于 `handout_reads`（`grantId × playerId` 唯一）：玩家发送 `handout:read` 命令后落库，快照与 REST 返回的 `GrantedHandoutDto` 携带 `read` 字段；自动弹窗只显示未读条目，重连/重进不再重复提示。
 - 团名与人卡可见性：`sessions.name`（可空，界面回退模组名）与 `sessions.share_pc_sheets` / `sessions.ob_see_pc_state`（默认开启）。GM 通过 `session:settings` 命令切换可见性并广播 `session:settings-changed`，客户端收到后重新拉取全量快照，使已连接的玩家立即按新规则生效。
 
+## 历史时间线与回溯
+
+历史回看、GM 审计与回溯共用持久化时间线，不依赖内存 ring buffer，也不把 `session_outbox` 改造成永久事件溯源——outbox 只保持「数据库已提交但尚未广播」的投递语义。
+
+- `session_history_events`：时间线活动事件，保存 `eventId`、`type`、`payload`、`visibility`、`playerVisible`、`anchorable`、`occurredAt`，`(sessionId, eventId)` 唯一；`archived_at` / `archived_by_rewind_id` 标记被回溯移出活动时间线的条目。
+- `session_runtime_checkpoints`：`(sessionId, eventId)` → 完整可回溯运行态 JSON（阶段、当前场景、人物表情与团内状态、鉴定请求、情报发放及接收者/已读）；建团时写入 `eventId = 0` 的基线检查点。
+- `session_rewinds`：回溯/撤销操作记录，含 `action`、锚点与锚点时间、回溯前水位 `headEventIdBefore`、本次产生的 `rewindEventId`、撤销目标 `targetRewindId`、`reason`、归档计数与 `undoneAt`。
+- `session_messages` 增加 `archived_at` / `archived_by_rewind_id`；已驳回/已丢弃发言不进入时间线，只由 GM 审计查询读取。
+
+写入时机：
+
+- 事件总线在分配 `eventId` 后、事务提交前写历史行。进入时间线的类型为 `dice:rolled`、`check:resolved`、`state:changed`、`session:phase-changed`、`scene:changed`、`expression:changed`、`handout:granted`、`session:rewound`；`state:changed` 标记玩家不可见（只进 GM 历史），`session:rewound` 标记不可作锚点。
+- 会改变运行态的事件（`check:requested` / `check:resolved`、`state:changed`、阶段/场景/表情、`handout:granted`、`session:rewound`）在其后写检查点；不产生事件但改变运行态的命令（如 `handout:read`）覆盖当前水位的检查点。
+- 不做事后回填；历史功能上线前的旧开发数据不保证可读。
+
+回溯与撤销：
+
+- 仅 GM。`history:preview-rewind` 返回预览（将被撤销的条目与状态变化），`history:rewind` 在二次确认后执行；锚点必须是当前活动时间线中的条目。
+- 以锚点之前最近的检查点恢复运行态：团阶段、角色团内状态、场景指针、人物表情、鉴定请求与情报发放/接收者/已读。锚点条目及其之后的时间线内容被标记归档，已呈现消息一并移出活动时间线。
+- 不恢复 BGM/SE、舞台布局与缩放、席位认领、踢人/黑名单/在线状态、团可见性设置。
+- 整个待呈现队列清空并通知作者；这些消息不进入时间线。
+- 回溯与撤销均产出公共事件 `session:rewound`（payload 含 `action`、`rewindId`、`anchorEventId`、`anchorOccurredAt` 与归档计数；GM 填写的 `reason` 只写入 `session_rewinds` 供归档查看，不下发玩家），同时清空该团内存 ring buffer，并向所有连接发送 `session:refresh` 强制重建快照；`eventId` 继续单调递增，不回收。
+- `history:undo-rewind` 仅在团结束前可用，按 LIFO 撤销最近一次回溯；恢复旧时间线与运行态，并把回溯后新产生的已呈现内容移入归档。撤销同样产出 `session:rewound`（`action = "undo"`）。
+- 在线玩家直接收到 `session:rewound` 事件与系统提示；离线玩家重连时，快照携带最近一次回溯提示 `lastRewind`。已结团只读，拒绝回溯与撤销。
+
+命令：`history:page` 对所有查看者开放（结团后只读可用）；`history:preview-rewind` / `history:rewind` / `history:undo-rewind` 仅 GM 且团未结束；`history:archive` / `history:archive-items` / `history:audit` 仅 GM，结团后仍可只读查询。`history:archive` 返回回溯/撤销分组，`history:archive-items` 分页返回某次操作移出的条目，`history:audit` 分页返回已驳回/已丢弃发言。
+
 ## 身份、在线与黑名单
 
 - GM：密码登录 → HttpOnly session cookie。
@@ -135,7 +162,7 @@ BgmState = { trackId, playing, volume, loop, seekOffset, startedAt(服务器时�
 | `/play/$sessionId` | 玩家沉浸视图 |
 | `/gm/login` | GM 登录 |
 | `/gm` | GM 后台：模组/人物/场景/音乐/情报/团管理/主题管理 |
-| `/gm/session/$sessionId` | GM 控制台：控场、切场景/立绘/音乐、发放情报、演绎队列放行、在线管理 |
+| `/gm/session/$sessionId` | GM 控制台：控场、切场景/立绘/音乐、发放情报、演绎队列放行、历史与回溯、在线管理 |
 
 选 TanStack Router 而非 React Router：路由参数与 search params 全类型安全，`$sessionId` 这类参数不会出现手写字符串取参的运行时错误，与 Eden Treaty / Drizzle / zod 的端到端类型安全路线一致。
 

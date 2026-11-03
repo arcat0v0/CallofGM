@@ -1,6 +1,15 @@
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { ArrowUp, ChevronDown, Dices, MessagesSquare, Paperclip, Search, X } from "lucide-react";
+import {
+  ArrowUp,
+  ChevronDown,
+  Dices,
+  History,
+  MessagesSquare,
+  Paperclip,
+  Search,
+  X,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -34,7 +43,13 @@ const CHANNEL_LABELS: Record<ChatChannel, string> = {
   ooc: "gm.workbench.channelOoc",
 };
 
-function GmChatPanel({ className }: { className?: string }) {
+function GmChatPanel({
+  className,
+  onOpenHistory,
+}: {
+  className?: string;
+  onOpenHistory?: () => void;
+}) {
   const [channel, setChannel] = useState<ChatChannel>("all");
   const [mode, setMode] = useState<MessageMode>("roleplay");
   const [draft, setDraft] = useState("");
@@ -131,6 +146,19 @@ function GmChatPanel({ className }: { className?: string }) {
           >
             {searchOpen ? <X className="size-4" /> : <Search className="size-4" />}
           </Button>
+          {onOpenHistory ? (
+            <Button
+              type="button"
+              variant="tertiary"
+              size="icon-sm"
+              className="bg-md-surface-container-high/80 border border-md-outline-variant/50 text-md-on-surface-variant size-9"
+              aria-label={t("history.title")}
+              title={t("history.title")}
+              onClick={onOpenHistory}
+            >
+              <History className="size-4" />
+            </Button>
+          ) : null}
         </div>
 
         {searchOpen ? (

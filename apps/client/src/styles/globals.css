@@ -19,7 +19,13 @@
     color: var(--color-md-on-surface);
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground select-none;
+  }
+  input,
+  textarea,
+  select,
+  [contenteditable="true"] {
+    user-select: text;
   }
   html {
     @apply font-sans;

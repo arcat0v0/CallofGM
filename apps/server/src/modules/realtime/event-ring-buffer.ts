@@ -8,7 +8,12 @@ export interface BufferedEvent {
 
 export class EventRingBuffer {
   private buffers = new Map<string, BufferedEvent[]>();
+  private resetFloors = new Map<string, number>();
   private readonly maxCapacity = 1000;
+
+  markReset(sessionId: string, minValidEventId: number): void {
+    this.resetFloors.set(sessionId, minValidEventId);
+  }
 
   add(sessionId: string, event: SessionEvent, visibility: VisibilityScope): void {
     if (!this.buffers.has(sessionId)) {
@@ -26,6 +31,10 @@ export class EventRingBuffer {
   }
 
   hasSequencedEventsFrom(sessionId: string, lastEventId: number): boolean {
+    const floor = this.resetFloors.get(sessionId);
+    if (floor !== undefined && lastEventId < floor) {
+      return false;
+    }
     const buf = this.buffers.get(sessionId);
     if (!buf || buf.length === 0) {
       return false;

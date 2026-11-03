@@ -11,6 +11,7 @@ export const THEME_SLOT_NAMES = [
   "play.dialogue",
   "play.chat-panel",
   "play.chat-message",
+  "play.history",
   "gm-console.layout",
   "gm-console.stage",
   "gm-admin.shell",
@@ -40,6 +41,8 @@ export type ChatMessageView = {
   pending?: boolean;
   rejected?: boolean;
   rejectionReason?: string | null;
+  eventId?: number;
+  anchorable?: boolean;
 };
 
 export type JoinSeatView = {
@@ -154,11 +157,22 @@ export type PlayChatPanelCtx = {
   messages: ChatMessageView[];
   selfName: string;
   onCollapse?: () => void;
+  onOpenHistory?: () => void;
 };
 
 export type PlayChatMessageCtx = {
   message: ChatMessageView;
   variant: PlayViewport;
+};
+
+export type PlayHistoryCtx = {
+  open: boolean;
+  onClose: () => void;
+  messages: ChatMessageView[];
+  selfName: string;
+  hasOlder: boolean;
+  loadingOlder: boolean;
+  onLoadOlder: () => void;
 };
 
 export type GmConsoleLayoutCtx = {
@@ -222,6 +236,7 @@ export interface ThemeSlotCtxMap {
   "play.dialogue": PlayDialogueCtx;
   "play.chat-panel": PlayChatPanelCtx;
   "play.chat-message": PlayChatMessageCtx;
+  "play.history": PlayHistoryCtx;
   "gm-console.layout": GmConsoleLayoutCtx;
   "gm-console.stage": GmConsoleStageCtx;
   "gm-admin.shell": GmAdminShellCtx;

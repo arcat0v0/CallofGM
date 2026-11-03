@@ -59,7 +59,7 @@ function ChatMessageCard({
             ) : null}
             <span className="text-md-outline font-mono text-label-small">{message.time}</span>
           </div>
-          <p className="text-md-on-surface-variant whitespace-pre-wrap break-words text-body-medium">
+          <p className="text-md-on-surface-variant whitespace-pre-wrap break-words text-body-medium select-text">
             {message.body}
           </p>
         </div>
@@ -100,7 +100,7 @@ function ChatMessageCard({
         ) : null}
         <p
           className={cn(
-            "w-fit rounded-2xl px-3.5 py-2 font-sans text-body-medium",
+            "w-fit rounded-2xl px-3.5 py-2 font-sans text-body-medium select-text",
             self
               ? "bg-md-primary-container text-md-on-primary-container rounded-tr-md"
               : cn(

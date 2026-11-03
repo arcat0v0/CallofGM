@@ -151,7 +151,7 @@ function GmCharactersPage() {
               </div>
               <div className="flex-1">
                 <h2 className="font-serif text-headline-small-emph">{selected.name}</h2>
-                <p className="text-foreground-secondary text-body-medium">{selected.meta}</p>
+                <p className="text-foreground-secondary text-body-medium select-text">{selected.meta}</p>
                 <div className="mt-3 flex flex-wrap items-center gap-2.5">
                   <div
                     role="toolbar"
@@ -301,7 +301,7 @@ function GmCharactersPage() {
             <div className="grid grid-cols-2 gap-4">
               <Card className="border-md-outline-variant/50 flex flex-col gap-1 rounded-2xl border p-4">
                 <div className="text-md-on-surface-variant mb-1 text-label-medium-emph">{t("gm.characters.attributes")}</div>
-                <div className="grid grid-cols-2 gap-x-8 gap-y-1">
+                <div className="grid grid-cols-2 gap-x-8 gap-y-1 select-text">
                   {selected.attributes.map((attr) => (
                     <div key={attr.abbr} className="flex justify-between text-body-medium"><span>{attr.label}</span><span>{attr.value}</span></div>
                   ))}
@@ -309,7 +309,7 @@ function GmCharactersPage() {
               </Card>
               <Card className="border-md-outline-variant/50 flex flex-col gap-1 rounded-2xl border p-4">
                 <div className="text-md-on-surface-variant mb-1 text-label-medium-emph">{t("gm.characters.skills")}</div>
-                <div className="grid grid-cols-2 gap-x-8 gap-y-1">
+                <div className="grid grid-cols-2 gap-x-8 gap-y-1 select-text">
                   {selected.skills.map((skill) => (
                     <div key={skill.label} className="flex justify-between text-body-medium"><span>{skill.label}</span><span>{skill.value}</span></div>
                   ))}

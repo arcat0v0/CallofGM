@@ -70,7 +70,13 @@ export interface SessionsRepository {
       currentExpressionKey: string | null;
       stateJson: string;
       createdAt: number;
-    }>
+    }>,
+    checkpoint?: {
+      id: string;
+      eventId: number;
+      stateJson: string;
+      createdAt: number;
+    }
   ): Promise<void>;
   findCharactersByIds(ids: string[]): Promise<CharacterItem[]>;
   findLinkedCharacterIds(moduleId: string, ids: string[]): Promise<string[]>;

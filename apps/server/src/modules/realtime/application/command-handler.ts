@@ -42,6 +42,7 @@ export interface CommandHandlerResult {
   closeConnectionsGlobally?: boolean;
   /** 提交后向 GM 刷新在线列表 */
   refreshPresence?: boolean;
+  resetEventBuffer?: boolean;
   /** command:accepted 回执 payload */
   replyPayload?: unknown;
   /**
@@ -64,5 +65,6 @@ export interface CommandHandler {
   /** 未结团时允许的团状态；缺省仅 `active` */
   readonly allowedStatuses?: ReadonlyArray<"waiting" | "preparing" | "active">;
   readonly transientReply?: boolean;
+  readonly skipHistoryCheckpoint?: boolean;
   execute(ctx: CommandHandlerContext, payload: unknown): Promise<CommandHandlerResult>;
 }

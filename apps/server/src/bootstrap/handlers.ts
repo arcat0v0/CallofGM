@@ -4,7 +4,11 @@ import { createGameplayCommandHandlers } from "@/modules/gameplay";
 import { createHandoutCommandHandlers } from "@/modules/handouts";
 import { createModerationCommandHandlers } from "@/modules/moderation";
 import { createStageCommandHandlers } from "@/modules/sessions";
-import { createHistoryCommandHandlers, type CommandHandler } from "@/modules/realtime";
+import {
+  createHistoryCommandHandlers,
+  createHistoryRewindCommandHandlers,
+  type CommandHandler,
+} from "@/modules/realtime";
 
 /**
  * 全量实时命令处理器注册（composition root 的一部分）。
@@ -18,5 +22,6 @@ export function buildCommandHandlers(container: Container): CommandHandler[] {
     ...createHandoutCommandHandlers(),
     ...createModerationCommandHandlers(),
     ...createHistoryCommandHandlers(),
+    ...createHistoryRewindCommandHandlers(),
   ];
 }

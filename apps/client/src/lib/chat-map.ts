@@ -1,4 +1,12 @@
-import { coc7e, type ChatMessageDto, type HistoryItem, type SnapshotCharacter } from "@cogm/shared";
+import {
+  coc7e,
+  RewindEvent,
+  SessionPhase,
+  SessionPhaseLabel,
+  type ChatMessageDto,
+  type HistoryItem,
+  type SnapshotCharacter,
+} from "@cogm/shared";
 import type { ChatMessage } from "@/features/chat/types";
 import { formatClock, initialsOf } from "@/lib/format";
 import { t } from "@/i18n";
@@ -40,6 +48,8 @@ export function mapChatMessage(dto: ChatMessageDto): ChatMessage {
   return {
     id: dto.id,
     sortKey: dto.eventId ?? dto.createdAt,
+    eventId: dto.eventId ?? undefined,
+    anchorable: dto.eventId != null,
     speakerName,
     speakerRoleLabel: speakerRoleLabelOf(dto),
     avatarInitials: speakerInitialsOf(dto),
@@ -71,11 +81,39 @@ export function resolveActivityPayload(
   return roller ? { ...payload, characterName: roller.name } : payload;
 }
 
-export function mapActivityEvent(type: string, payload: unknown, eventId: number, occurredAt?: number): ChatMessage | null {
+export function mapActivityEvent(
+  type: string,
+  payload: unknown,
+  eventId: number,
+  occurredAt?: number,
+  characters: SnapshotCharacter[] = [],
+): ChatMessage | null {
   if (!isRecord(payload)) {
     return null;
   }
   const time = formatClock(occurredAt ?? Date.now());
+  const characterNameOf = (characterId: unknown): string =>
+    characters.find((character) => character.characterId === characterId)?.name ?? t("chat.role.character");
+  const systemMessage = (
+    speakerName: string,
+    body: string,
+    anchorable: boolean,
+  ): ChatMessage => ({
+    id: `${type}-${eventId}`,
+    sortKey: eventId,
+    eventId,
+    anchorable,
+    activityType: type,
+    speakerName,
+    speakerRoleLabel: t("history.event.role"),
+    avatarInitials: initialsOf(speakerName),
+    avatarBg: "bg-default",
+    avatarFg: "text-foreground",
+    time,
+    body,
+    tone: "ooc",
+    isSystem: true,
+  });
   if (type === "dice:rolled") {
     const result = isRecord(payload.result) ? payload.result : {};
     const name =
@@ -92,6 +130,9 @@ export function mapActivityEvent(type: string, payload: unknown, eventId: number
     return {
       id: `dice-${eventId}`,
       sortKey: eventId,
+      eventId,
+      anchorable: true,
+      activityType: type,
       speakerName: name,
       speakerRoleLabel: t("chat.role.dice"),
       avatarInitials: initialsOf(name),
@@ -118,6 +159,9 @@ export function mapActivityEvent(type: string, payload: unknown, eventId: number
       return {
         id: `check-${eventId}`,
         sortKey: eventId,
+        eventId,
+        anchorable: true,
+        activityType: type,
         speakerName: name,
         speakerRoleLabel: t("chat.role.san"),
         avatarInitials: initialsOf(name),
@@ -155,6 +199,9 @@ export function mapActivityEvent(type: string, payload: unknown, eventId: number
     return {
       id: `check-${eventId}`,
       sortKey: eventId,
+      eventId,
+      anchorable: true,
+      activityType: type,
       speakerName: name,
       speakerRoleLabel: t("chat.role.check"),
       avatarInitials: initialsOf(name),
@@ -173,13 +220,54 @@ export function mapActivityEvent(type: string, payload: unknown, eventId: number
           : undefined,
     };
   }
+  if (type === "session:phase-changed") {
+    const phase = SessionPhase.safeParse(payload.phase);
+    return phase.success
+      ? systemMessage(t("history.event.phase"), SessionPhaseLabel[phase.data], true)
+      : null;
+  }
+  if (type === "scene:changed") {
+    const name = typeof payload.name === "string" ? payload.name : "";
+    return systemMessage(t("history.event.scene"), name, true);
+  }
+  if (type === "expression:changed") {
+    const expressionKey = typeof payload.expressionKey === "string" ? payload.expressionKey : "";
+    const characterName = characterNameOf(payload.characterId);
+    return systemMessage(
+      characterName,
+      t("history.event.expression", { expression: expressionKey }),
+      true,
+    );
+  }
+  if (type === "handout:granted") {
+    const grant = isRecord(payload.grant) ? payload.grant : payload;
+    const handout = isRecord(grant.handout) ? grant.handout : {};
+    const title = typeof handout.title === "string" && handout.title ? handout.title : t("history.event.handout");
+    return systemMessage(t("history.event.handout"), title, true);
+  }
+  if (type === "state:changed") {
+    const characterName = characterNameOf(payload.characterId);
+    const body = coc7e.coc7eStateSummary(payload.state) ?? t("history.event.state");
+    return systemMessage(characterName, body, true);
+  }
+  if (type === "session:rewound") {
+    const rewind = RewindEvent.safeParse(payload);
+    if (!rewind.success) {
+      return null;
+    }
+    const body =
+      rewind.data.action === "undo"
+        ? t("history.event.undoBody")
+        : t("history.event.rewindBody", { time: formatClock(rewind.data.anchorOccurredAt) });
+    return systemMessage(t("history.event.rewind"), body, false);
+  }
   return null;
 }
 
 export function mapHistoryItem(item: HistoryItem, characters: SnapshotCharacter[]): ChatMessage | null {
   if (item.kind === "chat") {
-    return mapChatMessage(item.message);
+    return { ...mapChatMessage(item.message), eventId: item.eventId, anchorable: true };
   }
   const payload = isRecord(item.payload) ? resolveActivityPayload(item.type, item.payload, characters) : item.payload;
-  return mapActivityEvent(item.type, payload, item.eventId, item.occurredAt);
+  return mapActivityEvent(item.type, payload, item.eventId, item.occurredAt, characters);
 }

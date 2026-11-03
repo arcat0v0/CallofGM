@@ -145,7 +145,7 @@ function GmModulesPage() {
                   <div className="flex flex-1 flex-col gap-3 p-4">
                     <div className="flex min-w-0 flex-col gap-1">
                       <h3 className="text-foreground truncate font-serif text-title-large-emph">{module.name}</h3>
-                      <p className="text-foreground-secondary line-clamp-2 min-h-10 text-body-small">
+                      <p className="text-foreground-secondary line-clamp-2 min-h-10 text-body-small select-text">
                         {module.description || t("gm.modules.noDescription")}
                       </p>
                     </div>

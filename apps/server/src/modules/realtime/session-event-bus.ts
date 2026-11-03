@@ -9,6 +9,7 @@ import type { ConnectionRegistry } from "./connection-registry";
 import type { EventRingBuffer } from "./event-ring-buffer";
 import type { VisibilityScope } from "./domain/visibility";
 import type { ProducedEvent } from "./application/command-handler";
+import type { SessionHistoryRecorder } from "./application/history-recorder";
 
 export interface StagedEvents {
   sessionId: string;
@@ -27,7 +28,8 @@ export class SessionEventBus {
     private readonly ringBuffer: EventRingBuffer,
     private readonly connectionRegistry: ConnectionRegistry,
     private readonly clock: Clock,
-    private readonly idGenerator: IdGenerator
+    private readonly idGenerator: IdGenerator,
+    private readonly historyRecorder: SessionHistoryRecorder
   ) {}
 
   /**
@@ -76,7 +78,13 @@ export class SessionEventBus {
     }
 
     await tx.update(sessions).set({ lastEventId: nextEventId }).where(eq(sessions.id, sessionId));
+    await this.historyRecorder.record(tx, sessionId, staged);
     return staged;
+  }
+
+  resetRingBuffer(sessionId: string, minValidEventId: number): void {
+    this.ringBuffer.evict(sessionId);
+    this.ringBuffer.markReset(sessionId, minValidEventId);
   }
 
   /** 事务提交后：事件入 ring buffer、按可见范围发布、标记 outbox 已投递。 */

@@ -18,6 +18,8 @@ export const sessionMessages = sqliteTable("session_messages", {
   eventId: integer("event_id"),
   presentedAt: integer("presented_at"),
   rejectionReason: text("rejection_reason"),
+  archivedAt: integer("archived_at"),
+  archivedByRewindId: text("archived_by_rewind_id"),
   createdAt: integer("created_at").notNull(),
 });
 

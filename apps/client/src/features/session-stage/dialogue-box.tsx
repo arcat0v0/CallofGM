@@ -40,7 +40,7 @@ function DialogueBox({ speaker, roleLabel, text, className, size = "md" }: Dialo
           compact ? "px-4 pt-5 pb-3" : "px-6 pt-6 pb-4",
         )}
       >
-        <p className={cn("text-md-on-surface font-sans", compact ? "text-body-medium" : "text-body-large")}>
+        <p className={cn("text-md-on-surface font-sans select-text", compact ? "text-body-medium" : "text-body-large")}>
           {text}
         </p>
       </div>

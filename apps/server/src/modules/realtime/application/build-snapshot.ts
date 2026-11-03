@@ -110,6 +110,7 @@ export class BuildSessionSnapshotUseCase {
       discardedQueue,
       online,
       kickedPlayers,
+      lastRewind,
     ] = await Promise.all([
       this.buildCharacters(sessionId, ruleId, actor, seatRole, {
         sharePcSheets: session.sharePcSheets === 1,
@@ -137,6 +138,7 @@ export class BuildSessionSnapshotUseCase {
       isGm ? this.buildDiscardedQueue(sessionId) : Promise.resolve(undefined),
       isGm ? this.presenceService.listOnline(sessionId) : Promise.resolve(undefined),
       isGm ? loadKickedPlayers(this.db, sessionId) : Promise.resolve(undefined),
+      this.historyPager.latestRewind(sessionId),
     ]);
 
     return {
@@ -163,6 +165,7 @@ export class BuildSessionSnapshotUseCase {
       bgm,
       recentHistory: recentHistory.items,
       history: { beforeEventId: recentHistory.beforeEventId, hasMore: recentHistory.hasMore },
+      lastRewind,
       visibleHandouts,
       pendingCheckRequests,
       pendingQueue,

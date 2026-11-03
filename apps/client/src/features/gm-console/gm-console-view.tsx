@@ -1,10 +1,11 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "@tanstack/react-router";
 import type { CatalogHandoutDto, SceneDto, TrackDto } from "@cogm/shared";
 import { fetchAllPages, mediaUrl } from "@/lib/api";
 import { usePlayAudio } from "@/lib/bgm";
 import { useSessionConnection } from "@/lib/use-session-connection";
 import { usePlayStore } from "@/stores/play-store";
+import { GmHistoryOverlay } from "@/features/history/gm-history-overlay";
 import { SessionTerminalOverlay } from "@/features/play/session-terminal-overlay";
 import { ConnectionBanner } from "@/features/play/connection-banner";
 import { DialogueBox } from "@/features/session-stage/dialogue-box";
@@ -30,6 +31,7 @@ function GmConsoleView() {
   const messages = usePlayStore((state) => state.messages);
   const moduleId = usePlayStore((state) => state.moduleId);
   const setCatalog = usePlayStore((state) => state.setCatalog);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   useEffect(() => {
     if (!moduleId) {
@@ -100,7 +102,7 @@ function GmConsoleView() {
                 topbar: <GmTopBar />,
                 controls: <GmPanel />,
                 stage,
-                chat: <GmChatPanel />,
+                chat: <GmChatPanel onOpenHistory={() => setHistoryOpen(true)} />,
                 dock: <GmToolDock />,
                 overlays: <SessionTerminalOverlay sessionId={sessionId} onRetry={retry} />,
                 connection: <ConnectionBanner />,
@@ -109,6 +111,7 @@ function GmConsoleView() {
               view: { sessionId, status },
             }}
           />
+          <GmHistoryOverlay open={historyOpen} onOpenChange={setHistoryOpen} />
         </div>
       </GmToolProvider>
     </GmThemeScope>

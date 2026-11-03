@@ -50,7 +50,7 @@ function SystemMessageCard({
         </span>
         <span className="text-md-outline shrink-0 font-mono text-label-small">{message.time}</span>
       </div>
-      <p className="text-md-on-surface text-body-medium font-semibold whitespace-pre-wrap text-pretty break-words">
+      <p className="text-md-on-surface text-body-medium font-semibold whitespace-pre-wrap text-pretty break-words select-text">
         {body}
       </p>
       {target ? (

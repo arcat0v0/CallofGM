@@ -17,6 +17,7 @@ function PlayOverlays({
   endDialogOpen,
   onEndDialogChange,
   handoutPromptEnabled,
+  onOpenHistory,
 }: {
   sessionId: string;
   retry: () => void;
@@ -25,6 +26,7 @@ function PlayOverlays({
   endDialogOpen: boolean;
   onEndDialogChange: (open: boolean) => void;
   handoutPromptEnabled: boolean;
+  onOpenHistory: () => void;
 }) {
   const pendingChecks = usePlayStore((state) => state.pendingChecks);
   const dismissedChecks = usePlayStore((state) => state.dismissedChecks);
@@ -52,7 +54,14 @@ function PlayOverlays({
             <DialogTitle>{t("play.endedTitle")}</DialogTitle>
             <DialogDescription>{t("play.endedDescription")}</DialogDescription>
           </DialogHeader>
-          <Button type="button" variant="primary" onClick={() => onEndDialogChange(false)}>
+          <Button
+            type="button"
+            variant="primary"
+            onClick={() => {
+              onEndDialogChange(false);
+              onOpenHistory();
+            }}
+          >
             {t("play.viewRecords")}
           </Button>
         </DialogContent>

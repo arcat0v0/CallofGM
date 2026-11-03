@@ -3,12 +3,19 @@ import { toast } from "sonner";
 import {
   coc7e,
   HISTORY_DEFAULT_LIMIT,
+  HistoryArchiveItemsReply,
+  HistoryArchiveReply,
+  HistoryAuditReply,
   HistoryPageReply,
+  RewindEvent,
+  RewindPreview,
   type BgmState,
   type CatalogHandoutDto,
   type ChatMessageDto,
   type CheckRequestDto,
   type GrantedHandoutDto,
+  type HistoryArchiveGroup,
+  type HistoryItem,
   type HistoryPage,
   type KickedPlayerDto,
   type OnlinePlayerDto,
@@ -24,6 +31,7 @@ import {
   type SessionStatus,
   type SeatRole,
   type SnapshotCharacter,
+  type SnapshotRewindNotice,
   type TrackDto,
 } from "@cogm/shared";
 import type { ChatMessage } from "@/features/chat/types";
@@ -79,6 +87,24 @@ type PlayState = {
   historyLoading: boolean;
   historyCommandId: string | null;
   historyPagesLoaded: number;
+  lastRewind: SnapshotRewindNotice | null;
+  lastRewindSeenId: number;
+  historyPreview: RewindPreview | null;
+  historyPreviewLoading: boolean;
+  historyPreviewCommandId: string | null;
+  rewindLoading: boolean;
+  rewindCommandId: string | null;
+  archiveGroups: HistoryArchiveGroup[];
+  archiveLoading: boolean;
+  archiveCommandId: string | null;
+  archiveItems: HistoryItem[];
+  archiveItemsLoading: boolean;
+  archiveItemsCommandId: string | null;
+  archiveItemsBeforeId: number | null;
+  auditItems: ChatMessageDto[];
+  auditLoading: boolean;
+  auditCommandId: string | null;
+  auditBeforeAt: number | null;
   applySnapshot: (payload: SessionSnapshotPayload, watermark: number) => void;
   applyMessage: (message: ServerMessage) => void;
   setCatalog: (input: { scenes?: SceneDto[]; tracks?: TrackDto[]; handouts?: CatalogHandoutDto[] }) => void;
@@ -93,6 +119,13 @@ type PlayState = {
   setLocalVolume: (localVolume: number) => void;
   clearSeCue: () => void;
   loadOlderHistory: () => void;
+  requestRewindPreview: (anchorEventId: number) => void;
+  clearRewindPreview: () => void;
+  requestRewind: (anchorEventId: number, reason?: string) => void;
+  requestUndoRewind: (rewindId: string, reason?: string) => void;
+  loadArchiveGroups: () => void;
+  loadArchiveItems: (rewindId: string, beforeEventId?: number) => void;
+  loadAudit: (beforeCreatedAt?: number) => void;
   reset: () => void;
 };
 
@@ -138,6 +171,24 @@ const empty = {
   historyLoading: false,
   historyCommandId: null as string | null,
   historyPagesLoaded: 0,
+  lastRewind: null as SnapshotRewindNotice | null,
+  lastRewindSeenId: 0,
+  historyPreview: null as RewindPreview | null,
+  historyPreviewLoading: false,
+  historyPreviewCommandId: null as string | null,
+  rewindLoading: false,
+  rewindCommandId: null as string | null,
+  archiveGroups: [] as HistoryArchiveGroup[],
+  archiveLoading: false,
+  archiveCommandId: null as string | null,
+  archiveItems: [] as HistoryItem[],
+  archiveItemsLoading: false,
+  archiveItemsCommandId: null as string | null,
+  archiveItemsBeforeId: null as number | null,
+  auditItems: [] as ChatMessageDto[],
+  auditLoading: false,
+  auditCommandId: null as string | null,
+  auditBeforeAt: null as number | null,
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -181,10 +232,37 @@ function mergeMessages(current: ChatMessage[], incoming: ChatMessage[]): ChatMes
   return [...byId.values()].sort((a, b) => a.sortKey - b.sortKey);
 }
 
+function clearPendingCommand(state: PlayState, commandId: string): Partial<PlayState> {
+  return {
+    ...(commandId === state.historyCommandId ? { historyLoading: false, historyCommandId: null } : {}),
+    ...(commandId === state.historyPreviewCommandId
+      ? { historyPreviewLoading: false, historyPreviewCommandId: null }
+      : {}),
+    ...(commandId === state.rewindCommandId ? { rewindLoading: false, rewindCommandId: null } : {}),
+    ...(commandId === state.archiveCommandId ? { archiveLoading: false, archiveCommandId: null } : {}),
+    ...(commandId === state.archiveItemsCommandId
+      ? { archiveItemsLoading: false, archiveItemsCommandId: null }
+      : {}),
+    ...(commandId === state.auditCommandId ? { auditLoading: false, auditCommandId: null } : {}),
+  };
+}
+
 function mapHistoryItems(items: HistoryPage["items"], characters: SnapshotCharacter[]): ChatMessage[] {
   return items
     .map((item) => mapHistoryItem(item, characters))
     .filter((message): message is ChatMessage => message !== null);
+}
+
+function withActivityMessage(
+  state: PlayState,
+  type: string,
+  payload: unknown,
+  eventId: number | undefined,
+  occurredAt: number | undefined,
+  patch: Partial<PlayState>,
+): Partial<PlayState> {
+  const message = mapActivityEvent(type, payload, eventId ?? Date.now(), occurredAt, state.characters);
+  return message ? { ...patch, messages: appendMessage(state.messages, message) } : patch;
 }
 
 function applyEvent(state: PlayState, type: string, payload: unknown, eventId?: number, occurredAt?: number): Partial<PlayState> {
@@ -248,7 +326,7 @@ function applyEvent(state: PlayState, type: string, payload: unknown, eventId?: 
         phase === "forced_cg" ||
         phase === "free_performance"
       ) {
-        return { phase };
+        return withActivityMessage(state, type, payload, eventId, occurredAt, { phase });
       }
       return {};
     }
@@ -258,13 +336,13 @@ function applyEvent(state: PlayState, type: string, payload: unknown, eventId?: 
       if (!id) {
         return {};
       }
-      return {
+      return withActivityMessage(state, type, payload, eventId, occurredAt, {
         scene: {
           id,
           name,
           bgAssetId: typeof payload.bgAssetId === "string" ? payload.bgAssetId : null,
         },
-      };
+      });
     }
     case "stage:layout-changed": {
       const layout = PortraitLayout.safeParse(payload.layout);
@@ -280,11 +358,11 @@ function applyEvent(state: PlayState, type: string, payload: unknown, eventId?: 
       if (!characterId || !expressionKey) {
         return {};
       }
-      return {
+      return withActivityMessage(state, type, payload, eventId, occurredAt, {
         characters: state.characters.map((character) =>
           character.characterId === characterId ? { ...character, currentExpressionKey: expressionKey } : character,
         ),
-      };
+      });
     }
     case "audio:bgm": {
       const bgm = (payload.bgm ?? payload) as BgmState;
@@ -300,11 +378,13 @@ function applyEvent(state: PlayState, type: string, payload: unknown, eventId?: 
         return {};
       }
       if (state.handouts.some((item) => item.grantId === grant.grantId)) {
-        return {
+        return withActivityMessage(state, type, payload, eventId, occurredAt, {
           handouts: state.handouts.map((item) => (item.grantId === grant.grantId ? grant : item)),
-        };
+        });
       }
-      return { handouts: [...state.handouts, grant] };
+      return withActivityMessage(state, type, payload, eventId, occurredAt, {
+        handouts: [...state.handouts, grant],
+      });
     }
     case "check:requested": {
       const request = (payload.request ?? payload) as CheckRequestDto;
@@ -321,11 +401,14 @@ function applyEvent(state: PlayState, type: string, payload: unknown, eventId?: 
       if (!characterId) {
         return {};
       }
-      return {
+      const patch: Partial<PlayState> = {
         characters: state.characters.map((character) =>
           character.characterId === characterId ? { ...character, state: payload.state ?? character.state } : character,
         ),
       };
+      return state.viewer.isGm
+        ? withActivityMessage(state, type, payload, eventId, occurredAt, patch)
+        : patch;
     }
     case "state:hint": {
       const characterId = typeof payload.characterId === "string" ? payload.characterId : null;
@@ -335,6 +418,25 @@ function applyEvent(state: PlayState, type: string, payload: unknown, eventId?: 
         toast.warning(`${name}：${hint}`);
       }
       return {};
+    }
+    case "session:rewound": {
+      const rewind = RewindEvent.safeParse(payload);
+      if (!rewind.success) {
+        return {};
+      }
+      toast.info(
+        rewind.data.action === "rewind" ? t("history.rewoundNotice") : t("history.undoNotice"),
+      );
+      return {
+        lastRewind: {
+          id: rewind.data.rewindId,
+          action: rewind.data.action,
+          eventId: eventId ?? 0,
+          anchorEventId: rewind.data.anchorEventId,
+          occurredAt: occurredAt ?? Date.now(),
+        },
+        lastRewindSeenId: eventId ?? 0,
+      };
     }
     default:
       return {};
@@ -346,6 +448,17 @@ export const usePlayStore = create<PlayState>((set, get) => ({
   localVolume: readLocalVolume(),
   muted: readLocalMuted(),
   applySnapshot: (payload, watermark) => {
+    const previous = get();
+    const rewindNotice = payload.lastRewind ?? null;
+    if (
+      rewindNotice &&
+      rewindNotice.eventId > previous.lastEventId &&
+      rewindNotice.eventId !== previous.lastRewindSeenId
+    ) {
+      toast.info(
+        rewindNotice.action === "rewind" ? t("history.rewoundNotice") : t("history.undoNotice"),
+      );
+    }
     const ownPending = (payload.ownPendingMessages ?? []).map((dto) => ({
       ...mapChatMessage(dto),
       pending: true,
@@ -393,6 +506,24 @@ export const usePlayStore = create<PlayState>((set, get) => ({
       historyLoading: false,
       historyCommandId: null,
       historyPagesLoaded: 0,
+      historyPreview: null,
+      historyPreviewLoading: false,
+      historyPreviewCommandId: null,
+      rewindLoading: false,
+      rewindCommandId: null,
+      archiveGroups: [],
+      archiveLoading: false,
+      archiveCommandId: null,
+      archiveItems: [],
+      archiveItemsLoading: false,
+      archiveItemsCommandId: null,
+      archiveItemsBeforeId: null,
+      auditItems: [],
+      auditLoading: false,
+      auditCommandId: null,
+      auditBeforeAt: null,
+      lastRewind: rewindNotice,
+      lastRewindSeenId: Math.max(previous.lastRewindSeenId, rewindNotice?.eventId ?? 0),
     });
   },
   applyMessage: (message) => {
@@ -406,10 +537,10 @@ export const usePlayStore = create<PlayState>((set, get) => ({
       if (message.type === "command:rejected") {
         const errorMsg = errorCopy({ code: typeof payload.code === "string" ? payload.code : null });
         toast.error(errorMsg);
-        set({
+        set((state) => ({
           lastRejection: { commandId, message: errorMsg },
-          ...(commandId === get().historyCommandId ? { historyLoading: false, historyCommandId: null } : {}),
-        });
+          ...clearPendingCommand(state, commandId),
+        }));
         return;
       }
       const historyReply = HistoryPageReply.safeParse(message.payload);
@@ -428,6 +559,76 @@ export const usePlayStore = create<PlayState>((set, get) => ({
             historyPagesLoaded: state.historyPagesLoaded + 1,
           };
         });
+        return;
+      }
+      const previewReply = RewindPreview.safeParse(payload.preview);
+      if (previewReply.success) {
+        set((state) =>
+          commandId !== state.historyPreviewCommandId
+            ? {}
+            : {
+                historyPreview: previewReply.data,
+                historyPreviewLoading: false,
+                historyPreviewCommandId: null,
+              },
+        );
+        return;
+      }
+      const archiveReply = HistoryArchiveReply.safeParse(message.payload);
+      if (archiveReply.success) {
+        set((state) =>
+          commandId !== state.archiveCommandId
+            ? {}
+            : {
+                archiveGroups: archiveReply.data.groups,
+                archiveLoading: false,
+                archiveCommandId: null,
+              },
+        );
+        return;
+      }
+      const archiveItemsReply = HistoryArchiveItemsReply.safeParse(message.payload);
+      if (archiveItemsReply.success) {
+        set((state) => {
+          if (commandId !== state.archiveItemsCommandId) {
+            return {};
+          }
+          const page = archiveItemsReply.data;
+          return {
+            archiveItems:
+              state.archiveItemsBeforeId === null
+                ? page.items
+                : [...page.items, ...state.archiveItems],
+            archiveItemsLoading: false,
+            archiveItemsCommandId: null,
+            archiveItemsBeforeId: null,
+          };
+        });
+        return;
+      }
+      const auditReply = HistoryAuditReply.safeParse(message.payload);
+      if (auditReply.success) {
+        set((state) => {
+          if (commandId !== state.auditCommandId) {
+            return {};
+          }
+          return {
+            auditItems:
+              state.auditBeforeAt === null
+                ? auditReply.data.items
+                : [...state.auditItems, ...auditReply.data.items],
+            auditLoading: false,
+            auditCommandId: null,
+            auditBeforeAt: null,
+          };
+        });
+        return;
+      }
+      if (commandId && commandId === get().rewindCommandId) {
+        set({ rewindLoading: false, rewindCommandId: null, historyPreview: null });
+        toast.success(
+          payload.action === "undo" ? t("history.undoDone") : t("history.rewindDone"),
+        );
         return;
       }
       const requestId = typeof payload.requestId === "string" ? payload.requestId : null;
@@ -559,6 +760,77 @@ export const usePlayStore = create<PlayState>((set, get) => ({
       return;
     }
     set({ historyLoading: true, historyCommandId: commandId });
+  },
+  requestRewindPreview: (anchorEventId) => {
+    const commandId = sendSessionCommand("history:preview-rewind", { anchorEventId });
+    if (!commandId) {
+      toast.error(t("play.notConnected"));
+      return;
+    }
+    set({ historyPreviewLoading: true, historyPreviewCommandId: commandId });
+  },
+  clearRewindPreview: () =>
+    set({
+      historyPreview: null,
+      historyPreviewLoading: false,
+      historyPreviewCommandId: null,
+    }),
+  requestRewind: (anchorEventId, reason) => {
+    const commandId = sendSessionCommand("history:rewind", {
+      anchorEventId,
+      reason: reason?.trim() || undefined,
+    });
+    if (!commandId) {
+      toast.error(t("play.notConnected"));
+      return;
+    }
+    set({ rewindLoading: true, rewindCommandId: commandId });
+  },
+  requestUndoRewind: (rewindId, reason) => {
+    const commandId = sendSessionCommand("history:undo-rewind", {
+      rewindId,
+      reason: reason?.trim() || undefined,
+    });
+    if (!commandId) {
+      toast.error(t("play.notConnected"));
+      return;
+    }
+    set({ rewindLoading: true, rewindCommandId: commandId });
+  },
+  loadArchiveGroups: () => {
+    const commandId = sendSessionCommand("history:archive", {});
+    if (!commandId) {
+      toast.error(t("play.notConnected"));
+      return;
+    }
+    set({ archiveLoading: true, archiveCommandId: commandId });
+  },
+  loadArchiveItems: (rewindId, beforeEventId) => {
+    const commandId = sendSessionCommand("history:archive-items", {
+      rewindId,
+      beforeEventId,
+    });
+    if (!commandId) {
+      toast.error(t("play.notConnected"));
+      return;
+    }
+    set({
+      archiveItemsLoading: true,
+      archiveItemsCommandId: commandId,
+      archiveItemsBeforeId: beforeEventId ?? null,
+    });
+  },
+  loadAudit: (beforeCreatedAt) => {
+    const commandId = sendSessionCommand("history:audit", { beforeCreatedAt });
+    if (!commandId) {
+      toast.error(t("play.notConnected"));
+      return;
+    }
+    set({
+      auditLoading: true,
+      auditCommandId: commandId,
+      auditBeforeAt: beforeCreatedAt ?? null,
+    });
   },
   setCatalog: (input) => {
     set((state) => ({

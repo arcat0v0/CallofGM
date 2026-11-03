@@ -52,3 +52,12 @@ export const Coc7eStateEditInput = z.object({
 });
 export type Coc7eStateEditInput = z.infer<typeof Coc7eStateEditInput>;
 export type CharacterSessionState = z.infer<typeof CharacterSessionState>;
+
+export function coc7eStateSummary(state: unknown): string | null {
+  const parsed = CharacterSessionState.safeParse(state);
+  if (!parsed.success) {
+    return null;
+  }
+  const value = parsed.data;
+  return `HP ${value.hp}/${value.maxHp} · MP ${value.mp}/${value.maxMp} · SAN ${value.san}/${value.maxSan}`;
+}

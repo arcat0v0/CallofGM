@@ -13,6 +13,7 @@ import type { SessionEventBus, StagedEvents } from "./session-event-bus";
 import type { PresenceService } from "./presence-service";
 import type { ConnectionRegistry } from "./connection-registry";
 import type { CommandHandler, CommandHandlerContext, CommandHandlerResult } from "./application/command-handler";
+import type { SessionHistoryRecorder } from "./application/history-recorder";
 import { logger } from "@/platform/logging/logger";
 
 const MAX_CACHED_REPLIES_PER_SESSION = 500;
@@ -40,7 +41,8 @@ export class SessionCommandExecutor {
     private readonly connectionRegistry: ConnectionRegistry,
     private readonly clock: Clock,
     private readonly idGenerator: IdGenerator,
-    private readonly randomSource: RandomSource
+    private readonly randomSource: RandomSource,
+    private readonly historyRecorder: SessionHistoryRecorder
   ) {}
 
   registerHandlers(handlers: CommandHandler[]): void {
@@ -159,6 +161,9 @@ export class SessionCommandExecutor {
 
         const result = await handler.execute(ctx, command.payload);
         const staged = await this.eventBus.stage(tx, sessionId, result.events ?? []);
+        if (staged.entries.length === 0 && !handler.skipHistoryCheckpoint) {
+          await this.historyRecorder.recordHead(tx, sessionId);
+        }
         if (result.finalizeAfterStaged) {
           await result.finalizeAfterStaged(tx, staged);
         }
@@ -226,6 +231,12 @@ export class SessionCommandExecutor {
     result: CommandHandlerResult
   ): Promise<void> {
     await this.eventBus.deliver(staged);
+    if (result.resetEventBuffer) {
+      const lastEventId = staged.entries[staged.entries.length - 1]?.event.eventId;
+      if (lastEventId !== undefined) {
+        this.eventBus.resetRingBuffer(sessionId, lastEventId + 1);
+      }
+    }
 
     for (const message of result.directToGms ?? []) {
       this.connectionRegistry.sendToGms(sessionId, message);

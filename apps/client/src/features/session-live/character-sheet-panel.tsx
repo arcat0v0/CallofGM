@@ -132,14 +132,14 @@ export function CharacterSheetPanel({
               })}
             </div>
             {state && state.growthMarks.length > 0 ? (
-              <p className="text-foreground-tertiary text-label-small">
+              <p className="text-foreground-tertiary text-label-small select-text">
                 {t("sheet.growthMarks", {
                   marks: state.growthMarks.map((key) => coc7e.coc7eSkillLabel(key)).join(t("common.listSeparator")),
                 })}
               </p>
             ) : null}
             {state && state.statuses.length > 0 ? (
-              <p className="text-warning text-label-small">
+              <p className="text-warning text-label-small select-text">
                 {state.statuses.map((flag) => coc7e.CharacterStatusFlagLabel[flag]).join(t("common.listSeparator"))}
               </p>
             ) : null}

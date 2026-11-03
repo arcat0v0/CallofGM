@@ -1,4 +1,5 @@
-import { describe, expect, test, beforeEach } from "bun:test";
+import { describe, expect, test, beforeEach, spyOn } from "bun:test";
+import { toast } from "sonner";
 import { usePlayStore } from "../src/stores/play-store";
 
 describe("play-store draft-loss and command rejection tracking", () => {
@@ -415,5 +416,285 @@ describe("chat history paging", () => {
     expect(usePlayStore.getState().kickedPlayers).toEqual([
       { playerId: "p2", displayName: null, reason: "测试", createdAt: 2 },
     ]);
+  });
+});
+
+const rewindPreview = {
+  anchorEventId: 12,
+  anchorOccurredAt: 1_700_000_000_012,
+  messageCount: 4,
+  activityCount: 2,
+  pendingCount: 1,
+  revokedHandoutTitles: ["潮汐日志"],
+  revertedCheckCount: 3,
+  characterChanges: [{ characterId: "c1", name: "陈默" }],
+  phaseChange: null,
+  sceneChange: null,
+  hasCheckpoint: true,
+};
+
+const rewindEvent = {
+  action: "rewind" as const,
+  rewindId: "r1",
+  anchorEventId: 12,
+  anchorOccurredAt: 1_700_000_000_012,
+  archivedMessageCount: 4,
+  archivedEventCount: 6,
+  discardedPendingCount: 1,
+  reason: null,
+};
+
+const archiveGroup = {
+  id: "r1",
+  action: "rewind" as const,
+  createdAt: 1_700_000_000_030,
+  anchorEventId: 12,
+  anchorOccurredAt: 1_700_000_000_012,
+  reason: null,
+  undoneAt: null,
+  targetRewindId: null,
+  archivedMessageCount: 4,
+  archivedEventCount: 6,
+};
+
+function auditDto(id: string, createdAt: number) {
+  return {
+    id,
+    sessionId: "s1",
+    senderId: null,
+    senderType: "gm" as const,
+    characterId: null,
+    characterName: null,
+    channel: "ooc" as const,
+    content: id,
+    expressionKey: null,
+    queueOrder: 0,
+    eventId: null,
+    presentedAt: createdAt,
+    createdAt,
+  };
+}
+
+describe("history rewind and archive state", () => {
+  beforeEach(() => {
+    usePlayStore.getState().reset();
+  });
+
+  test("preview accepted stores the preview and clears the loading flag", () => {
+    usePlayStore.setState({ historyPreviewLoading: true, historyPreviewCommandId: "cmd-preview" });
+
+    usePlayStore.getState().applyMessage({
+      protocolVersion: 1,
+      commandId: "cmd-preview",
+      type: "command:accepted",
+      payload: { preview: rewindPreview },
+    });
+
+    const state = usePlayStore.getState();
+    expect(state.historyPreview?.anchorEventId).toBe(12);
+    expect(state.historyPreview?.revokedHandoutTitles).toEqual(["潮汐日志"]);
+    expect(state.historyPreviewLoading).toBe(false);
+    expect(state.historyPreviewCommandId).toBeNull();
+
+    usePlayStore.getState().clearRewindPreview();
+    expect(usePlayStore.getState().historyPreview).toBeNull();
+  });
+
+  test("archive accepted stores the groups only for the requesting command", () => {
+    usePlayStore.setState({ archiveLoading: true, archiveCommandId: "cmd-archive" });
+
+    usePlayStore.getState().applyMessage({
+      protocolVersion: 1,
+      commandId: "cmd-archive",
+      type: "command:accepted",
+      payload: { groups: [archiveGroup] },
+    });
+
+    let state = usePlayStore.getState();
+    expect(state.archiveGroups).toEqual([archiveGroup]);
+    expect(state.archiveLoading).toBe(false);
+    expect(state.archiveCommandId).toBeNull();
+
+    usePlayStore.setState({ archiveLoading: true, archiveCommandId: "cmd-stale" });
+    usePlayStore.getState().applyMessage({
+      protocolVersion: 1,
+      commandId: "cmd-other",
+      type: "command:accepted",
+      payload: { groups: [] },
+    });
+    state = usePlayStore.getState();
+    expect(state.archiveGroups).toEqual([archiveGroup]);
+    expect(state.archiveLoading).toBe(true);
+  });
+
+  test("archive items replace on the first page and prepend older pages", () => {
+    usePlayStore.setState({ archiveItemsLoading: true, archiveItemsCommandId: "cmd-a1" });
+    usePlayStore.getState().applyMessage({
+      protocolVersion: 1,
+      commandId: "cmd-a1",
+      type: "command:accepted",
+      payload: { items: [chatItem(20, "较新")], hasMore: true, beforeEventId: 10 },
+    });
+    expect(usePlayStore.getState().archiveItems.map((item) => item.eventId)).toEqual([20]);
+
+    usePlayStore.setState({
+      archiveItemsLoading: true,
+      archiveItemsCommandId: "cmd-a2",
+      archiveItemsBeforeId: 10,
+    });
+    usePlayStore.getState().applyMessage({
+      protocolVersion: 1,
+      commandId: "cmd-a2",
+      type: "command:accepted",
+      payload: { items: [chatItem(5, "更早")], hasMore: false, beforeEventId: null },
+    });
+
+    const state = usePlayStore.getState();
+    expect(state.archiveItems.map((item) => item.eventId)).toEqual([5, 20]);
+    expect(state.archiveItemsLoading).toBe(false);
+    expect(state.archiveItemsCommandId).toBeNull();
+    expect(state.archiveItemsBeforeId).toBeNull();
+  });
+
+  test("audit pages replace then append raw chat messages", () => {
+    usePlayStore.setState({ auditLoading: true, auditCommandId: "cmd-d1" });
+    usePlayStore.getState().applyMessage({
+      protocolVersion: 1,
+      commandId: "cmd-d1",
+      type: "command:accepted",
+      payload: { items: [auditDto("a1", 1_700_000_000_020)], hasMore: true, beforeCreatedAt: 1_700_000_000_010 },
+    });
+    expect(usePlayStore.getState().auditItems.map((item) => item.id)).toEqual(["a1"]);
+
+    usePlayStore.setState({
+      auditLoading: true,
+      auditCommandId: "cmd-d2",
+      auditBeforeAt: 1_700_000_000_010,
+    });
+    usePlayStore.getState().applyMessage({
+      protocolVersion: 1,
+      commandId: "cmd-d2",
+      type: "command:accepted",
+      payload: { items: [auditDto("a2", 1_700_000_000_005)], hasMore: false, beforeCreatedAt: null },
+    });
+
+    const state = usePlayStore.getState();
+    expect(state.auditItems.map((item) => item.id)).toEqual(["a1", "a2"]);
+    expect(state.auditLoading).toBe(false);
+    expect(state.auditCommandId).toBeNull();
+    expect(state.auditBeforeAt).toBeNull();
+  });
+
+  test("session:rewound writes the rewind notice and the seen watermark", () => {
+    usePlayStore.getState().applyMessage({
+      protocolVersion: 1,
+      eventId: 30,
+      occurredAt: 1_700_000_000_030,
+      type: "session:rewound",
+      payload: rewindEvent,
+    });
+
+    const state = usePlayStore.getState();
+    expect(state.lastRewind).toEqual({
+      id: "r1",
+      action: "rewind",
+      eventId: 30,
+      anchorEventId: 12,
+      occurredAt: 1_700_000_000_030,
+    });
+    expect(state.lastRewindSeenId).toBe(30);
+    expect(state.lastEventId).toBe(30);
+  });
+
+  test("rewind accepted clears the loading flag and the stale preview", () => {
+    usePlayStore.setState({
+      rewindLoading: true,
+      rewindCommandId: "cmd-rewind",
+      historyPreview: rewindPreview,
+    });
+
+    usePlayStore.getState().applyMessage({
+      protocolVersion: 1,
+      commandId: "cmd-rewind",
+      type: "command:accepted",
+      payload: { rewindId: "r1", action: "rewind" },
+    });
+
+    const state = usePlayStore.getState();
+    expect(state.rewindLoading).toBe(false);
+    expect(state.rewindCommandId).toBeNull();
+    expect(state.historyPreview).toBeNull();
+  });
+
+  test("undo accepted reports the undo wording", () => {
+    const success = spyOn(toast, "success").mockImplementation(() => "id");
+    try {
+      usePlayStore.setState({ rewindLoading: true, rewindCommandId: "cmd-undo" });
+
+      usePlayStore.getState().applyMessage({
+        protocolVersion: 1,
+        commandId: "cmd-undo",
+        type: "command:accepted",
+        payload: { rewindId: "r1", action: "undo" },
+      });
+
+      expect(usePlayStore.getState().rewindLoading).toBe(false);
+      expect(success).toHaveBeenCalledWith("已撤销回溯，正在重新同步现场");
+    } finally {
+      success.mockRestore();
+    }
+  });
+
+  test("a snapshot rewind notice prompts once and is then remembered", () => {
+    const info = spyOn(toast, "info").mockImplementation(() => "id");
+    try {
+      const payload = {
+        ...snapshotPayload,
+        lastRewind: {
+          id: "r1",
+          action: "rewind" as const,
+          eventId: 30,
+          anchorEventId: 12,
+          occurredAt: 1_700_000_000_030,
+        },
+      };
+
+      usePlayStore.getState().applySnapshot(payload, 30);
+      expect(usePlayStore.getState().lastRewind?.id).toBe("r1");
+      expect(usePlayStore.getState().lastRewindSeenId).toBe(30);
+      expect(info).toHaveBeenCalledTimes(1);
+
+      usePlayStore.getState().applySnapshot(payload, 30);
+      expect(info).toHaveBeenCalledTimes(1);
+    } finally {
+      info.mockRestore();
+    }
+  });
+
+  test("reset clears the rewind and archive state", () => {
+    usePlayStore.setState({
+      lastRewind: {
+        id: "r1",
+        action: "rewind",
+        eventId: 30,
+        anchorEventId: 12,
+        occurredAt: 1_700_000_000_030,
+      },
+      lastRewindSeenId: 30,
+      historyPreview: rewindPreview,
+      archiveGroups: [archiveGroup],
+      archiveItems: [chatItem(20, "较新")],
+      auditItems: [auditDto("a1", 1_700_000_000_020)],
+    });
+
+    usePlayStore.getState().reset();
+
+    const state = usePlayStore.getState();
+    expect(state.lastRewind).toBeNull();
+    expect(state.lastRewindSeenId).toBe(0);
+    expect(state.historyPreview).toBeNull();
+    expect(state.archiveGroups).toEqual([]);
+    expect(state.archiveItems).toEqual([]);
+    expect(state.auditItems).toEqual([]);
   });
 });

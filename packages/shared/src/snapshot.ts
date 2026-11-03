@@ -3,7 +3,7 @@ import { SeatRole, SessionStatus, SessionPhase, SessionSettings } from "./sessio
 import { ChatMessageDto } from "./chat";
 import { CheckRequestDto } from "./gameplay";
 import { GrantedHandoutDto } from "./handouts";
-import { HistoryCursor, HistoryItem } from "./history";
+import { HistoryCursor, HistoryItem, SnapshotRewindNotice } from "./history";
 import { KickedPlayerDto, OnlinePlayerDto } from "./moderation";
 import { BgmState, PortraitLayout, PortraitScale } from "./stage";
 
@@ -64,6 +64,7 @@ export const SessionSnapshotPayload = z.object({
   bgm: BgmState.nullable(),
   recentHistory: z.array(HistoryItem),
   history: HistoryCursor,
+  lastRewind: SnapshotRewindNotice.nullable().optional(),
   visibleHandouts: z.array(GrantedHandoutDto),
   pendingCheckRequests: z.array(CheckRequestDto),
   /** GM 专属：待呈现队列 */

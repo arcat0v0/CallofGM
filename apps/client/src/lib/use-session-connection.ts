@@ -59,6 +59,11 @@ export function useSessionConnection(
         void refreshSnapshot();
         return;
       }
+      if ("type" in message && message.type === "session:rewound") {
+        applyMessage(message);
+        void refreshSnapshot();
+        return;
+      }
       const settingsBefore = usePlayStore.getState().settings;
       applyMessage(message);
       if (message.type !== "session:settings-changed") {

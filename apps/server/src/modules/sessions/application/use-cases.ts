@@ -92,7 +92,25 @@ export class CreateSessionUseCase {
       };
     });
 
-    await this.repo.createSession(session, sessionChars);
+    const checkpoint = {
+      phase: session.phase,
+      currentSceneId: session.currentSceneId,
+      characters: sessionChars.map((character) => ({
+        characterId: character.characterId,
+        kind: character.kind,
+        currentExpressionKey: character.currentExpressionKey,
+        stateJson: character.stateJson,
+      })),
+      checkRequests: [],
+      handoutGrants: [],
+    };
+
+    await this.repo.createSession(session, sessionChars, {
+      id: this.idGenerator.nextId(),
+      eventId: 0,
+      stateJson: JSON.stringify(checkpoint),
+      createdAt: now,
+    });
 
     return {
       session,

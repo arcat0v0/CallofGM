@@ -13,6 +13,7 @@ import {
   PresenceService,
   SessionCommandExecutor,
   SessionEventBus,
+  SessionHistoryRecorder,
   BuildSessionSnapshotUseCase,
   type CommandHandler,
 } from "@/modules/realtime";
@@ -33,6 +34,7 @@ export class Container {
   readonly connectionRegistry: ConnectionRegistry;
   readonly eventRingBuffer: EventRingBuffer;
   readonly presenceService: PresenceService;
+  readonly historyRecorder: SessionHistoryRecorder;
   readonly sessionEventBus: SessionEventBus;
   readonly sessionCommandExecutor: SessionCommandExecutor;
   readonly snapshotBuilder: BuildSessionSnapshotUseCase;
@@ -58,13 +60,15 @@ export class Container {
     this.connectionRegistry = new ConnectionRegistry(this.db);
     this.eventRingBuffer = new EventRingBuffer();
     this.presenceService = new PresenceService(this.db, this.connectionRegistry);
+    this.historyRecorder = new SessionHistoryRecorder(this.idGenerator, this.clock);
     this.sessionEventBus = new SessionEventBus(
       this.db,
       this.transactionRunner,
       this.eventRingBuffer,
       this.connectionRegistry,
       this.clock,
-      this.idGenerator
+      this.idGenerator,
+      this.historyRecorder
     );
     this.sessionCommandExecutor = new SessionCommandExecutor(
       this.db,
@@ -74,7 +78,8 @@ export class Container {
       this.connectionRegistry,
       this.clock,
       this.idGenerator,
-      this.randomSource
+      this.randomSource,
+      this.historyRecorder
     );
     this.sessionCommandExecutor.registerHandlers(commandHandlers);
     this.snapshotBuilder = new BuildSessionSnapshotUseCase(
