@@ -4,20 +4,27 @@ import { PlayerActionDock } from "../src/features/play/player-action-dock";
 import { usePlayStore } from "../src/stores/play-store";
 
 beforeEach(() => {
-  usePlayStore.getState().reset();
-  usePlayStore.setState({
-    phase: "free_discussion",
-    status: "active",
-    viewer: { isGm: false, seatRole: "pc" },
-  });
+	usePlayStore.getState().reset();
+	usePlayStore.setState({
+		phase: "free_discussion",
+		status: "active",
+		viewer: {
+			isGm: false,
+			seatRole: "pc",
+			holderKind: "anonymous",
+			holderId: "p1",
+		},
+	});
 });
 
 describe("player action dock", () => {
-  test("opens the dice panel from the shared dock button", async () => {
-    const { findByRole, getByRole } = render(<PlayerActionDock variant="desktop" />);
+	test("opens the dice panel from the shared dock button", async () => {
+		const { findByRole, getByRole } = render(
+			<PlayerActionDock variant="desktop" />,
+		);
 
-    fireEvent.click(getByRole("button", { name: "掷骰与鉴定" }));
+		fireEvent.click(getByRole("button", { name: "掷骰与鉴定" }));
 
-    expect(await findByRole("radio", { name: "骰点" })).toBeTruthy();
-  });
+		expect(await findByRole("radio", { name: "骰点" })).toBeTruthy();
+	});
 });

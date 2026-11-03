@@ -15,20 +15,20 @@ import { PlaySceneInfo } from "./slots/play-scene-info";
 import { PlayStage } from "./slots/play-stage";
 
 export const defaultTheme = defineTheme({
-  slots: {
-    "gm-admin.shell": GmAdminShell,
-    "gm-admin.nav": GmAdminNav,
-    "gm-console.layout": GmConsoleLayout,
-    "gm-console.stage": GmConsoleStage,
-    "join.layout": JoinLayout,
-    "join.header": JoinHeader,
-    "join.seat-card": JoinSeatCard,
-    "play.layout": PlayLayout,
-    "play.stage": PlayStage,
-    "play.scene-info": PlaySceneInfo,
-    "play.dialogue": PlayDialogue,
-    "play.chat-panel": PlayChatPanel,
-    "play.chat-message": PlayChatMessage,
-    "play.history": PlayHistory,
-  },
+	slots: {
+		"gm-admin.shell": GmAdminShell,
+		"gm-admin.nav": GmAdminNav,
+		"gm-console.layout": GmConsoleLayout,
+		"gm-console.stage": GmConsoleStage,
+		"join.layout": JoinLayout,
+		"join.header": JoinHeader,
+		"join.seat-card": JoinSeatCard,
+		"play.layout": PlayLayout,
+		"play.stage": PlayStage,
+		"play.scene-info": PlaySceneInfo,
+		"play.dialogue": PlayDialogue,
+		"play.chat-panel": PlayChatPanel,
+		"play.chat-message": PlayChatMessage,
+		"play.history": PlayHistory,
+	},
 });

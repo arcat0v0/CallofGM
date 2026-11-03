@@ -120,6 +120,13 @@ export type SessionDto = z.infer<typeof SessionDto>;
 export const ClaimHolderKind = z.enum(["user", "anonymous"]);
 export type ClaimHolderKind = z.infer<typeof ClaimHolderKind>;
 
+export function seatHolderKey(holder: {
+	holderKind: ClaimHolderKind;
+	holderId: string;
+}): string {
+	return `${holder.holderKind}:${holder.holderId}`;
+}
+
 export const SessionCharacterClaimDto = z.object({
 	holderKind: ClaimHolderKind,
 	holderId: z.string(),
