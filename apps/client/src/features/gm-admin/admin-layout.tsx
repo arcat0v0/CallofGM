@@ -1,6 +1,7 @@
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 import {
 	AudioLines,
+	ClipboardCheck,
 	Layers,
 	Package,
 	Palette,
@@ -24,7 +25,8 @@ type AdminNavKey =
 	| "music"
 	| "blacklist"
 	| "themes"
-	| "trash";
+	| "trash"
+	| "reviews";
 
 const NAV_ITEMS: {
 	key: AdminNavKey;
@@ -58,6 +60,12 @@ const NAV_ITEMS: {
 		icon: ShieldBan,
 		to: "/gm/blacklist",
 	},
+	{
+		key: "reviews",
+		labelKey: "gm.nav.reviews",
+		icon: ClipboardCheck,
+		to: "/gm/reviews",
+	},
 	{ key: "themes", labelKey: "gm.nav.themes", icon: Palette, to: "/gm/themes" },
 	{ key: "trash", labelKey: "gm.nav.trash", icon: Trash2, to: "/gm/trash" },
 ];
@@ -90,6 +98,9 @@ export function adminNavCurrentKey(pathname: string): AdminNavKey | null {
 	}
 	if (path === "/gm/trash") {
 		return "trash";
+	}
+	if (path === "/gm/reviews") {
+		return "reviews";
 	}
 	return null;
 }

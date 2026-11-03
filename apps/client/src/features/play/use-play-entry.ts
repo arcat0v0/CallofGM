@@ -1,8 +1,27 @@
 import type { MyClaimResponse } from "@cogm/shared";
 import { useCallback, useEffect, useState } from "react";
-import { api } from "@/lib/api";
-import { ensurePlayer } from "@/lib/identity";
+import { api, isApiError } from "@/lib/api";
+import { ensurePlayer, fetchAccountMe } from "@/lib/identity";
 import { type PlayEntryGate, resolvePlayEntry } from "@/lib/play-entry";
+
+async function autoClaimIfSingleOption(sessionId: string): Promise<void> {
+	const path = `/sessions/${encodeURIComponent(sessionId)}/my-claim`;
+	try {
+		const before = await api<MyClaimResponse>(path);
+		if (before.isGm || before.claim || !before.canAutoClaimCharacterId) {
+			return;
+		}
+		const characterId = before.canAutoClaimCharacterId;
+		await api(`/sessions/${encodeURIComponent(sessionId)}/claim`, {
+			method: "POST",
+			body: JSON.stringify({ role: "pc", characterId }),
+		});
+	} catch (error) {
+		if (isApiError(error) && (error.status === 401 || error.status === 403)) {
+			return;
+		}
+	}
+}
 
 export function usePlayEntry(sessionId: string): {
 	gate: PlayEntryGate;
@@ -19,6 +38,10 @@ export function usePlayEntry(sessionId: string): {
 		void (async () => {
 			try {
 				await ensurePlayer();
+				const account = await fetchAccountMe();
+				if (account?.role === "pl") {
+					await autoClaimIfSingleOption(sessionId);
+				}
 				const result = await api<MyClaimResponse>(
 					`/sessions/${encodeURIComponent(sessionId)}/my-claim`,
 				);
