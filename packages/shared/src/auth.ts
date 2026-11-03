@@ -53,11 +53,13 @@ export const CreateUserRequest = z.object({
 });
 export type CreateUserRequest = z.infer<typeof CreateUserRequest>;
 
-export const UpdateUserRequest = z.object({
-	disabled: z.boolean().optional(),
-	deleted: z.boolean().optional(),
-	username: UsernameSchema.optional(),
-});
+export const UpdateUserRequest = z
+	.object({
+		disabled: z.boolean().optional(),
+		deleted: z.boolean().optional(),
+		username: UsernameSchema.optional(),
+	})
+	.strict();
 export type UpdateUserRequest = z.infer<typeof UpdateUserRequest>;
 
 export const ResetUserPasswordRequest = z.object({
