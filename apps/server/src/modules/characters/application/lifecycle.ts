@@ -362,7 +362,12 @@ export class DecideReviewUseCase {
 		});
 
 		if (!input.approve) {
-			return { approved: false, characterIds: [] as string[] };
+			return {
+				approved: false,
+				scope: review.scope as "module" | "session",
+				targetId: review.targetId,
+				characterIds: [] as string[],
+			};
 		}
 
 		if (review.scope === "module") {
@@ -383,10 +388,14 @@ export class DecideReviewUseCase {
 					createdAt: now,
 				});
 			}
-			return { approved: true, characterIds: [review.characterId] };
 		}
 
-		return { approved: true, characterIds: [review.characterId] };
+		return {
+			approved: true,
+			scope: review.scope as "module" | "session",
+			targetId: review.targetId,
+			characterIds: [review.characterId],
+		};
 	}
 }
 

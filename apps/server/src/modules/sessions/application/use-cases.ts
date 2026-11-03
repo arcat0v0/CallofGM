@@ -162,6 +162,68 @@ export class CreateSessionUseCase {
 	}
 }
 
+export class AddSessionCharacterUseCase {
+	constructor(
+		private readonly repo: SessionsRepository,
+		private readonly ruleRegistry: RuleRegistry,
+		private readonly idGenerator: IdGenerator,
+		private readonly clock: Clock,
+	) {}
+
+	async execute(input: { sessionId: string; characterId: string }) {
+		const session = await this.repo.findSessionById(input.sessionId);
+		if (!session) {
+			throw new SessionNotFoundError();
+		}
+		const [character] = await this.repo.findCharactersByIds([
+			input.characterId,
+		]);
+		if (!character) {
+			throw new CharacterNotFoundError(
+				"Character not found or already deleted",
+			);
+		}
+		if (character.ruleId !== session.ruleId) {
+			throw new SessionStateInvalidError(
+				"Character rule does not match this session",
+			);
+		}
+
+		const ruleSystem = this.ruleRegistry.get(session.ruleId);
+		const parsedSheet = ruleSystem.characterSheetSchema.parse(
+			JSON.parse(character.sheetJson),
+		);
+		const initialState = ruleSystem.initializeSessionState(
+			parsedSheet,
+		) as Record<string, unknown>;
+		initialState.sessionId = session.id;
+		initialState.characterId = character.id;
+		const now = this.clock.nowEpochMs();
+
+		await this.repo.saveSessionCharacterSnapshot({
+			id: this.idGenerator.nextId(),
+			sessionId: session.id,
+			characterId: character.id,
+			kind: character.kind,
+			name: character.name,
+			background: character.background,
+			ruleId: character.ruleId,
+			sheetJson: character.sheetJson,
+			baseSheetVersion: character.sheetVersion,
+			baseProfileVersion: character.profileVersion,
+			currentExpressionKey: null,
+			stateJson: JSON.stringify(initialState),
+			createdAt: now,
+		});
+
+		return {
+			sessionId: session.id,
+			characterId: character.id,
+			baseSheetVersion: character.sheetVersion,
+		};
+	}
+}
+
 export class ClaimSeatUseCase {
 	constructor(
 		private readonly repo: SessionsRepository,

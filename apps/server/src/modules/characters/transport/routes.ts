@@ -32,7 +32,10 @@ import {
 	DrizzleIdentityRepository,
 	requireGm,
 } from "@/modules/identity";
-import { DrizzleSessionsRepository } from "@/modules/sessions";
+import {
+	AddSessionCharacterUseCase,
+	DrizzleSessionsRepository,
+} from "@/modules/sessions";
 import { AppError } from "@/platform/errors/app-error";
 import { validationFailed } from "@/platform/errors/validation";
 import { assertTrustedOrigin } from "@/platform/security/origin";
@@ -158,6 +161,12 @@ export function createCharactersRoutes(container: Container) {
 	const listReviews = new ListReviewsUseCase(repo);
 	const decideReview = new DecideReviewUseCase(
 		repo,
+		container.idGenerator,
+		container.clock,
+	);
+	const addSessionCharacter = new AddSessionCharacterUseCase(
+		sessionsRepo,
+		container.ruleRegistry,
 		container.idGenerator,
 		container.clock,
 	);
@@ -492,12 +501,21 @@ export function createCharactersRoutes(container: Container) {
 		.post("/:id/decide", async ({ params, body, actor }) => {
 			const gm = requireGm(actor);
 			const data = parseBody(DecideReviewRequest, body);
-			return decideReview.execute({
+			const result = await decideReview.execute({
 				ownerId: gm.userId,
 				reviewId: params.id,
 				approve: data.approve,
 				reason: data.reason,
 			});
+			if (result.approved && result.scope === "session") {
+				for (const characterId of result.characterIds) {
+					await addSessionCharacter.execute({
+						sessionId: result.targetId,
+						characterId,
+					});
+				}
+			}
+			return result;
 		});
 
 	const plCharacterRoutes = new Elysia({ prefix: "/api/v1/pl/characters" })

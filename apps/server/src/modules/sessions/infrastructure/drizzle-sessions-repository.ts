@@ -88,6 +88,21 @@ export class DrizzleSessionsRepository implements SessionsRepository {
 		});
 	}
 
+	async saveSessionCharacterSnapshot(
+		row: typeof sessionCharacters.$inferInsert,
+	): Promise<void> {
+		await this.db
+			.insert(sessionCharacters)
+			.values(row)
+			.onConflictDoUpdate({
+				target: [
+					sessionCharacters.sessionId,
+					sessionCharacters.characterId,
+				],
+				set: { deletedAt: null },
+			});
+	}
+
 	async findCharactersByIds(ids: string[]) {
 		if (ids.length === 0) {
 			return [];

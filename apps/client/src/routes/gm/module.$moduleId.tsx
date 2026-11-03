@@ -6,7 +6,7 @@ import type {
 	TrackDto,
 } from "@cogm/shared";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ChevronRight, ImagePlus, Plus, Trash2, Upload } from "lucide-react";
+import { ChevronRight, ImagePlus, Plus, Trash2, Upload, UserPlus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { FilePicker } from "@/components/shared/file-picker";
@@ -25,6 +25,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { AdminLayout } from "@/features/gm-admin/admin-layout";
+import { InviteLinksDialog } from "@/features/gm-admin/invite-links-dialog";
 import { t, useI18nVersion } from "@/i18n";
 import { api, fetchAllPages, mediaUrl } from "@/lib/api";
 import { audioDurationMs } from "@/lib/audio-duration";
@@ -279,6 +280,7 @@ function ModuleDetailPage() {
 	const [handoutTitle, setHandoutTitle] = useState("");
 	const [handoutContent, setHandoutContent] = useState("");
 	const [handoutImageName, setHandoutImageName] = useState("");
+	const [invitesOpen, setInvitesOpen] = useState(false);
 
 	async function reload() {
 		try {
@@ -370,6 +372,16 @@ function ModuleDetailPage() {
 						</div>
 					}
 					description={t("gm.module.pageDescription")}
+					actions={
+						<Button
+							type="button"
+							variant="tertiary"
+							onClick={() => setInvitesOpen(true)}
+						>
+							<UserPlus />
+							{t("gm.invites.open")}
+						</Button>
+					}
 				/>
 
 				<Card className="flex max-w-2xl flex-col gap-3 rounded-2xl p-4">
@@ -734,6 +746,13 @@ function ModuleDetailPage() {
 					</TabsContent>
 				</Tabs>
 			</div>
+			<InviteLinksDialog
+				open={invitesOpen}
+				onOpenChange={setInvitesOpen}
+				scope="module"
+				targetId={moduleId}
+				targetName={module?.name ?? ""}
+			/>
 		</AdminLayout>
 	);
 }

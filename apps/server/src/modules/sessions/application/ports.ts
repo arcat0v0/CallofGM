@@ -146,6 +146,21 @@ export interface SessionsRepository {
 		},
 	): Promise<void>;
 	findCharactersByIds(ids: string[]): Promise<CharacterItem[]>;
+	saveSessionCharacterSnapshot(row: {
+		id: string;
+		sessionId: string;
+		characterId: string;
+		kind: string;
+		name: string;
+		background: string;
+		ruleId: string;
+		sheetJson: string;
+		baseSheetVersion: number;
+		baseProfileVersion: number;
+		currentExpressionKey: string | null;
+		stateJson: string;
+		createdAt: number;
+	}): Promise<void>;
 	findLinkedCharacterIds(moduleId: string, ids: string[]): Promise<string[]>;
 	moduleExists(moduleId: string): Promise<boolean>;
 	findModuleById(moduleId: string): Promise<{
