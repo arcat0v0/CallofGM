@@ -10,7 +10,7 @@
     "check:boundaries": "bun run scripts/check-boundaries.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "bun run src/platform/db/migrate-cli.ts",
-    "setup:gm": "bun run scripts/setup-gm-password.ts",
+    "setup:admin": "bun run scripts/setup-admin.ts",
     "db:check": "drizzle-kit check",
     "test": "bun test"
   },
