@@ -83,6 +83,7 @@ export const DirectControlMessageType = z.enum([
 	"chat:queue",
 	"chat:pending",
 	"chat:rejected",
+	"handout:grants",
 	"presence:updated",
 	"session:kicked",
 	"session:refresh",

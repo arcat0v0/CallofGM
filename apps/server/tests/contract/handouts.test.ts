@@ -546,4 +546,100 @@ describe("Handouts & moderation contract tests", () => {
 
 		await closeAll(gm, pc1, pc2);
 	});
+
+	test("GM 发放详情：接收人与已读状态实时同步，快照按身份裁剪", async () => {
+		const { gm, pc1, pc2, ob } = await openAll();
+
+		sendCommand(
+			gm,
+			"handout:grant",
+			{ handoutId: "handout-secret", recipientCharacterIds: ["char-pc1"] },
+			"hg-detail-1",
+		);
+		const reply = await gm.waitFor((m) => m.commandId === "hg-detail-1");
+		expect(reply.type).toBe("command:accepted");
+		const grantId = reply.payload.grantId as string;
+
+		const detail = await gm.waitFor(
+			(m) =>
+				m.type === "handout:grants" &&
+				m.payload.grants.some(
+					(grant: { grantId: string }) => grant.grantId === grantId,
+				),
+		);
+		const grant = detail.payload.grants.find(
+			(item: { grantId: string }) => item.grantId === grantId,
+		);
+		expect(grant.isPublic).toBe(false);
+		expect(grant.audienceCount).toBe(1);
+		expect(grant.readCount).toBe(0);
+		expect(
+			grant.recipients.map(
+				(recipient: { characterId: string }) => recipient.characterId,
+			),
+		).toEqual(["char-pc1"]);
+		expect(grant.recipients[0].read).toBe(false);
+
+		sendCommand(pc1, "handout:read", { grantId }, "hg-detail-read");
+		await pc1.waitFor(
+			(m) => m.commandId === "hg-detail-read" && m.type === "command:accepted",
+		);
+		const updated = await gm.waitFor(
+			(m) =>
+				m.type === "handout:grants" &&
+				m.payload.grants.some(
+					(item: { grantId: string; readCount: number }) =>
+						item.grantId === grantId && item.readCount === 1,
+				),
+		);
+		const updatedGrant = updated.payload.grants.find(
+			(item: { grantId: string }) => item.grantId === grantId,
+		);
+		expect(updatedGrant.recipients[0].read).toBe(true);
+
+		const gmAgain = await connectWs(wsUrl(), ctx.gmToken);
+		const gmSnapshot = await gmAgain.waitFor((m) => m.type === "snapshot");
+		expect(
+			gmSnapshot.payload.handoutGrants?.some(
+				(item: { grantId: string }) => item.grantId === grantId,
+			),
+		).toBe(true);
+
+		const pcAgain = await connectWs(wsUrl(), ctx.playerTokens.get("pc1")!);
+		const pcSnapshot = await pcAgain.waitFor((m) => m.type === "snapshot");
+		expect(pcSnapshot.payload.handoutGrants).toBeUndefined();
+
+		await closeAll(gm, pc1, pc2, ob, gmAgain, pcAgain);
+	});
+
+	test("公开情报详情：受众为当前参与者并统计已读", async () => {
+		const { gm, pc1, pc2, ob } = await openAll();
+
+		sendCommand(
+			gm,
+			"handout:grant",
+			{ handoutId: "handout-pub", recipientCharacterIds: [] },
+			"hg-pub-detail",
+		);
+		const reply = await gm.waitFor((m) => m.commandId === "hg-pub-detail");
+		expect(reply.type).toBe("command:accepted");
+		const grantId = reply.payload.grantId as string;
+
+		const detail = await gm.waitFor(
+			(m) =>
+				m.type === "handout:grants" &&
+				m.payload.grants.some(
+					(grant: { grantId: string }) => grant.grantId === grantId,
+				),
+		);
+		const grant = detail.payload.grants.find(
+			(item: { grantId: string }) => item.grantId === grantId,
+		);
+		expect(grant.isPublic).toBe(true);
+		expect(grant.recipients).toEqual([]);
+		expect(grant.audienceCount).toBe(3);
+		expect(grant.readCount).toBe(0);
+
+		await closeAll(gm, pc1, pc2, ob);
+	});
 });

@@ -129,16 +129,16 @@ export default defineTheme({
 | `play.layout` | `PlayLayoutCtx` | 玩家沉浸视图布局；`nodes.stage/chat/composer/dock/overlays/connection`、`viewport`、聊天开关（`view.chatOpen` / `actions.setChatOpen`；`dock`、`chatOpen` 为可选） |
 | `play.stage` | `PlayStageCtx` | 舞台外壳；`nodes.sceneInfo/portrait/dialogue/audio`、场景视图数据 |
 | `play.scene-info` | `PlaySceneInfoCtx` | 左上场景/阶段信息；由核心渲染（主题通常只调整外观） |
-| `play.dialogue` | `PlayDialogueCtx` | 当前演绎对话框；`speaker`、`roleLabel`、`text`、`size` |
+| `play.dialogue` | `PlayDialogueCtx` | 当前演绎对话框；`speaker`、`roleLabel`、`expressionLabel`、`text`、`size` |
 | `play.chat-panel` | `PlayChatPanelCtx` | 聊天面板；`messages: ChatMessageView[]`、`compact`、`onCollapse` |
 | `play.chat-message` | `PlayChatMessageCtx` | 单条聊天消息气泡；`message`、`variant` |
 | `play.history` | `PlayHistoryCtx` | 玩家历史覆盖层；`open`、`onClose`、`messages`、`selfName`、`hasOlder`、`loadingOlder`、`onLoadOlder`；默认主题提供视觉小说式全屏实现 |
 | `gm-console.layout` | `GmConsoleLayoutCtx` | GM 控制台全屏布局；`nodes.topbar/controls/stage/chat/dock/overlays/connection/endedBanner`（`topbar`/`dock` 为新增可选节点） |
-| `gm-console.stage` | `GmConsoleStageCtx` | 控制台舞台外壳 |
+| `gm-console.stage` | `GmConsoleStageCtx` | 控制台舞台外壳；默认实现复用 `play.stage` 的桌面视口布局，使立绘与玩家端一致 |
 | `gm-admin.shell` | `GmAdminShellCtx` | GM 后台外壳；`nodes.nav/content` |
 | `gm-admin.nav` | `GmAdminNavCtx` | 导航栏；`items`（含 label/icon/to/active）、`onNavigate`、`onLogout` |
 
-`ChatMessageView.isSystem` 是稳定字段：系统消息（骰点结果、状态提示等）由服务端/核心标记，主题应据此渲染，不得通过匹配文案判断。`speakerRoleLabel`、`roleLabel` 等展示文案已由核心本地化。`hidden`、`outcome`、`pending`、`rejected`、`rejectionReason` 为可选的展示状态字段，主题可据此渲染暗骰、成功/失败、待审查与拒绝理由。`eventId` 与 `anchorable` 用于历史覆盖层标识可回溯条目。
+`ChatMessageView.isSystem` 是稳定字段：系统消息（骰点结果、状态提示等）由服务端/核心标记，主题应据此渲染，不得通过匹配文案判断。`speakerRoleLabel`、`roleLabel` 等展示文案已由核心本地化；`expressionLabel` 为该条发言使用的表情标签。`hidden`、`outcome`、`pending`、`rejected`、`rejectionReason` 为可选的展示状态字段，主题可据此渲染暗骰、成功/失败、待审查与拒绝理由。`eventId` 与 `anchorable` 用于历史覆盖层标识可回溯条目。
 
 `play.history` 只覆盖玩家侧历史。GM 导演工作台的历史覆盖层（时间线、锚点预览与回溯操作）属于核心组件，不开放主题插槽。
 

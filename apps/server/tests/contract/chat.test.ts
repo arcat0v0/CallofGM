@@ -294,6 +294,7 @@ describe("Chat contract tests", () => {
 				m.type === "expression:changed" && m.payload.characterId === "char-pc1",
 		);
 		expect(exprEvent.payload.expressionKey).toBe("angry");
+		expect(exprEvent.payload.messageId).toBe(first.id);
 
 		// 重复放行被拒绝
 		sendCommand(gm, "chat:release", { messageId: first.id }, "c-rel-again");
@@ -517,5 +518,93 @@ describe("Chat contract tests", () => {
 		expect(reply.payload.code).toBe("EXPRESSION_NOT_FOUND");
 
 		await closeAll(pc);
+	});
+
+	test("GM 以 NPC 身份发言：即时广播、携带角色名并同步表情", async () => {
+		await setSessionPhase(ctx, "performance_time");
+		const { gm, pc, ob } = await openAll();
+
+		sendCommand(
+			gm,
+			"chat:send",
+			{
+				channel: "roleplay",
+				content: "我翻开名册。",
+				characterId: "char-npc1",
+				expressionKey: "default",
+			},
+			"c-npc-1",
+		);
+
+		const event = await pc.waitFor(
+			(m) =>
+				m.type === "chat:message" &&
+				m.payload.message.content === "我翻开名册。",
+		);
+		expect(event.payload.message.senderType).toBe("gm");
+		expect(event.payload.message.characterId).toBe("char-npc1");
+		expect(event.payload.message.characterName).toBe("神秘学者");
+
+		const expression = await ob.waitFor(
+			(m) =>
+				m.type === "expression:changed" &&
+				m.payload.characterId === "char-npc1",
+		);
+		expect(expression.payload.expressionKey).toBe("default");
+		expect(expression.payload.messageId).toBe(event.payload.message.id);
+
+		const reply = await gm.waitFor((m) => m.commandId === "c-npc-1");
+		expect(reply.type).toBe("command:accepted");
+		expect(reply.payload.presented).toBe(true);
+
+		await closeAll(gm, pc, ob);
+	});
+
+	test("发言身份受权限约束：玩家不能伪造，GM 不能以 OOC 或 PC 身份发言", async () => {
+		await setSessionPhase(ctx, "performance_time");
+		const { gm, pc } = await openAll();
+
+		sendCommand(
+			pc,
+			"chat:send",
+			{
+				channel: "roleplay",
+				content: "假装 NPC",
+				characterId: "char-npc1",
+			},
+			"c-spoof-1",
+		);
+		const spoofed = await pc.waitFor((m) => m.commandId === "c-spoof-1");
+		expect(spoofed.type).toBe("command:rejected");
+
+		sendCommand(
+			gm,
+			"chat:send",
+			{
+				channel: "ooc",
+				content: "场外 NPC",
+				characterId: "char-npc1",
+			},
+			"c-npc-ooc",
+		);
+		const ooc = await gm.waitFor((m) => m.commandId === "c-npc-ooc");
+		expect(ooc.type).toBe("command:rejected");
+		expect(ooc.payload.code).toBe("CHAT_SPEAKER_INVALID");
+
+		sendCommand(
+			gm,
+			"chat:send",
+			{
+				channel: "roleplay",
+				content: "以 PC 身份发言",
+				characterId: "char-pc1",
+			},
+			"c-npc-pc",
+		);
+		const asPc = await gm.waitFor((m) => m.commandId === "c-npc-pc");
+		expect(asPc.type).toBe("command:rejected");
+		expect(asPc.payload.code).toBe("CHAT_SPEAKER_INVALID");
+
+		await closeAll(gm, pc);
 	});
 });

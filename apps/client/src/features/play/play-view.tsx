@@ -98,6 +98,7 @@ function buildChatMessages(
 			anchorable: message.anchorable,
 			speakerName: message.speakerName,
 			speakerRoleLabel: message.speakerRoleLabel,
+			expressionLabel: message.expressionLabel,
 			avatarInitials: message.avatarInitials,
 			avatarBg: message.avatarBg,
 			avatarFg: message.avatarFg,
@@ -263,6 +264,7 @@ function PlaySession({ sessionId }: { sessionId: string }) {
 					messageId: latest.id,
 					speaker: latest.speakerName,
 					roleLabel: latest.speakerRoleLabel || undefined,
+					expressionLabel: latest.expressionLabel,
 					text: latest.body,
 					size: viewport === "desktop" ? "md" : "sm",
 				}}

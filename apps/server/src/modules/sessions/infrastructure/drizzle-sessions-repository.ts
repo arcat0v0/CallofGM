@@ -95,10 +95,7 @@ export class DrizzleSessionsRepository implements SessionsRepository {
 			.insert(sessionCharacters)
 			.values(row)
 			.onConflictDoUpdate({
-				target: [
-					sessionCharacters.sessionId,
-					sessionCharacters.characterId,
-				],
+				target: [sessionCharacters.sessionId, sessionCharacters.characterId],
 				set: { deletedAt: null },
 			});
 	}
@@ -149,6 +146,40 @@ export class DrizzleSessionsRepository implements SessionsRepository {
 			.where(eq(modules.id, moduleId))
 			.limit(1);
 		return result[0] ?? null;
+	}
+
+	async linkCharacterToModule(input: {
+		id: string;
+		moduleId: string;
+		characterId: string;
+		createdAt: number;
+	}): Promise<void> {
+		await this.db
+			.insert(moduleCharacters)
+			.values(input)
+			.onConflictDoUpdate({
+				target: [moduleCharacters.moduleId, moduleCharacters.characterId],
+				set: { deletedAt: null },
+			});
+	}
+
+	async softDeleteSessionCharacter(
+		sessionId: string,
+		characterId: string,
+		deletedAt: number,
+	): Promise<boolean> {
+		const updated = await this.db
+			.update(sessionCharacters)
+			.set({ deletedAt })
+			.where(
+				and(
+					eq(sessionCharacters.sessionId, sessionId),
+					eq(sessionCharacters.characterId, characterId),
+					isNull(sessionCharacters.deletedAt),
+				),
+			)
+			.returning({ id: sessionCharacters.id });
+		return updated.length > 0;
 	}
 
 	async findSessionCharacterKind(

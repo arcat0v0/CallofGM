@@ -7,6 +7,7 @@ export const SendChatMessageCommand = z.object({
 	channel: MessageChannel,
 	content: z.string().min(1).max(2000),
 	expressionKey: z.string().max(64).optional(),
+	characterId: z.string().min(1).optional(),
 });
 export type SendChatMessageCommand = z.infer<typeof SendChatMessageCommand>;
 

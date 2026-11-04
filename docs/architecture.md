@@ -52,6 +52,8 @@ CallofGM/
 - 事件可见范围 `visibility` 四种以上：`public`（全员）、`gmOnly`（仅 GM）、`pcPlayers`（GM + 有 PC 席位的玩家，用于 OB 不可见但 PC 可见的状态同步）、`selectedPcIds`（指定 PC）与 `connectionOnly`（单连接）。投递、补发与快照共用同一套 `checkVisibility` 判定。
 - **断线补发**：服务端为每个进行中的团在内存维护一个环形事件日志（近 N 条），日志条目带可见范围（全体 / 指定 PC 集合 / GM + PC 席位）。客户端（partysocket 自动重连）重连时携带 `lastEventId`，服务端按请求者身份过滤后补发缺失事件；缺口超出日志范围则下发全量快照（团名与可见性设置、请求者身份 `viewer`（是否 GM、席位 PC/OB）、当前场景、在场立绘及表情、阶段、音频状态、对该玩家可见的情报及其已读状态、对该玩家可见的各角色团内状态与人物卡、待其响应的鉴定请求、最近聊天区时间线及回看游标、最近一次回溯提示 `lastRewind`）。
 - 新加入者直接走全量快照路径。
+- 团内 NPC 编组走 REST：`POST /api/v1/gm/sessions/:id/npcs` 校验 GM 所有权、`kind=npc` 与规则一致，未关联模组时自动关联后写入团内人物快照；`DELETE /api/v1/gm/sessions/:id/npcs/:characterId` 只软删该团内快照。两者成功后向全团发送 `session:refresh`，不删除人物本体与历史。
+- GM 舞台沿用 `play.stage` 的桌面视口布局，使立绘位置与玩家端一致；「玩家视角预览」复用同一舞台插槽但按模组 `themeId` 建立独立主题上下文，不改变 GM 界面主题。
 - **聊天区时间线**：快照与回看共用同一条持久化时间线——已呈现的聊天消息（`session_messages`）与时间线活动事件（`session_history_events`，含掷骰/已完成鉴定、场景切换、阶段变化、情报发放、表情变化与回溯事件）按 `eventId` 升序合并（`packages/shared` 的 `HistoryItem`）。活动事件逐条按 `visibility` 与 `playerVisible` 过滤，状态变更仅 GM 历史可见。快照下发最近 50 条，并附游标 `history: { beforeEventId, hasMore }`。
 - **历史回看分页**：客户端以命令 `history:page`（`HistoryPageQuery { beforeEventId?, limit? }`，limit 默认 50、上限 100）请求更早的记录，回执在 `command:accepted` 的 `payload.history` 中返回 `{ items, hasMore, beforeEventId }`。`beforeEventId` 为排他上界，`hasMore=false` 时为 null。分页与实时事件共用同一套按请求者身份的可见性过滤（秘密/暗骰事件永不外泄，待呈现与已丢弃消息不进入时间线），因此 OB/GM/PC 各自看到同一位置的不同切片；玩家历史不按加入时间截断（含加入前的公开记录），不包含自己的待审/未通过发言与因回溯归档的内容；结团后该命令仍可用（只读回看）。
 
@@ -64,6 +66,7 @@ CallofGM/
 - 演绎消息可携带表情切换 `expressionId`（服务端校验只能操作发言者自己的 PC），放行时随消息一并广播，场景立绘同步切换；表情**预览**为纯前端功能（玩家浏览自己 PC 的各表情立绘素材），无服务端交互。
 - PC 玩家与 GM 的场外（OOC）消息绕过队列，即时分配 eventId 并广播；**OB 的所有发言一律入队**，经 GM 放行后才上公屏。
 - 完整队列只对 GM 可见：随 GM 端快照下发，GM 重连不丢队列；队列持久化到 SQLite，服务端重启不丢失未放行的发言。玩家只读取自己的队列条目与驳回理由。
+- GM 的 `chat:send` 可携带 `characterId` 指定本团 NPC 作为发言者：服务端校验该人物在本团且 `kind=npc`、仅允许 `roleplay` 频道；消息仍标记 `senderType=gm`，即时广播并附 NPC 名称。若同时携带 `expressionKey`，校验立绘存在后随消息写入团内表情并广播 `expression:changed`；该事件携带 `messageId`，客户端从 `ChatMessageDto.expressionKey` 生成表情标签显示在聊天气泡头部与舞台对话名牌附近，且不再把它单独渲染成时间线系统消息（手动切换表情仍保留独立记录）。
 
 ## 规则系统抽象
 
@@ -120,6 +123,7 @@ BgmState = { trackId, playing, volume, loop, seekOffset, startedAt(服务器时�
 - GM 发放/追加对象 → 服务端写入发放记录 → 公开情报走 topic 广播、秘密情报走定向推送 → 玩家端弹出展示并计入情报面板。
 - 可见性判定只在服务端：REST 拉取情报列表与 WS 推送/补发共用同一套过滤逻辑。
 - 已读状态存于 `handout_reads`（`grantId × playerId` 唯一）：玩家发送 `handout:read` 命令后落库，快照与 REST 返回的 `GrantedHandoutDto` 携带 `read` 字段；自动弹窗只显示未读条目，重连/重进不再重复提示。
+- GM 端的发放回执：快照仅对 GM 下发 `handoutGrants`（每笔发放的接收人、当前认领与已读状态，公开发放附受众与已读人数）；`handout:grant` / `handout:append` / `handout:read` 提交后通过定向消息 `handout:grants` 向 GM 推送最新回执，玩家连接不接收该字段。
 - 团名与人卡可见性：`sessions.name`（可空，界面回退模组名）与 `sessions.share_pc_sheets` / `sessions.ob_see_pc_state`（默认开启）。GM 通过 `session:settings` 命令切换可见性并广播 `session:settings-changed`，客户端收到后重新拉取全量快照，使已连接的玩家立即按新规则生效。
 
 ## 历史时间线与回溯
@@ -141,7 +145,7 @@ BgmState = { trackId, playing, volume, loop, seekOffset, startedAt(服务器时�
 
 - 仅 GM。`history:preview-rewind` 返回预览（将被撤销的条目与状态变化），`history:rewind` 在二次确认后执行；锚点必须是当前活动时间线中的条目。
 - 以锚点之前最近的检查点恢复运行态：团阶段、角色团内状态、场景指针、人物表情、鉴定请求与情报发放/接收者/已读。锚点条目及其之后的时间线内容被标记归档，已呈现消息一并移出活动时间线。
-- 不恢复 BGM/SE、舞台布局与缩放、席位认领、踢人/黑名单/在线状态、团可见性设置。
+- 不恢复 BGM/SE、舞台布局与缩放、席位认领、踢人/黑名单/在线状态、团可见性设置与团内 NPC 编组。
 - 整个待呈现队列清空并通知作者；这些消息不进入时间线。
 - 回溯与撤销均产出公共事件 `session:rewound`（payload 含 `action`、`rewindId`、`anchorEventId`、`anchorOccurredAt` 与归档计数；GM 填写的 `reason` 只写入 `session_rewinds` 供归档查看，不下发玩家），同时清空该团内存 ring buffer，并向所有连接发送 `session:refresh` 强制重建快照；`eventId` 继续单调递增，不回收。
 - `history:undo-rewind` 仅在团结束前可用，按 LIFO 撤销最近一次回溯；恢复旧时间线与运行态，并把回溯后新产生的已呈现内容移入归档。撤销同样产出 `session:rewound`（`action = "undo"`）。

@@ -17,3 +17,11 @@ export class ExpressionNotFoundError extends AppError {
 		super("EXPRESSION_NOT_FOUND", message, 400);
 	}
 }
+
+export class ChatSpeakerInvalidError extends AppError {
+	constructor(
+		message = "Chat speaker is not a controllable NPC in this session",
+	) {
+		super("CHAT_SPEAKER_INVALID", message, 400);
+	}
+}

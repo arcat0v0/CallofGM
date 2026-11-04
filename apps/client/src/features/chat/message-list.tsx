@@ -1,4 +1,11 @@
-import { Fragment, type ReactNode, useLayoutEffect, useRef } from "react";
+import { Smile } from "lucide-react";
+import {
+	Fragment,
+	type ReactNode,
+	useCallback,
+	useLayoutEffect,
+	useRef,
+} from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -47,7 +54,7 @@ function MessageList({
 	} | null>(null);
 	const stick = useRef(stickToBottom);
 
-	const rememberPosition = () => {
+	const rememberPosition = useCallback(() => {
 		const container = containerRef.current;
 		if (!container) {
 			return;
@@ -60,7 +67,7 @@ function MessageList({
 		stick.current =
 			container.scrollHeight - container.scrollTop - container.clientHeight <
 			48;
-	};
+	}, [messages]);
 
 	useLayoutEffect(() => {
 		const container = containerRef.current;
@@ -82,7 +89,7 @@ function MessageList({
 			}
 		}
 		rememberPosition();
-	}, [messages, stickToBottom]);
+	}, [messages, stickToBottom, rememberPosition]);
 
 	const showOlderControl =
 		Boolean(onLoadOlder) && (hasOlderHistory || olderLoads > 0);
@@ -184,9 +191,15 @@ function MessageList({
 									<span className="text-md-on-surface font-sans text-label-large">
 										{message.speakerName}
 									</span>
-									{showRoleBadge ? (
+									{showRoleBadge && message.speakerRoleLabel ? (
 										<Badge variant="soft" tone="accent" size="sm">
 											{message.speakerRoleLabel}
+										</Badge>
+									) : null}
+									{message.expressionLabel ? (
+										<Badge variant="soft" tone="default" size="sm">
+											<Smile className="size-3" />
+											{message.expressionLabel}
 										</Badge>
 									) : null}
 									<span className="text-label-small text-md-outline">

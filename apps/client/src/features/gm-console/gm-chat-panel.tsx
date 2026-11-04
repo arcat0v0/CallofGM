@@ -40,6 +40,7 @@ import { MessageList } from "@/features/chat/message-list";
 import { DiceTray } from "@/features/session-live/dice-tray";
 import { t } from "@/i18n";
 import { sessionStatusLabel } from "@/i18n/labels";
+import { expressionLabel, initialsOf } from "@/lib/format";
 import { sendSessionCommand } from "@/lib/session-socket";
 import { cn } from "@/lib/utils";
 import { usePlayStore } from "@/stores/play-store";
@@ -63,10 +64,15 @@ function GmChatPanel({
 }) {
 	const [channel, setChannel] = useState<ChatChannel>("all");
 	const [mode, setMode] = useState<MessageMode>("roleplay");
+	const [speakerId, setSpeakerId] = useState("");
+	const [npcExpressions, setNpcExpressions] = useState<Record<string, string>>(
+		{},
+	);
 	const [draft, setDraft] = useState("");
 	const [searchOpen, setSearchOpen] = useState(false);
 	const [query, setQuery] = useState("");
 	const messages = usePlayStore((state) => state.messages);
+	const characters = usePlayStore((state) => state.characters);
 	const status = usePlayStore((state) => state.status);
 	const historyHasMore = usePlayStore((state) => state.historyHasMore);
 	const historyLoading = usePlayStore((state) => state.historyLoading);
@@ -79,6 +85,29 @@ function GmChatPanel({
 	);
 	const { openTool } = useGmTool();
 	const ended = status === "ended";
+	const npcs = useMemo(
+		() => characters.filter((character) => character.kind === "npc"),
+		[characters],
+	);
+	const activeSpeakerId = npcs.some(
+		(character) => character.characterId === speakerId,
+	)
+		? speakerId
+		: "";
+	const speaker =
+		npcs.find((character) => character.characterId === activeSpeakerId) ?? null;
+	const portraits = speaker?.portraits ?? [];
+	const defaultExpression =
+		speaker?.currentExpressionKey ??
+		portraits.find((portrait) => portrait.isDefault)?.expressionKey ??
+		portraits[0]?.expressionKey ??
+		"";
+	const speakerExpression = speaker
+		? (npcExpressions[speaker.characterId] ?? defaultExpression)
+		: "";
+	const speakerLabel = speaker
+		? `${speaker.name} · ${t("common.npc")}`
+		: t("chat.role.gm");
 	const visible = useMemo(() => {
 		const byChannel = filterChatMessages(messages, channel);
 		const keyword = query.trim().toLowerCase();
@@ -100,6 +129,10 @@ function GmChatPanel({
 		const sent = sendSessionCommand("chat:send", {
 			channel: mode === "ooc" ? "ooc" : "roleplay",
 			content,
+			...(speaker ? { characterId: speaker.characterId } : {}),
+			...(speaker && speakerExpression
+				? { expressionKey: speakerExpression }
+				: {}),
 		});
 		if (!sent) {
 			toast.error(t("chat.notConnected"));
@@ -225,41 +258,135 @@ function GmChatPanel({
 			)}
 
 			<div className="bg-md-surface-container-high/80 border border-md-outline-variant/40 flex shrink-0 flex-col gap-2.5 rounded-3xl p-3">
-				<div className="flex items-center justify-between gap-2">
-					<DropdownMenu>
-						<DropdownMenuTrigger asChild>
-							<button
-								type="button"
-								className="text-accent flex items-center gap-1 rounded-sm text-label-medium outline-none focus-visible:ring-4 focus-visible:ring-focus-ring/50"
-							>
-								{t("common.gmShort")} ·{" "}
-								{mode === "ooc" ? t("chat.ooc") : t("gm.workbench.narration")}
-								<ChevronDown className="size-3.5" />
-							</button>
-						</DropdownMenuTrigger>
-						<DropdownMenuContent align="start" className="w-40">
-							<DropdownMenuRadioGroup
-								value={mode}
-								onValueChange={(value) => setMode(value as MessageMode)}
-							>
-								<DropdownMenuRadioItem value="roleplay">
-									{t("gm.workbench.narration")}
-								</DropdownMenuRadioItem>
-								<DropdownMenuRadioItem value="ooc">
-									{t("chat.ooc")}
-								</DropdownMenuRadioItem>
-							</DropdownMenuRadioGroup>
-						</DropdownMenuContent>
-					</DropdownMenu>
+				<div className="flex flex-wrap items-center justify-between gap-2">
+					<div className="flex flex-wrap items-center gap-1.5">
+						<DropdownMenu>
+							<DropdownMenuTrigger asChild>
+								<button
+									type="button"
+									aria-label={t("gm.workbench.speakerMenuAria")}
+									className="text-accent flex items-center gap-1.5 rounded-sm text-label-medium outline-none focus-visible:ring-4 focus-visible:ring-focus-ring/50"
+								>
+									<span
+										className={cn(
+											"grid size-5 shrink-0 place-items-center rounded-full text-[10px] font-semibold",
+											speaker
+												? "bg-md-secondary-container text-md-on-secondary-container"
+												: "bg-accent text-accent-foreground",
+										)}
+									>
+										{speaker
+											? speaker.name.slice(0, 1)
+											: initialsOf(t("chat.role.gm"))}
+									</span>
+									{speakerLabel}
+									<ChevronDown className="size-3.5" />
+								</button>
+							</DropdownMenuTrigger>
+							<DropdownMenuContent align="start" className="w-60">
+								<DropdownMenuRadioGroup
+									value={activeSpeakerId}
+									onValueChange={(value) => {
+										setSpeakerId(value);
+										if (value) {
+											setMode("roleplay");
+										}
+									}}
+								>
+									<DropdownMenuRadioItem value="">
+										{t("gm.workbench.speakerGm")}
+									</DropdownMenuRadioItem>
+									{npcs.map((npc) => (
+										<DropdownMenuRadioItem
+											key={npc.characterId}
+											value={npc.characterId}
+										>
+											{npc.name}
+										</DropdownMenuRadioItem>
+									))}
+								</DropdownMenuRadioGroup>
+							</DropdownMenuContent>
+						</DropdownMenu>
+
+						{speaker ? (
+							portraits.length > 0 ? (
+								<DropdownMenu>
+									<DropdownMenuTrigger asChild>
+										<button
+											type="button"
+											aria-label={t("gm.workbench.expressionMenuAria")}
+											className="text-md-on-surface-variant hover:bg-md-on-surface/8 flex items-center gap-1 rounded-full px-2 py-0.5 text-label-medium outline-none focus-visible:ring-4 focus-visible:ring-focus-ring/50"
+										>
+											{expressionLabel(speakerExpression)}
+											<ChevronDown className="size-3.5" />
+										</button>
+									</DropdownMenuTrigger>
+									<DropdownMenuContent align="start" className="w-40">
+										<DropdownMenuRadioGroup
+											value={speakerExpression}
+											onValueChange={(value) =>
+												setNpcExpressions((current) => ({
+													...current,
+													[speaker.characterId]: value,
+												}))
+											}
+										>
+											{portraits.map((portrait) => (
+												<DropdownMenuRadioItem
+													key={portrait.expressionKey}
+													value={portrait.expressionKey}
+												>
+													{expressionLabel(portrait.expressionKey)}
+												</DropdownMenuRadioItem>
+											))}
+										</DropdownMenuRadioGroup>
+									</DropdownMenuContent>
+								</DropdownMenu>
+							) : null
+						) : (
+							<DropdownMenu>
+								<DropdownMenuTrigger asChild>
+									<button
+										type="button"
+										className="text-md-on-surface-variant hover:bg-md-on-surface/8 flex items-center gap-1 rounded-full px-2 py-0.5 text-label-medium outline-none focus-visible:ring-4 focus-visible:ring-focus-ring/50"
+									>
+										{mode === "ooc"
+											? t("chat.ooc")
+											: t("gm.workbench.narration")}
+										<ChevronDown className="size-3.5" />
+									</button>
+								</DropdownMenuTrigger>
+								<DropdownMenuContent align="start" className="w-40">
+									<DropdownMenuRadioGroup
+										value={mode}
+										onValueChange={(value) => setMode(value as MessageMode)}
+									>
+										<DropdownMenuRadioItem value="roleplay">
+											{t("gm.workbench.narration")}
+										</DropdownMenuRadioItem>
+										<DropdownMenuRadioItem value="ooc">
+											{t("chat.ooc")}
+										</DropdownMenuRadioItem>
+									</DropdownMenuRadioGroup>
+								</DropdownMenuContent>
+							</DropdownMenu>
+						)}
+					</div>
 				</div>
 
 				<Textarea
 					value={draft}
-					aria-label={t("gm.workbench.composerPlaceholder")}
+					aria-label={
+						speaker
+							? t("gm.workbench.composerAsNpc", { name: speaker.name })
+							: t("gm.workbench.composerPlaceholder")
+					}
 					placeholder={
 						ended
 							? t("chat.endedPlaceholder")
-							: t("gm.workbench.composerPlaceholder")
+							: speaker
+								? t("gm.workbench.composerAsNpc", { name: speaker.name })
+								: t("gm.workbench.composerPlaceholder")
 					}
 					rows={2}
 					disabled={ended}
@@ -317,7 +444,11 @@ function GmChatPanel({
 						variant="primary"
 						size="icon-sm"
 						className="size-9"
-						aria-label={t("gm.workbench.sendNarration")}
+						aria-label={
+							speaker
+								? t("gm.workbench.sendAsNpc", { name: speaker.name })
+								: t("gm.workbench.sendNarration")
+						}
 						disabled={ended || draft.trim().length === 0}
 						onClick={handleSend}
 					>

@@ -162,6 +162,12 @@ export interface SessionsRepository {
 		createdAt: number;
 	}): Promise<void>;
 	findLinkedCharacterIds(moduleId: string, ids: string[]): Promise<string[]>;
+	linkCharacterToModule(input: {
+		id: string;
+		moduleId: string;
+		characterId: string;
+		createdAt: number;
+	}): Promise<void>;
 	moduleExists(moduleId: string): Promise<boolean>;
 	findModuleById(moduleId: string): Promise<{
 		id: string;
@@ -174,6 +180,11 @@ export interface SessionsRepository {
 		sessionId: string,
 		characterId: string,
 	): Promise<string | null>;
+	softDeleteSessionCharacter(
+		sessionId: string,
+		characterId: string,
+		deletedAt: number,
+	): Promise<boolean>;
 	isCharacterInSession(
 		sessionId: string,
 		characterId: string,

@@ -35,6 +35,7 @@ import {
 import { usePlayStore } from "@/stores/play-store";
 import { GmOnlinePopover } from "./gm-online-popover";
 import { GmSessionSettingsDialog } from "./gm-session-settings-dialog";
+import { PlayerStagePreview } from "./player-stage-preview";
 import { StageLayoutControl } from "./stage-layout-control";
 
 function GmTopBar() {
@@ -112,6 +113,7 @@ function GmTopBar() {
 						{sessionStatusLabel(status)}
 					</Badge>
 				) : null}
+				<PlayerStagePreview />
 				<StageLayoutControl />
 				{presenceAvailable ? <GmOnlinePopover /> : null}
 				<DropdownMenu>

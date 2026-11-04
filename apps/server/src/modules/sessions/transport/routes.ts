@@ -1,4 +1,6 @@
 import {
+	AddSessionNpcRequest,
+	AddSessionNpcResponse,
 	ClaimDto,
 	ClaimSeatRequest,
 	ConfirmGrowthRequest,
@@ -11,6 +13,7 @@ import {
 	JoinInfoResponse,
 	MyClaimResponse,
 	PlSessionSummaryDto,
+	RemoveSessionNpcResponse,
 	RenameSessionRequest,
 	SessionCloseCode,
 	SessionDetailResponse,
@@ -24,6 +27,7 @@ import { z } from "zod";
 import type { Container } from "@/bootstrap/container";
 import { corsOriginsFor } from "@/config/env";
 import {
+	CharacterNotFoundError,
 	ConfirmGrowthUseCase,
 	DrizzleCharactersRepository,
 } from "@/modules/characters";
@@ -47,6 +51,7 @@ import { assertTrustedOrigin } from "@/platform/security/origin";
 import { clientIp } from "@/platform/security/request-ip";
 import type { SeatHolderInput } from "../application/ports";
 import {
+	AddSessionCharacterUseCase,
 	ClaimSeatUseCase,
 	CreateSessionUseCase,
 	GetSessionSnapshotUseCase,
@@ -58,6 +63,7 @@ import {
 	UpdateSessionStatusUseCase,
 } from "../application/use-cases";
 import {
+	CharacterNotNpcError,
 	SessionNotFoundError,
 	SessionStateInvalidError,
 } from "../domain/errors";
@@ -126,6 +132,12 @@ export function createSessionsRoutes(container: Container) {
 		repo,
 		container.transactionRunner,
 		container.sessionEventBus,
+	);
+	const addSessionCharacter = new AddSessionCharacterUseCase(
+		repo,
+		container.ruleRegistry,
+		container.idGenerator,
+		container.clock,
 	);
 	const getSessionSnapshot = new GetSessionSnapshotUseCase(repo);
 	const listSessions = new ListSessionsUseCase(repo);
@@ -235,6 +247,105 @@ export function createSessionsRoutes(container: Container) {
 						phase: result.data.phase,
 					}),
 				);
+			},
+		)
+		.post(
+			"/api/v1/gm/sessions/:id/npcs",
+			async ({ actor, params: { id }, body, request }) => {
+				assertTrustedOrigin(request, allowedOrigins);
+				const gm = requireGm(actor);
+				const result = AddSessionNpcRequest.safeParse(body);
+				if (!result.success) {
+					throw validationFailed(result.error);
+				}
+				const session = await repo.findSessionById(id);
+				if (!session || session.ownerId !== gm.userId) {
+					throw new SessionNotFoundError();
+				}
+				if (session.status === "ended") {
+					throw new SessionStateInvalidError(
+						"Cannot add NPCs to an ended session",
+					);
+				}
+				const [character] = await repo.findCharactersByIds([
+					result.data.characterId,
+				]);
+				if (!character || character.ownerId !== gm.userId) {
+					throw new CharacterNotFoundError();
+				}
+				if (character.kind !== "npc") {
+					throw new CharacterNotNpcError();
+				}
+				if (character.ruleId !== session.ruleId) {
+					throw new SessionStateInvalidError(
+						"Character rule does not match this session",
+					);
+				}
+				const alreadyInSession = await repo.isCharacterInSession(
+					id,
+					character.id,
+				);
+				if (!alreadyInSession) {
+					const linked = await repo.findLinkedCharacterIds(session.moduleId, [
+						character.id,
+					]);
+					if (linked.length === 0) {
+						await repo.linkCharacterToModule({
+							id: container.idGenerator.nextId(),
+							moduleId: session.moduleId,
+							characterId: character.id,
+							createdAt: container.clock.nowEpochMs(),
+						});
+					}
+					await addSessionCharacter.execute({
+						sessionId: id,
+						characterId: character.id,
+					});
+					container.connectionRegistry.sendToSession(id, {
+						type: "session:refresh",
+						payload: {},
+					});
+				}
+				return AddSessionNpcResponse.parse({
+					characterId: character.id,
+					name: character.name,
+					alreadyInSession,
+				});
+			},
+		)
+		.delete(
+			"/api/v1/gm/sessions/:id/npcs/:characterId",
+			async ({ actor, params: { id, characterId }, request }) => {
+				assertTrustedOrigin(request, allowedOrigins);
+				const gm = requireGm(actor);
+				const session = await repo.findSessionById(id);
+				if (!session || session.ownerId !== gm.userId) {
+					throw new SessionNotFoundError();
+				}
+				if (session.status === "ended") {
+					throw new SessionStateInvalidError(
+						"Cannot remove NPCs from an ended session",
+					);
+				}
+				const kind = await repo.findSessionCharacterKind(id, characterId);
+				if (kind !== "npc") {
+					return RemoveSessionNpcResponse.parse({
+						characterId,
+						removed: false,
+					});
+				}
+				const removed = await repo.softDeleteSessionCharacter(
+					id,
+					characterId,
+					container.clock.nowEpochMs(),
+				);
+				if (removed) {
+					container.connectionRegistry.sendToSession(id, {
+						type: "session:refresh",
+						payload: {},
+					});
+				}
+				return RemoveSessionNpcResponse.parse({ characterId, removed });
 			},
 		)
 		.post(

@@ -30,15 +30,25 @@ export function CreateCharacterDialog({
 	open,
 	onOpenChange,
 	onCreated,
+	defaultKind = "pc",
+	lockKind = false,
+	fixedRuleId,
 }: {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	onCreated?: (created: CharacterDto) => void;
+	defaultKind?: "pc" | "npc";
+	lockKind?: boolean;
+	fixedRuleId?: string;
 }) {
 	const [name, setName] = useState("");
-	const [kind, setKind] = useState<"pc" | "npc">("pc");
+	const [kind, setKind] = useState<"pc" | "npc">(defaultKind);
 	const [pending, setPending] = useState(false);
-	const { rules, ruleId, setRuleId, loading: rulesLoading } = useRuleOptions();
+	const ruleOptions = useRuleOptions();
+	const rules = ruleOptions.rules;
+	const ruleId = fixedRuleId ?? ruleOptions.ruleId;
+	const setRuleId = ruleOptions.setRuleId;
+	const rulesLoading = ruleOptions.loading;
 
 	async function submit() {
 		const trimmed = name.trim();
@@ -87,38 +97,42 @@ export function CreateCharacterDialog({
 							onChange={(event) => setName(event.target.value)}
 						/>
 					</div>
-					<SegmentedControl
-						value={kind}
-						options={[
-							{ value: "pc", label: t("common.pc") },
-							{ value: "npc", label: t("common.npc") },
-						]}
-						onValueChange={(value) => setKind(value as "pc" | "npc")}
-					/>
-					<div className="flex flex-col gap-1.5">
-						<span className="text-md-on-surface-variant text-label-medium">
-							{t("rules.label")}
-							<span className="text-foreground-tertiary ml-1.5 text-label-small">
-								{t("rules.hint")}
+					{lockKind ? null : (
+						<SegmentedControl
+							value={kind}
+							options={[
+								{ value: "pc", label: t("common.pc") },
+								{ value: "npc", label: t("common.npc") },
+							]}
+							onValueChange={(value) => setKind(value as "pc" | "npc")}
+						/>
+					)}
+					{fixedRuleId ? null : (
+						<div className="flex flex-col gap-1.5">
+							<span className="text-md-on-surface-variant text-label-medium">
+								{t("rules.label")}
+								<span className="text-foreground-tertiary ml-1.5 text-label-small">
+									{t("rules.hint")}
+								</span>
 							</span>
-						</span>
-						<Select
-							value={ruleId}
-							onValueChange={setRuleId}
-							disabled={rulesLoading}
-						>
-							<SelectTrigger className="w-full">
-								<SelectValue placeholder={t("rules.loading")} />
-							</SelectTrigger>
-							<SelectContent>
-								{rules.map((rule) => (
-									<SelectItem key={rule.id} value={rule.id}>
-										{rule.name}
-									</SelectItem>
-								))}
-							</SelectContent>
-						</Select>
-					</div>
+							<Select
+								value={ruleId}
+								onValueChange={setRuleId}
+								disabled={rulesLoading}
+							>
+								<SelectTrigger className="w-full">
+									<SelectValue placeholder={t("rules.loading")} />
+								</SelectTrigger>
+								<SelectContent>
+									{rules.map((rule) => (
+										<SelectItem key={rule.id} value={rule.id}>
+											{rule.name}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+						</div>
+					)}
 				</div>
 				<DialogFooter>
 					<Button

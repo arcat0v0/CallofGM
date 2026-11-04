@@ -179,6 +179,24 @@ export const CreateSessionResponse = z.object({
 });
 export type CreateSessionResponse = z.infer<typeof CreateSessionResponse>;
 
+export const AddSessionNpcRequest = z.object({
+	characterId: z.string().min(1),
+});
+export type AddSessionNpcRequest = z.infer<typeof AddSessionNpcRequest>;
+
+export const AddSessionNpcResponse = z.object({
+	characterId: z.string(),
+	name: z.string(),
+	alreadyInSession: z.boolean(),
+});
+export type AddSessionNpcResponse = z.infer<typeof AddSessionNpcResponse>;
+
+export const RemoveSessionNpcResponse = z.object({
+	characterId: z.string(),
+	removed: z.boolean(),
+});
+export type RemoveSessionNpcResponse = z.infer<typeof RemoveSessionNpcResponse>;
+
 export const PlSessionSummaryDto = z.object({
 	sessionId: z.string(),
 	name: z.string().nullable(),

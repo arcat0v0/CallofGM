@@ -1,9 +1,11 @@
+import { Smile } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 type DialogueBoxProps = {
 	speaker: string;
 	roleLabel?: string;
+	expressionLabel?: string | null;
 	text: string;
 	className?: string;
 	size?: "md" | "sm";
@@ -12,6 +14,7 @@ type DialogueBoxProps = {
 function DialogueBox({
 	speaker,
 	roleLabel,
+	expressionLabel,
 	text,
 	className,
 	size = "md",
@@ -44,6 +47,17 @@ function DialogueBox({
 						className="backdrop-blur-md"
 					>
 						{roleLabel}
+					</Badge>
+				) : null}
+				{expressionLabel ? (
+					<Badge
+						variant="soft"
+						tone="default"
+						size="sm"
+						className="backdrop-blur-md"
+					>
+						<Smile className="size-3" />
+						{expressionLabel}
 					</Badge>
 				) : null}
 			</div>

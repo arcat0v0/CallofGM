@@ -1,4 +1,4 @@
-import { and, asc, eq, max } from "drizzle-orm";
+import { and, asc, eq, isNull, max } from "drizzle-orm";
 import type { DbClient } from "@/platform/db/client";
 import {
 	characterPortraits,
@@ -140,6 +140,23 @@ export class DrizzleChatRepository implements ChatRepository {
 			.from(characters)
 			.where(eq(characters.id, characterId));
 		return rows[0]?.name ?? null;
+	}
+
+	async findSessionCharacterKind(
+		sessionId: string,
+		characterId: string,
+	): Promise<string | null> {
+		const rows = await this.db
+			.select({ kind: sessionCharacters.kind })
+			.from(sessionCharacters)
+			.where(
+				and(
+					eq(sessionCharacters.sessionId, sessionId),
+					eq(sessionCharacters.characterId, characterId),
+					isNull(sessionCharacters.deletedAt),
+				),
+			);
+		return rows[0]?.kind ?? null;
 	}
 
 	async portraitExists(

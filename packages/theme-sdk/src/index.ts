@@ -26,6 +26,7 @@ export type ChatMessageView = {
   id: string;
   speakerName: string;
   speakerRoleLabel: string;
+  expressionLabel?: string | null;
   avatarInitials: string;
   avatarBg: string;
   avatarFg: string;
@@ -146,6 +147,7 @@ export type PlayDialogueCtx = {
   messageId: string;
   speaker: string;
   roleLabel?: string;
+  expressionLabel?: string | null;
   text: string;
   size: "md" | "sm";
 };

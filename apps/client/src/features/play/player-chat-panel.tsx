@@ -92,6 +92,7 @@ function PlayerChatPanel({
 						id: message.id,
 						speakerName: message.speakerName,
 						speakerRoleLabel: message.speakerRoleLabel,
+						expressionLabel: message.expressionLabel,
 						avatarInitials: message.avatarInitials,
 						avatarBg: message.avatarBg,
 						avatarFg: message.avatarFg,

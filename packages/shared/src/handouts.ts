@@ -46,3 +46,27 @@ export const HandoutGrantedEvent = z.object({
 	grant: GrantedHandoutDto,
 });
 export type HandoutGrantedEvent = z.infer<typeof HandoutGrantedEvent>;
+
+export const HandoutGrantRecipientDto = z.object({
+	characterId: z.string(),
+	name: z.string(),
+	read: z.boolean(),
+});
+export type HandoutGrantRecipientDto = z.infer<typeof HandoutGrantRecipientDto>;
+
+export const HandoutGrantDetailDto = z.object({
+	grantId: z.string(),
+	handoutId: z.string(),
+	title: z.string(),
+	isPublic: z.boolean(),
+	grantedAt: z.number().int(),
+	recipients: z.array(HandoutGrantRecipientDto),
+	readCount: z.number().int(),
+	audienceCount: z.number().int(),
+});
+export type HandoutGrantDetailDto = z.infer<typeof HandoutGrantDetailDto>;
+
+export const HandoutGrantOverviewDto = z.object({
+	grants: z.array(HandoutGrantDetailDto),
+});
+export type HandoutGrantOverviewDto = z.infer<typeof HandoutGrantOverviewDto>;

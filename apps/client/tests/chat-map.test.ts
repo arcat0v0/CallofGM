@@ -57,7 +57,7 @@ describe("chat speaker identity", () => {
 		expect(first).not.toBe(second);
 	});
 
-	test("PC names and GM identity are unchanged", () => {
+	test("PC names and GM identity use the host label", () => {
 		const pc = dto({
 			characterId: "c1",
 			characterName: "林雨桐",
@@ -73,8 +73,36 @@ describe("chat speaker identity", () => {
 			characterId: null,
 			characterName: null,
 		});
-		expect(speakerNameOf(gm)).toBe("KP");
-		expect(speakerRoleLabelOf(gm)).toBe("主持人");
+		expect(speakerNameOf(gm)).toBe("主持人");
+		expect(speakerRoleLabelOf(gm)).toBe("场外");
+		expect(speakerRoleLabelOf({ ...gm, channel: "roleplay" })).toBe("");
+	});
+
+	test("GM speaking as an NPC renders the NPC identity", () => {
+		const npc = dto({
+			senderType: "gm",
+			senderId: null,
+			characterId: "npc1",
+			characterName: "馆长 · 乌有",
+			channel: "roleplay",
+		});
+		expect(speakerNameOf(npc)).toBe("馆长 · 乌有");
+		expect(speakerRoleLabelOf(npc)).toBe("NPC");
+		const mapped = mapChatMessage(npc);
+		expect(mapped.avatarInitials).toBe("乌");
+		expect(mapped.avatarBg).toBe("bg-default");
+	});
+
+	test("chat messages keep the expression used at speaking time", () => {
+		const mapped = mapChatMessage(
+			dto({
+				characterId: "npc1",
+				characterName: "礼帽男子",
+				channel: "roleplay",
+				expressionKey: "tip_hat_smile",
+			}),
+		);
+		expect(mapped.expressionLabel).toBe("tip_hat_smile");
 	});
 
 	test("observer dice rolls use the same short id instead of a generic label", () => {
@@ -211,6 +239,15 @@ describe("history activity mapping", () => {
 			23,
 		);
 		expect(unknown?.speakerName).toBe("角色");
+
+		const messageTied = mapActivityEvent(
+			"expression:changed",
+			{ characterId: "c1", expressionKey: "smile", messageId: "m1" },
+			25,
+			1_700_000_000_025,
+			[character()],
+		);
+		expect(messageTied).toBeNull();
 	});
 
 	test("handouts use the title, falling back to the generic label", () => {

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { ChatMessageDto } from "./chat";
 import { CheckRequestDto } from "./gameplay";
-import { GrantedHandoutDto } from "./handouts";
+import { GrantedHandoutDto, HandoutGrantDetailDto } from "./handouts";
 import { HistoryCursor, HistoryItem, SnapshotRewindNotice } from "./history";
 import {
 	KickedPlayerDto,
@@ -81,6 +81,7 @@ export const SessionSnapshotPayload = z.object({
 	history: HistoryCursor,
 	lastRewind: SnapshotRewindNotice.nullable().optional(),
 	visibleHandouts: z.array(GrantedHandoutDto),
+	handoutGrants: z.array(HandoutGrantDetailDto).optional(),
 	pendingCheckRequests: z.array(CheckRequestDto),
 	/** GM 专属：待呈现队列 */
 	pendingQueue: z.array(ChatMessageDto).optional(),

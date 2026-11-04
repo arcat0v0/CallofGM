@@ -6,6 +6,7 @@ type ChatMessage = {
 	activityType?: string;
 	speakerName: string;
 	speakerRoleLabel: string;
+	expressionLabel?: string | null;
 	avatarInitials: string;
 	avatarBg: string;
 	avatarFg: string;

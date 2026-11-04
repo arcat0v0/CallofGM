@@ -64,6 +64,7 @@ export type SceneChangedEvent = z.infer<typeof SceneChangedEvent>;
 export const ExpressionChangedEvent = z.object({
 	characterId: z.string(),
 	expressionKey: z.string(),
+	messageId: z.string().optional(),
 });
 export type ExpressionChangedEvent = z.infer<typeof ExpressionChangedEvent>;
 

@@ -8,6 +8,7 @@ import type {
 	SnapshotCharacter,
 } from "@cogm/shared";
 import { and, eq, inArray, isNull } from "drizzle-orm";
+import { buildHandoutGrantOverview } from "@/modules/handouts";
 import type { ActorContext } from "@/modules/identity";
 import { holderOfActor } from "@/modules/identity";
 import type { SeatHolderInput } from "@/modules/sessions";
@@ -170,6 +171,7 @@ export class BuildSessionSnapshotUseCase {
 			bgm,
 			recentHistory,
 			visibleHandouts,
+			handoutGrants,
 			pendingCheckRequests,
 			pendingQueue,
 			ownPendingMessages,
@@ -198,6 +200,9 @@ export class BuildSessionSnapshotUseCase {
 				claimedCharacterId,
 				actorHolder,
 			),
+			isGm
+				? buildHandoutGrantOverview(this.db, sessionId)
+				: Promise.resolve(undefined),
 			this.buildPendingCheckRequests(sessionId, isGm, claimedCharacterId),
 			isGm ? this.buildPendingQueue(sessionId) : Promise.resolve(undefined),
 			isGm
@@ -255,6 +260,7 @@ export class BuildSessionSnapshotUseCase {
 			},
 			lastRewind,
 			visibleHandouts,
+			handoutGrants,
 			pendingCheckRequests,
 			pendingQueue,
 			ownPendingMessages,

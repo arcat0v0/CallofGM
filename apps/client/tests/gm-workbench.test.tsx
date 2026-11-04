@@ -90,9 +90,9 @@ describe("GM workbench B2 composition", () => {
 		);
 		expect(view.getByText("桌边对话")).toBeTruthy();
 		expect(view.getByText("全部消息")).toBeTruthy();
-		expect(view.getByText("主持人")).toBeTruthy();
+		expect(view.getAllByText("主持人").length).toBeGreaterThan(0);
 		expect(view.getByText("雨声忽然变大了。")).toBeTruthy();
-		expect(view.getByText("KP · 旁白")).toBeTruthy();
+		expect(view.getByText("角色发言")).toBeTruthy();
 		expect(view.getByPlaceholderText("描述接下来发生的事…")).toBeTruthy();
 	});
 

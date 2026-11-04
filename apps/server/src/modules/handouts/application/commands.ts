@@ -16,6 +16,7 @@ import {
 	HandoutGrantNotFoundError,
 	HandoutNotFoundError,
 } from "../domain/errors";
+import { buildHandoutGrantOverview } from "./grant-overview";
 import type { HandoutsRepository } from "./ports";
 
 function toGrantedDto(
@@ -122,6 +123,14 @@ export class GrantHandoutHandler implements CommandHandler {
 						: { type: "selectedPcIds", pcIds: recipients },
 				},
 			],
+			directToGms: [
+				{
+					type: "handout:grants",
+					payload: {
+						grants: await buildHandoutGrantOverview(ctx.tx, ctx.sessionId),
+					},
+				},
+			],
 			replyPayload: { grantId, isPublic },
 		};
 	}
@@ -206,6 +215,14 @@ export class AppendHandoutRecipientsHandler implements CommandHandler {
 						visibility: { type: "selectedPcIds", pcIds: newRecipients },
 					},
 				],
+				directToGms: [
+					{
+						type: "handout:grants",
+						payload: {
+							grants: await buildHandoutGrantOverview(ctx.tx, ctx.sessionId),
+						},
+					},
+				],
 				replyPayload: { grantId: grant.id, addedCount: newRecipients.length },
 			};
 		}
@@ -259,7 +276,17 @@ export class ReadHandoutHandler implements CommandHandler {
 			readAt: ctx.clock.nowEpochMs(),
 		});
 
-		return { replyPayload: { grantId: grant.id, read: true } };
+		return {
+			directToGms: [
+				{
+					type: "handout:grants",
+					payload: {
+						grants: await buildHandoutGrantOverview(ctx.tx, ctx.sessionId),
+					},
+				},
+			],
+			replyPayload: { grantId: grant.id, read: true },
+		};
 	}
 }
 

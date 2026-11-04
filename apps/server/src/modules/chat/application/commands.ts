@@ -19,6 +19,7 @@ import { SessionPhaseForbidsActionError } from "@/modules/sessions";
 import type { DbClient } from "@/platform/db/client";
 import { AppError } from "@/platform/errors/app-error";
 import {
+	ChatSpeakerInvalidError,
 	ExpressionNotFoundError,
 	MessageNotFoundError,
 	MessageNotPendingError,
@@ -122,7 +123,29 @@ export class SendChatMessageHandler implements CommandHandler {
 
 		const isGm = ctx.actor.type === "user" && ctx.actor.role === "gm";
 		const speakerRole = isGm ? "gm" : "player";
-		const characterId = isGm ? null : (ctx.seat?.characterId ?? null);
+		let characterId: string | null = null;
+		if (isGm) {
+			if (input.characterId) {
+				if (input.channel !== "roleplay") {
+					throw new ChatSpeakerInvalidError(
+						"NPC messages must use the roleplay channel",
+					);
+				}
+				const kind = await repo.findSessionCharacterKind(
+					ctx.sessionId,
+					input.characterId,
+				);
+				if (kind !== "npc") {
+					throw new ChatSpeakerInvalidError();
+				}
+				characterId = input.characterId;
+			}
+		} else {
+			if (input.characterId) {
+				throw new ForbiddenError("Players cannot choose a chat speaker");
+			}
+			characterId = ctx.seat?.characterId ?? null;
+		}
 		const senderHolder =
 			ctx.actor.type === "user" && ctx.actor.role === "gm"
 				? null
@@ -142,12 +165,11 @@ export class SendChatMessageHandler implements CommandHandler {
 			);
 		}
 
-		// 表情切换：只能操作发言者自己认领的 PC，且必须引用该人物已有立绘
 		let expressionKey: string | null = null;
 		if (input.expressionKey) {
-			if (isGm || !characterId) {
-				throw new ForbiddenError(
-					"Only the owning player can attach expressions",
+			if (!characterId) {
+				throw new ExpressionNotFoundError(
+					"No speaker character for this message",
 				);
 			}
 			const exists = await repo.portraitExists(
@@ -186,14 +208,28 @@ export class SendChatMessageHandler implements CommandHandler {
 			const nameCache = new Map<string, string | null>();
 			const dto = await toDto(repo, { ...row, eventId: null }, nameCache);
 
+			const events: NonNullable<CommandHandlerResult["events"]> = [
+				{
+					type: "chat:message",
+					payload: { message: dto },
+					visibility: { type: "public" },
+				},
+			];
+			if (isGm && characterId && expressionKey) {
+				await repo.setSessionCharacterExpression(
+					ctx.sessionId,
+					characterId,
+					expressionKey,
+				);
+				events.push({
+					type: "expression:changed",
+					payload: { characterId, expressionKey, messageId },
+					visibility: { type: "public" },
+				});
+			}
+
 			return {
-				events: [
-					{
-						type: "chat:message",
-						payload: { message: dto },
-						visibility: { type: "public" },
-					},
-				],
+				events,
 				finalizeAfterStaged: async (_tx, staged) => {
 					await persistPresentedEventId(repo, staged, dto, messageId);
 				},
@@ -304,6 +340,7 @@ export class ReleaseChatMessageHandler implements CommandHandler {
 				payload: {
 					characterId: row.characterId,
 					expressionKey: row.expressionKey,
+					messageId: row.id,
 				},
 				visibility: { type: "public" },
 			});

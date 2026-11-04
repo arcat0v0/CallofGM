@@ -15,5 +15,6 @@ export {
 	GrantHandoutHandler,
 	ReadHandoutHandler,
 } from "./application/commands";
+export { buildHandoutGrantOverview } from "./application/grant-overview";
 export * from "./domain/errors";
 export { DrizzleHandoutsRepository } from "./infrastructure/drizzle-handouts-repository";

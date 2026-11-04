@@ -8,7 +8,7 @@ import {
 } from "@cogm/shared";
 import type { ChatMessage } from "@/features/chat/types";
 import { t } from "@/i18n";
-import { formatClock, initialsOf } from "@/lib/format";
+import { expressionLabel, formatClock, initialsOf } from "@/lib/format";
 import { getRuleComponent } from "@/rules/registry";
 
 export function obSpeakerLabel(playerId: string | null | undefined): string {
@@ -19,7 +19,7 @@ export function obSpeakerLabel(playerId: string | null | undefined): string {
 
 export function speakerNameOf(dto: ChatMessageDto): string {
 	if (dto.senderType === "gm") {
-		return t("common.gmShort");
+		return dto.characterName || t("chat.role.gm");
 	}
 	if (dto.characterName) {
 		return dto.characterName;
@@ -29,7 +29,9 @@ export function speakerNameOf(dto: ChatMessageDto): string {
 
 export function speakerInitialsOf(dto: ChatMessageDto): string {
 	if (dto.senderType === "gm") {
-		return t("common.gmShort");
+		return dto.characterName
+			? initialsOf(dto.characterName)
+			: initialsOf(t("chat.role.gm"));
 	}
 	return dto.characterName
 		? initialsOf(dto.characterName)
@@ -38,7 +40,10 @@ export function speakerInitialsOf(dto: ChatMessageDto): string {
 
 export function speakerRoleLabelOf(dto: ChatMessageDto): string {
 	if (dto.senderType === "gm") {
-		return t("chat.role.gm");
+		if (dto.characterName) {
+			return t("common.npc");
+		}
+		return dto.channel === "ooc" ? t("chat.ooc") : "";
 	}
 	if (!dto.characterName) {
 		return t("common.spectator");
@@ -47,7 +52,7 @@ export function speakerRoleLabelOf(dto: ChatMessageDto): string {
 }
 
 export function mapChatMessage(dto: ChatMessageDto): ChatMessage {
-	const isGm = dto.senderType === "gm";
+	const isGmNarration = dto.senderType === "gm" && !dto.characterName;
 	const speakerName = speakerNameOf(dto);
 	return {
 		id: dto.id,
@@ -56,9 +61,12 @@ export function mapChatMessage(dto: ChatMessageDto): ChatMessage {
 		anchorable: dto.eventId != null,
 		speakerName,
 		speakerRoleLabel: speakerRoleLabelOf(dto),
+		expressionLabel: dto.expressionKey
+			? expressionLabel(dto.expressionKey)
+			: null,
 		avatarInitials: speakerInitialsOf(dto),
-		avatarBg: isGm ? "bg-accent" : "bg-default",
-		avatarFg: isGm ? "text-accent-foreground" : "text-foreground",
+		avatarBg: isGmNarration ? "bg-accent" : "bg-default",
+		avatarFg: isGmNarration ? "text-accent-foreground" : "text-foreground",
 		time: formatClock(dto.presentedAt ?? dto.createdAt),
 		body: dto.content,
 		tone: dto.channel === "ooc" ? "ooc" : "ic",
@@ -278,6 +286,9 @@ export function mapActivityEvent(
 		return systemMessage(t("history.event.scene"), name, true);
 	}
 	if (type === "expression:changed") {
+		if (typeof payload.messageId === "string") {
+			return null;
+		}
 		const expressionKey =
 			typeof payload.expressionKey === "string" ? payload.expressionKey : "";
 		const characterName = characterNameOf(payload.characterId);

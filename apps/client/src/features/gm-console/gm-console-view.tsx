@@ -72,6 +72,7 @@ function GmConsoleView() {
 		<DialogueBox
 			speaker={latest.speakerName}
 			roleLabel={latest.speakerRoleLabel || undefined}
+			expressionLabel={latest.expressionLabel}
 			text={latest.body}
 			size="md"
 			className="w-[min(760px,100%)]"
@@ -91,7 +92,7 @@ function GmConsoleView() {
 				},
 				nodes: {
 					sceneInfo: null,
-					portrait: <PortraitLayer variant="gm" showNameplate={false} />,
+					portrait: <PortraitLayer showNameplate={false} />,
 					dialogue,
 					audio: <SceneAudioControl variant="desktop" />,
 				},

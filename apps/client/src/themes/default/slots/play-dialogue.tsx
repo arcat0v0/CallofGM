@@ -4,6 +4,7 @@ import { DialogueBox } from "@/features/session-stage/dialogue-box";
 export function PlayDialogue({
 	speaker,
 	roleLabel,
+	expressionLabel,
 	text,
 	size,
 }: PlayDialogueCtx) {
@@ -11,6 +12,7 @@ export function PlayDialogue({
 		<DialogueBox
 			speaker={speaker}
 			roleLabel={roleLabel}
+			expressionLabel={expressionLabel}
 			text={text}
 			size={size}
 		/>

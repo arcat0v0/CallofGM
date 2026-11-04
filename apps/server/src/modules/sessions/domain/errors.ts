@@ -41,3 +41,9 @@ export class CharacterNotInModuleError extends AppError {
 		super("CHARACTER_NOT_IN_MODULE", message, 400);
 	}
 }
+
+export class CharacterNotNpcError extends AppError {
+	constructor(message = "Only NPC characters can be added to a session") {
+		super("CHARACTER_NOT_NPC", message, 400);
+	}
+}

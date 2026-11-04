@@ -4,6 +4,8 @@ import {
 	type ChatMessageDto,
 	type CheckRequestDto,
 	type GrantedHandoutDto,
+	type HandoutGrantDetailDto,
+	HandoutGrantOverviewDto,
 	HISTORY_DEFAULT_LIMIT,
 	type HistoryArchiveGroup,
 	HistoryArchiveItemsReply,
@@ -85,6 +87,7 @@ type PlayState = {
 	bgm: BgmState | null;
 	scene: { id: string; name: string; bgAssetId: string | null } | null;
 	handouts: GrantedHandoutDto[];
+	handoutGrants: HandoutGrantDetailDto[];
 	presence: OnlinePlayerDto[];
 	presenceAvailable: boolean;
 	kickedPlayers: KickedPlayerDto[];
@@ -179,6 +182,7 @@ const empty = {
 	bgm: null as BgmState | null,
 	scene: null as PlayState["scene"],
 	handouts: [] as GrantedHandoutDto[],
+	handoutGrants: [] as HandoutGrantDetailDto[],
 	presence: [] as OnlinePlayerDto[],
 	presenceAvailable: false,
 	kickedPlayers: [] as KickedPlayerDto[],
@@ -627,6 +631,7 @@ export const usePlayStore = create<PlayState>((set, get) => ({
 			bgm: payload.bgm,
 			scene: payload.currentScene,
 			handouts: payload.visibleHandouts,
+			handoutGrants: payload.handoutGrants ?? [],
 			presence: payload.online ?? [],
 			presenceAvailable: payload.online !== undefined,
 			kickedPlayers: payload.kickedPlayers ?? [],
@@ -914,6 +919,13 @@ export const usePlayStore = create<PlayState>((set, get) => ({
 				pendingQueue: payload.messages ?? [],
 				...(payload.discarded ? { discardedQueue: payload.discarded } : {}),
 			});
+			return;
+		}
+		if ("type" in message && message.type === "handout:grants") {
+			const overview = HandoutGrantOverviewDto.safeParse(message.payload);
+			if (overview.success) {
+				set({ handoutGrants: overview.data.grants });
+			}
 			return;
 		}
 		if ("type" in message && message.type === "presence:updated") {

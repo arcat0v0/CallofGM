@@ -2,12 +2,15 @@ import type { SnapshotCharacter } from "@cogm/shared";
 import {
 	ChevronDown,
 	ContactRound,
+	Search,
 	UserRoundCheck,
 	UserRoundMinus,
 	UserRoundPlus,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { SegmentedControl } from "@/components/shared/segmented-control";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,6 +19,11 @@ import {
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+	InputGroup,
+	InputGroupAddon,
+	InputGroupInput,
+} from "@/components/ui/input-group";
 import { SelectItem } from "@/components/ui/select";
 import { CharacterSheetPanel } from "@/features/session-live/character-sheet-panel";
 import { t } from "@/i18n";
@@ -27,6 +35,7 @@ import { sendSessionCommand } from "@/lib/session-socket";
 import { cn } from "@/lib/utils";
 import { getRuleComponent } from "@/rules/registry";
 import { usePlayStore } from "@/stores/play-store";
+import { AddNpcDialog } from "./add-npc-dialog";
 import { GmPanelShell, GmSelectField, GmValueField } from "./gm-panel-fields";
 import { GmStateEditor } from "./gm-state-editor";
 
@@ -49,20 +58,34 @@ function CharactersPanel({ onClose }: { onClose: () => void }) {
 	const characters = usePlayStore((state) => state.characters);
 	const presence = usePlayStore((state) => state.presence);
 	const sessionId = usePlayStore((state) => state.sessionId);
+	const moduleId = usePlayStore((state) => state.moduleId);
+	const ruleId = usePlayStore((state) => state.ruleId);
+	const ended = usePlayStore((state) => state.status === "ended");
 	const [overrides, setOverrides] = useState<Record<string, boolean>>({});
 	const [editorCharacterId, setEditorCharacterId] = useState<string | null>(
 		null,
 	);
 	const [sheetOpen, setSheetOpen] = useState(false);
+	const [sheetCharacterId, setSheetCharacterId] = useState<string | null>(null);
 	const [claimPending, setClaimPending] = useState(false);
+	const [query, setQuery] = useState("");
+	const [kindFilter, setKindFilter] = useState<"all" | "pc" | "npc">("all");
+	const [addNpcOpen, setAddNpcOpen] = useState(false);
+	const [removeTargetId, setRemoveTargetId] = useState<string | null>(null);
 	const editorCharacter =
 		characters.find(
 			(character) => character.characterId === editorCharacterId,
 		) ?? null;
-	const sheetCharacterId =
-		characters.find((character) => character.sheet != null)?.characterId ??
+	const removeTarget =
+		characters.find((character) => character.characterId === removeTargetId) ??
 		null;
-	const orderedCharacters = [...characters].sort(
+	const keyword = query.trim();
+	const visibleCharacters = characters.filter(
+		(character) =>
+			(kindFilter === "all" || character.kind === kindFilter) &&
+			(!keyword || character.name.includes(keyword)),
+	);
+	const orderedCharacters = [...visibleCharacters].sort(
 		(a, b) => Number(a.kind === "npc") - Number(b.kind === "npc"),
 	);
 
@@ -114,27 +137,71 @@ function CharactersPanel({ onClose }: { onClose: () => void }) {
 				subtitle={t("gm.workbench.charactersSubtitle")}
 				onClose={onClose}
 				footer={
-					<div className="flex items-center justify-between gap-3">
-						<span className="text-md-on-surface-variant text-label-medium">
-							{t("gm.workbench.stateScope")}
-						</span>
+					<span className="text-md-on-surface-variant text-label-medium">
+						{t("gm.workbench.stateScope")}
+					</span>
+				}
+			>
+				<div className="flex flex-col gap-2">
+					<div className="flex items-center gap-2">
+						<InputGroup className="h-9 flex-1">
+							<InputGroupAddon>
+								<Search />
+							</InputGroupAddon>
+							<InputGroupInput
+								value={query}
+								aria-label={t("gm.workbench.characterSearch")}
+								placeholder={t("gm.workbench.characterSearch")}
+								onChange={(event) => setQuery(event.target.value)}
+							/>
+						</InputGroup>
 						<Button
 							type="button"
 							variant="tertiary"
 							size="sm"
-							className="bg-md-surface-container-highest h-10"
-							disabled={!sheetCharacterId}
-							onClick={() => setSheetOpen(true)}
+							className="bg-md-surface-container-highest h-9 shrink-0"
+							disabled={ended}
+							onClick={() => setAddNpcOpen(true)}
 						>
-							<ContactRound className="size-4" />
-							{t("gm.workbench.openSheet")}
+							<UserRoundPlus className="size-4" />
+							{t("gm.workbench.addNpc")}
 						</Button>
 					</div>
-				}
-			>
+					<SegmentedControl
+						value={kindFilter}
+						options={[
+							{
+								value: "all",
+								label: t("gm.workbench.filterAll", {
+									count: characters.length,
+								}),
+							},
+							{
+								value: "pc",
+								label: t("gm.workbench.filterPc", {
+									count: characters.filter((item) => item.kind === "pc").length,
+								}),
+							},
+							{
+								value: "npc",
+								label: t("gm.workbench.filterNpc", {
+									count: characters.filter((item) => item.kind === "npc")
+										.length,
+								}),
+							},
+						]}
+						onValueChange={setKindFilter}
+						className="h-8"
+						itemClassName="h-full text-label-small"
+					/>
+				</div>
 				{characters.length === 0 ? (
 					<p className="text-md-on-surface-variant text-body-medium">
 						{t("gm.console.noCharacters")}
+					</p>
+				) : orderedCharacters.length === 0 ? (
+					<p className="text-md-on-surface-variant text-body-medium">
+						{t("gm.workbench.characterSearchEmpty")}
 					</p>
 				) : (
 					<div className="flex flex-col gap-3">
@@ -386,6 +453,37 @@ function CharactersPanel({ onClose }: { onClose: () => void }) {
 													}
 												/>
 											</div>
+											<div className="flex flex-wrap items-center gap-2">
+												<Button
+													type="button"
+													variant="tertiary"
+													size="sm"
+													className="bg-md-surface-container-highest h-9"
+													disabled={!character.sheet}
+													onClick={() => {
+														setSheetCharacterId(character.characterId);
+														setSheetOpen(true);
+													}}
+												>
+													<ContactRound className="size-4" />
+													{t("gm.workbench.openSheet")}
+												</Button>
+												{character.kind === "npc" ? (
+													<Button
+														type="button"
+														variant="ghost"
+														size="sm"
+														className="text-danger h-9 gap-1.5 px-3"
+														disabled={ended}
+														onClick={() =>
+															setRemoveTargetId(character.characterId)
+														}
+													>
+														<UserRoundMinus className="size-4" />
+														{t("gm.workbench.removeNpc")}
+													</Button>
+												) : null}
+											</div>
 										</div>
 									) : null}
 								</div>
@@ -407,6 +505,44 @@ function CharactersPanel({ onClose }: { onClose: () => void }) {
 				open={sheetOpen}
 				onOpenChange={setSheetOpen}
 				initialCharacterId={sheetCharacterId}
+			/>
+			<AddNpcDialog
+				open={addNpcOpen}
+				onOpenChange={setAddNpcOpen}
+				sessionId={sessionId}
+				moduleId={moduleId}
+				ruleId={ruleId}
+				existingIds={characters.map((character) => character.characterId)}
+			/>
+			<ConfirmDialog
+				open={removeTargetId !== null}
+				onOpenChange={(open) => {
+					if (!open) {
+						setRemoveTargetId(null);
+					}
+				}}
+				icon={UserRoundMinus}
+				confirmIcon={UserRoundMinus}
+				title={t("gm.workbench.removeNpcTitle")}
+				description={t("gm.workbench.removeNpcDescription", {
+					name: removeTarget?.name ?? "",
+				})}
+				confirmLabel={t("gm.workbench.removeNpcConfirm")}
+				onConfirm={() => {
+					const id = removeTargetId;
+					setRemoveTargetId(null);
+					if (!id || !sessionId) {
+						return;
+					}
+					void api(
+						`/gm/sessions/${encodeURIComponent(sessionId)}/npcs/${encodeURIComponent(id)}`,
+						{ method: "DELETE" },
+					)
+						.then(() => toast.success(t("gm.workbench.npcRemoved")))
+						.catch((error) =>
+							toast.error(errorText(error, "gm.workbench.npcRemoveFailed")),
+						);
+				}}
 			/>
 		</>
 	);

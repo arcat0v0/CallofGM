@@ -1,4 +1,4 @@
-import { Ban, Clock3 } from "lucide-react";
+import { Ban, Clock3, Smile } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { SystemMessageCard } from "@/features/chat/system-message-card";
@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 type ChatMessageCardData = {
 	speakerName: string;
 	speakerRoleLabel: string;
+	expressionLabel?: string | null;
 	avatarInitials: string;
 	avatarBg: string;
 	avatarFg: string;
@@ -57,6 +58,12 @@ function ChatMessageCard({
 						{message.tone === "ooc" ? (
 							<Badge variant="soft" tone="default" size="sm">
 								{t("chat.ooc")}
+							</Badge>
+						) : null}
+						{message.expressionLabel ? (
+							<Badge variant="soft" tone="accent" size="sm">
+								<Smile className="size-3" />
+								{message.expressionLabel}
 							</Badge>
 						) : null}
 						<span className="text-md-outline font-mono text-label-small">
@@ -109,9 +116,16 @@ function ChatMessageCard({
 						</span>
 						{showRoleBadge &&
 						(message.tone === "ooc" ||
-							message.speakerRoleLabel === t("chat.role.gm")) ? (
+							message.speakerRoleLabel === t("chat.role.gm") ||
+							message.speakerRoleLabel === t("common.npc")) ? (
 							<Badge variant="soft" tone="default" size="sm">
 								{message.speakerRoleLabel}
+							</Badge>
+						) : null}
+						{message.expressionLabel ? (
+							<Badge variant="soft" tone="accent" size="sm">
+								<Smile className="size-3" />
+								{message.expressionLabel}
 							</Badge>
 						) : null}
 						<span className="text-md-outline text-label-small tabular-nums">
