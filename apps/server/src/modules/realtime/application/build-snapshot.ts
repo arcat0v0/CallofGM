@@ -7,7 +7,7 @@ import type {
 	SessionSnapshotPayload,
 	SnapshotCharacter,
 } from "@cogm/shared";
-import { and, eq, inArray, isNull } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 import type { ActorContext } from "@/modules/identity";
 import { holderOfActor } from "@/modules/identity";
 import type { SeatHolderInput } from "@/modules/sessions";
@@ -328,6 +328,8 @@ export class BuildSessionSnapshotUseCase {
 				expressionKey: characterPortraits.expressionKey,
 				portraitAssetId: characterPortraits.portraitAssetId,
 				isDefault: characterPortraits.isDefault,
+				label: characterPortraits.label,
+				sortOrder: characterPortraits.sortOrder,
 			})
 			.from(characterPortraits)
 			.where(
@@ -335,6 +337,10 @@ export class BuildSessionSnapshotUseCase {
 					inArray(characterPortraits.characterId, charIds),
 					isNull(characterPortraits.deletedAt),
 				),
+			)
+			.orderBy(
+				asc(characterPortraits.sortOrder),
+				asc(characterPortraits.createdAt),
 			);
 		const portraitsByCharacter = new Map<
 			string,
@@ -346,6 +352,8 @@ export class BuildSessionSnapshotUseCase {
 				expressionKey: portrait.expressionKey,
 				portraitAssetId: portrait.portraitAssetId,
 				isDefault: portrait.isDefault === 1,
+				label: portrait.label,
+				sortOrder: portrait.sortOrder,
 			});
 			portraitsByCharacter.set(portrait.characterId, list);
 		}

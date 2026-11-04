@@ -20,6 +20,8 @@ export const SnapshotPortrait = z.object({
 	expressionKey: z.string(),
 	portraitAssetId: z.string(),
 	isDefault: z.boolean(),
+	label: z.string().nullable(),
+	sortOrder: z.number().int(),
 });
 export type SnapshotPortrait = z.infer<typeof SnapshotPortrait>;
 

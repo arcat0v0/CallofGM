@@ -1,6 +1,6 @@
 import { ModuleNotFoundError } from "@/modules/catalog";
 import { AppError } from "@/platform/errors/app-error";
-import type { Clock, IdGenerator } from "@/platform/ports";
+import type { Clock, IdGenerator, RandomSource } from "@/platform/ports";
 import type { RuleRegistry } from "@/rules/registry";
 import {
 	CharacterNotFoundError,
@@ -324,13 +324,35 @@ export class AddPortraitUseCase {
 	constructor(
 		private readonly repo: CharactersRepository,
 		private readonly idGenerator: IdGenerator,
+		private readonly randomSource: RandomSource,
 		private readonly clock: Clock,
 	) {}
+
+	private async generateExpressionKey(characterId: string): Promise<string> {
+		for (let attempt = 0; attempt < 5; attempt++) {
+			let key = "expr_";
+			for (let i = 0; i < 10; i++) {
+				key += this.randomSource.randomInt(0, 15).toString(16);
+			}
+			const collision = await this.repo.findPortraitByExpression(
+				characterId,
+				key,
+			);
+			if (!collision) {
+				return key;
+			}
+		}
+		throw new AppError(
+			"EXPRESSION_KEY_EXHAUSTED",
+			"Failed to generate a unique expression key",
+			500,
+		);
+	}
 
 	async execute(input: {
 		actorUserId: string;
 		characterId: string;
-		expressionKey: string;
+		expressionKey?: string;
 		label?: string;
 		portraitAssetId: string;
 		isDefault: boolean;
@@ -350,9 +372,11 @@ export class AddPortraitUseCase {
 		}
 
 		const now = this.clock.nowEpochMs();
+		const expressionKey =
+			input.expressionKey ?? (await this.generateExpressionKey(character.id));
 		const existing = await this.repo.findPortraitByExpression(
 			character.id,
-			input.expressionKey,
+			expressionKey,
 		);
 		if (input.isDefault) {
 			await this.repo.unsetDefaultPortraits(character.id);
@@ -369,15 +393,18 @@ export class AddPortraitUseCase {
 			return refreshed ?? existing;
 		}
 
+		const portraits = await this.repo.listPortraitsByCharacterId(character.id);
+		const nextSort =
+			portraits.reduce((max, p) => Math.max(max, p.sortOrder), -1) + 1;
 		const id = this.idGenerator.nextId();
 		await this.repo.savePortrait({
 			id,
 			characterId: character.id,
-			expressionKey: input.expressionKey,
+			expressionKey,
 			label: input.label ?? null,
 			portraitAssetId: input.portraitAssetId,
 			isDefault: input.isDefault ? 1 : 0,
-			sortOrder: input.sortOrder ?? 0,
+			sortOrder: input.sortOrder ?? nextSort,
 			deletedAt: null,
 			createdAt: now,
 		});
@@ -449,9 +476,18 @@ export class DeletePortraitUseCase {
 		if (!portrait || portrait.characterId !== character.id) {
 			throw new CharacterNotFoundError();
 		}
+		const portraits = await this.repo.listPortraitsByCharacterId(character.id);
+		const fallback =
+			portraits.find((p) => p.isDefault === 1 && p.id !== portrait.id)
+				?.expressionKey ?? null;
 		await this.repo.updatePortrait(portrait.id, {
 			deletedAt: this.clock.nowEpochMs(),
 		});
+		await this.repo.resetSessionCharacterExpression(
+			character.id,
+			portrait.expressionKey,
+			fallback,
+		);
 		return { success: true };
 	}
 }

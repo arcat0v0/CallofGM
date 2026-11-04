@@ -1,4 +1,4 @@
-import { and, asc, eq, max } from "drizzle-orm";
+import { and, asc, eq, isNull, max } from "drizzle-orm";
 import type { DbClient } from "@/platform/db/client";
 import {
 	characterPortraits,
@@ -153,6 +153,7 @@ export class DrizzleChatRepository implements ChatRepository {
 				and(
 					eq(characterPortraits.characterId, characterId),
 					eq(characterPortraits.expressionKey, expressionKey),
+					isNull(characterPortraits.deletedAt),
 				),
 			);
 		return rows.length > 0;

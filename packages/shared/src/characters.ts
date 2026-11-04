@@ -45,7 +45,7 @@ export const ImportConfirmRequest = z.object({
 export type ImportConfirmRequest = z.infer<typeof ImportConfirmRequest>;
 
 export const AddPortraitRequest = z.object({
-	expressionKey: z.string().trim().min(1).max(64),
+	expressionKey: z.string().trim().min(1).max(64).optional(),
 	label: z.string().trim().max(64).optional(),
 	portraitAssetId: z.string().min(1),
 	isDefault: z.boolean().default(false),

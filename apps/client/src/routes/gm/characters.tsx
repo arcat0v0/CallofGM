@@ -1,14 +1,13 @@
-import type { CharacterDto } from "@cogm/shared";
+import type { CharacterDetailDto } from "@cogm/shared";
 import { createFileRoute } from "@tanstack/react-router";
 import {
 	Ellipsis,
 	FileSpreadsheet,
-	Image as ImageIcon,
 	PencilLine,
 	Plus,
 	Search,
+	Settings2,
 	Trash2,
-	Upload,
 	UserRound,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -30,26 +29,19 @@ import {
 	InputGroupAddon,
 	InputGroupInput,
 } from "@/components/ui/input-group";
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@/components/ui/select";
+import { CharacterProfileEditorDialog } from "@/features/characters/character-profile-editor-dialog";
 import { AdminLayout } from "@/features/gm-admin/admin-layout";
 import { CharacterSheetEditorDialog } from "@/features/gm-admin/dialogs/character-sheet-editor-dialog";
 import { CreateCharacterDialog } from "@/features/gm-admin/dialogs/create-character-dialog";
 import { ImportCharacterSheetDialog } from "@/features/gm-admin/dialogs/import-character-sheet-dialog";
 import { t, useI18nVersion } from "@/i18n";
-import { api, fetchAllPages, mediaUrl } from "@/lib/api";
+import { api, fetchAllPages } from "@/lib/api";
 import {
 	type CharacterRow,
 	type GameCharacter,
 	mapCharacterRow,
 } from "@/lib/character-sheet";
 import { errorText } from "@/lib/errors";
-import { EXPRESSION_KEYS, expressionLabel } from "@/lib/format";
 import { requireGmAuth } from "@/lib/identity";
 import { cn } from "@/lib/utils";
 
@@ -71,7 +63,8 @@ function GmCharactersPage() {
 	const [createOpen, setCreateOpen] = useState(false);
 	const [editCharacterId, setEditCharacterId] = useState<string | null>(null);
 	const [deleteOpen, setDeleteOpen] = useState(false);
-	const [portraitKey, setPortraitKey] = useState("default");
+	const [profileCharacter, setProfileCharacter] =
+		useState<CharacterDetailDto | null>(null);
 
 	async function reload() {
 		try {
@@ -113,6 +106,16 @@ function GmCharactersPage() {
 			cancelled = true;
 		};
 	}, [selectedId]);
+	async function openProfile(id: string) {
+		try {
+			const detail = await api<CharacterDetailDto>(
+				`/gm/characters/${encodeURIComponent(id)}`,
+			);
+			setProfileCharacter(detail);
+		} catch (error) {
+			toast.error(errorText(error, "gm.characters.loadFailed"));
+		}
+	}
 
 	const visible = useMemo(() => {
 		const q = query.trim();
@@ -280,79 +283,17 @@ function GmCharactersPage() {
 											className="bg-md-outline-variant/60 mx-1 h-5 w-px"
 											aria-hidden
 										/>
-										<Select value={portraitKey} onValueChange={setPortraitKey}>
-											<SelectTrigger
-												className="bg-md-surface-container-highest/80 text-md-on-surface focus-visible:ring-focus-ring/40 h-9 w-40 gap-2 rounded-full border-0 px-3 text-label-medium"
-												aria-label={t("gm.characters.expressionAria")}
-											>
-												<ImageIcon className="text-md-on-surface-variant size-4 shrink-0" />
-												<span className="text-md-on-surface-variant text-label-small">
-													{t("gm.characters.expressionShort")}
-												</span>
-												<SelectValue />
-											</SelectTrigger>
-											<SelectContent>
-												{EXPRESSION_KEYS.map((key) => (
-													<SelectItem key={key} value={key}>
-														{expressionLabel(key)}
-													</SelectItem>
-												))}
-											</SelectContent>
-										</Select>
-									</div>
-									<label className="inline-flex">
-										<input
-											type="file"
-											accept="image/*"
-											className="hidden"
-											onChange={(event) => {
-												const file = event.target.files?.[0];
-												event.target.value = "";
-												const id = selected.id;
-												if (!file || !id) return;
-												void (async () => {
-													try {
-														const body = new FormData();
-														body.append("file", file);
-														body.append("purpose", "portrait");
-														body.append("filename", file.name);
-														const asset = await api<{ id: string }>(
-															"/media/upload",
-															{ method: "POST", body },
-														);
-														await api(
-															`/gm/characters/${encodeURIComponent(id)}/portraits`,
-															{
-																method: "POST",
-																body: JSON.stringify({
-																	expressionKey: portraitKey || "default",
-																	portraitAssetId: asset.id,
-																	isDefault: portraitKey === "default",
-																}),
-															},
-														);
-														await reload();
-													} catch (error) {
-														toast.error(
-															errorText(error, "gm.characters.uploadFailed"),
-														);
-													}
-												})();
-											}}
-										/>
 										<Button
 											type="button"
-											variant="secondary"
+											variant="ghost"
 											size="sm"
-											className="h-10 gap-2 rounded-full px-4 text-label-medium"
-											asChild
+											className="text-md-on-surface hover:bg-md-on-surface/10 h-9 gap-2 rounded-full px-3.5 text-label-medium"
+											onClick={() => void openProfile(selected.id)}
 										>
-											<span>
-												<Upload className="size-4" />{" "}
-												{t("gm.characters.uploadPortrait")}
-											</span>
+											<Settings2 className="size-4" />
+											{t("characterProfile.openToolbar")}
 										</Button>
-									</label>
+									</div>
 									<DropdownMenu>
 										<DropdownMenuTrigger asChild>
 											<Button
@@ -377,66 +318,6 @@ function GmCharactersPage() {
 										</DropdownMenuContent>
 									</DropdownMenu>
 								</div>
-								{selected.portraits.length > 0 ? (
-									<div className="mt-3 flex flex-col gap-2">
-										<span className="text-foreground-tertiary text-label-medium-emph">
-											{t("gm.characters.uploadedPortraits")}
-										</span>
-										<div className="flex flex-wrap gap-2">
-											{selected.portraits.map((portrait) => (
-												<div
-													key={portrait.id ?? portrait.expressionKey}
-													className="flex flex-col items-center gap-1"
-												>
-													<div className="bg-surface-tertiary relative size-16 overflow-hidden rounded-xl">
-														<img
-															src={
-																mediaUrl(portrait.portraitAssetId) ?? undefined
-															}
-															alt={expressionLabel(portrait.expressionKey)}
-															className="size-full object-cover"
-														/>
-														{portrait.id ? (
-															<Button
-																type="button"
-																variant="ghost"
-																size="icon-sm"
-																className="text-danger-soft-foreground bg-md-surface-container-lowest/80 hover:bg-danger-soft absolute top-0.5 right-0.5 size-5 rounded-full"
-																aria-label={t("gm.characters.deletePortrait", {
-																	expression: expressionLabel(
-																		portrait.expressionKey,
-																	),
-																})}
-																onClick={() => {
-																	const portraitId = portrait.id;
-																	if (!portraitId) return;
-																	void api(
-																		`/gm/characters/portraits/${encodeURIComponent(portraitId)}`,
-																		{ method: "DELETE" },
-																	)
-																		.then(() => reload())
-																		.catch((error) =>
-																			toast.error(
-																				errorText(
-																					error,
-																					"gm.characters.deletePortraitFailed",
-																				),
-																			),
-																		);
-																}}
-															>
-																<Trash2 className="size-2.5" />
-															</Button>
-														) : null}
-													</div>
-													<span className="text-foreground-tertiary text-label-small">
-														{expressionLabel(portrait.expressionKey)}
-													</span>
-												</div>
-											))}
-										</div>
-									</div>
-								) : null}
 							</div>
 						</div>
 						<div className="grid grid-cols-5 gap-2">
@@ -537,6 +418,18 @@ function GmCharactersPage() {
 				onImported={() => void reload()}
 				updateCharacterId={importTargetId}
 			/>
+			{profileCharacter ? (
+				<CharacterProfileEditorDialog
+					scope="gm"
+					open
+					character={profileCharacter}
+					onClose={() => setProfileCharacter(null)}
+					onSaved={(next) => {
+						setProfileCharacter(next);
+						void reload();
+					}}
+				/>
+			) : null}
 			<ConfirmDialog
 				open={deleteOpen}
 				onOpenChange={setDeleteOpen}

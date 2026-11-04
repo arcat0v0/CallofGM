@@ -39,15 +39,42 @@ async function checkMediaAccess(
 	actor: ActorContext,
 	assetId: string,
 ): Promise<boolean> {
-	if (actor.type === "user" && actor.role === "gm") {
+	if (actor.type === "user") {
 		const owned = await db
 			.select({ id: mediaAssets.id })
 			.from(mediaAssets)
 			.where(
-				and(eq(mediaAssets.id, assetId), eq(mediaAssets.ownerId, actor.userId)),
+				and(
+					eq(mediaAssets.id, assetId),
+					eq(mediaAssets.ownerId, actor.userId),
+				),
 			)
 			.limit(1);
-		return owned.length > 0;
+		if (owned.length > 0) {
+			return true;
+		}
+
+		const sessionOwned = await db
+			.select({ id: sessions.id })
+			.from(sessions)
+			.innerJoin(
+				sessionCharacters,
+				eq(sessions.id, sessionCharacters.sessionId),
+			)
+			.innerJoin(
+				characterPortraits,
+				eq(sessionCharacters.characterId, characterPortraits.characterId),
+			)
+			.where(
+				and(
+					eq(sessions.ownerId, actor.userId),
+					eq(characterPortraits.portraitAssetId, assetId),
+				),
+			)
+			.limit(1);
+		if (sessionOwned.length > 0) {
+			return true;
+		}
 	}
 
 	const holder = holderOfActor(actor);

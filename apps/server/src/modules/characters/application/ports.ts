@@ -219,6 +219,11 @@ export interface CharactersRepository {
 	listPortraitsByCharacterId(
 		characterId: string,
 	): Promise<CharacterPortraitRecord[]>;
+	resetSessionCharacterExpression(
+		characterId: string,
+		fromExpressionKey: string,
+		toExpressionKey: string | null,
+	): Promise<void>;
 
 	findStagingById(id: string): Promise<StagingRecord | null>;
 	saveStaging(

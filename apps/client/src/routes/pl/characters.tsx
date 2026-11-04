@@ -1,4 +1,4 @@
-import type { CharacterDto } from "@cogm/shared";
+import type { CharacterDetailDto, CharacterDto } from "@cogm/shared";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { LogOut, Pencil, Plus, Trash2, VenetianMask } from "lucide-react";
 import type { ReactNode } from "react";
@@ -28,6 +28,7 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { CharacterProfileEditorDialog } from "@/features/characters/character-profile-editor-dialog";
 import { t, useI18nVersion } from "@/i18n";
 import { api, fetchAllPages, isApiError } from "@/lib/api";
 import { errorText } from "@/lib/errors";
@@ -44,17 +45,15 @@ export const Route = createFileRoute("/pl/characters")({
 
 type EditorState = {
 	open: boolean;
-	character: CharacterDto | null;
 };
 
 function PlCharactersPage() {
 	useI18nVersion();
 	const [characters, setCharacters] = useState<CharacterDto[]>([]);
 	const [loading, setLoading] = useState(true);
-	const [editor, setEditor] = useState<EditorState>({
-		open: false,
-		character: null,
-	});
+	const [editor, setEditor] = useState<EditorState>({ open: false });
+	const [profileCharacter, setProfileCharacter] =
+		useState<CharacterDetailDto | null>(null);
 	const [deleteTarget, setDeleteTarget] = useState<CharacterDto | null>(null);
 
 	const load = useCallback(async () => {
@@ -91,7 +90,7 @@ function PlCharactersPage() {
 					<Button
 						type="button"
 						variant="primary"
-						onClick={() => setEditor({ open: true, character: null })}
+						onClick={() => setEditor({ open: true })}
 					>
 						<Plus />
 						{t("pl.characters.create")}
@@ -110,7 +109,7 @@ function PlCharactersPage() {
 						<Button
 							type="button"
 							variant="primary"
-							onClick={() => setEditor({ open: true, character: null })}
+							onClick={() => setEditor({ open: true })}
 						>
 							<Plus />
 							{t("pl.characters.create")}
@@ -163,7 +162,20 @@ function PlCharactersPage() {
 										type="button"
 										variant="outline"
 										size="sm"
-										onClick={() => setEditor({ open: true, character })}
+										onClick={() => {
+											void (async () => {
+												try {
+													const detail = await api<CharacterDetailDto>(
+														`/pl/characters/${encodeURIComponent(character.id)}`,
+													);
+													setProfileCharacter(detail);
+												} catch (error) {
+													toast.error(
+														errorText(error, "pl.characters.loadFailed"),
+													);
+												}
+											})();
+										}}
 									>
 										<Pencil className="size-3.5" />
 										{t("common.edit")}
@@ -187,9 +199,22 @@ function PlCharactersPage() {
 
 			<CharacterEditor
 				state={editor}
-				onClose={() => setEditor({ open: false, character: null })}
+				onClose={() => setEditor({ open: false })}
 				onSaved={() => void load()}
 			/>
+
+			{profileCharacter ? (
+				<CharacterProfileEditorDialog
+					scope="pl"
+					open
+					character={profileCharacter}
+					onClose={() => setProfileCharacter(null)}
+					onSaved={(next) => {
+						setProfileCharacter(next);
+						void load();
+					}}
+				/>
+			) : null}
 
 			<Dialog
 				open={deleteTarget !== null}
@@ -279,12 +304,9 @@ function CharacterEditor({
 		if (!state.open) {
 			return;
 		}
-		setName(state.character?.name ?? "");
-		setBackground(state.character?.background ?? "");
-		if (state.character) {
-			setRuleId(state.character.ruleId);
-		}
-	}, [state.open, state.character, setRuleId]);
+		setName("");
+		setBackground("");
+	}, [state.open]);
 
 	async function submit() {
 		const trimmed = name.trim();
@@ -293,26 +315,15 @@ function CharacterEditor({
 		}
 		setPending(true);
 		try {
-			if (state.character) {
-				await api(`/pl/characters/${state.character.id}`, {
-					method: "PATCH",
-					body: JSON.stringify({
-						name: trimmed,
-						background,
-						expectedVersion: state.character.version,
-					}),
-				});
-			} else {
-				await api("/pl/characters", {
-					method: "POST",
-					body: JSON.stringify({
-						name: trimmed,
-						background,
-						ruleId,
-						sheetData: getRuleComponent(ruleId).createEmptySheet(),
-					}),
-				});
-			}
+			await api("/pl/characters", {
+				method: "POST",
+				body: JSON.stringify({
+					name: trimmed,
+					background,
+					ruleId,
+					sheetData: getRuleComponent(ruleId).createEmptySheet(),
+				}),
+			});
 			toast.success(t("pl.characters.saved"));
 			onClose();
 			onSaved();
@@ -330,11 +341,7 @@ function CharacterEditor({
 		>
 			<DialogContent>
 				<DialogHeader>
-					<DialogTitle>
-						{state.character
-							? t("pl.characters.editTitle")
-							: t("pl.characters.create")}
-					</DialogTitle>
+					<DialogTitle>{t("pl.characters.create")}</DialogTitle>
 					<DialogDescription>{t("pl.characters.hint")}</DialogDescription>
 				</DialogHeader>
 				<div className="flex flex-col gap-4">
@@ -360,26 +367,24 @@ function CharacterEditor({
 							onChange={(event) => setBackground(event.target.value)}
 						/>
 					</FormField>
-					{state.character ? null : (
-						<FormField label={t("rules.label")}>
-							<Select
-								value={ruleId}
-								onValueChange={setRuleId}
-								disabled={rulesLoading}
-							>
-								<SelectTrigger>
-									<SelectValue placeholder={t("rules.loading")} />
-								</SelectTrigger>
-								<SelectContent>
-									{rules.map((rule) => (
-										<SelectItem key={rule.id} value={rule.id}>
-											{rule.name}
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
-						</FormField>
-					)}
+					<FormField label={t("rules.label")}>
+						<Select
+							value={ruleId}
+							onValueChange={setRuleId}
+							disabled={rulesLoading}
+						>
+							<SelectTrigger>
+								<SelectValue placeholder={t("rules.loading")} />
+							</SelectTrigger>
+							<SelectContent>
+								{rules.map((rule) => (
+									<SelectItem key={rule.id} value={rule.id}>
+										{rule.name}
+									</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
+					</FormField>
 				</div>
 				<DialogFooter>
 					<Button

@@ -7,7 +7,7 @@ import {
 	UpdateSessionSettingsCommand,
 	UpdateStageLayoutCommand,
 } from "@cogm/shared";
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { ExpressionNotFoundError } from "@/modules/chat";
 import { ForbiddenError } from "@/modules/identity";
 import type {
@@ -170,6 +170,7 @@ export class SetExpressionHandler implements CommandHandler {
 				and(
 					eq(characterPortraits.characterId, characterId),
 					eq(characterPortraits.expressionKey, expressionKey),
+					isNull(characterPortraits.deletedAt),
 				),
 			);
 		if (portraitRows.length === 0) {

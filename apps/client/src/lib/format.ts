@@ -1,14 +1,6 @@
 import type { SessionPhase, SessionStatus } from "@cogm/shared";
 import { t, translateOr } from "@/i18n";
 
-export const EXPRESSION_KEYS = [
-	"default",
-	"smile",
-	"surprised",
-	"angry",
-	"hurt",
-] as const;
-
 export function initialsOf(name: string): string {
 	const trimmed = name.trim();
 	if (!trimmed) {
@@ -47,7 +39,13 @@ export function statusTone(
 	return "warning";
 }
 
-export function expressionLabel(key: string | null | undefined): string {
+export function expressionLabel(
+	key: string | null | undefined,
+	label?: string | null,
+): string {
+	if (label) {
+		return label;
+	}
 	if (!key) {
 		return t("expression.default");
 	}

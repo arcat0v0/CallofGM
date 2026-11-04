@@ -117,6 +117,7 @@ export function createCharactersRoutes(container: Container) {
 	const addPortrait = new AddPortraitUseCase(
 		repo,
 		container.idGenerator,
+		container.randomSource,
 		container.clock,
 	);
 	const updatePortrait = new UpdatePortraitUseCase(repo);

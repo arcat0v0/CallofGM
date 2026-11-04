@@ -504,7 +504,7 @@ export async function setupTestApp(
 				})
 				.onConflictDoNothing();
 		}
-		for (const expressionKey of char.portraits ?? []) {
+		for (const [index, expressionKey] of (char.portraits ?? []).entries()) {
 			await container.db.insert(characterPortraits).values({
 				id: `portrait-${char.id}-${expressionKey}`,
 				characterId: char.id,
@@ -512,7 +512,7 @@ export async function setupTestApp(
 				label: null,
 				portraitAssetId: "asset-placeholder",
 				isDefault: expressionKey === "default" ? 1 : 0,
-				sortOrder: 0,
+				sortOrder: index,
 				deletedAt: null,
 				createdAt: Date.now(),
 			});
