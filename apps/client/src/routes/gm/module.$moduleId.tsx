@@ -6,9 +6,19 @@ import type {
 	TrackDto,
 } from "@cogm/shared";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ChevronRight, ImagePlus, Plus, Trash2, Upload, UserPlus } from "lucide-react";
+import {
+	ChevronRight,
+	ImagePlus,
+	Music2,
+	Plus,
+	ScrollText,
+	Trash2,
+	Upload,
+	UserPlus,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { EmptyState } from "@/components/shared/empty-state";
 import { FilePicker } from "@/components/shared/file-picker";
 import { PageHeader } from "@/components/shared/page-header";
 import { Badge } from "@/components/ui/badge";
@@ -347,7 +357,7 @@ function ModuleDetailPage() {
 
 	return (
 		<AdminLayout>
-			<div className="mx-auto flex w-full max-w-5xl flex-col gap-5">
+			<div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
 				<PageHeader
 					title={
 						<span className="flex items-center gap-1.5">
@@ -384,367 +394,469 @@ function ModuleDetailPage() {
 					}
 				/>
 
-				<Card className="flex max-w-2xl flex-col gap-3 rounded-2xl p-4">
-					<label className="flex flex-col gap-1.5">
-						<span className="text-md-on-surface-variant text-label-medium">
-							{t("gm.module.nameLabel")}
-						</span>
-						<Input
-							value={moduleName}
-							onChange={(event) => setModuleName(event.target.value)}
-							placeholder={t("gm.module.moduleNamePlaceholder")}
-							aria-label={t("gm.module.nameLabel")}
-						/>
-					</label>
-					<label className="flex flex-col gap-1.5">
-						<span className="text-md-on-surface-variant text-label-medium">
-							{t("gm.module.descriptionLabel")}
-						</span>
-						<Textarea
-							value={moduleDescription}
-							onChange={(event) => setModuleDescription(event.target.value)}
-							placeholder={t("gm.module.moduleDescriptionPlaceholder")}
-							aria-label={t("gm.module.descriptionLabel")}
-						/>
-					</label>
-					<Button
-						type="button"
-						variant="primary"
-						className="h-10 self-start"
-						disabled={!moduleName.trim() || moduleUnchanged}
-						onClick={() => void saveModule()}
-					>
-						{t("gm.module.saveModule")}
-					</Button>
-				</Card>
-
-				<Tabs defaultValue="scene" className="gap-5">
-					<TabsList>
-						<TabsTrigger value="scene">
-							{t("gm.module.tabScene", { count: scenes.length })}
-						</TabsTrigger>
-						<TabsTrigger value="npc">
-							{t("gm.module.tabCharacters", { count: linked.length })}
-						</TabsTrigger>
-						<TabsTrigger value="music">
-							{t("gm.module.tabMusic", { count: tracks.length })}
-						</TabsTrigger>
-						<TabsTrigger value="handout">
-							{t("gm.module.tabHandout", { count: handouts.length })}
-						</TabsTrigger>
-					</TabsList>
-
-					<TabsContent value="scene">
-						<form
-							className="mb-4 flex gap-2"
-							onSubmit={(event) => {
-								event.preventDefault();
-								const form = event.currentTarget;
-								const file = (form.elements.namedItem("bg") as HTMLInputElement)
-									.files?.[0];
-								void (async () => {
-									try {
-										const bgAssetId = file
-											? await uploadAsset(file, "scene")
-											: null;
-										await api(
-											`/gm/modules/${encodeURIComponent(moduleId)}/scenes`,
-											{
-												method: "POST",
-												body: JSON.stringify({
-													name: sceneName || t("gm.module.unnamedScene"),
-													sortOrder: scenes.length,
-													bgAssetId,
-												}),
-											},
-										);
-										setSceneName("");
-										setSceneBgName("");
-										await reload();
-									} catch (error) {
-										toast.error(
-											errorText(error, "gm.module.createSceneFailed"),
-										);
-									}
-								})();
-							}}
-						>
-							<label className="flex flex-col gap-1.5">
+				<div className="grid items-start gap-6 xl:grid-cols-[18rem_minmax(0,1fr)]">
+					<section className="flex flex-col gap-5 rounded-2xl bg-md-surface-container p-4 sm:p-5">
+						<h2 className="text-foreground font-sans text-title-large-emph">
+							{t("gm.module.settingsTitle")}
+						</h2>
+						<div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
+							<label htmlFor="module-name" className="flex flex-col gap-1.5">
 								<span className="text-md-on-surface-variant text-label-medium">
-									{t("gm.module.sceneNameLabel")}
+									{t("gm.module.nameLabel")}
 								</span>
 								<Input
-									value={sceneName}
-									onChange={(event) => setSceneName(event.target.value)}
-									placeholder={t("gm.module.sceneNamePlaceholder")}
-									className="w-60"
+									id="module-name"
+									value={moduleName}
+									onChange={(event) => setModuleName(event.target.value)}
+									placeholder={t("gm.module.moduleNamePlaceholder")}
+									aria-label={t("gm.module.nameLabel")}
 								/>
 							</label>
-							<div className="flex flex-col gap-1.5">
+							<label
+								htmlFor="module-description"
+								className="flex flex-col gap-1.5"
+							>
 								<span className="text-md-on-surface-variant text-label-medium">
-									{t("gm.module.sceneBgAria")}
-								</span>
-								<FilePicker
-									name="bg"
-									accept="image/*"
-									label={t("gm.module.chooseSceneBg")}
-									value={sceneBgName}
-									onChange={(event) =>
-										setSceneBgName(event.target.files?.[0]?.name ?? "")
-									}
-								/>
-							</div>
-							<Button type="submit" variant="primary" className="h-10 self-end">
-								<ImagePlus />
-								{t("gm.module.createScene")}
-							</Button>
-						</form>
-						<div className="animate-in fade-in slide-in-from-bottom-4 grid grid-cols-3 gap-4 duration-500 ease-standard-default-spatial">
-							{scenes.map((scene) => (
-								<SceneCard key={scene.id} scene={scene} onReload={reload} />
-							))}
-						</div>
-					</TabsContent>
-
-					<TabsContent value="npc">
-						<div className="animate-in fade-in slide-in-from-bottom-4 flex flex-col gap-2 duration-500 ease-standard-default-spatial">
-							{allCharacters.map((character) => {
-								const isLinked = linked.some(
-									(item) => item.id === character.id,
-								);
-								return (
-									<div
-										key={character.id}
-										className="bg-md-surface-container flex items-center gap-2 rounded-xl px-3 py-2"
-									>
-										<span className="flex-1 text-body-medium">
-											{character.name}
-										</span>
-										<Badge variant="soft" size="sm">
-											{character.kind.toUpperCase()}
-										</Badge>
-										<Button
-											size="sm"
-											variant={isLinked ? "tertiary" : "primary"}
-											className="h-7"
-											onClick={() => {
-												void (
-													isLinked
-														? api(
-																`/gm/modules/${encodeURIComponent(moduleId)}/characters/${encodeURIComponent(character.id)}`,
-																{ method: "DELETE" },
-															)
-														: api(
-																`/gm/modules/${encodeURIComponent(moduleId)}/characters`,
-																{
-																	method: "POST",
-																	body: JSON.stringify({
-																		characterId: character.id,
-																	}),
-																},
-															)
-												)
-													.then(() => reload())
-													.catch((error) =>
-														toast.error(
-															errorText(error, "gm.module.operationFailed"),
-														),
-													);
-											}}
-										>
-											{isLinked ? t("gm.module.unlink") : t("gm.module.link")}
-										</Button>
-									</div>
-								);
-							})}
-						</div>
-					</TabsContent>
-
-					<TabsContent value="music">
-						<form
-							className="mb-4 flex flex-wrap gap-2"
-							onSubmit={(event) => {
-								event.preventDefault();
-								const file = (
-									event.currentTarget.elements.namedItem(
-										"audio",
-									) as HTMLInputElement
-								).files?.[0];
-								if (!file) {
-									toast.error(t("gm.module.chooseAudio"));
-									return;
-								}
-								void (async () => {
-									try {
-										const audioAssetId = await uploadAsset(file, "audio");
-										const duration = await audioDurationMs(file);
-										await api(
-											`/gm/modules/${encodeURIComponent(moduleId)}/tracks`,
-											{
-												method: "POST",
-												body: JSON.stringify({
-													name: trackName || file.name,
-													audioAssetId,
-													type: trackType,
-													duration,
-												}),
-											},
-										);
-										setTrackName("");
-										setTrackFileName("");
-										await reload();
-									} catch (error) {
-										toast.error(errorText(error, "gm.module.uploadFailed"));
-									}
-								})();
-							}}
-						>
-							<label className="flex flex-col gap-1.5">
-								<span className="text-md-on-surface-variant text-label-medium">
-									{t("gm.module.trackNameLabel")}
-								</span>
-								<Input
-									value={trackName}
-									onChange={(event) => setTrackName(event.target.value)}
-									placeholder={t("gm.module.trackNamePlaceholder")}
-									className="w-48"
-								/>
-							</label>
-							<div className="flex flex-col gap-1.5">
-								<span className="text-md-on-surface-variant text-label-medium">
-									{t("gm.module.audioTypeLabel")}
-								</span>
-								<Select
-									value={trackType}
-									onValueChange={(value) => setTrackType(value as "bgm" | "se")}
-								>
-									<SelectTrigger
-										className="w-24"
-										aria-label={t("gm.module.audioTypeAria")}
-									>
-										<SelectValue />
-									</SelectTrigger>
-									<SelectContent>
-										<SelectItem value="bgm">BGM</SelectItem>
-										<SelectItem value="se">SE</SelectItem>
-									</SelectContent>
-								</Select>
-							</div>
-							<div className="flex flex-col gap-1.5">
-								<span className="text-md-on-surface-variant text-label-medium">
-									{t("gm.module.audioFileLabel")}
-								</span>
-								<FilePicker
-									name="audio"
-									accept="audio/*"
-									label={t("gm.module.chooseAudio")}
-									value={trackFileName}
-									onChange={(event) =>
-										setTrackFileName(event.target.files?.[0]?.name ?? "")
-									}
-								/>
-							</div>
-							<Button type="submit" variant="primary" className="h-10 self-end">
-								<Upload />
-								{t("gm.module.upload")}
-							</Button>
-						</form>
-						<div className="animate-in fade-in slide-in-from-bottom-4 flex flex-col gap-2 duration-500 ease-standard-default-spatial">
-							{tracks.map((track) => (
-								<TrackRowItem key={track.id} track={track} onReload={reload} />
-							))}
-						</div>
-					</TabsContent>
-
-					<TabsContent value="handout">
-						<form
-							className="mb-4 flex flex-col gap-2"
-							onSubmit={(event) => {
-								event.preventDefault();
-								const file = (
-									event.currentTarget.elements.namedItem(
-										"image",
-									) as HTMLInputElement
-								).files?.[0];
-								void (async () => {
-									try {
-										const imageAssetId = file
-											? await uploadAsset(file, "handout")
-											: null;
-										await api(
-											`/gm/modules/${encodeURIComponent(moduleId)}/handouts`,
-											{
-												method: "POST",
-												body: JSON.stringify({
-													title: handoutTitle,
-													content: handoutContent,
-													imageAssetId,
-												}),
-											},
-										);
-										setHandoutTitle("");
-										setHandoutContent("");
-										setHandoutImageName("");
-										await reload();
-									} catch (error) {
-										toast.error(
-											errorText(error, "gm.module.createHandoutFailed"),
-										);
-									}
-								})();
-							}}
-						>
-							<label className="flex flex-col gap-1.5">
-								<span className="text-md-on-surface-variant text-label-medium">
-									{t("gm.module.handoutTitleLabel")}
-								</span>
-								<Input
-									value={handoutTitle}
-									onChange={(event) => setHandoutTitle(event.target.value)}
-									placeholder={t("gm.module.handoutTitlePlaceholder")}
-									required
-								/>
-							</label>
-							<label className="flex flex-col gap-1.5">
-								<span className="text-md-on-surface-variant text-label-medium">
-									{t("gm.module.handoutContentLabel")}
+									{t("gm.module.descriptionLabel")}
 								</span>
 								<Textarea
-									value={handoutContent}
-									onChange={(event) => setHandoutContent(event.target.value)}
-									placeholder={t("gm.module.handoutContentPlaceholder")}
+									id="module-description"
+									value={moduleDescription}
+									onChange={(event) => setModuleDescription(event.target.value)}
+									placeholder={t("gm.module.moduleDescriptionPlaceholder")}
+									aria-label={t("gm.module.descriptionLabel")}
+									className="min-h-28"
 								/>
 							</label>
-							<div className="flex flex-col gap-1.5">
-								<span className="text-md-on-surface-variant text-label-medium">
-									{t("gm.module.handoutImageLabel")}
-								</span>
-								<FilePicker
-									name="image"
-									accept="image/*"
-									label={t("gm.module.chooseHandoutImage")}
-									value={handoutImageName}
-									onChange={(event) =>
-										setHandoutImageName(event.target.files?.[0]?.name ?? "")
-									}
-								/>
-							</div>
-							<Button type="submit" variant="primary" className="h-10 w-fit">
-								<Plus />
-								{t("gm.module.createHandout")}
-							</Button>
-						</form>
-						<div className="animate-in fade-in slide-in-from-bottom-4 flex flex-col gap-2 duration-500 ease-standard-default-spatial">
-							{handouts.map((handout) => (
-								<HandoutCard
-									key={handout.id}
-									handout={handout}
-									onReload={reload}
-								/>
-							))}
 						</div>
-					</TabsContent>
-				</Tabs>
+						<Button
+							type="button"
+							variant="primary"
+							size="sm"
+							className="w-full sm:w-auto sm:self-end xl:w-full"
+							disabled={!moduleName.trim() || moduleUnchanged}
+							onClick={() => void saveModule()}
+						>
+							{t("gm.module.saveModule")}
+						</Button>
+					</section>
+
+					<section className="overflow-hidden rounded-2xl bg-md-surface-container-low">
+						<Tabs defaultValue="scene" className="gap-0">
+							<div className="flex flex-col gap-4 px-4 pt-4 sm:px-5 lg:flex-row lg:items-center lg:justify-between">
+								<h2 className="text-foreground font-sans text-title-large-emph">
+									{t("gm.module.resourcesTitle")}
+								</h2>
+								<div className="min-w-0">
+									<TabsList className="grid h-auto w-full grid-cols-2 rounded-2xl sm:inline-flex sm:h-10 sm:w-fit sm:rounded-full">
+										<TabsTrigger value="scene">
+											{t("gm.module.tabScene", { count: scenes.length })}
+										</TabsTrigger>
+										<TabsTrigger value="npc">
+											{t("gm.module.tabCharacters", { count: linked.length })}
+										</TabsTrigger>
+										<TabsTrigger value="music">
+											{t("gm.module.tabMusic", { count: tracks.length })}
+										</TabsTrigger>
+										<TabsTrigger value="handout">
+											{t("gm.module.tabHandout", { count: handouts.length })}
+										</TabsTrigger>
+									</TabsList>
+								</div>
+							</div>
+
+							<TabsContent value="scene" className="p-4 sm:p-5">
+								<form
+									className="mb-5 grid gap-3 rounded-xl bg-md-surface-container p-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] md:items-end"
+									onSubmit={(event) => {
+										event.preventDefault();
+										const form = event.currentTarget;
+										const file = (
+											form.elements.namedItem("bg") as HTMLInputElement
+										).files?.[0];
+										void (async () => {
+											try {
+												const bgAssetId = file
+													? await uploadAsset(file, "scene")
+													: null;
+												await api(
+													`/gm/modules/${encodeURIComponent(moduleId)}/scenes`,
+													{
+														method: "POST",
+														body: JSON.stringify({
+															name: sceneName || t("gm.module.unnamedScene"),
+															sortOrder: scenes.length,
+															bgAssetId,
+														}),
+													},
+												);
+												setSceneName("");
+												setSceneBgName("");
+												await reload();
+											} catch (error) {
+												toast.error(
+													errorText(error, "gm.module.createSceneFailed"),
+												);
+											}
+										})();
+									}}
+								>
+									<label htmlFor="scene-name" className="flex flex-col gap-1.5">
+										<span className="text-md-on-surface-variant text-label-medium">
+											{t("gm.module.sceneNameLabel")}
+										</span>
+										<Input
+											id="scene-name"
+											value={sceneName}
+											onChange={(event) => setSceneName(event.target.value)}
+											placeholder={t("gm.module.sceneNamePlaceholder")}
+											className="w-full"
+										/>
+									</label>
+									<div className="flex flex-col gap-1.5">
+										<span className="text-md-on-surface-variant text-label-medium">
+											{t("gm.module.sceneBgAria")}
+										</span>
+										<FilePicker
+											name="bg"
+											accept="image/*"
+											label={t("gm.module.chooseSceneBg")}
+											value={sceneBgName}
+											className="w-full max-w-none"
+											onChange={(event) =>
+												setSceneBgName(event.target.files?.[0]?.name ?? "")
+											}
+										/>
+									</div>
+									<Button
+										type="submit"
+										variant="primary"
+										className="h-10 w-full self-end md:w-auto"
+									>
+										<ImagePlus />
+										{t("gm.module.createScene")}
+									</Button>
+								</form>
+								{scenes.length === 0 ? (
+									<EmptyState
+										icon={ImagePlus}
+										title={t("gm.module.emptyScenes")}
+										description={t("gm.module.emptyScenesHint")}
+										className="bg-transparent py-10"
+									/>
+								) : (
+									<div className="animate-in fade-in slide-in-from-bottom-4 grid gap-4 duration-500 ease-standard-default-spatial sm:grid-cols-2 xl:grid-cols-3">
+										{scenes.map((scene) => (
+											<SceneCard
+												key={scene.id}
+												scene={scene}
+												onReload={reload}
+											/>
+										))}
+									</div>
+								)}
+							</TabsContent>
+
+							<TabsContent value="npc" className="p-4 sm:p-5">
+								{allCharacters.length === 0 ? (
+									<EmptyState
+										icon={UserPlus}
+										title={t("gm.module.emptyCharacters")}
+										description={t("gm.module.emptyCharactersHint")}
+										className="bg-transparent py-10"
+									/>
+								) : (
+									<div className="animate-in fade-in slide-in-from-bottom-4 flex flex-col gap-2 duration-500 ease-standard-default-spatial">
+										{allCharacters.map((character) => {
+											const isLinked = linked.some(
+												(item) => item.id === character.id,
+											);
+											return (
+												<div
+													key={character.id}
+													className="bg-md-surface-container flex items-center gap-2 rounded-xl px-3 py-2"
+												>
+													<span className="flex-1 text-body-medium">
+														{character.name}
+													</span>
+													<Badge variant="soft" size="sm">
+														{character.kind.toUpperCase()}
+													</Badge>
+													<Button
+														size="sm"
+														variant={isLinked ? "tertiary" : "primary"}
+														className="h-7"
+														onClick={() => {
+															void (
+																isLinked
+																	? api(
+																			`/gm/modules/${encodeURIComponent(moduleId)}/characters/${encodeURIComponent(character.id)}`,
+																			{ method: "DELETE" },
+																		)
+																	: api(
+																			`/gm/modules/${encodeURIComponent(moduleId)}/characters`,
+																			{
+																				method: "POST",
+																				body: JSON.stringify({
+																					characterId: character.id,
+																				}),
+																			},
+																		)
+															)
+																.then(() => reload())
+																.catch((error) =>
+																	toast.error(
+																		errorText(
+																			error,
+																			"gm.module.operationFailed",
+																		),
+																	),
+																);
+														}}
+													>
+														{isLinked
+															? t("gm.module.unlink")
+															: t("gm.module.link")}
+													</Button>
+												</div>
+											);
+										})}
+									</div>
+								)}
+							</TabsContent>
+
+							<TabsContent value="music" className="p-4 sm:p-5">
+								<form
+									className="mb-5 grid gap-3 rounded-xl bg-md-surface-container p-4 lg:grid-cols-[minmax(0,1fr)_8rem_minmax(0,1fr)_auto] lg:items-end"
+									onSubmit={(event) => {
+										event.preventDefault();
+										const file = (
+											event.currentTarget.elements.namedItem(
+												"audio",
+											) as HTMLInputElement
+										).files?.[0];
+										if (!file) {
+											toast.error(t("gm.module.chooseAudio"));
+											return;
+										}
+										void (async () => {
+											try {
+												const audioAssetId = await uploadAsset(file, "audio");
+												const duration = await audioDurationMs(file);
+												await api(
+													`/gm/modules/${encodeURIComponent(moduleId)}/tracks`,
+													{
+														method: "POST",
+														body: JSON.stringify({
+															name: trackName || file.name,
+															audioAssetId,
+															type: trackType,
+															duration,
+														}),
+													},
+												);
+												setTrackName("");
+												setTrackFileName("");
+												await reload();
+											} catch (error) {
+												toast.error(errorText(error, "gm.module.uploadFailed"));
+											}
+										})();
+									}}
+								>
+									<label htmlFor="track-name" className="flex flex-col gap-1.5">
+										<span className="text-md-on-surface-variant text-label-medium">
+											{t("gm.module.trackNameLabel")}
+										</span>
+										<Input
+											id="track-name"
+											value={trackName}
+											onChange={(event) => setTrackName(event.target.value)}
+											placeholder={t("gm.module.trackNamePlaceholder")}
+											className="w-full"
+										/>
+									</label>
+									<div className="flex flex-col gap-1.5">
+										<span className="text-md-on-surface-variant text-label-medium">
+											{t("gm.module.audioTypeLabel")}
+										</span>
+										<Select
+											value={trackType}
+											onValueChange={(value) =>
+												setTrackType(value as "bgm" | "se")
+											}
+										>
+											<SelectTrigger
+												className="w-full"
+												aria-label={t("gm.module.audioTypeAria")}
+											>
+												<SelectValue />
+											</SelectTrigger>
+											<SelectContent>
+												<SelectItem value="bgm">BGM</SelectItem>
+												<SelectItem value="se">SE</SelectItem>
+											</SelectContent>
+										</Select>
+									</div>
+									<div className="flex flex-col gap-1.5">
+										<span className="text-md-on-surface-variant text-label-medium">
+											{t("gm.module.audioFileLabel")}
+										</span>
+										<FilePicker
+											name="audio"
+											accept="audio/*"
+											label={t("gm.module.chooseAudio")}
+											value={trackFileName}
+											className="w-full max-w-none"
+											onChange={(event) =>
+												setTrackFileName(event.target.files?.[0]?.name ?? "")
+											}
+										/>
+									</div>
+									<Button
+										type="submit"
+										variant="primary"
+										className="h-10 w-full self-end md:w-auto"
+									>
+										<Upload />
+										{t("gm.module.upload")}
+									</Button>
+								</form>
+								{tracks.length === 0 ? (
+									<EmptyState
+										icon={Music2}
+										title={t("gm.module.emptyTracks")}
+										description={t("gm.module.emptyTracksHint")}
+										className="bg-transparent py-10"
+									/>
+								) : (
+									<div className="animate-in fade-in slide-in-from-bottom-4 flex flex-col gap-2 duration-500 ease-standard-default-spatial">
+										{tracks.map((track) => (
+											<TrackRowItem
+												key={track.id}
+												track={track}
+												onReload={reload}
+											/>
+										))}
+									</div>
+								)}
+							</TabsContent>
+
+							<TabsContent value="handout" className="p-4 sm:p-5">
+								<form
+									className="mb-5 grid gap-3 rounded-xl bg-md-surface-container p-4 md:grid-cols-[minmax(0,1fr)_16rem]"
+									onSubmit={(event) => {
+										event.preventDefault();
+										const file = (
+											event.currentTarget.elements.namedItem(
+												"image",
+											) as HTMLInputElement
+										).files?.[0];
+										void (async () => {
+											try {
+												const imageAssetId = file
+													? await uploadAsset(file, "handout")
+													: null;
+												await api(
+													`/gm/modules/${encodeURIComponent(moduleId)}/handouts`,
+													{
+														method: "POST",
+														body: JSON.stringify({
+															title: handoutTitle,
+															content: handoutContent,
+															imageAssetId,
+														}),
+													},
+												);
+												setHandoutTitle("");
+												setHandoutContent("");
+												setHandoutImageName("");
+												await reload();
+											} catch (error) {
+												toast.error(
+													errorText(error, "gm.module.createHandoutFailed"),
+												);
+											}
+										})();
+									}}
+								>
+									<label
+										htmlFor="handout-title"
+										className="flex flex-col gap-1.5"
+									>
+										<span className="text-md-on-surface-variant text-label-medium">
+											{t("gm.module.handoutTitleLabel")}
+										</span>
+										<Input
+											id="handout-title"
+											value={handoutTitle}
+											onChange={(event) => setHandoutTitle(event.target.value)}
+											placeholder={t("gm.module.handoutTitlePlaceholder")}
+											required
+										/>
+									</label>
+									<label
+										htmlFor="handout-content"
+										className="flex flex-col gap-1.5 md:col-span-2"
+									>
+										<span className="text-md-on-surface-variant text-label-medium">
+											{t("gm.module.handoutContentLabel")}
+										</span>
+										<Textarea
+											id="handout-content"
+											value={handoutContent}
+											onChange={(event) =>
+												setHandoutContent(event.target.value)
+											}
+											placeholder={t("gm.module.handoutContentPlaceholder")}
+										/>
+									</label>
+									<div className="flex flex-col gap-1.5 md:col-start-2 md:row-start-1">
+										<span className="text-md-on-surface-variant text-label-medium">
+											{t("gm.module.handoutImageLabel")}
+										</span>
+										<FilePicker
+											name="image"
+											accept="image/*"
+											label={t("gm.module.chooseHandoutImage")}
+											value={handoutImageName}
+											className="w-full max-w-none"
+											onChange={(event) =>
+												setHandoutImageName(event.target.files?.[0]?.name ?? "")
+											}
+										/>
+									</div>
+									<Button
+										type="submit"
+										variant="primary"
+										className="h-10 w-full md:col-span-2 md:justify-self-end md:w-auto"
+									>
+										<Plus />
+										{t("gm.module.createHandout")}
+									</Button>
+								</form>
+								{handouts.length === 0 ? (
+									<EmptyState
+										icon={ScrollText}
+										title={t("gm.module.emptyHandouts")}
+										description={t("gm.module.emptyHandoutsHint")}
+										className="bg-transparent py-10"
+									/>
+								) : (
+									<div className="animate-in fade-in slide-in-from-bottom-4 flex flex-col gap-2 duration-500 ease-standard-default-spatial">
+										{handouts.map((handout) => (
+											<HandoutCard
+												key={handout.id}
+												handout={handout}
+												onReload={reload}
+											/>
+										))}
+									</div>
+								)}
+							</TabsContent>
+						</Tabs>
+					</section>
+				</div>
 			</div>
 			<InviteLinksDialog
 				open={invitesOpen}

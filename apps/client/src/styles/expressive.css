@@ -281,7 +281,7 @@
 	[data-slot="card-title"] {
 		font:
 			var(--text-title-large--font-weight) var(--text-title-large) /
-			var(--text-title-large--line-height) var(--font-serif);
+			var(--text-title-large--line-height) var(--font-sans);
 	}
 	[data-slot="badge"] {
 		font-weight: var(--text-label-medium-emph--font-weight);
@@ -566,7 +566,7 @@
 	[data-slot="drawer-title"] {
 		font:
 			var(--text-headline-small--font-weight) var(--text-headline-small) /
-			var(--text-headline-small--line-height) var(--font-serif);
+			var(--text-headline-small--line-height) var(--font-sans);
 	}
 	[data-slot="sheet-content"],
 	[data-slot="drawer-content"] {

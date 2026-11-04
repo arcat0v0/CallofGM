@@ -52,7 +52,7 @@ function ConfirmDialog({
 							)}
 						/>
 					</div>
-					<AlertDialogTitle className="font-serif text-headline-small-emph">
+					<AlertDialogTitle className="font-sans text-headline-small-emph">
 						{title}
 					</AlertDialogTitle>
 					<AlertDialogDescription className="text-body-medium">

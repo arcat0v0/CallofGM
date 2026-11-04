@@ -401,7 +401,7 @@ function GmHistoryOverlay({
 			>
 				<header className="border-separator-secondary flex shrink-0 items-center gap-3 border-b px-5 py-3.5">
 					<History className="text-accent size-5 shrink-0" />
-					<h2 className="text-foreground shrink-0 font-serif text-title-medium-emph">
+					<h2 className="text-foreground shrink-0 font-sans text-title-medium-emph">
 						{t("history.title")}
 					</h2>
 					<SegmentedControl
@@ -598,7 +598,7 @@ function GmHistoryOverlay({
 							</div>
 						</div>
 						<aside className="bg-md-surface-container-low border-separator-secondary w-80 shrink-0 overflow-y-auto border-l p-4">
-							<h3 className="text-md-on-surface mb-3 font-serif text-title-small-emph">
+							<h3 className="text-md-on-surface mb-3 font-sans text-title-small-emph">
 								{t("history.previewTitle")}
 							</h3>
 							{ended ? (

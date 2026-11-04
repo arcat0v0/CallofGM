@@ -18,12 +18,15 @@ function PageHeader({
 }: PageHeaderProps) {
 	return (
 		<header
-			className={cn("flex items-end justify-between gap-6", className)}
+			className={cn(
+				"flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between sm:gap-6",
+				className,
+			)}
 			{...props}
 		>
 			<div className="flex min-w-0 flex-col gap-2">
 				{eyebrow}
-				<h1 className="font-serif text-display-small-emph text-balance text-foreground">
+				<h1 className="font-sans text-display-small-emph text-balance text-foreground">
 					{title}
 				</h1>
 				{description ? (
@@ -33,7 +36,9 @@ function PageHeader({
 				) : null}
 			</div>
 			{actions ? (
-				<div className="flex shrink-0 items-center gap-2.5 pb-1">{actions}</div>
+				<div className="flex shrink-0 flex-wrap items-center gap-2.5 sm:pb-1">
+					{actions}
+				</div>
 			) : null}
 		</header>
 	);

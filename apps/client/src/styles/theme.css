@@ -14,9 +14,15 @@
 
 @theme {
   /* ── 字体（MD3 双字族：brand 表达 / plain 可读）────────────────── */
-  --font-sans: "Noto Sans SC", ui-sans-serif, system-ui, sans-serif;
-  --font-serif: "Noto Serif SC", ui-serif, serif;
-  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --font-sans:
+    system-ui, -apple-system, "Segoe UI", "PingFang SC", "Hiragino Sans GB",
+    "Microsoft YaHei", sans-serif;
+  --font-serif:
+    ui-serif, Georgia, "Songti SC", "STSong", "SimSun", "Times New Roman",
+    serif;
+  --font-mono:
+    ui-monospace, "SFMono-Regular", Menlo, Consolas, "Liberation Mono",
+    monospace;
 
   /* ── MD3 字阶（baseline 15 级 + emphasized 15 级；中文行高按 Medium 语言高度 +7%）─ */
   --text-display-large: 3.5625rem;

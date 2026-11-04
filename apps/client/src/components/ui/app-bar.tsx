@@ -35,7 +35,7 @@ function AppBar({
 			>
 				<h2
 					className={cn(
-						"font-serif",
+						"font-sans",
 						size === "large"
 							? "text-display-small-emph"
 							: size === "medium"

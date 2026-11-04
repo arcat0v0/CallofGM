@@ -156,7 +156,7 @@ function ImportCharacterSheetDialog({
 					{preview ? (
 						<>
 							<div className="flex items-center gap-2">
-								<span className="text-foreground font-serif text-title-medium-emph">
+								<span className="text-foreground font-sans text-title-medium-emph">
 									{preview.preview.characterName}
 								</span>
 								<Badge

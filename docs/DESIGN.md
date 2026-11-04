@@ -81,7 +81,7 @@
 | 参考 | 提取的模式 | 用在 |
 |---|---|---|
 | [m3.material.io](https://m3.material.io) 官网自身 | 左侧 **navigation rail**（图标+短标签垂直堆叠，选中态为 secondary-container 横向椭圆指示器）；页头巨型 display 字 + pill 分段页签 | GM 后台布局、GM 各页页头 |
-| [building-with-m3-expressive](https://m3.material.io/blog/building-with-m3-expressive) 的 Serafina 音乐播放器示例 | **display serif 大标题 + 大面积色块（color field）+ 巨型圆角主按钮**构成 Hero Moment | 入口页 `/`、GM 仪表盘统计卡 |
+| [building-with-m3-expressive](https://m3.material.io/blog/building-with-m3-expressive) 的 Serafina 音乐播放器示例 | **display serif 大标题 + 大面积色块（color field）+ 巨型圆角主按钮**构成 Hero Moment | 入口页 `/` |
 | [styles/shape](https://m3.material.io/styles/shape/overview-principles) 35 形状库 | **arch 拱形**（顶部全圆角，肖像/人物框的天然形状，且呼应 TRPG 牌位感）；大圆 blob 作背景装饰色块 | 立绘/头像框、入口页背景 |
 | [components/button-groups](https://m3.material.io/components/button-groups/overview) | 连接按钮组：非对称内圆角、选中段弹簧变形 | GM 控制台阶段切换、骰盘预设 |
 | 官网组件页 pill 分段页签 | 圆角容器内 tonal pill 选中 | 聊天频道切换（Tabs）、各处 segmented |
@@ -91,7 +91,7 @@
 - **层级靠容器色不靠描边**：面板与背景之间用 surface-container 层级差（`bg-md-surface-container-low` 面板 on `bg-background` 页面），分隔线只在列表内部使用，去掉面板大边线。
 - **每页一个 Hero Moment**：入口页=品牌区；玩家视图=舞台对话；GM 仪表盘=统计色块卡；控制台=阶段切换。其余元素降噪。
 - **入场动效**：页面/区块 `animate-in fade-in slide-in-from-bottom-4 duration-500 ease-expressive-default-spatial`，列表子项依次 `delay-75/150/225`；GM 工具面用 standard 曲线。
-- **编辑排版时刻**：页面标题一律 `font-serif` + emphasized 大字阶（display/headline 级），描述 `text-body-large text-md-on-surface-variant`。
+- **编辑排版时刻**：衬线仅用于入口品牌与沉浸演出中的场景名、演绎者名、情报标题等表达性内容；工具界面的页面标题、列表项和弹窗标题使用 `font-sans` + emphasized 字阶，描述 `text-body-large text-md-on-surface-variant`。
 
 ### 入口页 `/`（参考 Serafina hero）
 
@@ -123,18 +123,18 @@
 ### GM 后台 `/gm/*`（参考 m3.material.io 官网版式）
 
 - **导航改为 navigation rail**：`w-24` 窄栏，每站 icon（上）+ label-medium（下）垂直堆叠；选中态为 `bg-md-secondary-container` 横向椭圆指示器包裹 icon + emphasized 标签，切换用 standard spring。顶 Logo、底主持人头像+登出。
-- 页头：标题 `text-display-small-emph font-serif`，描述 `text-body-large`；主操作按钮大号（`h-12 px-6`）。
+- 页头：标题 `text-display-small-emph font-sans`，描述 `text-body-large`；主操作按钮大号（`h-12 px-6`）。
 - **仪表盘统计卡（Hero）**：四卡分别 `bg-md-primary-container / secondary-container / tertiary-container / error-container`，数字 `text-display-small-emph`，图标+标签 on-container 色，`rounded-2xl`、`h-28`——色块战术的直接落地。
-- 列表页：表格外层套 `rounded-2xl bg-md-surface-container-low` 容器；模组/音乐等卡片封面区 `rounded-t-2xl bg-md-surface-container-highest`，标题 serif emphasized。
+- 列表页：表格外层套 `rounded-2xl bg-md-surface-container-low` 容器；模组/音乐等卡片封面区 `rounded-t-2xl bg-md-surface-container-highest`，标题 sans emphasized。
 - 表格、表单等高密度区保持信息密度，不为装饰牺牲可用性。
 
 ### GM 控制台 `/gm/session/$sessionId`（B2 · 导演工作台）
 
 以 1920×1080 为基准的全屏舞台构图，控制层作为浮岛叠在场景之上，不再切分左右实体栏。
 
-- **顶部导航**：44px 圆形返回键 + 模组题名（serif headline-small）+「团名 / 导演工作台」副题；右侧依次为状态 pill（进行中）、在线人数 pill、更多菜单与 KP 头像。
+- **顶部导航**：44px 圆形返回键 + 模组题名（sans headline-small）+「团名 / 导演工作台」副题；右侧依次为状态 pill（进行中）、在线人数 pill、更多菜单与 KP 头像。
 - **舞台**：左右 24px、上 104px、下 24px 的内嵌 32px 圆角画面；顶部 457px 与底部 438px 的暗色可读性渐变。
-- **左列浮岛**（292px，`bg-md-surface-container-low/95` + blur）：团内阶段大卡（`bg-md-primary`，内含 36px serif 阶段名）、待呈现队列、角色状态重点提醒、BGM 迷你播放器。阶段卡展开为 380px 纵向菜单。
+- **左列浮岛**（292px，`bg-md-surface-container-low/95` + blur）：团内阶段大卡（`bg-md-primary`，内含 36px sans 阶段名）、待呈现队列、角色状态重点提醒、BGM 迷你播放器。阶段卡展开为 380px 纵向菜单。
 - **右列浮岛**：292px「桌边对话」实时消息卡；频道筛选、搜索、消息流与 KP 作曲器。系统骰点/鉴定记录用独立容器卡呈现。
 - **中央工具坞**：顶部居中的 56px 圆形按钮组，激活项横向展开为 112px 主色胶囊；图标固定 24px，外层始终画面居中。面板从按钮下方展开为 584px `rounded-xl-inc` 浮层，点击原按钮或 Esc 收起。
 - **五块配置浮层**：场景（搜索 + 缩略图列表）、人物（表情 / HP / MP / SAN 与状态编辑）、情报（条目预览 + 公开/秘密发放）、鉴定（类型/对象/技能/难度/奖惩/暗骰）、声音（曲目、波浪进度、循环与淡入淡出、全团音量、即兴音效）。
@@ -154,7 +154,7 @@
 
 - 采用 M3 字阶：**15 baseline + 15 emphasized 共 30 种样式**，同一标尺（Display → Label）。Emphasized = 更高字重 + 微调，用于标题、主按钮、选中态、未读提示；**与 baseline 混用，组件默认仍用 baseline**。
 - baseline 标尺（Material 默认值，dp/sp ≈ px）：Display L/M/S = 57/45/36，Headline L/M/S = 32/28/24，Title L/M/S = 22/16/14，Body L/M/S = 16/14/12，Label L/M/S = 14/12/11；Title 与 Label 级字重 500。Emphasized 各档精确值以 Figma 套件 / 规范页 token 表为准。
-- 双字族：**brand typeface** 用于 Display/Headline（表达），**plain typeface** 用于 Body/Label（可读性）。本项目映射：brand → `Noto Serif SC`（题字感），plain → `Noto Sans SC`；数字与英文 UI 小字可引入 Google Sans Flex / Inter。
+- 双字族：**brand typeface** 用于入口品牌与沉浸演出中的表达性内容，**plain typeface** 用于工具界面标题、Body/Label 与列表内容。本项目映射：brand → 系统 serif 栈（`ui-serif` / Songti SC / SimSun / Georgia），plain → 系统 sans 栈（`system-ui` / PingFang SC / Microsoft YaHei），数字与英文 UI 小字沿用系统 UI 字体。全站不请求、不下载外部字体，`font-mono` 同样使用系统等宽栈。
 - 中文属 **Medium 语言高度**（行高约比拉丁 +7%），行高按此设定；固定高度组件注意防裁切。
 
 ### 形状与圆角
@@ -219,7 +219,7 @@ Expressive 更新涉及 15 个组件（App bars、Button groups🆕、Common but
 - **样式文件职责分离**：`apps/client/src/styles/globals.css` 仅作为全局样式入口（聚合 `@import` 与 `@layer base`）；全部设计 token（颜色、阴影、圆角、字体、动效）必须定义在 `apps/client/src/styles/theme.css` 的 `@theme` 块中并按文件内分区归类，禁止写回 `globals.css` 或在其他文件中新建 `@theme`。
 - **token 单一来源**：组件只使用 token 生成的 utility class，禁止硬编码颜色/圆角/时长字面量。MD3 角色色值由 Theme Builder 导出后粘贴，保持可再生成。
 - **token 命名**：MD3 规范角色以 `md-` 前缀落 token（`bg-md-primary`、`bg-md-surface-container-high`、`text-md-on-surface-variant`…），色值为 Theme Builder 同引擎生成结果，禁止手调；`accent`/`danger`/`field`/`stage` 等语义别名是 products 层的稳定接口，视图优先用语义别名，别名不够时才直接用 `md-*` 角色。
-- **字阶落 token**：`text-{display|headline|title|body|label}-{large|medium|small}[-emph]` 携带 size/line-height/weight，禁止再叠加 `leading-*`/`font-medium` 等重复定义；标题/演绎者名等表达性文本用 `font-serif`（brand 字族），正文用 `font-sans`（plain 字族）。
+- **字阶落 token**：`text-{display|headline|title|body|label}-{large|medium|small}[-emph]` 携带 size/line-height/weight，禁止再叠加 `leading-*`/`font-medium` 等重复定义；入口品牌、场景名、演绎者名与情报标题等表达性文本用 `font-serif`（brand 字族），工具界面标题、列表项、弹窗标题与正文用 `font-sans`（plain 字族）。
 - 全站统一深色主题；玩家沉浸视图与 GM 后台共用同一套语义 token。
 - 新增动效一律引用上表曲线 token，不自创缓动。
 - **站点文案一律走 i18n**：新增 UI 文案必须加入 `apps/client/src/i18n/messages/zh-CN.ts` 并在组件中通过 `t("域.键")` 读取，禁止在 JSX 中硬编码中文；这样运行时主题才能按 key 覆盖文案。基础语言为 `zh-CN`，缺失键逐级回退。

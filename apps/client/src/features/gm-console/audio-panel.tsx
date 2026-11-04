@@ -78,7 +78,7 @@ function AudioPanel({ onClose }: { onClose: () => void }) {
 			<div className="bg-md-surface-container border border-md-outline-variant/50 flex flex-col gap-3 rounded-3xl p-5">
 				<div className="flex items-center justify-between gap-3">
 					<div className="flex min-w-0 flex-1 flex-col gap-1">
-						<span className="text-md-on-surface truncate font-serif text-title-large">
+						<span className="text-md-on-surface truncate font-sans text-title-large">
 							{current?.name ?? bgm?.name ?? t("gm.console.audioNone")}
 						</span>
 						<span className="text-md-on-surface-variant text-label-medium">

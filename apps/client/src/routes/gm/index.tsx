@@ -365,7 +365,7 @@ function GmDashboardPage() {
 				</div>
 
 				<div className="animate-in fade-in slide-in-from-bottom-4 flex items-center justify-between pt-1.5 delay-150 duration-500 ease-standard-default-spatial">
-					<h2 className="text-foreground font-serif text-headline-small-emph">
+					<h2 className="text-foreground font-sans text-headline-small-emph">
 						{t("gm.dashboard.moduleResources")}
 					</h2>
 					<Button
@@ -406,7 +406,7 @@ function GmDashboardPage() {
 							</div>
 							<div className="flex min-w-0 flex-1 flex-col gap-2 p-4">
 								<div className="flex items-center justify-between gap-3">
-									<span className="text-foreground truncate font-serif text-title-medium-emph">
+									<span className="text-foreground truncate font-sans text-title-medium-emph">
 										{module.name}
 									</span>
 									<Button

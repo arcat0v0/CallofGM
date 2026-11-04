@@ -113,7 +113,7 @@ function PhaseCard() {
 							<ChevronsUpDown className="text-md-on-surface-variant size-5" />
 						)}
 					</span>
-					<span className="text-md-primary font-serif text-headline-small leading-[1.05] font-semibold 2xl:text-headline-medium">
+					<span className="text-md-primary font-sans text-headline-small leading-[1.05] font-semibold 2xl:text-headline-medium">
 						{active ? sessionPhaseLabel(active) : "—"}
 					</span>
 					<span className="text-md-on-surface-variant text-label-large">

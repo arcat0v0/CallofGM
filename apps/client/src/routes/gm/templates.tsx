@@ -1,13 +1,13 @@
 import type { ModuleDto, TemplateDto } from "@cogm/shared";
 import { createFileRoute } from "@tanstack/react-router";
-import { Clock, Layers, Plus, Rocket, Trash2 } from "lucide-react";
+import { Ellipsis, Layers, Plus, Rocket, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
+import { EmptyState, ListSkeleton } from "@/components/shared/empty-state";
 import { FormField } from "@/components/shared/form-field";
 import { PageHeader } from "@/components/shared/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import {
 	Dialog,
 	DialogContent,
@@ -16,6 +16,12 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import {
 	Select,
@@ -24,9 +30,11 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
+import { AdminLayout } from "@/features/gm-admin/admin-layout";
 import { t, useI18nVersion } from "@/i18n";
 import { api, fetchAllPages, isApiError } from "@/lib/api";
 import { errorText } from "@/lib/errors";
+import { formatStamp } from "@/lib/format";
 import { requireGmAuth } from "@/lib/identity";
 
 export const Route = createFileRoute("/gm/templates")({
@@ -141,97 +149,131 @@ function TemplatesPage() {
 	}
 
 	return (
-		<div className="flex flex-col gap-6">
-			<PageHeader
-				title={t("gm.templates.title")}
-				actions={
-					<Button
-						type="button"
-						variant="primary"
-						onClick={() => setCreateOpen(true)}
-					>
-						<Plus />
-						{t("gm.templates.create")}
-					</Button>
-				}
-			/>
+		<AdminLayout>
+			<div className="flex flex-col gap-6">
+				<PageHeader
+					title={t("gm.templates.title")}
+					description={t("gm.templates.description")}
+					actions={
+						<Button
+							type="button"
+							variant="primary"
+							onClick={() => setCreateOpen(true)}
+						>
+							<Plus />
+							{t("gm.templates.create")}
+						</Button>
+					}
+				/>
 
-			{loading ? (
-				<p className="text-foreground-tertiary">{t("common.loading")}</p>
-			) : templates.length === 0 ? (
-				<p className="text-foreground-tertiary">{t("gm.templates.empty")}</p>
-			) : (
-				<div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-					{templates.map((template) => (
-						<Card key={template.id} className="flex flex-col gap-3 p-5">
-							<div className="flex items-start justify-between gap-2">
-								<div className="flex min-w-0 flex-col gap-0.5">
-									<span className="truncate text-title-medium-emph">
-										{template.name}
-									</span>
-									<span className="text-foreground-tertiary font-mono text-label-small">
-										{template.ruleId} · v{template.currentVersion}
-									</span>
+				{loading ? (
+					<ListSkeleton rows={3} />
+				) : templates.length === 0 ? (
+					<EmptyState
+						icon={Layers}
+						title={t("gm.templates.empty")}
+						description={t("gm.templates.emptyHint")}
+						action={
+							<Button
+								type="button"
+								variant="primary"
+								onClick={() => setCreateOpen(true)}
+							>
+								<Plus />
+								{t("gm.templates.create")}
+							</Button>
+						}
+					/>
+				) : (
+					<div className="animate-in fade-in slide-in-from-bottom-4 overflow-hidden rounded-2xl bg-md-surface-container duration-500 ease-standard-default-spatial">
+						{templates.map((template) => (
+							<article
+								key={template.id}
+								className="border-separator-secondary/60 flex flex-col gap-4 border-b p-4 last:border-b-0 lg:flex-row lg:items-center lg:justify-between lg:gap-6"
+							>
+								<div className="flex min-w-0 flex-col gap-1">
+									<div className="flex flex-wrap items-center gap-2">
+										<h2 className="text-foreground truncate font-sans text-title-medium-emph">
+											{template.name}
+										</h2>
+										<Badge variant="soft" tone="default" size="sm">
+											v{template.currentVersion}
+										</Badge>
+									</div>
+									<div className="text-foreground-tertiary text-label-small">
+										{template.ruleId} ·{" "}
+										{t("gm.templates.updatedAt", {
+											time: formatStamp(template.updatedAt),
+										})}
+									</div>
+									<div className="text-foreground-secondary flex flex-wrap items-center gap-x-3 gap-y-1 text-label-small">
+										<span>
+											{t("gm.templates.scenes")} {template.sceneCount}
+										</span>
+										<span>
+											{t("gm.templates.handouts")} {template.handoutCount}
+										</span>
+										<span>
+											{t("gm.templates.tracks")} {template.trackCount}
+										</span>
+										<span>
+											{t("gm.templates.characters")} {template.characterCount}
+										</span>
+									</div>
 								</div>
-								<Badge variant="soft" tone="default" size="sm">
-									<Layers className="size-3" />
-								</Badge>
-							</div>
 
-							<div className="text-foreground-secondary flex flex-wrap gap-x-3 gap-y-1 text-label-small">
-								<span>
-									{t("gm.templates.scenes")} {template.sceneCount}
-								</span>
-								<span>
-									{t("gm.templates.handouts")} {template.handoutCount}
-								</span>
-							</div>
-
-							<div className="text-foreground-tertiary flex items-center gap-1 text-label-small">
-								<Clock className="size-3" />
-								{new Date(template.createdAt).toLocaleDateString()}
-							</div>
-
-							<div className="mt-auto flex flex-wrap gap-2">
-								<Button
-									type="button"
-									variant="primary"
-									size="sm"
-									onClick={() => void instantiate(template, false)}
-								>
-									{t("gm.templates.instantiate")}
-								</Button>
-								<Button
-									type="button"
-									variant="accentSoft"
-									size="sm"
-									onClick={() => void instantiate(template, true)}
-								>
-									<Rocket className="size-3.5" />
-									{t("gm.templates.quickStart")}
-								</Button>
-								<Button
-									type="button"
-									variant="ghost"
-									size="sm"
-									onClick={() => void saveVersion(template)}
-								>
-									{t("gm.templates.saveVersion")}
-								</Button>
-								<Button
-									type="button"
-									variant="ghost"
-									size="icon-sm"
-									title={t("gm.templates.delete")}
-									onClick={() => void remove(template)}
-								>
-									<Trash2 />
-								</Button>
-							</div>
-						</Card>
-					))}
-				</div>
-			)}
+								<div className="flex flex-wrap items-center gap-2 lg:shrink-0">
+									<Button
+										type="button"
+										variant="primary"
+										size="sm"
+										onClick={() => void instantiate(template, false)}
+									>
+										{t("gm.templates.instantiate")}
+									</Button>
+									<Button
+										type="button"
+										variant="accentSoft"
+										size="sm"
+										onClick={() => void instantiate(template, true)}
+									>
+										<Rocket className="size-3.5" />
+										{t("gm.templates.quickStart")}
+									</Button>
+									<DropdownMenu>
+										<DropdownMenuTrigger asChild>
+											<Button
+												type="button"
+												variant="ghost"
+												size="icon-sm"
+												className="text-foreground-secondary"
+												aria-label={`${t("gm.templates.moreActions")} ${template.name}`}
+											>
+												<Ellipsis />
+											</Button>
+										</DropdownMenuTrigger>
+										<DropdownMenuContent align="end">
+											<DropdownMenuItem
+												onClick={() => void saveVersion(template)}
+											>
+												<Layers />
+												{t("gm.templates.saveVersion")}
+											</DropdownMenuItem>
+											<DropdownMenuItem
+												variant="destructive"
+												onClick={() => void remove(template)}
+											>
+												<Trash2 />
+												{t("gm.templates.delete")}
+											</DropdownMenuItem>
+										</DropdownMenuContent>
+									</DropdownMenu>
+								</div>
+							</article>
+						))}
+					</div>
+				)}
+			</div>
 
 			<Dialog open={createOpen} onOpenChange={setCreateOpen}>
 				<DialogContent>
@@ -275,6 +317,6 @@ function TemplatesPage() {
 					</DialogFooter>
 				</DialogContent>
 			</Dialog>
-		</div>
+		</AdminLayout>
 	);
 }

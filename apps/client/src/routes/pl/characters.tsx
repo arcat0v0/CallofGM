@@ -1,13 +1,16 @@
 import type { CharacterDto } from "@cogm/shared";
-import { createFileRoute } from "@tanstack/react-router";
-import { Pencil, Plus, Trash2, VenetianMask } from "lucide-react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { LogOut, Pencil, Plus, Trash2, VenetianMask } from "lucide-react";
+import type { ReactNode } from "react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
+import { Logo } from "@/components/brand/logo";
+import { EmptyState, ListSkeleton } from "@/components/shared/empty-state";
 import { FormField } from "@/components/shared/form-field";
 import { PageHeader } from "@/components/shared/page-header";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import {
 	Dialog,
 	DialogContent,
@@ -28,9 +31,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { t, useI18nVersion } from "@/i18n";
 import { api, fetchAllPages, isApiError } from "@/lib/api";
 import { errorText } from "@/lib/errors";
-import { requireAccount } from "@/lib/identity";
+import { initialsOf } from "@/lib/format";
+import { logoutAccount, requireAccount } from "@/lib/identity";
 import { useRuleOptions } from "@/lib/rules-api";
 import { getRuleComponent } from "@/rules/registry";
+import { useIdentityStore } from "@/stores/identity-store";
 
 export const Route = createFileRoute("/pl/characters")({
 	beforeLoad: () => requireAccount(["pl"]),
@@ -78,7 +83,7 @@ function PlCharactersPage() {
 	}
 
 	return (
-		<div className="mx-auto flex min-h-dvh w-full max-w-6xl flex-col gap-6 px-6 py-8">
+		<PlShell>
 			<PageHeader
 				title={t("pl.characters.title")}
 				description={t("pl.characters.description")}
@@ -95,54 +100,88 @@ function PlCharactersPage() {
 			/>
 
 			{loading ? (
-				<p className="text-foreground-tertiary">{t("common.loading")}</p>
+				<ListSkeleton rows={3} />
 			) : characters.length === 0 ? (
-				<p className="text-foreground-tertiary">{t("pl.characters.empty")}</p>
+				<EmptyState
+					icon={VenetianMask}
+					title={t("pl.characters.empty")}
+					description={t("pl.characters.emptyHint")}
+					action={
+						<Button
+							type="button"
+							variant="primary"
+							onClick={() => setEditor({ open: true, character: null })}
+						>
+							<Plus />
+							{t("pl.characters.create")}
+						</Button>
+					}
+				/>
 			) : (
-				<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-					{characters.map((character) => (
-						<Card key={character.id} className="flex flex-col gap-3 p-5">
-							<div className="flex items-start justify-between gap-2">
-								<div className="flex min-w-0 flex-col gap-0.5">
-									<span className="truncate text-title-medium-emph">
-										{character.name}
-									</span>
-									<span className="text-foreground-tertiary font-mono text-label-small">
-										{character.ruleId} · v{character.version}
-									</span>
+				<div className="flex flex-col gap-3">
+					<span className="text-foreground-secondary text-label-large">
+						{t("pl.characters.count", { count: characters.length })}
+					</span>
+					<div className="animate-in fade-in slide-in-from-bottom-4 overflow-hidden rounded-2xl bg-md-surface-container-low duration-500 ease-standard-default-spatial">
+						{characters.map((character) => (
+							<article
+								key={character.id}
+								className="border-separator-secondary/60 flex flex-col gap-3 border-b p-4 last:border-b-0 sm:flex-row sm:items-center sm:gap-4"
+							>
+								<div className="flex min-w-0 flex-1 items-center gap-3.5">
+									<Avatar
+										size="lg"
+										shape="arch"
+										className="bg-md-primary-container"
+									>
+										<AvatarFallback className="text-md-on-primary-container font-sans text-title-medium-emph">
+											{initialsOf(character.name)}
+										</AvatarFallback>
+									</Avatar>
+									<div className="flex min-w-0 flex-col gap-1">
+										<div className="flex flex-wrap items-center gap-2">
+											<h2 className="text-foreground truncate font-sans text-title-medium-emph">
+												{character.name}
+											</h2>
+											<Badge variant="soft" tone="accent" size="sm">
+												<VenetianMask className="size-3" />
+												{t("common.pc")}
+											</Badge>
+										</div>
+										<div className="text-foreground-tertiary font-mono text-label-small">
+											{character.ruleId} · v{character.version}
+										</div>
+										{character.background ? (
+											<p className="text-foreground-secondary line-clamp-1 text-body-small">
+												{character.background}
+											</p>
+										) : null}
+									</div>
 								</div>
-								<Badge variant="soft" tone="accent" size="sm">
-									<VenetianMask className="size-3" />
-									{t("common.pc")}
-								</Badge>
-							</div>
-							{character.background ? (
-								<p className="text-foreground-secondary line-clamp-3 text-body-small">
-									{character.background}
-								</p>
-							) : null}
-							<div className="mt-auto flex gap-2">
-								<Button
-									type="button"
-									variant="tertiary"
-									size="sm"
-									onClick={() => setEditor({ open: true, character })}
-								>
-									<Pencil className="size-3.5" />
-									{t("common.edit")}
-								</Button>
-								<Button
-									type="button"
-									variant="ghost"
-									size="icon-sm"
-									title={t("common.delete")}
-									onClick={() => setDeleteTarget(character)}
-								>
-									<Trash2 />
-								</Button>
-							</div>
-						</Card>
-					))}
+								<div className="flex items-center gap-1.5 sm:shrink-0">
+									<Button
+										type="button"
+										variant="outline"
+										size="sm"
+										onClick={() => setEditor({ open: true, character })}
+									>
+										<Pencil className="size-3.5" />
+										{t("common.edit")}
+									</Button>
+									<Button
+										type="button"
+										variant="ghost"
+										size="icon-sm"
+										title={t("common.delete")}
+										aria-label={`${t("common.delete")} ${character.name}`}
+										onClick={() => setDeleteTarget(character)}
+									>
+										<Trash2 />
+									</Button>
+								</div>
+							</article>
+						))}
+					</div>
 				</div>
 			)}
 
@@ -172,6 +211,52 @@ function PlCharactersPage() {
 					</DialogFooter>
 				</DialogContent>
 			</Dialog>
+		</PlShell>
+	);
+}
+
+function PlShell({ children }: { children: ReactNode }) {
+	const navigate = useNavigate();
+	const username = useIdentityStore((state) => state.account?.username ?? null);
+
+	return (
+		<div className="bg-background flex min-h-dvh flex-col">
+			<header className="border-separator-secondary bg-background sticky top-0 z-10 border-b">
+				<div className="mx-auto flex h-16 w-full max-w-6xl items-center gap-3 px-4 md:px-6">
+					<Link to="/pl/characters" className="flex items-center gap-3">
+						<Logo className="size-8" />
+						<span className="flex min-w-0 flex-col">
+							<span className="text-foreground font-serif text-title-medium-emph">
+								{t("app.name")}
+							</span>
+							<span className="text-foreground-tertiary text-label-small">
+								{t("pl.workspace")}
+							</span>
+						</span>
+					</Link>
+					<div className="ml-auto flex items-center gap-2">
+						{username ? (
+							<span className="text-foreground-secondary hidden text-body-small sm:block">
+								{username}
+							</span>
+						) : null}
+						<Button
+							type="button"
+							variant="ghost"
+							size="icon-sm"
+							aria-label={t("account.logout")}
+							onClick={() => {
+								void logoutAccount().then(() => navigate({ to: "/login" }));
+							}}
+						>
+							<LogOut />
+						</Button>
+					</div>
+				</div>
+			</header>
+			<main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-6 md:px-6 md:py-8">
+				{children}
+			</main>
 		</div>
 	);
 }

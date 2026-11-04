@@ -66,7 +66,7 @@ function ChatPanelHeader({
 				<div className="flex min-w-0 items-center gap-2">
 					<h2
 						className={cn(
-							"text-foreground shrink-0 font-serif whitespace-nowrap",
+							"text-foreground shrink-0 font-sans whitespace-nowrap",
 							compact ? "text-title-small-emph" : "text-title-medium-emph",
 						)}
 					>

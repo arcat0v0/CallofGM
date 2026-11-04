@@ -1,20 +1,24 @@
 import type { UserDto } from "@cogm/shared";
 import { createFileRoute } from "@tanstack/react-router";
 import {
+	Ellipsis,
 	KeyRound,
 	Plus,
 	ShieldCheck,
 	Trash2,
 	UserCheck,
+	Users,
 	UserX,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
+import { EmptyState, ListSkeleton } from "@/components/shared/empty-state";
 import { FormField } from "@/components/shared/form-field";
 import { PageHeader } from "@/components/shared/page-header";
+import { SegmentedControl } from "@/components/shared/segmented-control";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import {
 	Dialog,
 	DialogContent,
@@ -23,6 +27,12 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import {
 	Select,
@@ -31,17 +41,10 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "@/components/ui/table";
+import { AdminShell } from "@/features/admin/admin-shell";
 import { t, useI18nVersion } from "@/i18n";
 import { api, isApiError } from "@/lib/api";
-import { formatClock } from "@/lib/format";
+import { initialsOf } from "@/lib/format";
 import { requireAccount } from "@/lib/identity";
 import { useIdentityStore } from "@/stores/identity-store";
 
@@ -51,6 +54,8 @@ export const Route = createFileRoute("/admin/users")({
 });
 
 const ROLES = ["admin", "gm", "pl"] as const;
+
+type UserFilter = "all" | "enabled" | "disabled" | "deleted";
 
 function roleLabel(role: string): string {
 	if (role === "admin") {
@@ -72,6 +77,32 @@ function stateLabel(user: UserDto): string {
 	return t("admin.enabled");
 }
 
+function stateTone(user: UserDto): "success" | "warning" | "danger" {
+	if (user.deletedAt !== null) {
+		return "danger";
+	}
+	if (user.disabledAt !== null) {
+		return "warning";
+	}
+	return "success";
+}
+
+function matchesFilter(user: UserDto, filter: UserFilter): boolean {
+	if (filter === "all") {
+		return true;
+	}
+	if (filter === "deleted") {
+		return user.deletedAt !== null;
+	}
+	if (user.deletedAt !== null) {
+		return false;
+	}
+	if (filter === "disabled") {
+		return user.disabledAt !== null;
+	}
+	return user.disabledAt === null;
+}
+
 function AdminUsersPage() {
 	useI18nVersion();
 	const currentUserId = useIdentityStore(
@@ -79,6 +110,7 @@ function AdminUsersPage() {
 	);
 	const [users, setUsers] = useState<UserDto[]>([]);
 	const [loading, setLoading] = useState(true);
+	const [filter, setFilter] = useState<UserFilter>("all");
 	const [createOpen, setCreateOpen] = useState(false);
 	const [resetTarget, setResetTarget] = useState<UserDto | null>(null);
 	const [password, setPassword] = useState("");
@@ -137,133 +169,216 @@ function AdminUsersPage() {
 		}
 	}
 
-	return (
-		<div className="flex flex-col gap-6 p-6">
-			<PageHeader
-				title={t("admin.title")}
-				actions={
-					<Button
-						type="button"
-						variant="primary"
-						onClick={() => setCreateOpen(true)}
-					>
-						<Plus />
-						{t("admin.createUser")}
-					</Button>
-				}
-			/>
+	const counts = {
+		all: users.length,
+		enabled: users.filter((user) => matchesFilter(user, "enabled")).length,
+		disabled: users.filter((user) => matchesFilter(user, "disabled")).length,
+		deleted: users.filter((user) => matchesFilter(user, "deleted")).length,
+	};
+	const visible = users.filter((user) => matchesFilter(user, filter));
 
-			<Card className="overflow-hidden p-0">
-				<Table>
-					<TableHeader>
-						<TableRow>
-							<TableHead>{t("admin.username")}</TableHead>
-							<TableHead>{t("admin.roleLabel")}</TableHead>
-							<TableHead>{t("admin.state")}</TableHead>
-							<TableHead>{t("admin.resetPassword")}</TableHead>
-						</TableRow>
-					</TableHeader>
-					<TableBody>
-						{loading ? (
-							<TableRow>
-								<TableCell colSpan={4}>{t("common.loading")}</TableCell>
-							</TableRow>
-						) : users.length === 0 ? (
-							<TableRow>
-								<TableCell colSpan={4}>{t("admin.usersEmpty")}</TableCell>
-							</TableRow>
+	return (
+		<AdminShell>
+			<div className="flex flex-col gap-6">
+				<PageHeader
+					title={t("admin.title")}
+					description={t("admin.description")}
+					actions={
+						<Button
+							type="button"
+							variant="primary"
+							onClick={() => setCreateOpen(true)}
+						>
+							<Plus />
+							{t("admin.createUser")}
+						</Button>
+					}
+				/>
+
+				{loading ? (
+					<ListSkeleton rows={4} />
+				) : users.length === 0 ? (
+					<EmptyState
+						icon={Users}
+						title={t("admin.usersEmpty")}
+						action={
+							<Button
+								type="button"
+								variant="primary"
+								onClick={() => setCreateOpen(true)}
+							>
+								<Plus />
+								{t("admin.createUser")}
+							</Button>
+						}
+					/>
+				) : (
+					<div className="flex flex-col gap-4">
+						<div className="overflow-x-auto">
+							<SegmentedControl
+								value={filter}
+								onValueChange={setFilter}
+								className="w-max min-w-full"
+								itemClassName="shrink-0"
+								options={[
+									{
+										value: "all",
+										label: t("admin.filterAll", { count: counts.all }),
+									},
+									{
+										value: "enabled",
+										label: t("admin.filterEnabled", { count: counts.enabled }),
+									},
+									{
+										value: "disabled",
+										label: t("admin.filterDisabled", {
+											count: counts.disabled,
+										}),
+									},
+									{
+										value: "deleted",
+										label: t("admin.filterDeleted", { count: counts.deleted }),
+									},
+								]}
+							/>
+						</div>
+
+						{visible.length === 0 ? (
+							<EmptyState icon={Users} title={t("admin.filterEmpty")} />
 						) : (
-							users.map((user) => (
-								<TableRow key={user.id}>
-									<TableCell className="font-mono">
-										{user.username}
-										{user.id === currentUserId ? (
+							<div className="overflow-hidden rounded-2xl bg-md-surface-container">
+								<div className="border-separator-secondary/60 text-foreground-secondary hidden grid-cols-[minmax(0,1fr)_7rem_7rem_3.5rem] gap-4 border-b px-5 py-2.5 text-label-large md:grid">
+									<span>{t("admin.username")}</span>
+									<span>{t("admin.roleLabel")}</span>
+									<span>{t("admin.state")}</span>
+									<span />
+								</div>
+								{visible.map((user) => (
+									<div
+										key={user.id}
+										className="border-separator-secondary/60 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b px-4 py-3 last:border-b-0 md:grid-cols-[minmax(0,1fr)_7rem_7rem_3.5rem] md:gap-4 md:px-5"
+									>
+										<div className="flex min-w-0 items-center gap-3">
+											<Avatar
+												size="sm"
+												className="bg-md-surface-container-high"
+											>
+												<AvatarFallback className="text-label-large-emph">
+													{initialsOf(user.username)}
+												</AvatarFallback>
+											</Avatar>
+											<div className="flex min-w-0 flex-col gap-0.5">
+												<div className="flex min-w-0 flex-wrap items-center gap-2">
+													<span className="text-foreground truncate text-label-large-emph">
+														{user.username}
+													</span>
+													{user.id === currentUserId ? (
+														<Badge variant="soft" tone="accent" size="sm">
+															{t("admin.you")}
+														</Badge>
+													) : null}
+												</div>
+												<div className="flex flex-wrap items-center gap-1.5 md:hidden">
+													<Badge variant="soft" tone="default" size="sm">
+														{roleLabel(user.role)}
+													</Badge>
+													<Badge
+														variant="soft"
+														tone={stateTone(user)}
+														size="sm"
+													>
+														{stateLabel(user)}
+													</Badge>
+												</div>
+											</div>
+										</div>
+
+										<div className="hidden md:block">
 											<Badge
 												variant="soft"
-												tone="accent"
+												tone={user.role === "admin" ? "accent" : "default"}
 												size="sm"
-												className="ml-2"
 											>
-												{t("admin.you")}
+												{roleLabel(user.role)}
 											</Badge>
-										) : null}
-									</TableCell>
-									<TableCell>
-										<Badge variant="soft" tone="default" size="sm">
-											{roleLabel(user.role)}
-										</Badge>
-									</TableCell>
-									<TableCell>{stateLabel(user)}</TableCell>
-									<TableCell>
-										<div className="flex items-center gap-1">
-											<Button
-												type="button"
-												variant="ghost"
-												size="icon-sm"
-												title={t("admin.resetPassword")}
-												onClick={() => {
-													setResetTarget(user);
-													setPassword("");
-												}}
-											>
-												<KeyRound />
-											</Button>
-											{user.deletedAt !== null ? (
-												<Button
-													type="button"
-													variant="ghost"
-													size="icon-sm"
-													title={t("admin.restore")}
-													onClick={() =>
-														void patchUser(user, { deleted: false })
-													}
-												>
-													<UserCheck />
-												</Button>
-											) : (
-												<>
-													<Button
-														type="button"
-														variant="ghost"
-														size="icon-sm"
-														title={
-															user.disabledAt === null
-																? t("admin.disable")
-																: t("admin.enable")
-														}
-														onClick={() =>
-															void patchUser(user, {
-																disabled: user.disabledAt === null,
-															})
-														}
-													>
-														{user.disabledAt === null ? (
-															<UserX />
-														) : (
-															<ShieldCheck />
-														)}
-													</Button>
-													<Button
-														type="button"
-														variant="ghost"
-														size="icon-sm"
-														title={t("admin.delete")}
-														onClick={() =>
-															void patchUser(user, { deleted: true })
-														}
-													>
-														<Trash2 />
-													</Button>
-												</>
-											)}
 										</div>
-									</TableCell>
-								</TableRow>
-							))
+										<div className="hidden md:block">
+											<Badge variant="soft" tone={stateTone(user)} size="sm">
+												{stateLabel(user)}
+											</Badge>
+										</div>
+
+										<div className="flex justify-end">
+											<DropdownMenu>
+												<DropdownMenuTrigger asChild>
+													<Button
+														type="button"
+														variant="ghost"
+														size="icon-sm"
+														className="text-foreground-secondary"
+														aria-label={`${t("admin.actions")} ${user.username}`}
+													>
+														<Ellipsis />
+													</Button>
+												</DropdownMenuTrigger>
+												<DropdownMenuContent align="end">
+													<DropdownMenuItem
+														onClick={() => {
+															setResetTarget(user);
+															setPassword("");
+														}}
+													>
+														<KeyRound />
+														{t("admin.resetPassword")}
+													</DropdownMenuItem>
+													{user.deletedAt !== null ? (
+														<DropdownMenuItem
+															onClick={() =>
+																void patchUser(user, { deleted: false })
+															}
+														>
+															<UserCheck />
+															{t("admin.restore")}
+														</DropdownMenuItem>
+													) : (
+														<>
+															<DropdownMenuItem
+																onClick={() =>
+																	void patchUser(user, {
+																		disabled: user.disabledAt === null,
+																	})
+																}
+															>
+																{user.disabledAt === null ? (
+																	<UserX />
+																) : (
+																	<ShieldCheck />
+																)}
+																{user.disabledAt === null
+																	? t("admin.disable")
+																	: t("admin.enable")}
+															</DropdownMenuItem>
+															<DropdownMenuItem
+																variant="destructive"
+																onClick={() =>
+																	void patchUser(user, { deleted: true })
+																}
+															>
+																<Trash2 />
+																{t("admin.delete")}
+															</DropdownMenuItem>
+														</>
+													)}
+												</DropdownMenuContent>
+											</DropdownMenu>
+										</div>
+									</div>
+								))}
+							</div>
 						)}
-					</TableBody>
-				</Table>
-			</Card>
+					</div>
+				)}
+			</div>
 
 			<CreateUserDialog
 				open={createOpen}
@@ -301,7 +416,7 @@ function AdminUsersPage() {
 					</DialogFooter>
 				</DialogContent>
 			</Dialog>
-		</div>
+		</AdminShell>
 	);
 }
 

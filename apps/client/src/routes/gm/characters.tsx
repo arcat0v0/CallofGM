@@ -136,7 +136,7 @@ function GmCharactersPage() {
 				<aside className="bg-background border-separator-secondary/40 flex w-80 flex-col border-r">
 					<div className="flex flex-col gap-3 px-4 pt-5 pb-3">
 						<div className="flex items-center justify-between">
-							<h1 className="font-serif text-headline-small-emph">
+							<h1 className="font-sans text-headline-small-emph">
 								{t("gm.characters.title")}
 							</h1>
 							<div className="flex gap-1.5">
@@ -239,7 +239,7 @@ function GmCharactersPage() {
 								</span>
 							</div>
 							<div className="flex-1">
-								<h2 className="font-serif text-headline-small-emph">
+								<h2 className="font-sans text-headline-small-emph">
 									{selected.name}
 								</h2>
 								<p className="text-foreground-secondary text-body-medium select-text">

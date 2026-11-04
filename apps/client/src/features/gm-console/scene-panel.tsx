@@ -109,7 +109,7 @@ function ScenePanel({ onClose }: { onClose: () => void }) {
 									)}
 								</span>
 								<span className="flex min-w-0 flex-1 flex-col gap-1.5">
-									<span className="truncate font-serif text-title-medium-emph">
+									<span className="truncate font-sans text-title-medium-emph">
 										{scene.name}
 									</span>
 									<span

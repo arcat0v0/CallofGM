@@ -134,7 +134,7 @@ function AdminLayout({ children }: { children: ReactNode }) {
 	const content = (
 		<main
 			className={cn(
-				"bg-md-surface-container-low min-w-0 flex-1 overflow-y-auto rounded-tl-2xl px-10 py-9",
+				"bg-md-surface-container-low min-w-0 flex-1 overflow-y-auto rounded-tl-2xl px-4 py-6 sm:px-6 md:px-10 md:py-9",
 			)}
 		>
 			{children}

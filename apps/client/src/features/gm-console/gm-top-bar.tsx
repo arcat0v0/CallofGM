@@ -92,7 +92,7 @@ function GmTopBar() {
 					</Link>
 				</Button>
 				<div className="flex min-w-0 flex-col">
-					<span className="text-md-on-surface truncate font-serif text-headline-small font-semibold">
+					<span className="text-md-on-surface truncate font-sans text-headline-small font-semibold">
 						{title}
 					</span>
 					<span className="text-md-on-surface-variant truncate text-label-medium">

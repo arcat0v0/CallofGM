@@ -5,14 +5,18 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Logo } from "@/components/brand/logo";
 import { FormField } from "@/components/shared/form-field";
+import { SegmentedControl } from "@/components/shared/segmented-control";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { LoadingIndicator } from "@/components/ui/loading-indicator";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { t, useI18nVersion } from "@/i18n";
 import { api, isApiError } from "@/lib/api";
 import { errorText } from "@/lib/errors";
+import { formatStamp } from "@/lib/format";
 import { fetchAccountMe, requireAccount } from "@/lib/identity";
+import { cn } from "@/lib/utils";
 import { getRuleComponent } from "@/rules/registry";
 
 export const Route = createFileRoute("/submit/$token")({
@@ -85,20 +89,26 @@ function SubmitPage() {
 
 	if (loading) {
 		return (
-			<main className="flex min-h-dvh items-center justify-center">
-				<p className="text-foreground-tertiary">{t("common.loading")}</p>
+			<main className="bg-background flex min-h-dvh flex-col items-center justify-center gap-6">
+				<Logo className="size-12" />
+				<LoadingIndicator label={t("common.loading")} />
 			</main>
 		);
 	}
 
 	if (done) {
 		return (
-			<main className="flex min-h-dvh flex-col items-center justify-center gap-6 px-6">
-				<CheckCircle2 className="text-success size-14" />
-				<h1 className="text-title-large-emph">{t("submit.doneTitle")}</h1>
-				<p className="text-md-on-surface-variant max-w-md text-center text-body-medium">
-					{t("submit.doneBody")}
-				</p>
+			<main className="bg-background flex min-h-dvh flex-col items-center justify-center gap-6 px-6 py-12">
+				<Logo className="size-12" />
+				<CheckCircle2 className="text-success size-12" />
+				<div className="flex max-w-md flex-col gap-2 text-center">
+					<h1 className="text-foreground font-sans text-headline-small-emph">
+						{t("submit.doneTitle")}
+					</h1>
+					<p className="text-md-on-surface-variant text-pretty text-body-medium">
+						{t("submit.doneBody")}
+					</p>
+				</div>
 				<Button
 					type="button"
 					variant="tertiary"
@@ -110,88 +120,132 @@ function SubmitPage() {
 		);
 	}
 
+	const candidates = (info?.ownedCharacters ?? []).filter(
+		(item) => item.ruleId === info?.ruleId,
+	);
+
 	return (
-		<main className="mx-auto flex min-h-dvh w-full max-w-2xl flex-col items-center justify-center gap-8 px-6 py-10">
-			<div className="flex flex-col items-center gap-3">
-				<Logo className="size-14" />
-				<h1 className="text-display-small-emph font-serif">
-					{t("submit.title")}
-				</h1>
+		<main className="bg-background flex min-h-dvh flex-col">
+			<header className="flex items-center justify-center gap-3 py-8">
+				<Logo className="size-10" />
+				<span className="text-foreground font-serif text-title-large-emph">
+					{t("app.name")}
+				</span>
+			</header>
+
+			<div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-4 pb-12">
+				<div className="flex flex-col gap-2">
+					<h1 className="text-foreground font-sans text-headline-medium-emph">
+						{t("submit.title")}
+					</h1>
+					<p className="text-md-on-surface-variant text-body-large">
+						{t("submit.intro")}
+					</p>
+				</div>
+
 				{info ? (
-					<div className="text-md-on-surface-variant flex items-center gap-2 text-title-medium">
-						<Link2 className="size-4" />
-						{info.targetName}
+					<div className="flex flex-wrap items-center gap-3 rounded-2xl bg-md-surface-container px-4 py-3.5">
+						<Link2 className="text-foreground-secondary size-5 shrink-0" />
+						<div className="flex min-w-0 flex-1 flex-col">
+							<span className="text-foreground truncate font-sans text-title-medium-emph">
+								{info.targetName}
+							</span>
+							<span className="text-foreground-tertiary text-label-small">
+								{t("submit.targetLabel")} ·{" "}
+								{t("submit.expiresAt", {
+									time: formatStamp(info.expiresAt),
+								})}
+							</span>
+						</div>
 						<Badge variant="soft" tone="default" size="sm">
 							{info.ruleId}
 						</Badge>
 					</div>
 				) : null}
-			</div>
 
-			<Card className="flex w-full flex-col gap-5 p-6">
-				<div className="flex gap-2">
+				<div className="flex flex-col gap-5 rounded-2xl bg-md-surface-container-low p-5 md:p-6">
+					<SegmentedControl
+						value={mode}
+						onValueChange={setMode}
+						options={[
+							{ value: "new", label: t("submit.modeNew") },
+							{ value: "existing", label: t("submit.modeExisting") },
+						]}
+					/>
+
+					{mode === "new" ? (
+						<FormField label={t("pl.characters.name")} htmlFor="submit-name">
+							<Input
+								id="submit-name"
+								value={name}
+								maxLength={100}
+								onChange={(event) => setName(event.target.value)}
+							/>
+						</FormField>
+					) : (
+						<div className="flex flex-col gap-3">
+							<div className="flex flex-wrap items-baseline justify-between gap-2">
+								<span className="text-foreground-secondary text-label-large">
+									{t("submit.pickCharacter")}
+								</span>
+								<span className="text-foreground-tertiary text-label-small">
+									{t("submit.existingHint")}
+								</span>
+							</div>
+							{candidates.length === 0 ? (
+								<p className="text-foreground-secondary rounded-xl bg-md-surface-container px-4 py-6 text-center text-body-medium">
+									{t("submit.noExisting")}
+								</p>
+							) : (
+								<RadioGroup value={characterId} onValueChange={setCharacterId}>
+									{candidates.map((item) => (
+										<label
+											key={item.id}
+											htmlFor={`submit-character-${item.id}`}
+											className={cn(
+												"flex items-center gap-3 rounded-xl bg-md-surface-container px-4 py-3.5",
+												item.alreadySubmitted ? "opacity-60" : "cursor-pointer",
+											)}
+										>
+											<RadioGroupItem
+												id={`submit-character-${item.id}`}
+												value={item.id}
+												disabled={item.alreadySubmitted}
+											/>
+											<span className="flex min-w-0 flex-1 flex-col">
+												<span className="text-foreground truncate text-label-large-emph">
+													{item.name}
+												</span>
+												<span className="text-foreground-tertiary text-label-small">
+													{item.ruleId}
+													{item.sheetVersion === null
+														? ""
+														: ` · v${item.sheetVersion}`}
+												</span>
+											</span>
+											{item.alreadySubmitted ? (
+												<Badge variant="soft" tone="default" size="sm">
+													{t("submit.alreadySubmitted")}
+												</Badge>
+											) : null}
+										</label>
+									))}
+								</RadioGroup>
+							)}
+						</div>
+					)}
+
 					<Button
 						type="button"
-						variant={mode === "new" ? "primary" : "tertiary"}
-						size="sm"
-						onClick={() => setMode("new")}
+						variant="primary"
+						className="h-12 w-full"
+						disabled={pending || (mode === "new" ? !name.trim() : !characterId)}
+						onClick={() => void submit()}
 					>
-						{t("submit.modeNew")}
-					</Button>
-					<Button
-						type="button"
-						variant={mode === "existing" ? "primary" : "tertiary"}
-						size="sm"
-						onClick={() => setMode("existing")}
-					>
-						{t("submit.modeExisting")}
+						{t("submit.submit")}
 					</Button>
 				</div>
-
-				{mode === "new" ? (
-					<FormField label={t("pl.characters.name")} htmlFor="submit-name">
-						<Input
-							id="submit-name"
-							value={name}
-							maxLength={100}
-							onChange={(event) => setName(event.target.value)}
-						/>
-					</FormField>
-				) : (
-					<FormField label={t("submit.pickCharacter")}>
-						<div className="flex flex-col gap-2">
-							{(info?.ownedCharacters ?? [])
-								.filter((item) => item.ruleId === info?.ruleId)
-								.map((item) => (
-									<Button
-										key={item.id}
-										type="button"
-										variant={characterId === item.id ? "primary" : "tertiary"}
-										className="justify-between"
-										disabled={item.alreadySubmitted}
-										onClick={() => setCharacterId(item.id)}
-									>
-										<span>{item.name}</span>
-										{item.alreadySubmitted ? (
-											<span className="text-label-small">
-												{t("submit.alreadySubmitted")}
-											</span>
-										) : null}
-									</Button>
-								))}
-						</div>
-					</FormField>
-				)}
-
-				<Button
-					type="button"
-					variant="primary"
-					disabled={pending || (mode === "new" ? !name.trim() : !characterId)}
-					onClick={() => void submit()}
-				>
-					{t("submit.submit")}
-				</Button>
-			</Card>
+			</div>
 		</main>
 	);
 }

@@ -253,7 +253,7 @@ function CharacterSheetEditorDialog({
 
 						<section className="flex flex-col gap-3">
 							<div className="flex items-baseline justify-between gap-3">
-								<h3 className="text-md-on-surface font-serif text-title-medium-emph">
+								<h3 className="text-md-on-surface font-sans text-title-medium-emph">
 									{t("gm.editSheet.attributes")}
 								</h3>
 								<span className="text-md-on-surface-variant text-label-small">
@@ -293,7 +293,7 @@ function CharacterSheetEditorDialog({
 
 						<section className="flex flex-col gap-3">
 							<div className="flex items-baseline justify-between gap-3">
-								<h3 className="text-md-on-surface font-serif text-title-medium-emph">
+								<h3 className="text-md-on-surface font-sans text-title-medium-emph">
 									{t("gm.editSheet.skills")}
 								</h3>
 								<span className="text-md-on-surface-variant text-label-small">

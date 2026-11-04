@@ -49,7 +49,7 @@ function MetricStrip({
 					</div>
 					<span
 						className={cn(
-							"font-serif text-[clamp(2rem,3vw,3rem)] leading-none font-semibold tabular-nums",
+							"font-sans text-[clamp(2rem,3vw,3rem)] leading-none font-semibold tabular-nums",
 							emphasis ? "text-md-primary" : "text-md-on-surface",
 						)}
 					>

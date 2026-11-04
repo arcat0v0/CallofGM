@@ -18,7 +18,7 @@ function NotFoundPage() {
 
 			<div className="animate-in fade-in slide-in-from-bottom-4 ease-expressive-default-spatial flex flex-col items-center gap-4 text-center duration-500">
 				<Logo className="size-16" />
-				<h1 className="text-foreground font-serif text-display-small-emph">
+				<h1 className="text-foreground font-sans text-display-small-emph">
 					{t("notFound.title")}
 				</h1>
 				<p className="text-md-on-surface-variant max-w-md text-body-large">

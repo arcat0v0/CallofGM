@@ -25,7 +25,7 @@ function ChatEmptyState({
 				className={cn(
 					variant === "gm"
 						? "text-md-on-surface-variant/85 text-label-medium"
-						: "text-md-on-surface-variant font-serif text-title-small-emph",
+						: "text-md-on-surface-variant font-sans text-title-small-emph",
 				)}
 			>
 				{title}

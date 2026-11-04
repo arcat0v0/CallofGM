@@ -26,7 +26,7 @@ function PanelHeading({
 			<div className="flex min-w-0 flex-col gap-1">
 				<h2
 					className={cn(
-						"text-md-on-surface font-serif",
+						"text-md-on-surface font-sans",
 						size === "lg"
 							? "text-headline-small font-semibold"
 							: "text-title-medium-emph",
