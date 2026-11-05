@@ -563,7 +563,7 @@ index.ts[EE4T]: F:默认主题定义：把 14 个内置插槽组件注册为 def
 ===/home/arcat/Develop/CallofGM/apps/client/src/themes/default/slots/===
 gm-admin-nav.tsx[EU4T]: F:默认 GM 导航轨：Logo+六项导航图标（active 用 primary-container 胶囊，aria-current）+底部 KP 头像与退出按钮 | R:code:apps/client/src/themes/runtime/theme-slot.tsx | A:导出 GmAdminNav | S:退出走 onLogout 回调，不直接调 API；active 与 GM 工具/阶段统一 moss primary，避免 teal secondary 泄漏
 gm-admin-shell.tsx[EU3T]: F:默认 GM 后台外壳：h-screen 横向排布 nav 与 content 两个节点 | R:- | A:导出 GmAdminShell | S:-
-gm-console-layout.tsx[EU3T]: F:默认 B2 GM 控制台布局：场景铺满全屏，顶部 64px 浮层放标题栏与居中工具坞，左右 clamp(248px,20vw,292px) 浮岛列，顶部渐变与连接横幅/浮层 | R:- | A:导出 GmConsoleLayout | S:舞台 absolute 铺底，topbar/dock 浮于上；栏宽 clamp 适配
+gm-console-layout.tsx[EU3T]: F:默认 B2 GM 控制台布局：场景铺满全屏，顶部 64px 浮层放标题栏与居中工具坞（窄屏下移），左右 clamp(248px,20vw,292px) 浮岛列，顶部渐变与连接横幅/浮层 | R:- | A:导出 GmConsoleLayout | S:舞台绝对铺底；工具坞<1280px 下移防遮挡顶栏控件；栏宽 clamp
 gm-console-stage.tsx[EU4T]: F:默认 B2 GM 舞台：复用 play.stage 桌面视口布局，以 CSS 变量让出左右侧栏，透传立绘/对话并忽略场景信息与音频 | R:code:apps/client/src/themes/default/slots/play-stage.tsx | A:导出 GmConsoleStage | S:左右内缩均取 calc(clamp(248px,20vw,292px)+24px)；不渲染 sceneInfo/audio 以免与 GM 顶栏和侧栏重叠
 join-header.tsx[EU3T]: F:默认入团页头部：状态徽标+标题+副标题，按加载中/已结束/无效链接切换文案 | R:code:apps/client/src/i18n/labels.ts | A:导出 JoinHeader | S:加载错误优先于已结束判定
 join-layout.tsx[EU3T]: F:默认入团页布局：纵向居中排列 header/notice/seats/spectator/action 五个节点 | R:- | A:导出 JoinLayout | S:-
