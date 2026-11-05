@@ -71,6 +71,11 @@ export abstract class RuleSystem<TSheet, TSessionState> {
 	): Promise<CharacterSheetPreview<TSheet>>;
 
 	abstract initializeSessionState(sheet: TSheet): TSessionState;
+	abstract readonly publicStateFields: readonly string[];
+	abstract projectPublicSessionState(
+		state: TSessionState,
+		fields: readonly string[],
+	): unknown;
 	abstract evaluateSkillCheck(
 		input: SkillCheckInput,
 		random: RandomSource,

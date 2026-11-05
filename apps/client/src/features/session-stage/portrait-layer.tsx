@@ -1,6 +1,5 @@
 import { t } from "@/i18n";
 import { mediaUrl } from "@/lib/api";
-import { parseCocState } from "@/lib/coc-live";
 import { cn } from "@/lib/utils";
 import { getRuleComponent } from "@/rules/registry";
 import { usePlayStore } from "@/stores/play-store";
@@ -10,43 +9,25 @@ function Bar({
 	label,
 	current,
 	max,
-	className,
-	dense = false,
+	barClassName,
 }: {
 	label: string;
 	current: number;
 	max: number;
-	className?: string;
-	dense?: boolean;
+	barClassName: string;
 }) {
 	const ratio = max > 0 ? Math.max(0, Math.min(100, (current / max) * 100)) : 0;
-	if (dense) {
-		return (
-			<div className="text-md-on-surface/80 flex items-center gap-1.5 text-label-small">
-				<span className="w-6 shrink-0">{label}</span>
-				<span className="bg-md-scrim/40 h-1 min-w-0 flex-1 overflow-hidden rounded-full">
-					<span
-						className={cn("block h-full rounded-full", className)}
-						style={{ width: `${ratio}%` }}
-					/>
-				</span>
-				<span className="shrink-0 tabular-nums">
-					{current}/{max}
-				</span>
-			</div>
-		);
-	}
 	return (
 		<div className="flex flex-col gap-0.5">
-			<div className="text-md-on-surface/80 flex justify-between text-label-small">
+			<div className="text-md-on-surface/85 flex items-baseline justify-between gap-2 text-label-small">
 				<span>{label}</span>
-				<span>
+				<span className="tabular-nums">
 					{current}/{max}
 				</span>
 			</div>
-			<div className="bg-md-scrim/40 h-1.5 overflow-hidden rounded-full">
+			<div className="bg-md-scrim/40 h-[3px] overflow-hidden rounded-full">
 				<div
-					className={cn("h-full rounded-full", className)}
+					className={cn("h-full rounded-full", barClassName)}
 					style={{ width: `${ratio}%` }}
 				/>
 			</div>
@@ -59,11 +40,13 @@ function PortraitLayer({
 	compact = false,
 	variant = "play",
 	showNameplate = true,
+	audience = "player",
 }: {
 	className?: string;
 	compact?: boolean;
 	variant?: "play" | "gm";
 	showNameplate?: boolean;
+	audience?: "player";
 }) {
 	const characters = usePlayStore((state) => state.characters);
 	const layout = usePlayStore((state) => state.portraitLayout);
@@ -112,7 +95,17 @@ function PortraitLayer({
 					) ??
 					portraits.find((item) => item.isDefault) ??
 					portraits[0];
-				const state = parseCocState(character.state);
+				const ruleComponent = getRuleComponent(character.ruleId);
+				const stateSource =
+					audience === "player" &&
+					character.kind === "npc" &&
+					character.publicState !== undefined
+						? character.publicState
+						: character.state;
+				const bars = ruleComponent.stateBars(stateSource);
+				const statusLabels = stateSource
+					? ruleComponent.statusLabelsOfState(stateSource)
+					: [];
 				const left = slots[index] ?? 50;
 				const speaking = !emphasizeSpeaker || character.name === latestSpeaker;
 				const depth = emphasizeSpeaker
@@ -180,64 +173,52 @@ function PortraitLayer({
 							</div>
 						)}
 						{showNameplate ? (
-							<div
-								className={cn(
-									"bg-md-surface-container-low/85 border border-md-outline-variant/40 shadow-card shrink-0 rounded-xl backdrop-blur-xl",
-									compact ? "w-28 px-2 py-1.5" : "w-40 px-2.5 py-2",
-								)}
-							>
+							<>
 								<div
 									className={cn(
-										"text-md-on-surface text-center",
-										compact
-											? "text-label-small-emph"
-											: "text-label-medium-emph",
+										"bg-md-surface-container-low/85 border border-md-outline-variant/40 shadow-card shrink-0 rounded-xl backdrop-blur-xl",
+										compact ? "px-2 py-1" : "px-2.5 py-1.5",
 									)}
 								>
-									{character.name}
-								</div>
-								{state ? (
-									<div
+									<span
 										className={cn(
-											"flex flex-col",
-											compact ? "mt-1 gap-0.5" : "mt-1.5 gap-1",
+											"text-md-on-surface block text-center",
+											compact
+												? "text-label-small-emph"
+												: "text-label-medium-emph",
 										)}
 									>
-										<Bar
-											label="HP"
-											current={state.hp}
-											max={state.maxHp}
-											className="bg-danger"
-											dense={compact}
-										/>
-										<Bar
-											label="MP"
-											current={state.mp}
-											max={state.maxMp}
-											className="bg-brand-sora"
-											dense={compact}
-										/>
-										<Bar
-											label="SAN"
-											current={state.san}
-											max={state.maxSan}
-											className="bg-brand-fuji"
-											dense={compact}
-										/>
-										{state.statuses.length > 0 ? (
-											<div className="text-warning text-label-small">
-												{getRuleComponent(character.ruleId)
-													.statusLabels(state.statuses)
-													.join(" ")}
+										{character.name}
+									</span>
+								</div>
+								{bars.length > 0 || statusLabels.length > 0 ? (
+									<div
+										className={cn(
+											"flex w-full max-w-40 flex-col",
+											compact ? "gap-1" : "gap-1.5",
+										)}
+									>
+										{bars.map((bar) => (
+											<Bar
+												key={bar.key}
+												label={bar.label}
+												current={bar.current}
+												max={bar.max}
+												barClassName={bar.barClassName}
+											/>
+										))}
+										{statusLabels.length > 0 ? (
+											<div className="text-warning text-center text-label-small">
+												{statusLabels.join(" ")}
 											</div>
 										) : null}
 									</div>
 								) : character.kind === "npc" ? (
-									<div className="text-foreground-tertiary text-center text-label-small">
+									<div className="text-md-on-surface/70 text-center text-label-small">
 										NPC
 									</div>
 								) : null}
-							</div>
+							</>
 						) : null}
 					</div>
 				);

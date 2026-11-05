@@ -54,6 +54,7 @@ export class Coc7eRuleSystem extends RuleSystem<
 	};
 	readonly characterSheetSchema = coc7e.Coc7eCharacterSheet;
 	readonly sessionStateSchema = coc7e.CharacterSessionState;
+	readonly publicStateFields = coc7e.CharacterPublicStateField.options;
 
 	createEmptySheet(): coc7e.Coc7eCharacterSheet {
 		return {
@@ -415,6 +416,46 @@ export class Coc7eRuleSystem extends RuleSystem<
 			...state,
 			hiddenGrowthMarks: [...state.hiddenGrowthMarks, skillKey],
 		});
+	}
+
+	projectPublicSessionState(
+		state: coc7e.CharacterSessionState,
+		fields: readonly string[],
+	): unknown {
+		const selected = [...new Set(fields)];
+		if (selected.length === 0) {
+			return null;
+		}
+		const invalid = selected.find(
+			(field) =>
+				!(
+					coc7e.CharacterPublicStateField.options as readonly string[]
+				).includes(field),
+		);
+		if (invalid !== undefined) {
+			throw new AppError(
+				"VALIDATION_FAILED",
+				`${invalid} is not a public state field of coc7e`,
+				400,
+			);
+		}
+		const projected: Record<string, unknown> = {};
+		if (selected.includes("hp")) {
+			projected.hp = state.hp;
+			projected.maxHp = state.maxHp;
+		}
+		if (selected.includes("mp")) {
+			projected.mp = state.mp;
+			projected.maxMp = state.maxMp;
+		}
+		if (selected.includes("san")) {
+			projected.san = state.san;
+			projected.maxSan = state.maxSan;
+		}
+		if (selected.includes("statuses")) {
+			projected.statuses = state.statuses;
+		}
+		return coc7e.CharacterPublicSessionState.parse(projected);
 	}
 
 	viewSessionState(

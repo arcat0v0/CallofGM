@@ -229,6 +229,43 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null;
 }
 
+function characterStatePatch(
+	state: PlayState,
+	payload: unknown,
+): Partial<PlayState> {
+	if (!isRecord(payload)) {
+		return {};
+	}
+	const characterId =
+		typeof payload.characterId === "string" ? payload.characterId : null;
+	if (!characterId) {
+		return {};
+	}
+	return {
+		characters: state.characters.map((character) =>
+			character.characterId === characterId
+				? {
+						...character,
+						state:
+							payload.state === undefined ? character.state : payload.state,
+						publicState:
+							payload.publicState === undefined
+								? character.publicState
+								: payload.publicState,
+						publicStateFields:
+							payload.publicStateFields === undefined
+								? character.publicStateFields
+								: Array.isArray(payload.publicStateFields)
+									? payload.publicStateFields.filter(
+											(field): field is string => typeof field === "string",
+										)
+									: undefined,
+					}
+				: character,
+		),
+	};
+}
+
 function appendMessage(
 	messages: ChatMessage[],
 	next: ChatMessage | null,
@@ -511,21 +548,19 @@ function applyEvent(
 			return { pendingChecks: [...state.pendingChecks, request] };
 		}
 		case "state:changed": {
-			const characterId =
-				typeof payload.characterId === "string" ? payload.characterId : null;
-			if (!characterId) {
+			const patch = characterStatePatch(state, payload);
+			if (Object.keys(patch).length === 0) {
 				return {};
 			}
-			const patch: Partial<PlayState> = {
-				characters: state.characters.map((character) =>
-					character.characterId === characterId
-						? { ...character, state: payload.state ?? character.state }
-						: character,
-				),
-			};
 			return state.viewer.isGm
 				? withActivityMessage(state, type, payload, eventId, occurredAt, patch)
 				: patch;
+		}
+		case "state:public-changed": {
+			return characterStatePatch(state, payload);
+		}
+		case "npc:state-visibility-changed": {
+			return characterStatePatch(state, payload);
 		}
 		case "state:hint": {
 			const characterId =

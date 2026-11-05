@@ -1077,6 +1077,10 @@ export const zhCN: Record<string, string> = {
 	"gm.workbench.npcRemoved": "已将 NPC 移出本团",
 	"gm.workbench.npcRemoveFailed": "移除 NPC 失败",
 	"gm.workbench.npcHidden": "已隐藏 · 状态仅你可见",
+	"gm.workbench.npcStateVisibility": "向玩家公开",
+	"gm.workbench.npcStateVisibilityHint":
+		"未勾选时状态仅你可见；勾选后玩家与 OB 可见所选项目",
+	"gm.workbench.npcPublicSummary": "公开 {items}",
 	"gm.workbench.expression": "当前表情",
 	"gm.workbench.editStateFor": "编辑 {name} 的团内状态",
 	"gm.workbench.editState": "团内状态",

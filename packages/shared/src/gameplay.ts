@@ -72,6 +72,14 @@ export type EditCharacterStateCommand = z.infer<
 	typeof EditCharacterStateCommand
 >;
 
+export const UpdateNpcStateVisibilityCommand = z.object({
+	characterId: z.string().min(1),
+	fields: z.array(z.string().min(1).max(32)).max(16).default([]),
+});
+export type UpdateNpcStateVisibilityCommand = z.infer<
+	typeof UpdateNpcStateVisibilityCommand
+>;
+
 // ---------- events & DTO ----------
 
 /** Event payload: dice:rolled */
@@ -122,9 +130,31 @@ export const CharacterStateChangedEvent = z.object({
 	characterId: z.string(),
 	kind: z.enum(["pc", "npc"]),
 	state: z.unknown(),
+	publicState: z.unknown().nullable().optional(),
+	publicStateFields: z.array(z.string()).optional(),
 	/** 阈值提示（如单次 SAN 损失 >= 5），仅随 gmOnly 事件携带 */
 	hints: z.array(z.string()).optional(),
 });
 export type CharacterStateChangedEvent = z.infer<
 	typeof CharacterStateChangedEvent
+>;
+
+export const CharacterPublicStateChangedEvent = z.object({
+	characterId: z.string(),
+	kind: z.enum(["pc", "npc"]),
+	state: z.unknown(),
+});
+export type CharacterPublicStateChangedEvent = z.infer<
+	typeof CharacterPublicStateChangedEvent
+>;
+
+export const NpcStateVisibilityChangedEvent = z.object({
+	characterId: z.string(),
+	kind: z.enum(["npc"]),
+	state: z.unknown(),
+	publicState: z.unknown().nullable(),
+	publicStateFields: z.array(z.string()),
+});
+export type NpcStateVisibilityChangedEvent = z.infer<
+	typeof NpcStateVisibilityChangedEvent
 >;

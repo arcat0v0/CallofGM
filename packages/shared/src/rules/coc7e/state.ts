@@ -35,6 +35,31 @@ export const CharacterSessionState = z.object({
 	hiddenGrowthMarks: z.array(z.string()).default([]),
 });
 
+export const CharacterPublicStateField = z.enum([
+	"hp",
+	"mp",
+	"san",
+	"statuses",
+]);
+export type CharacterPublicStateField = z.infer<
+	typeof CharacterPublicStateField
+>;
+
+export const CharacterPublicSessionState = z
+	.object({
+		hp: z.number().int().min(0).max(99).optional(),
+		maxHp: z.number().int().min(1).max(99).optional(),
+		mp: z.number().int().min(0).max(99).optional(),
+		maxMp: z.number().int().min(0).max(99).optional(),
+		san: z.number().int().min(0).max(99).optional(),
+		maxSan: z.number().int().min(0).max(99).optional(),
+		statuses: z.array(CharacterStatusFlag).optional(),
+	})
+	.strict();
+export type CharacterPublicSessionState = z.infer<
+	typeof CharacterPublicSessionState
+>;
+
 export const Coc7eStateEditInput = z.object({
 	hp: z.number().int().min(0).optional(),
 	maxHp: z.number().int().min(1).max(99).optional(),

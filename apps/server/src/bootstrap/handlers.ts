@@ -18,7 +18,7 @@ export function buildCommandHandlers(container: Container): CommandHandler[] {
 	return [
 		...createChatCommandHandlers(),
 		...createGameplayCommandHandlers(container.ruleRegistry),
-		...createStageCommandHandlers(),
+		...createStageCommandHandlers(container.ruleRegistry),
 		...createHandoutCommandHandlers(),
 		...createModerationCommandHandlers(),
 		...createHistoryCommandHandlers(),

@@ -28,6 +28,14 @@ export type RuleSessionState = {
 	hiddenGrowthMarks: string[];
 };
 
+export type RuleStateBar = {
+	key: string;
+	label: string;
+	current: number;
+	max: number;
+	barClassName: string;
+};
+
 export type RuleComponent = {
 	metadata: RuleMetadata;
 	createEmptySheet: () => unknown;
@@ -58,6 +66,8 @@ export type RuleComponent = {
 	parseState: (state: unknown) => RuleSessionState | null;
 	statusLabels: (statuses: string[]) => string[];
 	statusLabelsOfState: (state: unknown) => string[];
+	stateBars: (state: unknown) => RuleStateBar[];
+	publicStateOptions: () => Array<{ value: string; label: string }>;
 	statusOptions: () => Array<{ value: string; label: string }>;
 	skillCatalog: ReadonlyArray<{ key: string; base: number }>;
 	deriveStats: (sheet: unknown) => RuleDerivedStats;
@@ -68,6 +78,51 @@ const COC7E_STATUS_LABELS = coc7e.CharacterStatusFlagLabel as Record<
 	string,
 	string
 >;
+
+function coc7eStateView(state: unknown) {
+	const full = coc7e.CharacterSessionState.safeParse(state);
+	if (full.success) {
+		return full.data;
+	}
+	const partial = coc7e.CharacterPublicSessionState.safeParse(state);
+	return partial.success ? partial.data : null;
+}
+
+const coc7eStateBars = (state: unknown): RuleStateBar[] => {
+	const view = coc7eStateView(state);
+	if (!view) {
+		return [];
+	}
+	const bars: RuleStateBar[] = [];
+	if (view.hp !== undefined && view.maxHp !== undefined) {
+		bars.push({
+			key: "hp",
+			label: "HP",
+			current: view.hp,
+			max: view.maxHp,
+			barClassName: "bg-danger",
+		});
+	}
+	if (view.mp !== undefined && view.maxMp !== undefined) {
+		bars.push({
+			key: "mp",
+			label: "MP",
+			current: view.mp,
+			max: view.maxMp,
+			barClassName: "bg-brand-sora",
+		});
+	}
+	if (view.san !== undefined && view.maxSan !== undefined) {
+		bars.push({
+			key: "san",
+			label: "SAN",
+			current: view.san,
+			max: view.maxSan,
+			barClassName: "bg-brand-fuji",
+		});
+	}
+	return bars;
+};
 
 const coc7eComponent: RuleComponent = {
 	metadata: {
@@ -166,14 +221,18 @@ const coc7eComponent: RuleComponent = {
 	statusLabels: (statuses) =>
 		statuses.map((flag) => COC7E_STATUS_LABELS[flag] ?? flag),
 	statusLabelsOfState: (state) => {
-		const parsed = coc7e.CharacterSessionState.safeParse(state);
-		if (!parsed.success) {
-			return [];
-		}
-		return parsed.data.statuses.map(
+		const view = coc7eStateView(state);
+		return (view?.statuses ?? []).map(
 			(flag) => COC7E_STATUS_LABELS[flag] ?? flag,
 		);
 	},
+	stateBars: coc7eStateBars,
+	publicStateOptions: () => [
+		{ value: "hp", label: "HP" },
+		{ value: "mp", label: "MP" },
+		{ value: "san", label: "SAN" },
+		{ value: "statuses", label: "状态标记" },
+	],
 	statusOptions: () =>
 		Object.entries(COC7E_STATUS_LABELS).map(([value, label]) => ({
 			value,

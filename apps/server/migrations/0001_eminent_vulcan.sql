@@ -1,0 +1,1 @@
+ALTER TABLE `session_characters` ADD `public_state_fields_json` text DEFAULT '[]' NOT NULL;

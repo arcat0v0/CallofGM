@@ -4,6 +4,7 @@ export type VisibilityScope =
 	| { type: "public" }
 	| { type: "gmOnly" }
 	| { type: "pcPlayers" }
+	| { type: "playerOnly" }
 	| { type: "selectedPcIds"; pcIds: string[] }
 	| { type: "connectionOnly"; connectionId: string };
 
@@ -14,7 +15,7 @@ export function checkVisibility(
 	connectionId: string,
 ): boolean {
 	if (actor.type === "user" && actor.role === "gm") {
-		return true;
+		return scope.type !== "playerOnly";
 	}
 	switch (scope.type) {
 		case "public":
@@ -23,6 +24,8 @@ export function checkVisibility(
 			return false;
 		case "pcPlayers":
 			return claimedCharacterId !== null;
+		case "playerOnly":
+			return true;
 		case "selectedPcIds":
 			return (
 				claimedCharacterId !== null && scope.pcIds.includes(claimedCharacterId)

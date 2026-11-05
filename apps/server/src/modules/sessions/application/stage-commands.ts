@@ -4,10 +4,11 @@ import {
 	SetExpressionCommand,
 	SwitchSceneCommand,
 	UpdateBgmCommand,
+	UpdateNpcStateVisibilityCommand,
 	UpdateSessionSettingsCommand,
 	UpdateStageLayoutCommand,
 } from "@cogm/shared";
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { ExpressionNotFoundError } from "@/modules/chat";
 import { ForbiddenError } from "@/modules/identity";
 import type {
@@ -15,6 +16,7 @@ import type {
 	CommandHandlerContext,
 	CommandHandlerResult,
 } from "@/modules/realtime";
+import { CharacterNotNpcError } from "@/modules/sessions/domain/errors";
 import type { DbClient } from "@/platform/db/client";
 import {
 	characterPortraits,
@@ -25,6 +27,7 @@ import {
 	tracks,
 } from "@/platform/db/schema";
 import { AppError } from "@/platform/errors/app-error";
+import type { RuleRegistry } from "@/rules/registry";
 
 class SceneNotFoundError extends AppError {
 	constructor(message = "Scene not found in this module") {
@@ -499,7 +502,100 @@ export class UpdateSessionSettingsHandler implements CommandHandler {
 	}
 }
 
-export function createStageCommandHandlers(): CommandHandler[] {
+export class UpdateNpcStateVisibilityHandler implements CommandHandler {
+	readonly type = "npc:state-visibility" as const;
+
+	constructor(private readonly ruleRegistry: RuleRegistry) {}
+
+	async execute(
+		ctx: CommandHandlerContext,
+		payload: unknown,
+	): Promise<CommandHandlerResult> {
+		if (ctx.actor.type !== "user" || ctx.actor.role !== "gm") {
+			throw new ForbiddenError("Only the GM can change NPC state visibility");
+		}
+		const parsed = UpdateNpcStateVisibilityCommand.safeParse(payload);
+		if (!parsed.success) {
+			throw new AppError("VALIDATION_FAILED", parsed.error.message, 400);
+		}
+		const input = parsed.data;
+
+		const rows = await ctx.tx
+			.select()
+			.from(sessionCharacters)
+			.where(
+				and(
+					eq(sessionCharacters.sessionId, ctx.sessionId),
+					eq(sessionCharacters.characterId, input.characterId),
+					isNull(sessionCharacters.deletedAt),
+				),
+			);
+		const sessionCharacter = rows[0];
+		if (!sessionCharacter) {
+			throw new CharacterNotInSessionError();
+		}
+		if (sessionCharacter.kind !== "npc") {
+			throw new CharacterNotNpcError();
+		}
+
+		const rule = this.ruleRegistry.get(ctx.session.ruleId);
+		const stateParsed = rule.sessionStateSchema.safeParse(
+			JSON.parse(sessionCharacter.stateJson),
+		);
+		if (!stateParsed.success) {
+			throw new AppError("VALIDATION_FAILED", stateParsed.error.message, 400);
+		}
+		const fields = [...new Set(input.fields)];
+		const publicState = rule.projectPublicSessionState(
+			stateParsed.data,
+			fields,
+		);
+
+		await ctx.tx
+			.update(sessionCharacters)
+			.set({ publicStateFieldsJson: JSON.stringify(fields) })
+			.where(
+				and(
+					eq(sessionCharacters.sessionId, ctx.sessionId),
+					eq(sessionCharacters.characterId, input.characterId),
+				),
+			);
+
+		return {
+			events: [
+				{
+					type: "npc:state-visibility-changed",
+					payload: {
+						characterId: input.characterId,
+						kind: "npc",
+						state: rule.viewSessionState(stateParsed.data, { hidden: true }),
+						publicState,
+						publicStateFields: fields,
+					},
+					visibility: { type: "gmOnly" },
+				},
+				{
+					type: "state:public-changed",
+					payload: {
+						characterId: input.characterId,
+						kind: "npc",
+						state: publicState,
+					},
+					visibility: { type: "playerOnly" },
+				},
+			],
+			replyPayload: {
+				characterId: input.characterId,
+				publicStateFields: fields,
+				publicState,
+			},
+		};
+	}
+}
+
+export function createStageCommandHandlers(
+	ruleRegistry: RuleRegistry,
+): CommandHandler[] {
 	return [
 		new SwitchSceneHandler(),
 		new SetExpressionHandler(),
@@ -507,5 +603,6 @@ export function createStageCommandHandlers(): CommandHandler[] {
 		new UpdateBgmHandler(),
 		new PlaySeHandler(),
 		new UpdateSessionSettingsHandler(),
+		new UpdateNpcStateVisibilityHandler(ruleRegistry),
 	];
 }

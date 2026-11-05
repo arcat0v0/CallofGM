@@ -85,7 +85,7 @@ function PlayerStagePreview() {
 					sceneInfo: (
 						<ThemeSlot name="play.scene-info" ctx={{ variant: "desktop" }} />
 					),
-					portrait: <PortraitLayer />,
+					portrait: <PortraitLayer audience="player" />,
 					dialogue,
 					audio: <SceneAudioControl variant="desktop" />,
 				},

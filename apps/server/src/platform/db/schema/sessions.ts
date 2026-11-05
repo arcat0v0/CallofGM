@@ -59,6 +59,9 @@ export const sessionCharacters = sqliteTable(
 		baseProfileVersion: integer("base_profile_version").notNull(),
 		currentExpressionKey: text("current_expression_key"),
 		stateJson: text("state_json").notNull(),
+		publicStateFieldsJson: text("public_state_fields_json")
+			.notNull()
+			.default("[]"),
 		deletedAt: integer("deleted_at"),
 		createdAt: integer("created_at").notNull(),
 	},

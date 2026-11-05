@@ -298,7 +298,7 @@ export class BuildSessionSnapshotUseCase {
 		return role === "pc" ? "pc" : "ob";
 	}
 
-	/** 人物列表：NPC 团内状态仅 GM 可见，玩家/OB 收到 state=null */
+	/** 人物列表：PC 状态按既有设置可见，NPC 状态按服务端公开投影裁剪 */
 	private async buildCharacters(
 		sessionId: string,
 		ruleId: RuleId,
@@ -393,27 +393,45 @@ export class BuildSessionSnapshotUseCase {
 
 		return sessionChars.map((sc) => {
 			const kind = sc.kind === "npc" ? "npc" : "pc";
-			const stateVisible = isGm || (kind === "pc" && !obStateHidden);
 			let state: unknown = null;
-			if (stateVisible) {
-				try {
-					const parsed = ruleSystem.sessionStateSchema.safeParse(
-						JSON.parse(sc.stateJson),
+			let publicState: unknown = null;
+			let publicStateFields: string[] | undefined;
+			try {
+				const parsed = ruleSystem.sessionStateSchema.safeParse(
+					JSON.parse(sc.stateJson),
+				);
+				if (!parsed.success) {
+					console.error(
+						`[Snapshot] Invalid state JSON for character ${sc.characterId}:`,
+						parsed.error,
 					);
-					if (parsed.success) {
-						state = ruleSystem.viewSessionState(parsed.data, { hidden: isGm });
+				} else if (kind === "npc") {
+					const rawFields: unknown = JSON.parse(sc.publicStateFieldsJson);
+					publicStateFields = Array.isArray(rawFields)
+						? rawFields.filter(
+								(field): field is string => typeof field === "string",
+							)
+						: [];
+					if (isGm) {
+						state = ruleSystem.viewSessionState(parsed.data, { hidden: true });
+						publicState = ruleSystem.projectPublicSessionState(
+							parsed.data,
+							publicStateFields,
+						);
 					} else {
-						console.error(
-							`[Snapshot] Invalid state JSON for character ${sc.characterId}:`,
-							parsed.error,
+						state = ruleSystem.projectPublicSessionState(
+							parsed.data,
+							publicStateFields,
 						);
 					}
-				} catch (err) {
-					console.error(
-						`[Snapshot] Corrupted state JSON for character ${sc.characterId}:`,
-						err,
-					);
+				} else if (!obStateHidden) {
+					state = ruleSystem.viewSessionState(parsed.data, { hidden: isGm });
 				}
+			} catch (err) {
+				console.error(
+					`[Snapshot] Corrupted state JSON for character ${sc.characterId}:`,
+					err,
+				);
 			}
 
 			const claim = claimMap.get(sc.characterId) ?? null;
@@ -443,6 +461,12 @@ export class BuildSessionSnapshotUseCase {
 				ruleId: sc.ruleId,
 				currentExpressionKey: sc.currentExpressionKey ?? null,
 				state,
+				...(isGm && kind === "npc"
+					? {
+							publicState,
+							publicStateFields,
+						}
+					: {}),
 				portraits: portraitsByCharacter.get(sc.characterId) ?? [],
 				claim: claim
 					? {

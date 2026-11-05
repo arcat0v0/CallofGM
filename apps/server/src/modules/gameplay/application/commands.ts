@@ -10,6 +10,7 @@ import {
 	type RuleId,
 	type SessionPhase,
 } from "@cogm/shared";
+import { and, eq, isNull } from "drizzle-orm";
 import { CharacterNotFoundError } from "@/modules/characters";
 import { ForbiddenError } from "@/modules/identity";
 import type {
@@ -23,6 +24,7 @@ import {
 	SessionStateInvalidError,
 } from "@/modules/sessions";
 import type { DbClient } from "@/platform/db/client";
+import { sessionCharacters } from "@/platform/db/schema";
 import { AppError } from "@/platform/errors/app-error";
 import { validationFailed } from "@/platform/errors/validation";
 import {
@@ -100,6 +102,31 @@ async function loadCharacterContext(
 	return { character, sessionCharacter, rule, sheet, state };
 }
 
+async function loadNpcPublicStateFields(
+	tx: DbClient,
+	sessionId: string,
+	characterId: string,
+): Promise<string[]> {
+	const rows = await tx
+		.select({ fieldsJson: sessionCharacters.publicStateFieldsJson })
+		.from(sessionCharacters)
+		.where(
+			and(
+				eq(sessionCharacters.sessionId, sessionId),
+				eq(sessionCharacters.characterId, characterId),
+				isNull(sessionCharacters.deletedAt),
+			),
+		);
+	try {
+		const parsed: unknown = JSON.parse(rows[0]?.fieldsJson ?? "[]");
+		return Array.isArray(parsed)
+			? parsed.filter((field): field is string => typeof field === "string")
+			: [];
+	} catch {
+		return [];
+	}
+}
+
 /** 持久化新状态并生成 state:changed（PC 全员可见 / NPC 仅 GM）与 state:hint（仅 GM） */
 async function persistStateAndBuildEvents(
 	ctx: CommandHandlerContext,
@@ -118,6 +145,13 @@ async function persistStateAndBuildEvents(
 		JSON.stringify(newState),
 	);
 
+	const isNpc = kind === "npc";
+	const publicStateFields = isNpc
+		? await loadNpcPublicStateFields(ctx.tx, ctx.sessionId, characterId)
+		: [];
+	const publicState = isNpc
+		? rule.projectPublicSessionState(newState, publicStateFields)
+		: undefined;
 	const visibility = stateVisibilityScope(hidden, kind, obSeePcState);
 	const events: ProducedEvent[] = [
 		{
@@ -128,10 +162,27 @@ async function persistStateAndBuildEvents(
 				state: rule.viewSessionState(newState, {
 					hidden: visibility.type === "gmOnly",
 				}),
+				...(isNpc
+					? {
+							publicState,
+							publicStateFields,
+						}
+					: {}),
 			},
 			visibility,
 		},
 	];
+	if (isNpc && publicStateFields.length > 0) {
+		events.push({
+			type: "state:public-changed",
+			payload: {
+				characterId,
+				kind: "npc",
+				state: publicState,
+			},
+			visibility: { type: "playerOnly" },
+		});
+	}
 	if (hints.length > 0) {
 		events.push({
 			type: "state:hint",

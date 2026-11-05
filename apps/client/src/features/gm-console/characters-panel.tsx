@@ -13,6 +13,7 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { SegmentedControl } from "@/components/shared/segmented-control";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -40,10 +41,19 @@ import { GmPanelShell, GmSelectField, GmValueField } from "./gm-panel-fields";
 import { GmStateEditor } from "./gm-state-editor";
 
 function characterStatusLine(character: SnapshotCharacter): string {
-	const state = parseCocState(character.state);
 	const kind = character.kind === "pc" ? t("common.pc") : t("common.npc");
 	if (character.kind === "npc") {
-		return `${kind} · ${t("gm.workbench.npcHidden")}`;
+		const fields = character.publicStateFields ?? [];
+		if (fields.length === 0) {
+			return `${kind} · ${t("gm.workbench.npcHidden")}`;
+		}
+		const labels = getRuleComponent(character.ruleId)
+			.publicStateOptions()
+			.filter((option) => fields.includes(option.value))
+			.map((option) => option.label);
+		return `${kind} · ${t("gm.workbench.npcPublicSummary", {
+			items: labels.join(t("common.listSeparator")),
+		})}`;
 	}
 	const statuses = getRuleComponent(character.ruleId).statusLabelsOfState(
 		character.state,
@@ -396,6 +406,52 @@ function CharactersPanel({ onClose }: { onClose: () => void }) {
 													)}
 												</div>
 											) : null}
+											{character.kind === "npc" ? (
+												<div className="bg-md-surface-container-high/70 border-md-outline-variant/40 flex flex-col gap-2 rounded-2xl border px-3 py-2">
+													<div className="flex flex-col gap-0.5">
+														<span className="text-md-on-surface text-label-large-emph">
+															{t("gm.workbench.npcStateVisibility")}
+														</span>
+														<span className="text-md-on-surface-variant text-label-small">
+															{t("gm.workbench.npcStateVisibilityHint")}
+														</span>
+													</div>
+													<div className="flex flex-wrap gap-x-4 gap-y-2">
+														{getRuleComponent(character.ruleId)
+															.publicStateOptions()
+															.map((option) => {
+																const selected = new Set(
+																	character.publicStateFields ?? [],
+																);
+																return (
+																	<label
+																		key={option.value}
+																		htmlFor={`${character.characterId}-${option.value}`}
+																		className="text-md-on-surface flex h-7 cursor-pointer items-center gap-2 text-label-medium"
+																	>
+																		<Checkbox
+																			id={`${character.characterId}-${option.value}`}
+																			checked={selected.has(option.value)}
+																			disabled={ended}
+																			onCheckedChange={() => {
+																				const next = selected.has(option.value)
+																					? [...selected].filter(
+																							(value) => value !== option.value,
+																						)
+																					: [...selected, option.value];
+																				sendNpcVisibility(
+																					character.characterId,
+																					next,
+																				);
+																			}}
+																		/>
+																		{option.label}
+																	</label>
+																);
+															})}
+													</div>
+												</div>
+											) : null}
 											<div className="flex items-stretch gap-2">
 												{portraits.length > 0 ? (
 													<GmSelectField
@@ -550,6 +606,16 @@ function CharactersPanel({ onClose }: { onClose: () => void }) {
 
 function sendExpression(characterId: string, expressionKey: string) {
 	sendSessionCommand("expression:set", { characterId, expressionKey });
+}
+
+function sendNpcVisibility(characterId: string, fields: string[]) {
+	const sent = sendSessionCommand("npc:state-visibility", {
+		characterId,
+		fields,
+	});
+	if (!sent) {
+		toast.error(t("chat.notConnected"));
+	}
 }
 
 export { CharactersPanel };

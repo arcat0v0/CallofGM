@@ -49,11 +49,11 @@ CallofGM/
 - 每个团一个 topic：`session:{id}`。连接加入团即 `ws.subscribe`，广播用 `server.publish`。
 - **定向消息**（如秘密情报）不走 topic，服务端按连接注册表向可见者逐连接推送。
 - 消息信封：`{ eventId: number, type: string, payload: T }`，eventId 为团内单调递增序号。
-- 事件可见范围 `visibility` 四种以上：`public`（全员）、`gmOnly`（仅 GM）、`pcPlayers`（GM + 有 PC 席位的玩家，用于 OB 不可见但 PC 可见的状态同步）、`selectedPcIds`（指定 PC）与 `connectionOnly`（单连接）。投递、补发与快照共用同一套 `checkVisibility` 判定。
+- 事件可见范围 `visibility` 包括：`public`（全员）、`gmOnly`（仅 GM）、`pcPlayers`（GM + 有 PC 席位的玩家，用于 OB 不可见但 PC 可见的状态同步）、`playerOnly`（所有非 GM 连接，含 PC 与 OB）、`selectedPcIds`（指定 PC）与 `connectionOnly`（单连接）。投递、补发与快照共用同一套 `checkVisibility` 判定。
 - **断线补发**：服务端为每个进行中的团在内存维护一个环形事件日志（近 N 条），日志条目带可见范围（全体 / 指定 PC 集合 / GM + PC 席位）。客户端（partysocket 自动重连）重连时携带 `lastEventId`，服务端按请求者身份过滤后补发缺失事件；缺口超出日志范围则下发全量快照（团名与可见性设置、请求者身份 `viewer`（是否 GM、席位 PC/OB）、当前场景、在场立绘及表情、阶段、音频状态、对该玩家可见的情报及其已读状态、对该玩家可见的各角色团内状态与人物卡、待其响应的鉴定请求、最近聊天区时间线及回看游标、最近一次回溯提示 `lastRewind`）。
 - 新加入者直接走全量快照路径。
 - 团内 NPC 编组走 REST：`POST /api/v1/gm/sessions/:id/npcs` 校验 GM 所有权、`kind=npc` 与规则一致，未关联模组时自动关联后写入团内人物快照；`DELETE /api/v1/gm/sessions/:id/npcs/:characterId` 只软删该团内快照。两者成功后向全团发送 `session:refresh`，不删除人物本体与历史。
-- GM 舞台沿用 `play.stage` 的桌面视口布局，使立绘位置与玩家端一致；「玩家视角预览」复用同一舞台插槽但按模组 `themeId` 建立独立主题上下文，不改变 GM 界面主题。
+- GM 舞台沿用 `play.stage` 的桌面视口布局，使立绘位置与玩家端一致；「玩家视角预览」复用同一舞台插槽但按模组 `themeId` 建立独立主题上下文，不改变 GM 界面主题，NPC 状态使用服务端公开投影。
 - **聊天区时间线**：快照与回看共用同一条持久化时间线——已呈现的聊天消息（`session_messages`）与时间线活动事件（`session_history_events`，含掷骰/已完成鉴定、场景切换、阶段变化、情报发放、表情变化与回溯事件）按 `eventId` 升序合并（`packages/shared` 的 `HistoryItem`）。活动事件逐条按 `visibility` 与 `playerVisible` 过滤，状态变更仅 GM 历史可见。快照下发最近 50 条，并附游标 `history: { beforeEventId, hasMore }`。
 - **历史回看分页**：客户端以命令 `history:page`（`HistoryPageQuery { beforeEventId?, limit? }`，limit 默认 50、上限 100）请求更早的记录，回执在 `command:accepted` 的 `payload.history` 中返回 `{ items, hasMore, beforeEventId }`。`beforeEventId` 为排他上界，`hasMore=false` 时为 null。分页与实时事件共用同一套按请求者身份的可见性过滤（秘密/暗骰事件永不外泄，待呈现与已丢弃消息不进入时间线），因此 OB/GM/PC 各自看到同一位置的不同切片；玩家历史不按加入时间截断（含加入前的公开记录），不包含自己的待审/未通过发言与因回溯归档的内容；结团后该命令仍可用（只读回看）。
 
@@ -101,7 +101,8 @@ CallofGM/
 
 - 表 `session_character_state`：主键 `(sessionId, characterId)` + `state`（JSON）。`state` 的 schema 由团所属规则模块定义并校验（CoC 7e：`hp/maxHp/mp/maxMp/san/maxSan`、`statuses` 预置标记、`tags` 自定义标签、`growthMarks` 技能名列表）；团创建/PC 进团时由规则模块从人物卡推算初始化。
 - 所有变更（GM 编辑、理智检定扣减、鉴定引擎写成长标记）走服务端统一入口：写库 → 生成 `state:changed` 事件（带 eventId，进事件日志）→ 按可见性广播。伤害/损失越阈（重伤线、HP 归零、单次 SAN ≥ 5）时向 GM 附加提示，不自动挂状态。
-- 可见性：PC 状态事件默认广播全员；团级设置「OB 可见 PC 数值」关闭后改为 `pcPlayers` 作用域（GM + PC 席位玩家），OB 连接收不到 `state:changed`，快照中的 PC 状态也为 null。NPC 状态事件仅推送 GM（复用定向推送）。全量快照包含对请求者可见的全部角色状态。
+- 可见性：PC 状态事件默认广播全员；团级设置「OB 可见 PC 数值」关闭后改为 `pcPlayers` 作用域（GM + PC 席位玩家），OB 连接收不到 `state:changed`，快照中的 PC 状态也为 null。
+- NPC 状态按团内公开配置投影：GM 的 `state:changed` 保留完整状态并附带 `publicState` / `publicStateFields`；存在公开项时非 GM 连接收 `state:public-changed`（`playerOnly`，内容仅为投影）。快照使用同一投影：GM 附带公开视图，玩家与 OB 的 NPC `state` 为投影或 null。公开配置经 `npc:state-visibility` 修改，产生 GM 配置事件与玩家状态事件；玩家投影不进入历史或检查点，公开配置不参与回溯。全量快照包含对请求者可见的全部角色状态。
 - **暗骰作用域贯穿状态变更**：暗骰鉴定成功写入的成长标记记入 `hiddenGrowthMarks`，整次 `state:changed` / `state:hint` 仅发 GM；状态视图由规则模块按观察者裁剪（`viewSessionState`），玩家快照与广播都不含暗骰技能名。非暗骰状态变更保持公开。
 
 ## 音频同步（GM 控制）

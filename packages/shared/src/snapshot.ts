@@ -23,7 +23,7 @@ export const SnapshotPortrait = z.object({
 });
 export type SnapshotPortrait = z.infer<typeof SnapshotPortrait>;
 
-/** 快照中的团内人物条目。state 为规则专属 JSON；NPC 状态对玩家不可见时为 null。 */
+/** 快照中的团内人物条目。state 为按查看者裁剪后的规则专属 JSON；NPC 状态对玩家不可见时为 null。 */
 export const SnapshotCharacter = z.object({
 	characterId: z.string(),
 	name: z.string(),
@@ -31,6 +31,8 @@ export const SnapshotCharacter = z.object({
 	ruleId: z.string(),
 	currentExpressionKey: z.string().nullable(),
 	state: z.unknown().nullable(),
+	publicState: z.unknown().nullable().optional(),
+	publicStateFields: z.array(z.string()).optional(),
 	portraits: z.array(SnapshotPortrait).default([]),
 	claim: z
 		.object({
