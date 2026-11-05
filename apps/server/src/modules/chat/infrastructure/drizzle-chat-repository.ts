@@ -170,6 +170,7 @@ export class DrizzleChatRepository implements ChatRepository {
 				and(
 					eq(characterPortraits.characterId, characterId),
 					eq(characterPortraits.expressionKey, expressionKey),
+					isNull(characterPortraits.deletedAt),
 				),
 			);
 		return rows.length > 0;

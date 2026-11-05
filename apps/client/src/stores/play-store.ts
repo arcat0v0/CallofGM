@@ -354,13 +354,14 @@ function withActivityMessage(
 	eventId: number | undefined,
 	occurredAt: number | undefined,
 	patch: Partial<PlayState>,
+	characters: SnapshotCharacter[] = state.characters,
 ): Partial<PlayState> {
 	const message = mapActivityEvent(
 		type,
 		payload,
 		eventId ?? Date.now(),
 		occurredAt,
-		state.characters,
+		characters,
 	);
 	return message
 		? { ...patch, messages: appendMessage(state.messages, message) }
@@ -504,13 +505,20 @@ function applyEvent(
 			if (!characterId || !expressionKey) {
 				return {};
 			}
-			return withActivityMessage(state, type, payload, eventId, occurredAt, {
-				characters: state.characters.map((character) =>
-					character.characterId === characterId
-						? { ...character, currentExpressionKey: expressionKey }
-						: character,
-				),
-			});
+			const nextCharacters = state.characters.map((character) =>
+				character.characterId === characterId
+					? { ...character, currentExpressionKey: expressionKey }
+					: character,
+			);
+			return withActivityMessage(
+				state,
+				type,
+				payload,
+				eventId,
+				occurredAt,
+				{ characters: nextCharacters },
+				nextCharacters,
+			);
 		}
 		case "audio:bgm": {
 			const bgm = (payload.bgm ?? payload) as BgmState;

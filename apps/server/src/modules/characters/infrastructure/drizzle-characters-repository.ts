@@ -13,6 +13,7 @@ import {
 	moduleCharacters,
 	modules,
 	sessions as sessionsTable,
+	sessionCharacters,
 	users,
 } from "@/platform/db/schema";
 import type {
@@ -243,6 +244,22 @@ export class DrizzleCharactersRepository implements CharactersRepository {
 				asc(characterPortraits.createdAt),
 			);
 		return rows;
+	}
+
+	async resetSessionCharacterExpression(
+		characterId: string,
+		fromExpressionKey: string,
+		toExpressionKey: string | null,
+	): Promise<void> {
+		await this.db
+			.update(sessionCharacters)
+			.set({ currentExpressionKey: toExpressionKey })
+			.where(
+				and(
+					eq(sessionCharacters.characterId, characterId),
+					eq(sessionCharacters.currentExpressionKey, fromExpressionKey),
+				),
+			);
 	}
 
 	async findStagingById(id: string) {

@@ -292,9 +292,15 @@ export function mapActivityEvent(
 		const expressionKey =
 			typeof payload.expressionKey === "string" ? payload.expressionKey : "";
 		const characterName = characterNameOf(payload.characterId);
+		const label =
+			characterOf(payload.characterId)?.portraits?.find(
+				(portrait) => portrait.expressionKey === expressionKey,
+			)?.label ?? null;
 		return systemMessage(
 			characterName,
-			t("history.event.expression", { expression: expressionKey }),
+			t("history.event.expression", {
+				expression: expressionLabel(expressionKey || null, label),
+			}),
 			true,
 		);
 	}

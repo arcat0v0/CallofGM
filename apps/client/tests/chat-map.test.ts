@@ -222,16 +222,46 @@ describe("history activity mapping", () => {
 		expect(event?.anchorable).toBe(true);
 	});
 
-	test("expression changes resolve the character name from the roster", () => {
-		const event = mapActivityEvent(
+	test("expression changes resolve the display name from the roster portraits", () => {
+		const labeled = mapActivityEvent(
+			"expression:changed",
+			{ characterId: "c1", expressionKey: "smile" },
+			23,
+			1_700_000_000_023,
+			[
+				character({
+					portraits: [
+						{
+							expressionKey: "smile",
+							label: "微笑脸",
+							portraitAssetId: "asset-smile",
+							isDefault: true,
+							sortOrder: 0,
+						},
+					],
+				}),
+			],
+		);
+		expect(labeled?.speakerName).toBe("陈默");
+		expect(labeled?.body).toBe("表情切换为「微笑脸」");
+
+		const builtIn = mapActivityEvent(
 			"expression:changed",
 			{ characterId: "c1", expressionKey: "smile" },
 			23,
 			1_700_000_000_023,
 			[character()],
 		);
-		expect(event?.speakerName).toBe("陈默");
-		expect(event?.body).toBe("表情切换为「smile」");
+		expect(builtIn?.body).toBe("表情切换为「微笑」");
+
+		const unlabelled = mapActivityEvent(
+			"expression:changed",
+			{ characterId: "c1", expressionKey: "toast_glass" },
+			23,
+			1_700_000_000_023,
+			[character()],
+		);
+		expect(unlabelled?.body).toBe("表情切换为「toast_glass」");
 
 		const unknown = mapActivityEvent(
 			"expression:changed",
@@ -239,6 +269,7 @@ describe("history activity mapping", () => {
 			23,
 		);
 		expect(unknown?.speakerName).toBe("角色");
+		expect(unknown?.body).toBe("表情切换为「微笑」");
 
 		const messageTied = mapActivityEvent(
 			"expression:changed",

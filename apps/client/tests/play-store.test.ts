@@ -169,6 +169,47 @@ describe("play-store draft-loss and command rejection tracking", () => {
 		).toHaveLength(0);
 	});
 
+	test("expression changed activity resolves the label from the snapshot roster", () => {
+		usePlayStore.getState().applySnapshot(
+			{
+				...snapshotPayload,
+				characters: [
+					{
+						characterId: "c1",
+						name: "陈默",
+						kind: "pc",
+						ruleId: "coc7e",
+						currentExpressionKey: "smile",
+						state: null,
+						portraits: [
+							{
+								expressionKey: "smile",
+								label: "微笑脸",
+								portraitAssetId: "asset-smile",
+								isDefault: true,
+								sortOrder: 0,
+							},
+						],
+						claim: null,
+						sheet: null,
+					},
+				],
+			},
+			0,
+		);
+		usePlayStore.getState().applyMessage({
+			protocolVersion: 1,
+			eventId: 7,
+			type: "expression:changed",
+			occurredAt: 1_700_000_000_007,
+			payload: { characterId: "c1", expressionKey: "smile" },
+		});
+		const activity = usePlayStore
+			.getState()
+			.messages.find((message) => message.activityType === "expression:changed");
+		expect(activity?.body).toBe("表情切换为「微笑脸」");
+	});
+
 	test("reset clears lastRejection", () => {
 		usePlayStore.getState().applyMessage({
 			protocolVersion: 1,

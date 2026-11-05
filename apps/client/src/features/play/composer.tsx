@@ -61,7 +61,7 @@ function Composer({
 	const expressionOptions =
 		claimed?.portraits?.map((portrait) => ({
 			key: portrait.expressionKey,
-			label: expressionLabel(portrait.expressionKey),
+			label: expressionLabel(portrait.expressionKey, portrait.label ?? null),
 			src: mediaUrl(portrait.portraitAssetId),
 		})) ?? [];
 	const canExpress = Boolean(claimed && expressionOptions.length > 0);
@@ -203,7 +203,8 @@ function Composer({
 										className="text-md-on-surface-variant h-6 shrink-0 gap-1 rounded-full px-2 text-label-small"
 									>
 										<VenetianMask className="size-3.5" />
-										{expressionLabel(expression)}
+										{expressionOptions.find((opt) => opt.key === expression)
+											?.label ?? expressionLabel(expression)}
 									</Button>
 								</PopoverTrigger>
 								<PopoverContent align="start" side="top" className="w-72 p-3">
@@ -328,7 +329,8 @@ function Composer({
 								{tile.src ? (
 									<img
 										src={tile.src}
-										alt={tile.label}
+										alt=""
+										aria-hidden="true"
 										className="h-40 w-full object-contain"
 									/>
 								) : (

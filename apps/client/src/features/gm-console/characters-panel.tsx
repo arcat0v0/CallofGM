@@ -467,7 +467,10 @@ function CharactersPanel({ onClose }: { onClose: () => void }) {
 																key={portrait.expressionKey}
 																value={portrait.expressionKey}
 															>
-																{expressionLabel(portrait.expressionKey)}
+																{expressionLabel(
+																	portrait.expressionKey,
+																	portrait.label ?? null,
+																)}
 															</SelectItem>
 														))}
 													</GmSelectField>

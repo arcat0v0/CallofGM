@@ -21,6 +21,7 @@ export type Skill = { label: string; value: number; highlighted: boolean };
 export type CharacterPortrait = {
 	id?: string;
 	expressionKey: string;
+	label: string | null;
 	portraitAssetId: string;
 	isDefault: boolean;
 };
@@ -55,6 +56,7 @@ export function mapCharacterRow(row: CharacterRow): GameCharacter {
 	const portraits: CharacterPortrait[] = (row.portraits ?? []).map((item) => ({
 		id: item.id,
 		expressionKey: item.expressionKey,
+		label: item.label ?? null,
 		portraitAssetId: item.portraitAssetId,
 		isDefault: item.isDefault === 1,
 	}));
@@ -79,7 +81,9 @@ export function mapCharacterRow(row: CharacterRow): GameCharacter {
 		portrait: mediaUrl(defaultPortrait?.portraitAssetId) ?? undefined,
 		expressions:
 			portraits.length > 0
-				? portraits.map((item) => expressionLabel(item.expressionKey))
+				? portraits.map((item) =>
+						expressionLabel(item.expressionKey, item.label),
+					)
 				: [t("expression.default")],
 		portraits,
 		sheet,

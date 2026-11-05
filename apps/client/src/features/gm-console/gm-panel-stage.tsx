@@ -71,11 +71,17 @@ const SESSION_PHASES: Array<{ key: SessionPhase; icon: LucideIcon }> = [
 	{ key: "free_performance", icon: Speech },
 ];
 
-function queueContext(item: ChatMessageDto): string {
+function queueContext(
+	item: ChatMessageDto,
+	expressionName?: string | null,
+): string {
 	if (item.channel === "ooc") {
 		return `${speakerRoleLabelOf(item)} · ${t("gm.workbench.releaseToChat")}`;
 	}
-	return `${t("gm.workbench.roleplay")} · ${expressionLabel(item.expressionKey)}`;
+	return `${t("gm.workbench.roleplay")} · ${expressionLabel(
+		item.expressionKey,
+		expressionName,
+	)}`;
 }
 
 function PhaseCard() {
@@ -211,6 +217,7 @@ function QueueRow({
 	onReorder,
 	disabled = false,
 	drag,
+	expressionName,
 }: {
 	item: ChatMessageDto;
 	expanded: boolean;
@@ -218,9 +225,10 @@ function QueueRow({
 	onReorder: (direction: -1 | 1) => void;
 	disabled?: boolean;
 	drag?: QueueDragHandlers;
+	expressionName?: string | null;
 }) {
 	const name = speakerNameOf(item);
-	const context = queueContext(item);
+	const context = queueContext(item, expressionName);
 	const [rejectOpen, setRejectOpen] = useState(false);
 	const [reason, setReason] = useState("");
 
@@ -410,6 +418,7 @@ function QueueRow({
 function QueueCard({ className }: { className?: string }) {
 	const pending = usePlayStore((state) => state.pendingQueue);
 	const discarded = usePlayStore((state) => state.discardedQueue);
+	const characters = usePlayStore((state) => state.characters);
 	const ended = usePlayStore((state) => state.status === "ended");
 	const [expandedId, setExpandedId] = useState<string | null>(null);
 	const [showDiscarded, setShowDiscarded] = useState(false);
@@ -520,6 +529,14 @@ function QueueCard({ className }: { className?: string }) {
 						expanded={item.id === currentExpanded}
 						disabled={ended}
 						drag={dragHandlers(item)}
+						expressionName={
+							characters.find(
+								(character) => character.characterId === item.characterId,
+							)?.portraits?.find(
+								(portrait) =>
+									portrait.expressionKey === item.expressionKey,
+							)?.label ?? null
+						}
 						onToggle={() =>
 							setExpandedId(item.id === currentExpanded ? null : item.id)
 						}

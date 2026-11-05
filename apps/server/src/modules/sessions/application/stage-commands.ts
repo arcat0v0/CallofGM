@@ -173,6 +173,7 @@ export class SetExpressionHandler implements CommandHandler {
 				and(
 					eq(characterPortraits.characterId, characterId),
 					eq(characterPortraits.expressionKey, expressionKey),
+					isNull(characterPortraits.deletedAt),
 				),
 			);
 		if (portraitRows.length === 0) {
