@@ -8,6 +8,7 @@ import {
 	InputGroupAddon,
 	InputGroupInput,
 } from "@/components/ui/input-group";
+import { VersionBadge } from "@/features/version/version-badge";
 import { t, useI18nVersion } from "@/i18n";
 
 export const Route = createFileRoute("/")({
@@ -71,17 +72,20 @@ function HomePage() {
 				</Button>
 			</form>
 
-			<Button
-				asChild
-				variant="ghost"
-				size="sm"
-				className="text-foreground-secondary animate-in fade-in ease-standard-default-effects absolute bottom-6 delay-300 duration-300"
-			>
-				<Link to="/login">
-					<KeyRound className="text-foreground-tertiary" />
-					{t("home.accountEntry")}
-				</Link>
-			</Button>
+			<div className="animate-in fade-in ease-standard-default-effects absolute bottom-6 flex items-center gap-2 delay-300 duration-300">
+				<Button
+					asChild
+					variant="ghost"
+					size="sm"
+					className="text-foreground-secondary"
+				>
+					<Link to="/login">
+						<KeyRound className="text-foreground-tertiary" />
+						{t("home.accountEntry")}
+					</Link>
+				</Button>
+			</div>
+			<VersionBadge className="absolute bottom-6 left-6" />
 		</main>
 	);
 }

@@ -11,6 +11,7 @@ import {
 	InputGroupButton,
 	InputGroupInput,
 } from "@/components/ui/input-group";
+import { VersionBadge } from "@/features/version/version-badge";
 import { t, useI18nVersion } from "@/i18n";
 import { isApiError } from "@/lib/api";
 import { loginAccount } from "@/lib/identity";
@@ -69,7 +70,7 @@ function LoginPage() {
 	}
 
 	return (
-		<main className="bg-background grid min-h-dvh lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
+		<main className="bg-background relative grid min-h-dvh lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
 			<section className="bg-md-surface-container-low hidden flex-col justify-between p-12 lg:flex xl:p-16">
 				<div className="flex items-center gap-3">
 					<Logo className="size-10" />
@@ -217,6 +218,7 @@ function LoginPage() {
 					</div>
 				</div>
 			</section>
+			<VersionBadge className="absolute right-4 bottom-4" />
 		</main>
 	);
 }

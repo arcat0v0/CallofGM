@@ -23,6 +23,7 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { InviteLinksDialog } from "@/features/gm-admin/invite-links-dialog";
+import { VersionBadge } from "@/features/version/version-badge";
 import { t } from "@/i18n";
 import { sessionStatusLabel } from "@/i18n/labels";
 import { api } from "@/lib/api";
@@ -103,6 +104,7 @@ function GmTopBar() {
 			</div>
 
 			<div className="flex shrink-0 items-center gap-3">
+				<VersionBadge className="text-foreground-secondary" />
 				{status ? (
 					<Badge
 						variant="soft"

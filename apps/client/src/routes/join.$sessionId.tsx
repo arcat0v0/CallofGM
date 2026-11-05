@@ -4,6 +4,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Link2Off, LogIn, LogOut, RotateCw } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { VersionBadge } from "@/features/version/version-badge";
 import { t, useI18nVersion } from "@/i18n";
 import { api, isApiError } from "@/lib/api";
 import { initialsOf } from "@/lib/format";
@@ -380,6 +381,7 @@ function JoinPage() {
 					actions: { join: () => void handleJoin() },
 				}}
 			/>
+			<VersionBadge className="fixed bottom-3 left-3 z-20" />
 		</ThemeScope>
 	);
 }

@@ -1,0 +1,19 @@
+services:
+  cogm:
+    build:
+      context: .
+      args:
+        COGM_COMMIT: ${COGM_COMMIT:-unknown}
+        COGM_BUILD_TIME: ${COGM_BUILD_TIME:-}
+    image: cogm:local
+    restart: unless-stopped
+    ports:
+      - "15632:15632"
+    environment:
+      PORT: "15632"
+      NODE_ENV: production
+      DATABASE_URL: /app/data/db.sqlite
+      MEDIA_DIR: /app/data/media
+      THEMES_DIR: /app/data/themes
+    volumes:
+      - ./data:/app/data

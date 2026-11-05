@@ -19,4 +19,5 @@ export * from "./snapshot";
 export * from "./stage";
 export * from "./templates";
 export * from "./themes";
+export * from "./version";
 export * from "./websocket";
