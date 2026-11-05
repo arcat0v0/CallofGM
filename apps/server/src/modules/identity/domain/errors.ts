@@ -42,6 +42,12 @@ export class PlayerRequiredError extends AppError {
 	}
 }
 
+export class PlayerLoginRequiredError extends AppError {
+	constructor(message = "Sign in to claim a player character seat") {
+		super("PLAYER_LOGIN_REQUIRED", message, 401);
+	}
+}
+
 export class SessionExpiredError extends AppError {
 	constructor(message = "Session expired") {
 		super("SESSION_EXPIRED", message, 401);

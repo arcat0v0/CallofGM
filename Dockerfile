@@ -1,4 +1,6 @@
 FROM oven/bun:1.3.14 AS build
+ARG COGM_COMMIT=unknown
+ARG COGM_BUILD_TIME=
 WORKDIR /app
 COPY package.json bun.lock ./
 COPY apps/client/package.json apps/client/package.json
@@ -11,8 +13,10 @@ COPY . .
 RUN bun run build:client && bun run typecheck
 
 FROM oven/bun:1.3.14-slim AS runtime
+ARG COGM_COMMIT=unknown
+ARG COGM_BUILD_TIME=
 WORKDIR /app
-ENV NODE_ENV=production PORT=15632 DATABASE_URL=/app/data/db.sqlite MEDIA_DIR=/app/data/media THEMES_DIR=/app/data/themes
+ENV NODE_ENV=production PORT=15632 DATABASE_URL=/app/data/db.sqlite MEDIA_DIR=/app/data/media THEMES_DIR=/app/data/themes COGM_COMMIT=${COGM_COMMIT} COGM_BUILD_TIME=${COGM_BUILD_TIME}
 COPY --from=build /app/package.json /app/bun.lock ./
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/apps/server ./apps/server

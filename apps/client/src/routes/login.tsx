@@ -1,3 +1,4 @@
+import { LoginSearch, safeReturnTo, type UserRole } from "@cogm/shared";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, Eye, EyeOff, Lock, User } from "lucide-react";
 import type * as React from "react";
@@ -10,15 +11,17 @@ import {
 	InputGroupButton,
 	InputGroupInput,
 } from "@/components/ui/input-group";
+import { VersionBadge } from "@/features/version/version-badge";
 import { t, useI18nVersion } from "@/i18n";
 import { isApiError } from "@/lib/api";
 import { loginAccount } from "@/lib/identity";
 
 export const Route = createFileRoute("/login")({
+	validateSearch: (search) => LoginSearch.parse(search),
 	component: LoginPage,
 });
 
-function roleHome(role: string): string {
+function roleHome(role: UserRole): string {
 	if (role === "admin") {
 		return "/admin";
 	}
@@ -30,6 +33,8 @@ function roleHome(role: string): string {
 
 function LoginPage() {
 	useI18nVersion();
+	const search = Route.useSearch();
+	const returnTo = safeReturnTo(search.returnTo);
 	const [username, setUsername] = useState("");
 	const [password, setPassword] = useState("");
 	const [showPassword, setShowPassword] = useState(false);
@@ -46,6 +51,10 @@ function LoginPage() {
 		setError(null);
 		try {
 			const result = await loginAccount(username.trim(), password);
+			if (returnTo) {
+				await navigate({ href: returnTo });
+				return;
+			}
 			await navigate({ to: roleHome(result.role) });
 		} catch (cause) {
 			setError(
@@ -61,7 +70,7 @@ function LoginPage() {
 	}
 
 	return (
-		<main className="bg-background grid min-h-dvh lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
+		<main className="bg-background relative grid min-h-dvh lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
 			<section className="bg-md-surface-container-low hidden flex-col justify-between p-12 lg:flex xl:p-16">
 				<div className="flex items-center gap-3">
 					<Logo className="size-10" />
@@ -209,6 +218,7 @@ function LoginPage() {
 					</div>
 				</div>
 			</section>
+			<VersionBadge className="absolute right-4 bottom-4" />
 		</main>
 	);
 }

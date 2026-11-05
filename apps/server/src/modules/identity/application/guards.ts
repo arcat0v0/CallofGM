@@ -5,6 +5,7 @@ import {
 	AuthRequiredError,
 	ForbiddenError,
 	GmRequiredError,
+	PlayerLoginRequiredError,
 	PlayerRequiredError,
 } from "../domain/errors";
 
@@ -75,7 +76,10 @@ export function holderOfActor(actor: ActorContext): SeatHolderInput {
 		: { holderKind: "anonymous", userId: null, playerId: actor.playerId };
 }
 
-export function requireSeatHolder(actor: ActorContext | null): SeatHolderInput {
+export function requireSeatHolder(
+	actor: ActorContext | null,
+	options: { pc?: boolean } = {},
+): SeatHolderInput {
 	if (!actor) {
 		throw new AuthRequiredError();
 	}
@@ -84,6 +88,9 @@ export function requireSeatHolder(actor: ActorContext | null): SeatHolderInput {
 			throw new ForbiddenError("Administrators do not take seats");
 		}
 		return { holderKind: "user", userId: actor.userId, playerId: null };
+	}
+	if (options.pc) {
+		throw new PlayerLoginRequiredError();
 	}
 	return { holderKind: "anonymous", userId: null, playerId: actor.playerId };
 }

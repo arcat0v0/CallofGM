@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-10-31T08:30:28Z",
-  "updated_at": "2026-11-04T10:07:01Z",
+  "updated_at": "2026-11-04T17:00:03Z",
   "files": {
     ".dockerignore": {
       "role": "index",
@@ -47,9 +47,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "fdfb04214f22e79e4f8ca37a84923416530e57a7d13f35acfdf521f33635fe7e",
-      "size": 176205,
-      "normalized_sha256": "fdfb04214f22e79e4f8ca37a84923416530e57a7d13f35acfdf521f33635fe7e"
+      "sha256": "1fe1f4000b797933825967727b9f91ecb8b7c2254a7624a95290cdfd1b5f41ff",
+      "size": 176235,
+      "normalized_sha256": "1fe1f4000b797933825967727b9f91ecb8b7c2254a7624a95290cdfd1b5f41ff"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -1322,9 +1322,9 @@
     },
     "apps/client/src/themes/default/slots/gm-console-layout.tsx": {
       "role": "index",
-      "sha256": "06306d364220d63bdbb3636899367f39ea7354bd771e29849a441c593625d068",
-      "size": 929,
-      "normalized_sha256": "06306d364220d63bdbb3636899367f39ea7354bd771e29849a441c593625d068"
+      "sha256": "7c9bc4caf87e484fc9f7a60a44aceea7d996d95a37b5320baf3d210ac2b8f77f",
+      "size": 943,
+      "normalized_sha256": "7c9bc4caf87e484fc9f7a60a44aceea7d996d95a37b5320baf3d210ac2b8f77f"
     },
     "apps/client/src/themes/default/slots/gm-console-stage.tsx": {
       "role": "index",

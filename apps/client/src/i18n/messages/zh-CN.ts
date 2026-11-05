@@ -28,6 +28,26 @@ export const zhCN: Record<string, string> = {
 	"common.copied": "已复制{label}",
 	"common.copyFailed": "复制失败",
 
+	"version.trigger": "v{version}",
+	"version.title": "版本信息",
+	"version.description": "当前网页与后端的构建标识",
+	"version.client": "网页",
+	"version.server": "后端",
+	"version.commit": "提交",
+	"version.buildTime": "构建时间",
+	"version.serverUnknown": "后端未知",
+	"version.mismatch": "版本不一致",
+	"version.copyAll": "复制全部",
+	"version.copied": "版本信息已复制",
+	"version.copyFailed": "复制失败",
+	"version.report.clientVersion": "网页版本：{value}",
+	"version.report.clientCommit": "网页提交：{value}",
+	"version.report.clientBuildTime": "网页构建时间：{value}",
+	"version.report.serverVersion": "后端版本：{value}",
+	"version.report.serverCommit": "后端提交：{value}",
+	"version.report.serverBuildTime": "后端构建时间：{value}",
+	"version.report.serverUnknown": "后端版本：后端未知",
+
 	"pagination.aria": "分页",
 	"pagination.previous": "前往上一页",
 	"pagination.next": "前往下一页",
@@ -38,7 +58,7 @@ export const zhCN: Record<string, string> = {
 	"home.codeLabel": "团链接或编号",
 	"home.codePlaceholder": "输入团链接或编号…",
 	"home.enter": "进入",
-	"home.gmEntry": "主持人入口",
+	"home.accountEntry": "账号登录",
 
 	"rules.label": "规则系统",
 	"rules.hint": "创建后不可更改",
@@ -157,7 +177,7 @@ export const zhCN: Record<string, string> = {
 	"login.submit": "登录",
 	"login.pending": "登录中…",
 	"login.back": "返回入口",
-	"login.hint": "账号由管理员创建 · 玩家也可通过团链接直接进入",
+	"login.hint": "主持人、玩家与管理员使用同一登录入口，账号由管理员创建",
 	"login.failed": "登录失败",
 	"login.invalidCredentials": "用户名或密码不正确",
 
@@ -223,6 +243,8 @@ export const zhCN: Record<string, string> = {
 	"join.selectSeat": "请选择一个位置",
 	"join.bgmHint": "进入后将自动同步 GM 控制的 BGM 播放",
 	"join.claimFailed": "认领失败",
+	"join.loginRequired": "认领 PC 席位需要玩家账号，请先登录",
+	"join.loginToClaim": "登录并认领",
 	"join.leaveGmAndJoin": "退出主持登录并重试",
 	"join.loadFailed": "无法加载座位信息",
 	"join.chooseGroup": "选择玩家位置",
@@ -473,7 +495,8 @@ export const zhCN: Record<string, string> = {
 	"expressions.rename": "重命名「{name}」",
 	"expressions.renameFailed": "重命名失败",
 	"expressions.deleteTitle": "删除「{name}」",
-	"expressions.deleteDescription": "确定删除「{name}」吗？团内当前使用该表情的人物会回落到默认表情。",
+	"expressions.deleteDescription":
+		"确定删除「{name}」吗？团内当前使用该表情的人物会回落到默认表情。",
 	"expressions.deleteFailed": "删除失败",
 	"expressions.empty": "还没有表情立绘",
 
@@ -516,7 +539,8 @@ export const zhCN: Record<string, string> = {
 
 	"error.GM_PASSWORD_NOT_CONFIGURED": "尚未设置主持人密码，请先在服务端初始化",
 	"error.INVALID_CREDENTIALS": "密码不正确，请重新输入",
-	"error.AUTH_REQUIRED": "请先登录主持人账号",
+	"error.AUTH_REQUIRED": "请先登录账号",
+	"error.PLAYER_LOGIN_REQUIRED": "认领 PC 席位需要玩家账号，请先登录",
 	"error.GM_SESSION_ACTIVE":
 		"当前浏览器已登录主持人。请退出主持登录后以玩家身份加入，或使用无痕窗口打开邀请链接。",
 	"error.FORBIDDEN": "没有权限执行该操作",

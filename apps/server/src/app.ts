@@ -1,3 +1,4 @@
+import { VersionResponseSchema } from "@cogm/shared";
 import { Elysia } from "elysia";
 import { extname, resolve, sep } from "path";
 import type { Container } from "./bootstrap/container";
@@ -13,6 +14,7 @@ import { createSessionsRoutes } from "./modules/sessions";
 import { createTemplatesRoutes } from "./modules/templates";
 import { createThemeRoutes } from "./modules/themes";
 import { createUiSettingsRoutes } from "./modules/ui-settings";
+import { getServerBuildInfo } from "./platform/build-info";
 import { AppError } from "./platform/errors/app-error";
 import { logger } from "./platform/logging/logger";
 import { isAllowedOrigin } from "./platform/security/origin";
@@ -65,7 +67,11 @@ function applyCors(
 	}
 }
 
-export function createApp(container: Container) {
+export function createApp(
+	container: Container,
+	options: { serverBuildInfo?: ReturnType<typeof getServerBuildInfo> } = {},
+) {
+	const serverBuildInfo = options.serverBuildInfo ?? getServerBuildInfo();
 	const app = new Elysia()
 		.derive(({ request }) => {
 			const requestId =
@@ -147,6 +153,10 @@ export function createApp(container: Container) {
 		.use(createRulesRoutes(container))
 		.use(createTemplatesRoutes(container))
 		.use(createUiSettingsRoutes(container))
+		.get("/api/version", ({ set }) => {
+			set.headers["Cache-Control"] = "no-store";
+			return VersionResponseSchema.parse({ server: serverBuildInfo });
+		})
 		.get("/api/health/live", () => ({ status: "live" }))
 		.get("/api/health/ready", ({ set }) => {
 			if (

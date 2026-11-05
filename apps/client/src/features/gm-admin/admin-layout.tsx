@@ -11,6 +11,7 @@ import {
 	VenetianMask,
 } from "lucide-react";
 import type { ComponentType, ReactNode } from "react";
+import { VersionBadge } from "@/features/version/version-badge";
 import { t } from "@/i18n";
 import { logoutAccount } from "@/lib/identity";
 import { cn } from "@/lib/utils";
@@ -147,6 +148,7 @@ function AdminLayout({ children }: { children: ReactNode }) {
 				name="gm-admin.shell"
 				ctx={{ nodes: { nav, content }, view: { active: current } }}
 			/>
+			<VersionBadge className="fixed right-4 bottom-3 z-40" />
 		</GmThemeScope>
 	);
 }

@@ -636,7 +636,9 @@ export function createSessionsRoutes(container: Container) {
 				}
 				const claim = await claimSeat.execute({
 					sessionId: id,
-					holder: requireSeatHolder(actor),
+					holder: requireSeatHolder(actor, {
+						pc: result.data.role === "pc",
+					}),
 					role: result.data.role,
 					characterId: result.data.characterId,
 				});
