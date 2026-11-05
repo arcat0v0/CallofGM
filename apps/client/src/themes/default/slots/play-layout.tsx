@@ -24,7 +24,7 @@ function ExpandChatButton({
 				aria-label={t("play.expandChat")}
 				title={t("play.expandChat")}
 				className={cn(
-					"bg-md-surface-container-low/92 border border-md-outline-variant/40 text-md-on-surface-variant shadow-overlay animate-in fade-in rounded-full backdrop-blur-xl duration-350",
+					"stage-glass text-md-on-surface-variant shadow-overlay animate-in fade-in rounded-full duration-350",
 					compact ? "size-11 px-0" : "h-11 gap-2 px-4 text-label-large",
 				)}
 			>
@@ -46,7 +46,7 @@ export function PlayLayout({ viewport, nodes, view, actions }: PlayLayoutCtx) {
 				<div className="relative h-[clamp(280px,46dvh,430px)] w-full shrink-0 overflow-hidden rounded-xl">
 					{nodes.stage}
 				</div>
-				<div className="bg-md-surface-container-low border border-md-outline-variant/40 shadow-overlay relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl">
+				<div className="stage-glass shadow-overlay relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl">
 					{nodes.chat}
 					<div className="flex shrink-0 justify-center px-3 pb-1">
 						{nodes.dock}
@@ -68,7 +68,7 @@ export function PlayLayout({ viewport, nodes, view, actions }: PlayLayoutCtx) {
 				{nodes.connection}
 				<div className="absolute inset-0">{nodes.stage}</div>
 				{chatOpen ? (
-					<div className="bg-md-surface-container-low/92 border border-md-outline-variant/40 shadow-overlay animate-in fade-in absolute top-2 right-2 bottom-2 z-20 flex w-[300px] flex-col duration-350 ease-expressive-fast-effects overflow-hidden rounded-xl backdrop-blur-xl">
+					<div className="stage-glass shadow-overlay animate-in fade-in absolute top-2 right-2 bottom-2 z-20 flex w-[300px] flex-col duration-350 ease-expressive-fast-effects overflow-hidden rounded-xl">
 						{nodes.chat}
 						<div className="flex shrink-0 justify-center px-3 pb-1">
 							{nodes.dock}
@@ -104,7 +104,7 @@ export function PlayLayout({ viewport, nodes, view, actions }: PlayLayoutCtx) {
 				</div>
 			</div>
 			{chatOpen ? (
-				<div className="bg-md-surface-container-low/92 border border-md-outline-variant/40 shadow-overlay animate-in fade-in absolute top-4 right-4 bottom-4 z-20 flex w-[clamp(344px,26vw,400px)] flex-col duration-350 ease-expressive-fast-effects overflow-hidden rounded-xl backdrop-blur-xl">
+				<div className="stage-glass shadow-overlay animate-in fade-in absolute top-4 right-4 bottom-4 z-20 flex w-[clamp(344px,26vw,400px)] flex-col duration-350 ease-expressive-fast-effects overflow-hidden rounded-xl">
 					{nodes.chat}
 					{nodes.composer}
 				</div>

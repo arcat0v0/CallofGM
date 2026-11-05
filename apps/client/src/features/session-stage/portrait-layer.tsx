@@ -176,7 +176,7 @@ function PortraitLayer({
 							<>
 								<div
 									className={cn(
-										"bg-md-surface-container-low/85 border border-md-outline-variant/40 shadow-card shrink-0 rounded-xl backdrop-blur-xl",
+										"stage-glass shadow-card shrink-0 rounded-xl",
 										compact ? "px-2 py-1" : "px-2.5 py-1.5",
 									)}
 								>

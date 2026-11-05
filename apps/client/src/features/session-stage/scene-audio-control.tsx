@@ -23,7 +23,7 @@ function SceneAudioControl({ variant }: { variant: PlayViewport }) {
 					variant="tertiary"
 					size="icon-sm"
 					aria-label={label}
-					className="bg-md-surface-container-high/80 shrink-0 backdrop-blur"
+					className="stage-glass shrink-0"
 					onClick={() => setMuted(!muted)}
 				>
 					{muted ? (
@@ -36,7 +36,7 @@ function SceneAudioControl({ variant }: { variant: PlayViewport }) {
 					value={localVolume}
 					onChange={setLocalVolume}
 					compact
-					className="bg-stage-panel rounded-full px-2 backdrop-blur"
+					className="stage-glass rounded-full px-2"
 				/>
 			</div>
 		);

@@ -31,7 +31,7 @@ function SceneAudioStatus({
 	return (
 		<div
 			className={cn(
-				"bg-stage-panel flex items-center rounded-full backdrop-blur-lg",
+				"stage-glass flex items-center rounded-full",
 				compact
 					? "h-10 max-w-[min(288px,52%)] min-w-0 gap-2 px-2.5"
 					: showLocalVolume

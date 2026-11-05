@@ -366,6 +366,17 @@
     var(--color-md-surface) 80%,
     transparent
   );
+  --color-stage-glass: color-mix(
+    in srgb,
+    var(--color-md-surface-container-low) 72%,
+    transparent
+  );
+  --color-stage-glass-border: color-mix(
+    in srgb,
+    var(--color-md-outline-variant) 40%,
+    transparent
+  );
+  --blur-stage-glass: 24px;
   --color-dialogue-start: color-mix(
     in srgb,
     var(--color-md-surface-container-high) 90%,

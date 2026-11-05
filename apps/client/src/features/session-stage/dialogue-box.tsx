@@ -63,7 +63,7 @@ function DialogueBox({
 			</div>
 			<div
 				className={cn(
-					"shadow-dialogue border border-md-outline-variant/40 bg-md-surface-container-high/90 relative overflow-hidden rounded-2xl backdrop-blur-xl",
+					"stage-glass shadow-dialogue relative overflow-hidden rounded-2xl",
 					compact ? "px-4 pt-5 pb-3" : "px-6 pt-6 pb-4",
 				)}
 			>

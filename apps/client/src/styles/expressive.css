@@ -1,3 +1,10 @@
+@utility stage-glass {
+	background-color: var(--color-stage-glass);
+	border: 1px solid var(--color-stage-glass-border);
+	-webkit-backdrop-filter: blur(var(--blur-stage-glass));
+	backdrop-filter: blur(var(--blur-stage-glass));
+}
+
 @layer utilities {
 	:root,
 	[data-motion="standard"] {
@@ -481,6 +488,11 @@
 			m3-surface-in var(--duration-standard-fast-spatial) var(--m3-spatial-fast),
 			m3-fade-in var(--duration-standard-fast-effects)
 			var(--ease-standard-fast-effects);
+	}
+	[data-button].stage-glass:not(:disabled),
+	[data-slot="popover-content"].stage-glass {
+		background: var(--color-stage-glass);
+		border-color: var(--color-stage-glass-border);
 	}
 	:is(
 		[data-slot="dropdown-menu-content"],

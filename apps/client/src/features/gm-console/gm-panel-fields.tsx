@@ -32,7 +32,7 @@ function GmPanelShell({
 			role="region"
 			aria-label={title}
 			className={cn(
-				"bg-md-surface-container animate-in fade-in slide-in-from-top-2 shadow-overlay flex max-h-[calc(100dvh_-_220px)] w-[584px] flex-col gap-3 overflow-hidden rounded-xl border border-md-outline-variant/35 p-5 duration-350 ease-standard-default-spatial 2xl:gap-4 2xl:p-6",
+				"stage-glass animate-in fade-in slide-in-from-top-2 shadow-overlay flex max-h-[calc(100dvh_-_220px)] w-[584px] flex-col gap-3 overflow-hidden rounded-xl p-5 duration-350 ease-standard-default-spatial 2xl:gap-4 2xl:p-6",
 				className,
 			)}
 		>

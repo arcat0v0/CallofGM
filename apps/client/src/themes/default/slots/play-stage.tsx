@@ -12,7 +12,9 @@ export function PlayStage({ viewport, view, nodes }: PlayStageCtx) {
 				<SceneBackdrop src={src} alt={alt} />
 				<div className="from-stage-scrim-strong pointer-events-none absolute inset-x-0 top-0 h-32 bg-linear-to-b to-transparent" />
 				<div className="absolute inset-x-0 top-0 z-40 flex items-start justify-between gap-2 px-3.5 pt-2">
-					<div className="min-w-0">{nodes.sceneInfo}</div>
+					<div className="stage-glass shadow-card min-w-0 rounded-xl px-3 py-2">
+						{nodes.sceneInfo}
+					</div>
 					<div className="flex shrink-0 items-center gap-2">{nodes.audio}</div>
 				</div>
 				{nodes.portrait}
@@ -30,7 +32,9 @@ export function PlayStage({ viewport, view, nodes }: PlayStageCtx) {
 				<div className="from-stage-scrim-strong pointer-events-none absolute inset-x-0 top-0 h-24 bg-linear-to-b to-transparent" />
 				<div className="absolute inset-0 right-[var(--play-chat-inset,0px)] left-[var(--play-stage-left-inset,0px)] transition-[left,right] duration-500 ease-expressive-default-spatial">
 					<div className="absolute inset-x-0 top-0 z-40 flex h-12 items-center justify-between gap-2 px-3">
-						<div className="min-w-0">{nodes.sceneInfo}</div>
+						<div className="stage-glass shadow-card min-w-0 rounded-xl px-3 py-1.5">
+							{nodes.sceneInfo}
+						</div>
 						<div className="flex shrink-0 items-center gap-2">
 							{nodes.audio}
 						</div>
@@ -56,7 +60,7 @@ export function PlayStage({ viewport, view, nodes }: PlayStageCtx) {
 			<div className="absolute inset-0 right-[var(--play-chat-inset,0px)] left-[var(--play-stage-left-inset,0px)] transition-[left,right] duration-500 ease-expressive-default-spatial">
 				<div className="absolute top-5 left-6 z-40 flex flex-col items-start gap-2.5">
 					{nodes.sceneInfo ? (
-						<div className="bg-md-surface-container-low/72 border border-md-outline-variant/40 shadow-card rounded-xl px-4 py-2.5 backdrop-blur-xl">
+						<div className="stage-glass shadow-card rounded-xl px-4 py-2.5">
 							{nodes.sceneInfo}
 						</div>
 					) : null}

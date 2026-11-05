@@ -181,7 +181,7 @@ function PlayerActionDock({ variant }: { variant: PlayViewport }) {
 						align="center"
 						side="bottom"
 						sideOffset={12}
-						className="bg-md-surface-container-low border-md-outline-variant/40 shadow-overlay w-[400px] rounded-xl border p-4"
+						className="stage-glass shadow-overlay w-[400px] rounded-xl p-4"
 					>
 						<div className="flex flex-col gap-3">
 							<PanelHeading
@@ -235,7 +235,7 @@ function PlayerActionDock({ variant }: { variant: PlayViewport }) {
 						align="end"
 						side="bottom"
 						sideOffset={10}
-						className="w-64 p-0"
+						className="stage-glass w-64 p-0"
 					>
 						<div className="flex max-h-[min(50dvh,320px)] flex-col">
 							<p className="text-label-medium-emph px-4 pt-4 pb-2">
@@ -264,7 +264,7 @@ function PlayerActionDock({ variant }: { variant: PlayViewport }) {
 						align="end"
 						side="bottom"
 						sideOffset={12}
-						className="bg-md-surface-container-low border-md-outline-variant/40 shadow-overlay w-[300px] rounded-xl border p-3"
+						className="stage-glass shadow-overlay w-[300px] rounded-xl p-3"
 					>
 						<div className="flex flex-col gap-1">
 							<PanelHeading
