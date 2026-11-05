@@ -36,7 +36,7 @@ function NotFoundPage() {
 				<Button asChild variant="tertiary" className="h-12 px-6">
 					<Link to="/login">
 						<KeyRound />
-						{t("home.gmEntry")}
+						{t("home.accountEntry")}
 					</Link>
 				</Button>
 			</div>

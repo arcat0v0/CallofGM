@@ -54,6 +54,7 @@ export async function loginAccount(
 		method: "POST",
 		body: JSON.stringify({ username, password }),
 	});
+	resetPlayerIdentityCache();
 	useIdentityStore.getState().setAccount({
 		userId: result.userId,
 		username: result.username,
@@ -66,6 +67,7 @@ export async function logoutAccount(): Promise<void> {
 	try {
 		await api("/auth/logout", { method: "POST" });
 	} finally {
+		resetPlayerIdentityCache();
 		useIdentityStore.getState().setAccount(null);
 	}
 }

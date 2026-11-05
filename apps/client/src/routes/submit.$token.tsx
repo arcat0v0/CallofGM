@@ -1,5 +1,10 @@
-import type { CharacterInviteInfoResponse } from "@cogm/shared";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { type CharacterInviteInfoResponse, safeReturnTo } from "@cogm/shared";
+import {
+	createFileRoute,
+	isRedirect,
+	redirect,
+	useNavigate,
+} from "@tanstack/react-router";
 import { CheckCircle2, Link2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -15,12 +20,25 @@ import { t, useI18nVersion } from "@/i18n";
 import { api, isApiError } from "@/lib/api";
 import { errorText } from "@/lib/errors";
 import { formatStamp } from "@/lib/format";
-import { fetchAccountMe, requireAccount } from "@/lib/identity";
+import { requireAccount } from "@/lib/identity";
 import { cn } from "@/lib/utils";
 import { getRuleComponent } from "@/rules/registry";
 
 export const Route = createFileRoute("/submit/$token")({
-	beforeLoad: () => requireAccount(["pl"]),
+	beforeLoad: async ({ params }) => {
+		const account = await requireAccount(["pl"]).catch((error) => {
+			if (isRedirect(error)) {
+				throw redirect({
+					to: "/login",
+					search: {
+						returnTo: safeReturnTo(`/submit/${params.token}`) ?? undefined,
+					},
+				});
+			}
+			throw error;
+		});
+		return account;
+	},
 	component: SubmitPage,
 });
 
@@ -54,10 +72,6 @@ function SubmitPage() {
 	useEffect(() => {
 		void load();
 	}, [load]);
-
-	useEffect(() => {
-		void fetchAccountMe();
-	}, []);
 
 	async function submit() {
 		if (pending) {

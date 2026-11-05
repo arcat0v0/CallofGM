@@ -79,7 +79,7 @@ function HomePage() {
 			>
 				<Link to="/login">
 					<KeyRound className="text-foreground-tertiary" />
-					{t("home.gmEntry")}
+					{t("home.accountEntry")}
 				</Link>
 			</Button>
 		</main>

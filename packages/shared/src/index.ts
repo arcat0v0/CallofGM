@@ -7,6 +7,7 @@ export * from "./gameplay";
 export * from "./handouts";
 export * from "./history";
 export * from "./identity";
+export * from "./login";
 export * from "./media";
 export * from "./moderation";
 export * from "./pagination";

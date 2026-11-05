@@ -1,3 +1,4 @@
+import { LoginSearch, safeReturnTo, type UserRole } from "@cogm/shared";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, Eye, EyeOff, Lock, User } from "lucide-react";
 import type * as React from "react";
@@ -15,10 +16,11 @@ import { isApiError } from "@/lib/api";
 import { loginAccount } from "@/lib/identity";
 
 export const Route = createFileRoute("/login")({
+	validateSearch: (search) => LoginSearch.parse(search),
 	component: LoginPage,
 });
 
-function roleHome(role: string): string {
+function roleHome(role: UserRole): string {
 	if (role === "admin") {
 		return "/admin";
 	}
@@ -30,6 +32,8 @@ function roleHome(role: string): string {
 
 function LoginPage() {
 	useI18nVersion();
+	const search = Route.useSearch();
+	const returnTo = safeReturnTo(search.returnTo);
 	const [username, setUsername] = useState("");
 	const [password, setPassword] = useState("");
 	const [showPassword, setShowPassword] = useState(false);
@@ -46,6 +50,10 @@ function LoginPage() {
 		setError(null);
 		try {
 			const result = await loginAccount(username.trim(), password);
+			if (returnTo) {
+				await navigate({ href: returnTo });
+				return;
+			}
 			await navigate({ to: roleHome(result.role) });
 		} catch (cause) {
 			setError(

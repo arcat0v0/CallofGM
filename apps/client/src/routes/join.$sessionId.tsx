@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { t, useI18nVersion } from "@/i18n";
 import { api, isApiError } from "@/lib/api";
 import { initialsOf } from "@/lib/format";
-import { ensurePlayer, logoutAccount } from "@/lib/identity";
+import { ensurePlayer, fetchAccountMe, logoutAccount } from "@/lib/identity";
 import { cn } from "@/lib/utils";
 import { ThemeScope } from "@/themes/runtime/theme-scope";
 import { ThemeSlot } from "@/themes/runtime/theme-slot";
@@ -56,6 +56,8 @@ function JoinPage() {
 	const [joining, setJoining] = useState(false);
 	const [loadError, setLoadError] = useState<string | null>(null);
 	const [loadErrorCode, setLoadErrorCode] = useState<string | null>(null);
+	const [requiresLogin, setRequiresLogin] = useState(false);
+	const [accountRole, setAccountRole] = useState<string | null>(null);
 	const [leavingGm, setLeavingGm] = useState(false);
 	const [reloadToken, setReloadToken] = useState(0);
 
@@ -66,7 +68,16 @@ function JoinPage() {
 		setLoadErrorCode(null);
 		void (async () => {
 			try {
-				await ensurePlayer();
+				const account = await fetchAccountMe();
+				if (!cancelled) {
+					setAccountRole(account?.role ?? null);
+				}
+				if (account?.role !== "pl") {
+					await ensurePlayer();
+				}
+				if (cancelled) {
+					return;
+				}
 				const info = await fetchJoinInfo(sessionId);
 				if (cancelled) {
 					return;
@@ -83,6 +94,7 @@ function JoinPage() {
 				setModuleName(info.session.moduleName);
 				setSessionName(info.session.name);
 				setThemeId(info.session.themeId);
+				setRequiresLogin(info.requiresLogin);
 				if (info.session.status === "ended") {
 					setSelectedId(OB_SEAT_ID);
 				} else {
@@ -108,6 +120,9 @@ function JoinPage() {
 	}, [sessionId, reloadToken]);
 
 	const isEnded = status === "ended";
+	const loginRequired =
+		loadErrorCode === "PLAYER_LOGIN_REQUIRED" ||
+		(requiresLogin && !isEnded && accountRole !== "pl");
 
 	const cardSeats: JoinSeatView[] = pcSeats.map((seat) => ({
 		id: seat.id,
@@ -133,9 +148,21 @@ function JoinPage() {
 		if (joining) {
 			return;
 		}
+		if (
+			!isEnded &&
+			selectedSeat?.kind === "character" &&
+			accountRole !== "pl"
+		) {
+			setLoadError(t("join.loginRequired"));
+			setLoadErrorCode("PLAYER_LOGIN_REQUIRED");
+			return;
+		}
 		setJoining(true);
 		try {
-			await ensurePlayer();
+			const account = await fetchAccountMe();
+			if (account?.role !== "pl") {
+				await ensurePlayer();
+			}
 			const claimPayload =
 				isEnded || selectedSeat?.kind === "spectator"
 					? { role: "ob" as const }
@@ -146,8 +173,15 @@ function JoinPage() {
 			});
 			await navigate({ to: "/play/$sessionId", params: { sessionId } });
 		} catch (error) {
-			setLoadError(isApiError(error) ? error.message : t("join.claimFailed"));
-			setLoadErrorCode(isApiError(error) ? error.code : null);
+			const code = isApiError(error) ? error.code : null;
+			setLoadError(
+				code === "PLAYER_LOGIN_REQUIRED"
+					? t("join.loginRequired")
+					: isApiError(error)
+						? error.message
+						: t("join.claimFailed"),
+			);
+			setLoadErrorCode(code);
 		} finally {
 			setJoining(false);
 		}
@@ -159,7 +193,12 @@ function JoinPage() {
 		}
 		setLeavingGm(true);
 		try {
-			await logoutAccount().catch(() => undefined);
+			const account = await fetchAccountMe();
+			if (account) {
+				await logoutAccount().catch(() => undefined);
+				setAccountRole(null);
+				await ensurePlayer();
+			}
 			setLoadError(null);
 			setLoadErrorCode(null);
 			setReloadToken((token) => token + 1);
@@ -182,23 +221,30 @@ function JoinPage() {
 		/>
 	);
 
-	const notice = loadError ? (
-		<div className="animate-in fade-in slide-in-from-bottom-4 ease-expressive-default-spatial flex flex-col items-center gap-4 duration-500">
-			<div className="bg-md-error-container text-md-on-error-container flex size-16 items-center justify-center rounded-t-full rounded-b-xl">
-				<Link2Off className="size-7" />
+	const notice =
+		loginRequired && !loadError ? (
+			<div className="bg-md-surface-container-low flex max-w-md flex-col items-center gap-2 rounded-2xl px-6 py-5 text-center">
+				<span className="text-body-medium text-foreground-secondary">
+					{t("join.loginRequired")}
+				</span>
 			</div>
-			<p className="text-danger text-body-medium text-center">{loadError}</p>
-		</div>
-	) : isEnded ? (
-		<div className="bg-md-surface-container-low animate-in fade-in slide-in-from-bottom-4 ease-expressive-default-spatial flex max-w-md flex-col items-center gap-2 rounded-2xl px-6 py-5 text-center duration-500">
-			<span className="text-body-medium text-foreground-secondary">
-				{t("join.seatsClosed")}
-			</span>
-			<span className="text-body-small text-foreground-tertiary">
-				{t("join.seatsClosedDescription")}
-			</span>
-		</div>
-	) : null;
+		) : loadError ? (
+			<div className="animate-in fade-in slide-in-from-bottom-4 ease-expressive-default-spatial flex flex-col items-center gap-4 duration-500">
+				<div className="bg-md-error-container text-md-on-error-container flex size-16 items-center justify-center rounded-t-full rounded-b-xl">
+					<Link2Off className="size-7" />
+				</div>
+				<p className="text-danger text-body-medium text-center">{loadError}</p>
+			</div>
+		) : isEnded ? (
+			<div className="bg-md-surface-container-low animate-in fade-in slide-in-from-bottom-4 ease-expressive-default-spatial flex max-w-md flex-col items-center gap-2 rounded-2xl px-6 py-5 text-center duration-500">
+				<span className="text-body-medium text-foreground-secondary">
+					{t("join.seatsClosed")}
+				</span>
+				<span className="text-body-small text-foreground-tertiary">
+					{t("join.seatsClosedDescription")}
+				</span>
+			</div>
+		) : null;
 
 	const seatNodes = loading ? (
 		<p className="text-foreground-tertiary text-body-medium">
@@ -231,7 +277,7 @@ function JoinPage() {
 	);
 
 	const spectator =
-		!loading && !loadError && !isEnded ? (
+		!loading && !loadError && !loginRequired && !isEnded ? (
 			<div className="animate-in fade-in slide-in-from-bottom-4 duration-500 ease-expressive-default-spatial fill-mode-backwards delay-225 flex w-full justify-center">
 				<ThemeSlot
 					name="join.seat-card"
@@ -246,7 +292,19 @@ function JoinPage() {
 			</div>
 		) : null;
 
-	const action = loadError ? (
+	const action = loginRequired ? (
+		<div className="animate-in fade-in slide-in-from-bottom-4 ease-expressive-default-spatial flex flex-wrap items-center justify-center gap-2 duration-500">
+			<Button asChild variant="primary" size="lg">
+				<Link to="/login" search={{ returnTo: `/join/${sessionId}` }}>
+					<LogIn className="size-4" />
+					{t("join.loginToClaim")}
+				</Link>
+			</Button>
+			<Button asChild variant="tertiary" size="lg">
+				<Link to="/">{t("play.returnEntry")}</Link>
+			</Button>
+		</div>
+	) : loadError ? (
 		<div className="animate-in fade-in slide-in-from-bottom-4 ease-expressive-default-spatial flex flex-wrap items-center justify-center gap-2 duration-500">
 			{loadErrorCode === "GM_SESSION_ACTIVE" ? (
 				<Button
@@ -304,7 +362,7 @@ function JoinPage() {
 					nodes: {
 						header,
 						notice,
-						seats: loadError || isEnded ? null : seatNodes,
+						seats: loadError || loginRequired || isEnded ? null : seatNodes,
 						spectator,
 						action,
 					},
@@ -317,7 +375,7 @@ function JoinPage() {
 						joining,
 						selectedName: selectedSeat?.name ?? null,
 						ended: isEnded,
-						loadError,
+						loadError: loginRequired ? t("join.loginRequired") : loadError,
 					},
 					actions: { join: () => void handleJoin() },
 				}}
