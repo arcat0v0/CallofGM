@@ -92,14 +92,25 @@ export function CharacterProfileEditorDialog({
 
 	return (
 		<Dialog open={open} onOpenChange={(next) => (next ? undefined : onClose())}>
-			<DialogContent className="max-w-2xl">
-				<DialogHeader>
+			<DialogContent
+				className="flex max-h-[calc(100dvh-2rem)] max-w-2xl flex-col gap-0 overflow-hidden p-0"
+				onEscapeKeyDown={(event) => {
+					const active = document.activeElement;
+					if (
+						active instanceof HTMLElement &&
+						active.dataset.slot === "expression-rename-input"
+					) {
+						event.preventDefault();
+					}
+				}}
+			>
+				<DialogHeader className="border-separator-secondary/50 shrink-0 border-b px-6 pt-6 pb-4">
 					<DialogTitle>{t("characterProfile.editTitle")}</DialogTitle>
 					<DialogDescription>
 						{t("characterProfile.description")}
 					</DialogDescription>
 				</DialogHeader>
-				<div className="flex flex-col gap-4">
+				<div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-5">
 					<div className="flex items-end gap-3">
 						<div className="flex min-w-0 flex-1 flex-col gap-1.5">
 							<span className="text-md-on-surface-variant text-label-medium">
@@ -138,7 +149,7 @@ export function CharacterProfileEditorDialog({
 						onChange={() => void refreshPortraits()}
 					/>
 				</div>
-				<DialogFooter>
+				<DialogFooter className="border-separator-secondary/50 shrink-0 border-t px-6 py-4">
 					<Button type="button" variant="tertiary" onClick={onClose}>
 						{t("common.close")}
 					</Button>

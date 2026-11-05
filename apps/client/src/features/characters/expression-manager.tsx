@@ -265,6 +265,7 @@ export function ExpressionManager({
 							</div>
 							{renamingId === portrait.id ? (
 								<Input
+									data-slot="expression-rename-input"
 									value={renameValue}
 									autoFocus
 									aria-label={t("expressions.rename", { name })}
@@ -275,9 +276,12 @@ export function ExpressionManager({
 											return;
 										}
 										if (event.key === "Enter") {
+											event.preventDefault();
 											void commitRename();
 										}
 										if (event.key === "Escape") {
+											event.preventDefault();
+											event.stopPropagation();
 											revertRename();
 										}
 									}}

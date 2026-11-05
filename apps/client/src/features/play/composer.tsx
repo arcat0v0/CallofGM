@@ -329,7 +329,8 @@ function Composer({
 								{tile.src ? (
 									<img
 										src={tile.src}
-										alt={tile.label}
+										alt=""
+										aria-hidden="true"
 										className="h-40 w-full object-contain"
 									/>
 								) : (
