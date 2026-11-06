@@ -112,7 +112,7 @@
 
 - **舞台**：全屏背景图 + 立绘，顶部/底部 scrim 渐变保留；场景信息在左上，场景名 `text-headline-small-emph font-serif`，状态/阶段 chip 用 tonal badge，外层为小号浮岛卡（`bg-md-surface-container-low/72` + blur）。
 - **顶部工具坞**：画面顶部居中，形制与 GM 控制台一致；桌面端显示图标 + 文案（窄视口自动收为纯图标），提供掷骰/鉴定、人物卡、情报、在线玩家四个入口。点击展开浮层或对话框，不占用聊天侧栏。
-- **对话框**：底部居中的悬浮卡（最大 860px），说话人名牌为半悬浮 pill（`-top-4`，`bg-md-primary-container`，serif emphasized），正文 `text-body-large`；新消息 `animate-in fade-in slide-in-from-bottom-2 duration-350 ease-expressive-fast-spatial`。
+- **对话框**：底部居中的悬浮卡（最大 860px），说话人名牌为半悬浮 pill（`-top-4`，`bg-md-primary-container`，serif emphasized），正文 `text-body-large`；新消息 `animate-in fade-in slide-in-from-bottom-2 duration-350 ease-expressive-fast-spatial`。正文按视口限制可视行数（桌面 8 行、横屏 6 行、竖屏 4 行），超长发言在框内滚动，不把卡片撑高遮住立绘。
 - **聊天浮岛**：右侧悬浮 `rounded-xl` 面板（`bg-md-surface-container-low/92` + blur + border），宽度随视口 344–400px，可收起；结构为标题 + 频道筛选 + 消息流 + 作曲器，不再内嵌骰盘。
 - **消息**：本人/己方 `bg-md-primary-container`，他人 `bg-md-surface-container-high/70`，系统骰点/鉴定记录为带骰子图标的独立小卡（`rounded-xl`，失败/成功用左侧 2px 状态色），气泡 `rounded-2xl`、连续同人消息收紧间距。
 - **审查状态**：玩家发言进入待呈现队列时，作者侧立即显示「待审查」与放行提示；主持人拒绝时可填写理由，玩家侧保留原发言并显示「未通过」与拒绝理由。

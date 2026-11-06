@@ -60,6 +60,20 @@ describe("GM stage and speaker labels", () => {
 		expect(view.getByText("tip_hat_smile")).toBeTruthy();
 	});
 
+	test("long stage dialogue scrolls in place and resets for a new line", () => {
+		const first = "旧日发言\n".repeat(40);
+		const view = render(<DialogueBox speaker="主持人" text={first} />);
+		const body = view.container.querySelector("p");
+		expect(body?.textContent).toBe(first);
+		expect(body?.classList.contains("overflow-y-auto")).toBe(true);
+
+		if (body) {
+			body.scrollTop = 120;
+		}
+		view.rerender(<DialogueBox speaker="主持人" text="新发言" />);
+		expect(body?.scrollTop).toBe(0);
+	});
+
 	test("GM stage reuses the player desktop stage layout", () => {
 		const view = render(
 			<GmConsoleStage

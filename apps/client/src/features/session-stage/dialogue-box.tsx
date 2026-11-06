@@ -1,4 +1,5 @@
 import { Smile } from "lucide-react";
+import { useLayoutEffect, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
@@ -20,6 +21,19 @@ function DialogueBox({
 	size = "md",
 }: DialogueBoxProps) {
 	const compact = size === "sm";
+	const bodyRef = useRef<HTMLParagraphElement>(null);
+	const renderedTextRef = useRef(text);
+
+	useLayoutEffect(() => {
+		if (renderedTextRef.current === text) {
+			return;
+		}
+		renderedTextRef.current = text;
+		const body = bodyRef.current;
+		if (body) {
+			body.scrollTop = 0;
+		}
+	}, [text]);
 
 	return (
 		<div
@@ -68,8 +82,10 @@ function DialogueBox({
 				)}
 			>
 				<p
+					ref={bodyRef}
 					className={cn(
-						"text-md-on-surface font-sans select-text",
+						"text-md-on-surface font-sans select-text whitespace-pre-wrap break-words",
+						"max-h-[calc(var(--stage-dialogue-lines,8)*1lh)] overflow-y-auto overscroll-contain [scrollbar-color:var(--color-scrollbar)_transparent] [scrollbar-width:thin]",
 						compact ? "text-body-medium" : "text-body-large",
 					)}
 				>

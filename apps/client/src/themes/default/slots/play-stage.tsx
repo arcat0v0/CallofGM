@@ -1,4 +1,5 @@
 import type { PlayStageCtx } from "@cogm/theme-sdk";
+import type { CSSProperties } from "react";
 import { SceneBackdrop } from "@/features/session-stage/scene-backdrop";
 import { t } from "@/i18n";
 
@@ -19,7 +20,12 @@ export function PlayStage({ viewport, view, nodes }: PlayStageCtx) {
 				</div>
 				{nodes.portrait}
 				{nodes.dialogue ? (
-					<div className="absolute inset-x-3 bottom-2">{nodes.dialogue}</div>
+					<div
+						className="absolute inset-x-3 bottom-2"
+						style={{ "--stage-dialogue-lines": 4 } as CSSProperties}
+					>
+						{nodes.dialogue}
+					</div>
 				) : null}
 			</div>
 		);
@@ -41,7 +47,10 @@ export function PlayStage({ viewport, view, nodes }: PlayStageCtx) {
 					</div>
 					{nodes.portrait}
 					{nodes.dialogue ? (
-						<div className="absolute inset-x-0 bottom-3 flex justify-center px-4">
+						<div
+							className="absolute inset-x-0 bottom-3 flex justify-center px-4"
+							style={{ "--stage-dialogue-lines": 6 } as CSSProperties}
+						>
 							<div className="w-full max-w-[min(720px,100%)]">
 								{nodes.dialogue}
 							</div>
@@ -68,7 +77,10 @@ export function PlayStage({ viewport, view, nodes }: PlayStageCtx) {
 				</div>
 				{nodes.portrait}
 				{nodes.dialogue ? (
-					<div className="absolute inset-x-0 bottom-6 z-10 flex justify-center px-8">
+					<div
+						className="absolute inset-x-0 bottom-6 z-10 flex justify-center px-8"
+						style={{ "--stage-dialogue-lines": 8 } as CSSProperties}
+					>
 						<div className="w-full max-w-[860px]">{nodes.dialogue}</div>
 					</div>
 				) : null}
