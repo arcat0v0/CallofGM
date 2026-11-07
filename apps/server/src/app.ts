@@ -1,5 +1,6 @@
 import { VersionResponseSchema } from "@cogm/shared";
 import { Elysia } from "elysia";
+import { ZodError } from "zod";
 import { extname, resolve, sep } from "path";
 import type { Container } from "./bootstrap/container";
 import { corsOriginsFor } from "./config/env";
@@ -115,7 +116,7 @@ export function createApp(
 					metadata: error.metadata,
 				};
 			}
-			if (code === "VALIDATION") {
+			if (code === "VALIDATION" || error instanceof ZodError) {
 				set.status = 400;
 				return {
 					code: "VALIDATION_FAILED",

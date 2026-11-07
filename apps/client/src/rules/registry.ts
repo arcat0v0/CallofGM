@@ -1,10 +1,20 @@
 import type { RuleMetadata } from "@cogm/shared";
 import { coc7e } from "@cogm/shared";
+import type { ReactNode } from "react";
+import { Coc7eCharacterCreationEditor } from "./coc7e/character-creation-editor";
 
 export type RuleSheetEditorProps = {
 	sheet: unknown;
 	onChange: (sheet: unknown) => void;
 	readOnly?: boolean;
+};
+
+export type RuleCreationEditorProps = {
+	sheet: coc7e.Coc7eCharacterSheet;
+	onChange: (sheet: coc7e.Coc7eCharacterSheet) => void;
+	showValidation: boolean;
+	onValidityChange: (valid: boolean) => void;
+	children?: ReactNode;
 };
 
 export type RuleDerivedStats = {
@@ -13,6 +23,22 @@ export type RuleDerivedStats = {
 	san: { current: number; max: number };
 	luck: number;
 	mov: number;
+	damageBonus?: string;
+	build?: number;
+	majorWound?: number;
+};
+
+export type RuleSheetOverview = {
+	profession: string | null;
+	era: string | null;
+	age: number | null;
+};
+
+export type RuleSheetSection = {
+	id: string;
+	title: string;
+	rows: Array<{ label: string; value: string }>;
+	items: Array<{ name: string; lines: string[] }>;
 };
 
 export type RuleSessionState = {
@@ -38,7 +64,8 @@ export type RuleStateBar = {
 
 export type RuleComponent = {
 	metadata: RuleMetadata;
-	createEmptySheet: () => unknown;
+	createEmptySheet: () => coc7e.Coc7eCharacterSheet;
+	creationEditor: (props: RuleCreationEditorProps) => ReactNode;
 	parseSheet: (value: unknown) => unknown | null;
 	parseSheetJson: (json: string) => unknown | null;
 	skillLabel: (key: string) => string;
@@ -71,6 +98,8 @@ export type RuleComponent = {
 	statusOptions: () => Array<{ value: string; label: string }>;
 	skillCatalog: ReadonlyArray<{ key: string; base: number }>;
 	deriveStats: (sheet: unknown) => RuleDerivedStats;
+	sheetOverview: (sheet: unknown) => RuleSheetOverview | null;
+	sheetSections: (sheet: unknown) => RuleSheetSection[];
 	attributeOrder: () => string[];
 };
 
@@ -143,8 +172,8 @@ const coc7eComponent: RuleComponent = {
 			"luck",
 		],
 	},
-	createEmptySheet: () => ({
-		attributes: {
+	createEmptySheet: () =>
+		coc7e.createEmptyCoc7eSheet({
 			str: 50,
 			con: 50,
 			siz: 50,
@@ -154,9 +183,8 @@ const coc7eComponent: RuleComponent = {
 			pow: 50,
 			edu: 50,
 			luck: 50,
-		},
-		skills: {},
-	}),
+		}),
+	creationEditor: Coc7eCharacterCreationEditor,
 	parseSheet: (value) => {
 		const parsed = coc7e.Coc7eCharacterSheet.safeParse(value);
 		return parsed.success ? parsed.data : null;
@@ -270,34 +298,146 @@ const coc7eComponent: RuleComponent = {
 		base,
 	})),
 	deriveStats: (sheet) => {
-		const attributes = readAttributes(sheet);
-		const con = attributes.con ?? 0;
-		const siz = attributes.siz ?? 0;
-		const pow = attributes.pow ?? 0;
-		const str = attributes.str ?? 0;
-		const dex = attributes.dex ?? 0;
-		const hpMax = Math.max(1, Math.floor((con + siz) / 10));
-		const mpMax = Math.max(0, Math.floor(pow / 5));
+		const parsed = coc7e.Coc7eCharacterSheet.safeParse(sheet);
+		if (!parsed.success) {
+			return {
+				hp: { current: 1, max: 1 },
+				mp: { current: 0, max: 0 },
+				san: { current: 0, max: 0 },
+				luck: 0,
+				mov: 1,
+			};
+		}
+		const derived = coc7e.deriveCoc7eSheetStats(parsed.data);
 		return {
-			hp: { current: hpMax, max: hpMax },
-			mp: { current: mpMax, max: mpMax },
-			san: { current: pow, max: pow },
-			luck: attributes.luck ?? 0,
-			mov: coc7eMovement(str, dex, siz),
+			hp: { current: derived.maxHp, max: derived.maxHp },
+			mp: { current: derived.maxMp, max: derived.maxMp },
+			san: { current: derived.initialSan, max: derived.maxSan },
+			luck: parsed.data.attributes.luck,
+			mov: derived.mov,
+			damageBonus: derived.damageBonus,
+			build: derived.build,
+			majorWound: derived.majorWoundThreshold,
 		};
+	},
+	sheetOverview: (sheet) => {
+		const parsed = coc7e.Coc7eCharacterSheet.safeParse(sheet);
+		if (!parsed.success) {
+			return null;
+		}
+		return {
+			profession: parsed.data.occupation.name || null,
+			era:
+				parsed.data.era === "modern"
+					? "现代"
+					: parsed.data.era === "1920s"
+						? "1920 年代"
+						: null,
+			age: parsed.data.age,
+		};
+	},
+	sheetSections: (sheet) => {
+		const parsed = coc7e.Coc7eCharacterSheet.safeParse(sheet);
+		if (!parsed.success) {
+			return [];
+		}
+		const value = parsed.data;
+		const sections: RuleSheetSection[] = [];
+		const combatItems = value.weapons.map((weapon) => ({
+			name: weapon.name,
+			lines: [
+				`${weapon.skillKey} · ${weapon.damage}`,
+				[
+					weapon.range,
+					weapon.attacks ? `${weapon.attacks} 次` : "",
+					weapon.ammo === null ? "" : `装弹 ${weapon.ammo}`,
+					weapon.malfunction === null ? "" : `故障 ${weapon.malfunction}`,
+				]
+					.filter(Boolean)
+					.join(" · "),
+			].filter(Boolean),
+		}));
+		if (combatItems.length > 0 || value.armor.name) {
+			sections.push({
+				id: "combat",
+				title: "战斗与装备",
+				rows: [
+					{ label: "护甲", value: value.armor.name || "无" },
+					{ label: "护甲值", value: String(value.armor.value) },
+					{ label: "覆盖部位", value: value.armor.locations || "—" },
+				],
+				items: [
+					...combatItems,
+					...value.gear.map((item) => ({
+						name: item.name,
+						lines: [`数量 ${item.quantity}`],
+					})),
+				],
+			});
+		}
+		const assetRows = [
+			{ label: "货币", value: value.assets.currency },
+			{ label: "消费水平", value: String(value.assets.spendingLevel) },
+			{ label: "现金", value: String(value.assets.cash) },
+			{ label: "其他资产", value: String(value.assets.otherAssets) },
+		];
+		const assetItems = value.assets.details.map((detail) => ({
+			name: detail.name,
+			lines: [detail.category, String(detail.value)],
+		}));
+		if (
+			value.assets.cash > 0 ||
+			value.assets.otherAssets > 0 ||
+			assetItems.length > 0
+		) {
+			sections.push({
+				id: "assets",
+				title: "信用与资产",
+				rows: assetRows,
+				items: assetItems,
+			});
+		}
+		const magicItems = [
+			...value.spells.map((spell) => ({
+				name: spell.name,
+				lines: [
+					[
+						spell.mpCost ? `${spell.mpCost} MP` : "",
+						spell.sanCost ? `${spell.sanCost} SAN` : "",
+					]
+						.filter(Boolean)
+						.join(" · "),
+					spell.castingTime,
+					spell.effect,
+				].filter(Boolean),
+			})),
+			...value.mythosTomes.map((tome) => ({
+				name: tome.name,
+				lines: [
+					`SAN ${tome.sanLoss} · 神话 +${tome.mythosGain}`,
+					tome.spells,
+				].filter(Boolean),
+			})),
+			...value.encounters.map((encounter) => ({
+				name: encounter.name,
+				lines: [
+					`SAN ${encounter.sanLoss} · 神话 +${encounter.mythosGain}`,
+					encounter.notes,
+				].filter(Boolean),
+			})),
+		];
+		if (magicItems.length > 0) {
+			sections.push({
+				id: "magic",
+				title: "法术与神话",
+				rows: [],
+				items: magicItems,
+			});
+		}
+		return sections;
 	},
 	attributeOrder: () => COC7E_ATTRIBUTE_ORDER.map(({ key }) => key),
 };
-
-function coc7eMovement(str: number, dex: number, siz: number): number {
-	if (str >= siz && dex >= siz) {
-		return 9;
-	}
-	if (str >= siz || dex >= siz) {
-		return 8;
-	}
-	return 7;
-}
 
 const COC7E_ATTRIBUTE_ORDER: ReadonlyArray<{ key: string }> = [
 	{ key: "str" },

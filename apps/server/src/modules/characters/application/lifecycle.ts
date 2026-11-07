@@ -1,4 +1,5 @@
 import { ModuleNotFoundError } from "@/modules/catalog";
+import { coc7e } from "@cogm/shared";
 import { hashToken, issueOpaqueToken } from "@/modules/identity";
 import { SessionNotFoundError } from "@/modules/sessions";
 import type { Clock, IdGenerator } from "@/platform/ports";
@@ -6,11 +7,13 @@ import type { RuleRegistry } from "@/rules/registry";
 import {
 	CharacterNotFoundError,
 	CharacterNotOwnedError,
+	CharacterVersionConflictError,
 	InviteExpiredError,
 	InviteNotFoundError,
 	PermanentFieldNotEditableError,
 	ReviewAlreadyDecidedError,
 	ReviewNotFoundError,
+	ReviewSheetVersionConflictError,
 } from "../domain/errors";
 import type { CharactersRepository } from "./ports";
 
@@ -352,6 +355,16 @@ export class DecideReviewUseCase {
 			throw new ReviewAlreadyDecidedError();
 		}
 
+		const character = await this.repo.findCharacterById(review.characterId);
+		if (!character || character.deletedAt !== null) {
+			throw new CharacterNotFoundError();
+		}
+		if (character.sheetVersion !== review.submittedSheetVersion) {
+			throw new ReviewSheetVersionConflictError(
+				"Sheet has been modified since submission; re-submit the latest version",
+			);
+		}
+
 		const now = this.clock.nowEpochMs();
 		await this.repo.decideReview({
 			id: review.id,
@@ -414,10 +427,14 @@ export class GmEditPermanentFieldUseCase {
 		value: number;
 		sessionId?: string;
 		reason?: string;
+		expectedVersion?: number;
 	}) {
 		const character = await this.repo.findCharacterById(input.characterId);
 		if (!character || character.deletedAt !== null) {
 			throw new CharacterNotFoundError();
+		}
+		if (input.expectedVersion !== undefined && input.expectedVersion !== character.version) {
+			throw new CharacterVersionConflictError();
 		}
 
 		const ruleSystem = this.ruleRegistry.get(character.ruleId);
@@ -445,7 +462,7 @@ export class GmEditPermanentFieldUseCase {
 			sheetVersion: character.sheetVersion + 1,
 			version: character.version + 1,
 			updatedAt: now,
-		});
+		}, character.version);
 
 		await this.repo.appendAudit({
 			id: this.idGenerator.nextId(),
@@ -493,10 +510,14 @@ export class ConfirmGrowthUseCase {
 		characterId: string;
 		sessionId: string;
 		gains: Array<{ skillKey: string; delta: number }>;
+		expectedVersion?: number;
 	}) {
 		const character = await this.repo.findCharacterById(input.characterId);
 		if (!character || character.deletedAt !== null) {
 			throw new CharacterNotFoundError();
+		}
+		if (input.expectedVersion !== undefined && input.expectedVersion !== character.version) {
+			throw new CharacterVersionConflictError();
 		}
 
 		const ruleSystem = this.ruleRegistry.get(character.ruleId);
@@ -511,6 +532,10 @@ export class ConfirmGrowthUseCase {
 		}> = [];
 
 		for (const gain of input.gains) {
+			const canonical = coc7e.canonicalizeCoc7eSkillKey(gain.skillKey) ?? gain.skillKey;
+			if (canonical === "信用评级" || canonical === "克苏鲁神话") {
+				continue;
+			}
 			const before = ruleSystem.getSkillTargetValue(sheet, gain.skillKey) ?? 0;
 			const next = ruleSystem.applySkillGrowth(
 				sheet,
@@ -535,7 +560,7 @@ export class ConfirmGrowthUseCase {
 			sheetVersion: character.sheetVersion + 1,
 			version: character.version + 1,
 			updatedAt: now,
-		});
+		}, character.version);
 
 		for (const entry of entries) {
 			await this.repo.appendGrowth({

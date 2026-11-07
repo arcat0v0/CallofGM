@@ -26,7 +26,7 @@ import type {
 	CharacterVersionRecord,
 	CursorPageOptions,
 } from "../application/ports";
-import { CharacterNotFoundError } from "../domain/errors";
+import { CharacterNotFoundError, CharacterVersionConflictError } from "../domain/errors";
 
 function paginated<T extends { id: string }>(items: T[], limit: number) {
 	const hasMore = items.length > limit;
@@ -61,14 +61,21 @@ export class DrizzleCharactersRepository implements CharactersRepository {
 		updates: Partial<
 			Omit<typeof characters.$inferInsert, "id" | "createdAt" | "ruleId">
 		>,
+		expectedVersion?: number,
 	) {
+		const whereClause = expectedVersion !== undefined
+			? and(eq(characters.id, id), eq(characters.version, expectedVersion))
+			: eq(characters.id, id);
 		const result = await this.db
 			.update(characters)
 			.set(updates)
-			.where(eq(characters.id, id))
+			.where(whereClause)
 			.returning();
 		const row = result[0];
 		if (!row) {
+			if (expectedVersion !== undefined) {
+				throw new CharacterVersionConflictError();
+			}
 			throw new CharacterNotFoundError();
 		}
 		return row;
@@ -577,15 +584,18 @@ export class DrizzleCharactersRepository implements CharactersRepository {
 		const rows = await this.db
 			.select()
 			.from(characterReviews)
+			.innerJoin(characters, eq(characterReviews.characterId, characters.id))
 			.where(
 				and(
 					eq(characterReviews.scope, scope),
 					eq(characterReviews.targetId, targetId),
 					eq(characterReviews.status, "approved"),
+					eq(characterReviews.submittedSheetVersion, characters.sheetVersion),
 					isNull(characterReviews.deletedAt),
+					isNull(characters.deletedAt),
 				),
 			);
-		return rows as CharacterReviewRecord[];
+		return rows.map((row) => row.character_reviews) as CharacterReviewRecord[];
 	}
 
 	async decideReview(input: {

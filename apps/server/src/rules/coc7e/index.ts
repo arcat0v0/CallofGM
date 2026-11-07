@@ -13,6 +13,7 @@ import {
 	type StateMutationResult,
 } from "@/rules/rule-system";
 import { parseCoc7eCharacterSheet } from "./excel-parser";
+import { mergeCoc7eSheetPatch } from "./merge-patch";
 
 const COC7E_PERMANENT_FIELDS = [
 	"str",
@@ -26,18 +27,6 @@ const COC7E_PERMANENT_FIELDS = [
 	"luck",
 ] as const;
 
-const COC7E_ATTRIBUTE_LABELS: Record<string, string> = {
-	str: "力量",
-	con: "体质",
-	siz: "体型",
-	dex: "敏捷",
-	app: "外貌",
-	int: "智力",
-	pow: "意志",
-	edu: "教育",
-	luck: "幸运",
-};
-
 export class Coc7eRuleSystem extends RuleSystem<
 	coc7e.Coc7eCharacterSheet,
 	coc7e.CharacterSessionState
@@ -46,10 +35,10 @@ export class Coc7eRuleSystem extends RuleSystem<
 	readonly metadata: RuleMetadata = {
 		id: "coc7e",
 		name: "克苏鲁的呼唤 第 7 版",
-		version: "1.0.0",
+		version: "2.0.0",
 		apiVersion: RULE_API_VERSION,
 		description:
-			"Call of Cthulhu 7th Edition：九项属性、技能目录、理智检定与成长标记。",
+			"Call of Cthulhu 7th Edition：完整人物卡、技能专攻、衍生数值、理智检定与成长标记。",
 		permanentSheetFields: [...COC7E_PERMANENT_FIELDS],
 	};
 	readonly characterSheetSchema = coc7e.Coc7eCharacterSheet;
@@ -57,21 +46,37 @@ export class Coc7eRuleSystem extends RuleSystem<
 	readonly publicStateFields = coc7e.CharacterPublicStateField.options;
 
 	createEmptySheet(): coc7e.Coc7eCharacterSheet {
-		return {
-			schemaVersion: 1,
-			attributes: {
-				str: 50,
-				con: 50,
-				siz: 50,
-				dex: 50,
-				app: 50,
-				int: 50,
-				pow: 50,
-				edu: 50,
-				luck: 50,
-			},
-			skills: {},
-		};
+		return coc7e.createEmptyCoc7eSheet({
+			str: 50,
+			con: 50,
+			siz: 50,
+			dex: 50,
+			app: 50,
+			int: 50,
+			pow: 50,
+			edu: 50,
+			luck: 50,
+		});
+	}
+
+	projectPublicSheet(
+		sheet: coc7e.Coc7eCharacterSheet,
+	): coc7e.Coc7eCharacterSheet {
+		return coc7e.projectPublicCoc7eSheet(sheet);
+	}
+
+	recalculateStateOnSync(
+		state: coc7e.CharacterSessionState,
+		newSheet: coc7e.Coc7eCharacterSheet,
+	): coc7e.CharacterSessionState {
+		return coc7e.recalculateCoc7eStateOnSync(state, newSheet);
+	}
+
+	mergeSheetPatch(
+		base: coc7e.Coc7eCharacterSheet,
+		patch: unknown,
+	): coc7e.Coc7eCharacterSheet {
+		return mergeCoc7eSheetPatch(base, patch);
 	}
 
 	readPermanentFields(
@@ -95,7 +100,6 @@ export class Coc7eRuleSystem extends RuleSystem<
 				400,
 			);
 		}
-		const label = COC7E_ATTRIBUTE_LABELS[edit.field] ?? edit.field;
 		return this.characterSheetSchema.parse({
 			...sheet,
 			attributes: {
@@ -115,41 +119,37 @@ export class Coc7eRuleSystem extends RuleSystem<
 			coc7e.coc7eSkillTargetValue(sheet, skillKey) ??
 			0;
 		const next = Math.min(
-			99,
+			999,
 			Math.max(0, current + Math.max(0, Math.trunc(delta))),
 		);
+		const canonicalKey = coc7e.canonicalizeCoc7eSkillKey(skillKey) ?? skillKey;
 		return this.characterSheetSchema.parse({
 			...sheet,
-			skills: { ...sheet.skills, [skillKey]: next },
+			skills: { ...sheet.skills, [canonicalKey]: next },
 		});
 	}
 
 	async parseCharacterSheet(
 		input: ArrayBuffer,
+		options?: import("@/rules/rule-system").CharacterSheetParseOptions,
 	): Promise<CharacterSheetPreview<coc7e.Coc7eCharacterSheet>> {
-		return parseCoc7eCharacterSheet(input);
+		return parseCoc7eCharacterSheet(input, options);
 	}
 
 	initializeSessionState(
 		sheet: coc7e.Coc7eCharacterSheet,
 	): coc7e.CharacterSessionState {
-		const con = sheet.attributes.con;
-		const siz = sheet.attributes.siz;
-		const pow = sheet.attributes.pow;
-		const maxHp = Math.floor((con + siz) / 10);
-		const maxMp = Math.floor(pow / 5);
-		const maxSan = 99;
-
+		const derived = coc7e.deriveCoc7eSheetStats(sheet);
 		return {
 			schemaVersion: 1,
 			sessionId: "",
 			characterId: "",
-			hp: maxHp,
-			maxHp,
-			mp: maxMp,
-			maxMp,
-			san: pow,
-			maxSan,
+			hp: derived.maxHp,
+			maxHp: derived.maxHp,
+			mp: derived.maxMp,
+			maxMp: derived.maxMp,
+			san: derived.initialSan,
+			maxSan: derived.maxSan,
 			statuses: [],
 			tags: [],
 			growthMarks: [],
@@ -239,10 +239,11 @@ export class Coc7eRuleSystem extends RuleSystem<
 			outcome,
 			success,
 			growthEligible:
-				outcome === "critical" ||
-				outcome === "extreme_success" ||
-				outcome === "hard_success" ||
-				outcome === "regular_success",
+				coc7e.coc7eSkillGrowthAllowed(skillKey, bonusDice) &&
+				(outcome === "critical" ||
+					outcome === "extreme_success" ||
+					outcome === "hard_success" ||
+					outcome === "regular_success"),
 		};
 	}
 
@@ -396,7 +397,10 @@ export class Coc7eRuleSystem extends RuleSystem<
 		state: coc7e.CharacterSessionState,
 		skillKey: string,
 	): coc7e.CharacterSessionState {
-		if (state.growthMarks.includes(skillKey)) {
+		if (
+			!coc7e.coc7eSkillGrowthAllowed(skillKey, 0) ||
+			state.growthMarks.includes(skillKey)
+		) {
 			return state;
 		}
 		return this.sessionStateSchema.parse({
@@ -409,7 +413,10 @@ export class Coc7eRuleSystem extends RuleSystem<
 		state: coc7e.CharacterSessionState,
 		skillKey: string,
 	): coc7e.CharacterSessionState {
-		if (state.hiddenGrowthMarks.includes(skillKey)) {
+		if (
+			!coc7e.coc7eSkillGrowthAllowed(skillKey, 0) ||
+			state.hiddenGrowthMarks.includes(skillKey)
+		) {
 			return state;
 		}
 		return this.sessionStateSchema.parse({

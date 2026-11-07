@@ -3,7 +3,10 @@ import {
 	CharacterDetailDto,
 	CharacterDto,
 	CharacterHistoryResponse,
+	coc7e,
 } from "@cogm/shared";
+import type { WorkSheet } from "xlsx";
+import { createApp } from "@/app";
 import {
 	gmUserIdRef,
 	listenTestApp,
@@ -25,6 +28,7 @@ describe("PL character ownership, versions and growth", () => {
 	let plUserId = "";
 	let otherUserId = "";
 	let moduleId = "";
+	let fullApp: ReturnType<typeof createApp>;
 
 	function api(path: string, init: RequestInit & { token?: string } = {}) {
 		const { token, ...rest } = init;
@@ -40,9 +44,24 @@ describe("PL character ownership, versions and growth", () => {
 		);
 	}
 
+	function fullApi(path: string, init: RequestInit & { token?: string } = {}) {
+		const { token, ...rest } = init;
+		return fullApp.handle(
+			new Request(`http://localhost${path}`, {
+				...rest,
+				headers: {
+					"Content-Type": "application/json",
+					...(token ? { Authorization: `Bearer ${token}` } : {}),
+					...rest.headers,
+				},
+			}),
+		);
+	}
+
 	beforeAll(async () => {
 		ctx = await setupTestApp({ players: [], characters: [] });
 		server = listenTestApp(ctx.app);
+		fullApp = createApp(ctx.container);
 
 		const accounts = await seedPlayers(ctx.container.db, PASSWORD, [
 			"flow-a",
@@ -96,6 +115,159 @@ describe("PL character ownership, versions and growth", () => {
 		});
 		expect(res.status).toBe(200);
 		return CharacterDto.parse(await res.json());
+	}
+
+	function completeCoc7eSheet() {
+		return coc7e.normalizeCoc7eSheet({
+			schemaVersion: 2,
+			era: "1920s",
+			age: 42,
+			occupation: {
+				presetId: "reporter",
+				name: "记者",
+				skillPointFormula: [{ attribute: "edu", multiplier: 4 }],
+				creditMin: 9,
+				creditMax: 30,
+				skillKeys: ["历史", "图书馆"],
+			},
+			movementModifier: -2,
+			attributes: {
+				str: 60,
+				con: 65,
+				siz: 70,
+				dex: 55,
+				app: 45,
+				int: 80,
+				pow: 60,
+				edu: 75,
+				luck: 50,
+			},
+			skills: { 侦查: 65, "格斗(斗殴)": 45, 克苏鲁神话: 3 },
+			customSkills: {
+				"语言(法语)": { base: 1 },
+				"母语(英语)": { base: 0, formula: "edu" },
+			},
+			weapons: [
+				{
+					name: "点三八左轮",
+					skillKey: "射击(手枪)",
+					damage: "1D10",
+					range: "15码",
+					attacks: "1",
+					ammo: 6,
+					malfunction: 100,
+					impale: false,
+					applyDamageBonus: false,
+				},
+			],
+			armor: { name: "皮夹克", value: 1, locations: "躯干", penalty: 0 },
+			gear: [
+				{ name: "笔记本", quantity: 2 },
+				{ name: "手电筒", quantity: 1 },
+			],
+			spells: [
+				{
+					name: "心灵感应",
+					mpCost: "3",
+					sanCost: "1D3",
+					castingTime: "1轮",
+					effect: "读取表层思绪",
+				},
+			],
+			mythosTomes: [
+				{
+					name: "无名祭祀书",
+					sanLoss: "1D6",
+					mythosGain: 2,
+					studyHours: 12,
+					spells: "心灵感应",
+				},
+			],
+			encounters: [
+				{
+					name: "深潜者",
+					sanLoss: "1/1D6",
+					mythosGain: 1,
+					count: 2,
+					notes: "港口遭遇",
+				},
+			],
+			assets: {
+				currency: "$",
+				spendingLevel: 10,
+				cash: 82.5,
+				otherAssets: 2050,
+				details: [{ category: "residence", name: "公寓", value: 2000 }],
+			},
+		});
+	}
+
+	function expectCompleteCoc7eSheet(sheet: coc7e.Coc7eCharacterSheet) {
+		expect(sheet.schemaVersion).toBe(2);
+		expect(sheet.era).toBe("1920s");
+		expect(sheet.age).toBe(42);
+		expect(sheet.occupation).toEqual({
+			presetId: "reporter",
+			name: "记者",
+			skillPointFormula: [{ attribute: "edu", multiplier: 4 }],
+			creditMin: 9,
+			creditMax: 30,
+			skillKeys: ["历史", "图书馆"],
+		});
+		expect(sheet.movementModifier).toBe(-2);
+		expect(sheet.attributes.str).toBe(60);
+		expect(sheet.attributes.edu).toBe(75);
+		expect(sheet.skills["侦查"]).toBe(65);
+		expect(sheet.skills["格斗(斗殴)"]).toBe(45);
+		expect(sheet.customSkills["语言(法语)"]).toEqual({ base: 1 });
+		expect(sheet.customSkills["母语(英语)"]).toEqual({
+			base: 0,
+			formula: "edu",
+		});
+		expect(sheet.weapons[0]).toMatchObject({
+			name: "点三八左轮",
+			skillKey: "射击(手枪)",
+			damage: "1D10",
+			ammo: 6,
+		});
+		expect(sheet.armor).toEqual({
+			name: "皮夹克",
+			value: 1,
+			locations: "躯干",
+			penalty: 0,
+		});
+		expect(sheet.gear[0]).toEqual({ name: "笔记本", quantity: 2 });
+		expect(sheet.spells[0]?.name).toBe("心灵感应");
+		expect(sheet.mythosTomes[0]?.name).toBe("无名祭祀书");
+		expect(sheet.mythosTomes[0]?.mythosGain).toBe(2);
+		expect(sheet.encounters[0]?.name).toBe("深潜者");
+		expect(sheet.encounters[0]?.count).toBe(2);
+		expect(sheet.assets.cash).toBe(82.5);
+		expect(sheet.assets.details[0]).toEqual({
+			category: "residence",
+			name: "公寓",
+			value: 2000,
+		});
+	}
+
+	function countCharacters(): number {
+		return (
+			ctx.container.dbContext.sqlite
+				.query<{ count: number }, []>(
+					"select count(*) as count from characters",
+				)
+				.get()?.count ?? 0
+		);
+	}
+
+	function countReviews(): number {
+		return (
+			ctx.container.dbContext.sqlite
+				.query<{ count: number }, []>(
+					"select count(*) as count from character_reviews",
+				)
+				.get()?.count ?? 0
+		);
 	}
 
 	test("PL 创建人物：归属自己、kind 固定为 pc、规则必填", async () => {
@@ -362,6 +534,20 @@ describe("PL character ownership, versions and growth", () => {
 	test("GM 终生字段修改需记录审计并可见", async () => {
 		const character = await createPlCharacter("审计测试卡");
 
+		const stale = await api(
+			`/api/v1/gm/characters/${character.id}/permanent-field`,
+			{
+				method: "POST",
+				token: ctx.gmToken,
+				body: JSON.stringify({
+					field: "str",
+					value: 65,
+					reason: "过期修改",
+					expectedVersion: character.version + 99,
+				}),
+			},
+		);
+		expect(stale.status).toBe(409);
 		const audit = await api(
 			`/api/v1/gm/characters/${character.id}/permanent-field`,
 			{
@@ -371,6 +557,7 @@ describe("PL character ownership, versions and growth", () => {
 					field: "str",
 					value: 70,
 					reason: "剧情奖励",
+					expectedVersion: character.version,
 				}),
 			},
 		);
@@ -386,6 +573,148 @@ describe("PL character ownership, versions and growth", () => {
 		expect(history.audits.length).toBeGreaterThanOrEqual(1);
 		expect(history.audits[0]!.field).toBe("str");
 		expect(history.audits[0]!.reason).toBe("剧情奖励");
+	});
+
+	test("PL Excel 新导入归属玩家且固定为 PC", async () => {
+		const xlsx = await import("xlsx");
+		const workbook = xlsx.utils.book_new();
+		xlsx.utils.book_append_sheet(
+			workbook,
+			xlsx.utils.aoa_to_sheet([
+				["姓名", "导入的新调查员"],
+				["力量", 60],
+				["体质", 55],
+				["体型", 65],
+				["敏捷", 50],
+				["外貌", 45],
+				["智力", 70],
+				["意志", 60],
+				["教育", 75],
+				["幸运", 50],
+				["侦查", 55],
+			]),
+			"Sheet1",
+		);
+		const form = new FormData();
+		form.append(
+			"file",
+			new Blob(
+				[
+					xlsx.write(workbook, {
+						type: "array",
+						bookType: "xlsx",
+					}) as ArrayBuffer,
+				],
+				{
+					type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+				},
+			),
+			"new.xlsx",
+		);
+		form.append("ruleId", "coc7e");
+		const preview = await ctx.app.handle(
+			new Request("http://localhost/api/v1/pl/characters/import/preview", {
+				method: "POST",
+				headers: { Authorization: `Bearer ${plToken}` },
+				body: form,
+			}),
+		);
+		expect(preview.status).toBe(200);
+		const previewBody = (await preview.json()) as { importToken: string };
+		const confirm = await api("/api/v1/pl/characters/import/confirm", {
+			method: "POST",
+			token: plToken,
+			body: JSON.stringify({
+				importToken: previewBody.importToken,
+				kind: "npc",
+			}),
+		});
+		expect(confirm.status).toBe(200);
+		const created = CharacterDto.parse(await confirm.json());
+		expect(created.ownerId).toBe(plUserId);
+		expect(created.ownerKind).toBe("pl");
+		expect(created.kind).toBe("pc");
+		expect(created.name).toBe("导入的新调查员");
+	});
+
+	test("PL Excel 更新只覆盖明确字段并保留武器、资产和法术", async () => {
+		const xlsx = await import("xlsx");
+		const created = await api("/api/v1/pl/characters", {
+			method: "POST",
+			token: plToken,
+			body: JSON.stringify({
+				name: "导入前的旧卡",
+				background: "旧背景",
+				ruleId: "coc7e",
+				sheetData: completeCoc7eSheet(),
+			}),
+		});
+		expect(created.status).toBe(200);
+		const existing = CharacterDto.parse(await created.json());
+		const workbook = xlsx.utils.book_new();
+		xlsx.utils.book_append_sheet(
+			workbook,
+			{
+				"!ref": "A1:CI181",
+				E3: { t: "s", v: "导入后的新卡" },
+				U3: { t: "n", v: 66 },
+				F16: { t: "s", v: "会计" },
+				R16: { t: "n", v: 7 },
+			} as unknown as WorkSheet,
+			"人物卡",
+		);
+		const buffer = xlsx.write(workbook, {
+			type: "array",
+			bookType: "xlsx",
+		}) as ArrayBuffer;
+		const form = new FormData();
+		form.append(
+			"file",
+			new Blob([buffer], {
+				type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+			}),
+			"update.xlsx",
+		);
+		form.append("ruleId", "coc7e");
+		const preview = await ctx.app.handle(
+			new Request(
+				`http://localhost/api/v1/pl/characters/import/preview?characterId=${encodeURIComponent(existing.id)}`,
+				{
+					method: "POST",
+					headers: { Authorization: `Bearer ${plToken}` },
+					body: form,
+				},
+			),
+		);
+		expect(preview.status).toBe(200);
+		const previewBody = (await preview.json()) as {
+			importToken: string;
+			preview: { errors: unknown[]; providedFields: string[] };
+		};
+		expect(previewBody.preview.errors).toEqual([]);
+		expect(previewBody.preview.providedFields).toContain("attributes.str");
+		expect(previewBody.preview.providedFields).toContain("skills.会计");
+		const confirm = await api("/api/v1/pl/characters/import/confirm", {
+			method: "POST",
+			token: plToken,
+			body: JSON.stringify({
+				importToken: previewBody.importToken,
+				kind: "pc",
+				characterId: existing.id,
+				expectedVersion: existing.version,
+			}),
+		});
+		expect(confirm.status).toBe(200);
+		const updated = CharacterDto.parse(await confirm.json());
+		const updatedSheet = coc7e.Coc7eCharacterSheet.parse(
+			JSON.parse(updated.sheetJson),
+		);
+		expect(updated.name).toBe("导入后的新卡");
+		expect(updatedSheet.attributes.str).toBe(66);
+		expect(updatedSheet.skills["会计"]).toBe(7);
+		expect(updatedSheet.weapons[0]?.name).toBe("点三八左轮");
+		expect(updatedSheet.assets.details[0]?.name).toBe("公寓");
+		expect(updatedSheet.spells[0]?.name).toBe("心灵感应");
 	});
 
 	test("软删除：删除后列表不可见，回收站可见且可恢复", async () => {
@@ -474,5 +803,56 @@ describe("PL character ownership, versions and growth", () => {
 			}),
 		});
 		expect(res.status).toBe(400);
+	});
+
+	test("PL 创建人物：完整 CoC 7e v2 角色卡可保存并按分区读回", async () => {
+		const expected = completeCoc7eSheet();
+		const res = await fullApi("/api/v1/pl/characters", {
+			method: "POST",
+			token: plToken,
+			body: JSON.stringify({
+				name: "完整调查员",
+				background: "完整人物背景",
+				ruleId: "coc7e",
+				sheetData: expected,
+			}),
+		});
+		expect(res.status).toBe(200);
+		const created = CharacterDto.parse(await res.json());
+		expect(created.ownerId).toBe(plUserId);
+		expect(created.ownerKind).toBe("pl");
+		expect(created.kind).toBe("pc");
+
+		const detailRes = await fullApi(`/api/v1/pl/characters/${created.id}`, {
+			token: plToken,
+		});
+		expect(detailRes.status).toBe(200);
+		const detail = CharacterDetailDto.parse(await detailRes.json());
+		expect(detail.name).toBe("完整调查员");
+		expect(detail.background).toBe("完整人物背景");
+		const persisted: coc7e.Coc7eCharacterSheet = JSON.parse(detail.sheetJson);
+		expect(persisted).toEqual(expected);
+		expectCompleteCoc7eSheet(persisted);
+	});
+
+	test("PL 创建人物：完整卡含非法属性时返回 400 且不新增人物或审核", async () => {
+		const invalid = structuredClone(completeCoc7eSheet());
+		invalid.attributes.str = 0;
+		const charactersBefore = countCharacters();
+		const reviewsBefore = countReviews();
+
+		const res = await fullApi("/api/v1/pl/characters", {
+			method: "POST",
+			token: plToken,
+			body: JSON.stringify({
+				name: "非法完整卡",
+				background: "",
+				ruleId: "coc7e",
+				sheetData: invalid,
+			}),
+		});
+		expect(res.status).toBe(400);
+		expect(countCharacters()).toBe(charactersBefore);
+		expect(countReviews()).toBe(reviewsBefore);
 	});
 });

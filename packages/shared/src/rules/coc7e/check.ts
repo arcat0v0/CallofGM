@@ -44,7 +44,7 @@ export function coc7eDifficultyThreshold(
 export const SkillCheckResult = z.object({
 	characterId: z.string(),
 	skillKey: z.string(),
-	targetValue: z.number().int().min(1).max(99),
+	targetValue: z.number().int().min(0).max(999),
 	difficulty: CheckDifficulty,
 	bonusDice: z.number().int().min(0).max(2),
 	penaltyDice: z.number().int().min(0).max(2),

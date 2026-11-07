@@ -177,7 +177,11 @@ export function createCharactersRoutes(container: Container) {
 		container.idGenerator,
 		container.clock,
 	);
-	const previewSync = new PreviewCharacterSyncUseCase(repo, sessionsRepo);
+	const previewSync = new PreviewCharacterSyncUseCase(
+		repo,
+		sessionsRepo,
+		container.ruleRegistry,
+	);
 	const applySync = new ApplyCharacterSyncUseCase(
 		repo,
 		sessionsRepo,
@@ -293,12 +297,13 @@ export function createCharactersRoutes(container: Container) {
 					value: data.value,
 					sessionId: data.sessionId,
 					reason: data.reason,
+					expectedVersion: data.expectedVersion,
 				}),
 			);
 		})
 		.post(
 			"/import/preview",
-			async ({ body, actor }) => {
+			async ({ body, actor, query }) => {
 				const gm = requireGm(actor);
 				const file = body.file as Blob;
 				const parsedRuleId = RuleId.safeParse(body.ruleId);
@@ -311,6 +316,10 @@ export function createCharactersRoutes(container: Container) {
 						ownerId: gm.userId,
 						ruleId: parsedRuleId.data,
 						file: arrayBuffer,
+						characterId:
+							typeof query?.characterId === "string"
+								? query.characterId
+								: undefined,
 					}),
 				);
 			},
@@ -318,6 +327,7 @@ export function createCharactersRoutes(container: Container) {
 				body: t.Object({
 					file: t.File(),
 					ruleId: t.String(),
+					characterId: t.Optional(t.String()),
 				}),
 			},
 		)
@@ -331,6 +341,8 @@ export function createCharactersRoutes(container: Container) {
 					kind: data.kind,
 					moduleId: data.moduleId,
 					characterId: data.characterId,
+					expectedVersion: data.expectedVersion,
+					ownerKind: "gm",
 				}),
 			);
 		})
@@ -397,13 +409,18 @@ export function createCharactersRoutes(container: Container) {
 			async ({ params, body, actor }) => {
 				const gm = requireGm(actor);
 				const data = parseBody(ApplyCharacterSyncRequest, body);
-				return applySync.execute({
+				const result = await applySync.execute({
 					ownerId: gm.userId,
 					sessionId: params.id,
 					characterId: params.characterId,
 					fields: data.fields,
 					expectedVersion: data.expectedVersion,
 				});
+				container.connectionRegistry.sendToSession(params.id, {
+					type: "session:refresh",
+					payload: {},
+				});
+				return result;
 			},
 		);
 
@@ -633,7 +650,7 @@ export function createCharactersRoutes(container: Container) {
 		})
 		.post(
 			"/import/preview",
-			async ({ actor, body }) => {
+			async ({ actor, body, query }) => {
 				const user = requireUser(actor);
 				const file = body.file as Blob;
 				const parsedRuleId = RuleId.safeParse(body.ruleId);
@@ -645,10 +662,20 @@ export function createCharactersRoutes(container: Container) {
 						ownerId: user.userId,
 						ruleId: parsedRuleId.data,
 						file: await file.arrayBuffer(),
+						characterId:
+							typeof query?.characterId === "string"
+								? query.characterId
+								: undefined,
 					}),
 				);
 			},
-			{ body: t.Object({ file: t.File(), ruleId: t.String() }) },
+			{
+				body: t.Object({
+					file: t.File(),
+					ruleId: t.String(),
+					characterId: t.Optional(t.String()),
+				}),
+			},
 		)
 		.post("/import/confirm", async ({ actor, body }) => {
 			const user = requireUser(actor);
@@ -659,6 +686,8 @@ export function createCharactersRoutes(container: Container) {
 					importToken: data.importToken,
 					kind: "pc",
 					characterId: data.characterId,
+					expectedVersion: data.expectedVersion,
+					ownerKind: "pl",
 				}),
 			);
 		});

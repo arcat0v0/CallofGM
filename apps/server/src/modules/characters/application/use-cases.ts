@@ -190,7 +190,11 @@ export class UpdateCharacterUseCase {
 			patch.profileVersion = character.profileVersion + 1;
 		}
 
-		const updated = await this.repo.updateCharacter(character.id, patch);
+		const updated = await this.repo.updateCharacter(
+			character.id,
+			patch,
+			character.version,
+		);
 
 		if (sheetTouched || profileTouched) {
 			await this.repo.appendVersion({
@@ -500,7 +504,12 @@ export class ImportPreviewUseCase {
 		private readonly clock: Clock,
 	) {}
 
-	async execute(input: { ownerId: string; ruleId: string; file: ArrayBuffer }) {
+	async execute(input: {
+		ownerId: string;
+		ruleId: string;
+		file: ArrayBuffer;
+		characterId?: string;
+	}) {
 		const ruleSystem = this.ruleRegistry.get(input.ruleId);
 		if (!ruleSystem.parseCharacterSheet) {
 			throw new AppError(
@@ -509,15 +518,36 @@ export class ImportPreviewUseCase {
 				400,
 			);
 		}
-		const preview = await ruleSystem.parseCharacterSheet(input.file);
+		if (input.characterId) {
+			const existing = await this.repo.findCharacterById(input.characterId);
+			if (
+				!existing ||
+				existing.deletedAt !== null ||
+				existing.ownerId !== input.ownerId
+			) {
+				throw new CharacterNotFoundError();
+			}
+			if (existing.ruleId !== input.ruleId) {
+				throw new AppError(
+					"CHARACTER_RULE_MISMATCH",
+					"Character rule does not match import rule",
+					400,
+				);
+			}
+		}
+		const preview = await ruleSystem.parseCharacterSheet(input.file, {
+			partial: input.characterId !== undefined,
+		});
 		const now = this.clock.nowEpochMs();
 		const importToken = this.idGenerator.nextId();
 
 		await this.repo.saveStaging({
 			id: importToken,
 			ownerId: input.ownerId,
-			characterName: preview.characterName,
+			characterName:
+				preview.nameProvided === false ? "" : preview.characterName,
 			sheetJson: JSON.stringify(preview.sheetData),
+			patchJson: JSON.stringify(preview.patch ?? preview.sheetData),
 			ruleId: input.ruleId,
 			errorsJson: JSON.stringify(preview.errors ?? []),
 			expiresAt: now + STAGING_TTL_MS,
@@ -532,6 +562,7 @@ export class ImportPreviewUseCase {
 				sheetData: preview.sheetData,
 				errors: preview.errors ?? [],
 				warnings: preview.warnings ?? [],
+				providedFields: preview.providedFields ?? [],
 			},
 		};
 	}
@@ -551,6 +582,8 @@ export class ImportConfirmUseCase {
 		kind: string;
 		moduleId?: string;
 		characterId?: string;
+		expectedVersion?: number;
+		ownerKind?: "gm" | "pl";
 	}) {
 		const staging = await this.repo.findStagingById(input.importToken);
 		if (!staging) {
@@ -571,7 +604,6 @@ export class ImportConfirmUseCase {
 
 		assertKind(input.kind);
 		const now = this.clock.nowEpochMs();
-		const sheetJson = staging.sheetJson;
 
 		let characterId = input.characterId;
 		if (characterId) {
@@ -590,38 +622,62 @@ export class ImportConfirmUseCase {
 					400,
 				);
 			}
+			if (
+				input.expectedVersion !== undefined &&
+				input.expectedVersion !== existing.version
+			) {
+				throw new CharacterVersionConflictError();
+			}
 			const ruleSystem = this.ruleRegistry.get(existing.ruleId);
-			ruleSystem.characterSheetSchema.parse(JSON.parse(sheetJson));
-			await this.repo.updateCharacter(existing.id, {
-				name: staging.characterName,
-				kind: input.kind,
-				sheetJson,
-				sheetVersion: existing.sheetVersion + 1,
-				version: existing.version + 1,
-				updatedAt: now,
-			});
+			const existingSheet = ruleSystem.characterSheetSchema.parse(
+				JSON.parse(existing.sheetJson),
+			);
+			const importedSheet = JSON.parse(staging.sheetJson);
+			const importedPatch = staging.patchJson
+				? JSON.parse(staging.patchJson)
+				: importedSheet;
+			const mergedSheet = ruleSystem.mergeSheetPatch(
+				existingSheet,
+				importedPatch,
+			);
+			const mergedJson = JSON.stringify(mergedSheet);
+			await this.repo.updateCharacter(
+				existing.id,
+				{
+					name: staging.characterName || existing.name,
+					kind: input.kind,
+					sheetJson: mergedJson,
+					sheetVersion: existing.sheetVersion + 1,
+					version: existing.version + 1,
+					updatedAt: now,
+				},
+				existing.version,
+			);
 			const refreshed = await this.repo.findCharacterById(existing.id);
 			await this.repo.appendVersion({
 				id: this.idGenerator.nextId(),
 				characterId: existing.id,
 				version: refreshed?.version ?? existing.version + 1,
 				sheetVersion: refreshed?.sheetVersion ?? existing.sheetVersion + 1,
-				name: refreshed?.name ?? staging.characterName,
+				name: refreshed?.name ?? staging.characterName ?? existing.name,
 				background: refreshed?.background ?? "",
-				sheetJson,
+				sheetJson: mergedJson,
 				actorUserId: input.ownerId,
 				reason: "imported",
 				createdAt: now,
 			});
 		} else {
 			const ruleSystem = this.ruleRegistry.get(staging.ruleId);
-			ruleSystem.characterSheetSchema.parse(JSON.parse(sheetJson));
+			const sheetData = ruleSystem.characterSheetSchema.parse(
+				JSON.parse(staging.sheetJson),
+			);
+			const sheetJson = JSON.stringify(sheetData);
 			characterId = this.idGenerator.nextId();
 			await this.repo.saveCharacter({
 				id: characterId,
 				ownerId: input.ownerId,
-				ownerKind: "gm",
-				name: staging.characterName,
+				ownerKind: input.ownerKind ?? "gm",
+				name: staging.characterName || "无名氏",
 				background: "",
 				kind: input.kind,
 				ruleId: staging.ruleId,
@@ -640,7 +696,7 @@ export class ImportConfirmUseCase {
 				characterId,
 				version: 1,
 				sheetVersion: 1,
-				name: staging.characterName,
+				name: staging.characterName || "无名氏",
 				background: "",
 				sheetJson,
 				actorUserId: input.ownerId,

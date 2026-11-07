@@ -237,6 +237,7 @@ export interface SessionsRepository {
 		name: string;
 		background: string;
 		sheetJson: string;
+		stateJson: string;
 		baseSheetVersion: number;
 		baseProfileVersion: number;
 		kind: string;
@@ -249,6 +250,7 @@ export interface SessionsRepository {
 			name?: string;
 			background?: string;
 			sheetJson?: string;
+			stateJson?: string;
 			baseSheetVersion?: number;
 			baseProfileVersion?: number;
 		},

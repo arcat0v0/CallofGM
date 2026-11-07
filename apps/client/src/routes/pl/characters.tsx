@@ -1,12 +1,18 @@
 import type { CharacterDetailDto, CharacterDto } from "@cogm/shared";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { LogOut, Pencil, Plus, Trash2, VenetianMask } from "lucide-react";
+import {
+	FileSpreadsheet,
+	LogOut,
+	Pencil,
+	Plus,
+	Trash2,
+	VenetianMask,
+} from "lucide-react";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Logo } from "@/components/brand/logo";
 import { EmptyState, ListSkeleton } from "@/components/shared/empty-state";
-import { FormField } from "@/components/shared/form-field";
 import { PageHeader } from "@/components/shared/page-header";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -19,23 +25,14 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { CharacterProfileEditorDialog } from "@/features/characters/character-profile-editor-dialog";
+import { ImportCharacterSheetDialog } from "@/features/gm-admin/dialogs/import-character-sheet-dialog";
 import { t, useI18nVersion } from "@/i18n";
 import { api, fetchAllPages, isApiError } from "@/lib/api";
 import { errorText } from "@/lib/errors";
 import { initialsOf } from "@/lib/format";
 import { logoutAccount, requireAccount } from "@/lib/identity";
-import { useRuleOptions } from "@/lib/rules-api";
-import { getRuleComponent } from "@/rules/registry";
+import { FALLBACK_RULE_ID } from "@/rules/registry";
 import { useIdentityStore } from "@/stores/identity-store";
 
 export const Route = createFileRoute("/pl/characters")({
@@ -43,18 +40,15 @@ export const Route = createFileRoute("/pl/characters")({
 	component: PlCharactersPage,
 });
 
-type EditorState = {
-	open: boolean;
-};
-
 function PlCharactersPage() {
 	useI18nVersion();
 	const [characters, setCharacters] = useState<CharacterDto[]>([]);
 	const [loading, setLoading] = useState(true);
-	const [editor, setEditor] = useState<EditorState>({ open: false });
 	const [profileCharacter, setProfileCharacter] =
 		useState<CharacterDetailDto | null>(null);
 	const [deleteTarget, setDeleteTarget] = useState<CharacterDto | null>(null);
+	const [importTarget, setImportTarget] = useState<CharacterDto | null>(null);
+	const [importOpen, setImportOpen] = useState(false);
 
 	const load = useCallback(async () => {
 		setLoading(true);
@@ -87,14 +81,25 @@ function PlCharactersPage() {
 				title={t("pl.characters.title")}
 				description={t("pl.characters.description")}
 				actions={
-					<Button
-						type="button"
-						variant="primary"
-						onClick={() => setEditor({ open: true })}
-					>
-						<Plus />
-						{t("pl.characters.create")}
-					</Button>
+					<div className="flex flex-wrap items-center gap-2">
+						<Button
+							type="button"
+							variant="outline"
+							onClick={() => {
+								setImportTarget(null);
+								setImportOpen(true);
+							}}
+						>
+							<FileSpreadsheet />
+							{t("pl.characters.importExcel")}
+						</Button>
+						<Button asChild variant="primary">
+							<Link to="/pl/characters/new">
+								<Plus />
+								{t("pl.characters.create")}
+							</Link>
+						</Button>
+					</div>
 				}
 			/>
 
@@ -106,13 +111,11 @@ function PlCharactersPage() {
 					title={t("pl.characters.empty")}
 					description={t("pl.characters.emptyHint")}
 					action={
-						<Button
-							type="button"
-							variant="primary"
-							onClick={() => setEditor({ open: true })}
-						>
-							<Plus />
-							{t("pl.characters.create")}
+						<Button asChild variant="primary">
+							<Link to="/pl/characters/new">
+								<Plus />
+								{t("pl.characters.create")}
+							</Link>
 						</Button>
 					}
 				/>
@@ -183,6 +186,19 @@ function PlCharactersPage() {
 									<Button
 										type="button"
 										variant="ghost"
+										size="sm"
+										title={t("pl.characters.updateFromExcel")}
+										onClick={() => {
+											setImportTarget(character);
+											setImportOpen(true);
+										}}
+									>
+										<FileSpreadsheet className="size-3.5" />
+										{t("pl.characters.updateFromExcel")}
+									</Button>
+									<Button
+										type="button"
+										variant="ghost"
 										size="icon-sm"
 										title={t("common.delete")}
 										aria-label={`${t("common.delete")} ${character.name}`}
@@ -197,10 +213,19 @@ function PlCharactersPage() {
 				</div>
 			)}
 
-			<CharacterEditor
-				state={editor}
-				onClose={() => setEditor({ open: false })}
-				onSaved={() => void load()}
+			<ImportCharacterSheetDialog
+				open={importOpen}
+				onOpenChange={(open) => {
+					setImportOpen(open);
+					if (!open) {
+						setImportTarget(null);
+					}
+				}}
+				ruleId={importTarget?.ruleId ?? FALLBACK_RULE_ID}
+				scope="pl"
+				updateCharacterId={importTarget?.id ?? null}
+				expectedVersion={importTarget?.version}
+				onImported={() => void load()}
 			/>
 
 			{profileCharacter ? (
@@ -283,120 +308,5 @@ function PlShell({ children }: { children: ReactNode }) {
 				{children}
 			</main>
 		</div>
-	);
-}
-
-function CharacterEditor({
-	state,
-	onClose,
-	onSaved,
-}: {
-	state: EditorState;
-	onClose: () => void;
-	onSaved: () => void;
-}) {
-	const { rules, ruleId, setRuleId, loading: rulesLoading } = useRuleOptions();
-	const [name, setName] = useState("");
-	const [background, setBackground] = useState("");
-	const [pending, setPending] = useState(false);
-
-	useEffect(() => {
-		if (!state.open) {
-			return;
-		}
-		setName("");
-		setBackground("");
-	}, [state.open]);
-
-	async function submit() {
-		const trimmed = name.trim();
-		if (!trimmed || pending) {
-			return;
-		}
-		setPending(true);
-		try {
-			await api("/pl/characters", {
-				method: "POST",
-				body: JSON.stringify({
-					name: trimmed,
-					background,
-					ruleId,
-					sheetData: getRuleComponent(ruleId).createEmptySheet(),
-				}),
-			});
-			toast.success(t("pl.characters.saved"));
-			onClose();
-			onSaved();
-		} catch (error) {
-			toast.error(errorText(error, "pl.characters.saveFailed"));
-		} finally {
-			setPending(false);
-		}
-	}
-
-	return (
-		<Dialog
-			open={state.open}
-			onOpenChange={(open) => (open ? undefined : onClose())}
-		>
-			<DialogContent>
-				<DialogHeader>
-					<DialogTitle>{t("pl.characters.create")}</DialogTitle>
-					<DialogDescription>{t("pl.characters.hint")}</DialogDescription>
-				</DialogHeader>
-				<div className="flex flex-col gap-4">
-					<FormField
-						label={t("pl.characters.name")}
-						htmlFor="pl-character-name"
-					>
-						<Input
-							id="pl-character-name"
-							value={name}
-							maxLength={100}
-							onChange={(event) => setName(event.target.value)}
-						/>
-					</FormField>
-					<FormField
-						label={t("pl.characters.background")}
-						htmlFor="pl-character-bg"
-					>
-						<Textarea
-							id="pl-character-bg"
-							value={background}
-							rows={4}
-							onChange={(event) => setBackground(event.target.value)}
-						/>
-					</FormField>
-					<FormField label={t("rules.label")}>
-						<Select
-							value={ruleId}
-							onValueChange={setRuleId}
-							disabled={rulesLoading}
-						>
-							<SelectTrigger>
-								<SelectValue placeholder={t("rules.loading")} />
-							</SelectTrigger>
-							<SelectContent>
-								{rules.map((rule) => (
-									<SelectItem key={rule.id} value={rule.id}>
-										{rule.name}
-									</SelectItem>
-								))}
-							</SelectContent>
-						</Select>
-					</FormField>
-				</div>
-				<DialogFooter>
-					<Button
-						type="button"
-						variant="primary"
-						disabled={pending || !name.trim()}
-						onClick={() => void submit()}
-					>
-						{t("common.save")}
-					</Button>
-				</DialogFooter>
-			</DialogContent>
-		</Dialog>
 	);
 }

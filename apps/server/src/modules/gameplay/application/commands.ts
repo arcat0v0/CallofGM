@@ -81,7 +81,7 @@ async function loadCharacterContext(
 
 	let sheet: unknown;
 	try {
-		sheet = rule.characterSheetSchema.parse(JSON.parse(character.sheetJson));
+		sheet = rule.characterSheetSchema.parse(JSON.parse(sessionCharacter.sheetJson));
 	} catch {
 		throw new SessionStateInvalidError(
 			`Character sheet of ${character.name} failed rule schema validation`,

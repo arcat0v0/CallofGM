@@ -46,7 +46,39 @@ describe("Session visibility settings contract tests", () => {
 		ctx = await setupTestApp({
 			players: ["pc1", "pc2", "ob1"],
 			characters: [
-				{ id: "char-pc1", name: "调查员一号", kind: "pc", sheet: defaultSheet },
+				{
+					id: "char-pc1",
+					name: "调查员一号",
+					kind: "pc",
+					sheet: {
+						...defaultSheet,
+						weapons: [
+							{
+								name: "私人手枪",
+								skillKey: "射击(手枪)",
+								damage: "1d10",
+							},
+						],
+						assets: {
+							currency: "$",
+							spendingLevel: 10,
+							cash: 500,
+							otherAssets: 2000,
+							details: [
+								{ category: "residence", name: "秘密公寓", value: 2000 },
+							],
+						},
+						spells: [
+							{
+								name: "秘密法术",
+								mpCost: "1",
+								sanCost: "1",
+								castingTime: "1 轮",
+								effect: "不可公开",
+							},
+						],
+					},
+				},
 				{ id: "char-pc2", name: "调查员二号", kind: "pc" },
 				{ id: "char-npc1", name: "守塔人", kind: "npc" },
 			],
@@ -140,6 +172,41 @@ describe("Session visibility settings contract tests", () => {
 			expect(charOf(snapshot, "char-pc2").sheet).not.toBeNull();
 			expect(charOf(snapshot, "char-npc1").sheet).toBeNull();
 		}
+	});
+
+	test("队友只收到公开投影；本人与 GM 收到完整武器、资产和法术", async () => {
+		const teammate = await snapshotFor("pc2");
+		const publicSheet = charOf(teammate, "char-pc1").sheet as {
+			attributes: Record<string, number>;
+			skills: Record<string, number>;
+			weapons: unknown[];
+			assets: { cash: number; details: unknown[] };
+			spells: unknown[];
+		};
+		expect(publicSheet.attributes.str).toBe(50);
+		expect(publicSheet.skills["侦查"]).toBe(60);
+		expect(publicSheet.weapons).toEqual([]);
+		expect(publicSheet.assets.cash).toBe(0);
+		expect(publicSheet.assets.details).toEqual([]);
+		expect(publicSheet.spells).toEqual([]);
+
+		const own = await snapshotFor("pc1");
+		const ownSheet = charOf(own, "char-pc1").sheet as {
+			weapons: Array<{ name: string }>;
+			assets: { cash: number };
+			spells: Array<{ name: string }>;
+		};
+		expect(ownSheet.weapons[0]?.name).toBe("私人手枪");
+		expect(ownSheet.assets.cash).toBe(500);
+		expect(ownSheet.spells[0]?.name).toBe("秘密法术");
+
+		const gm = await snapshotFor("gm");
+		const gmSheet = charOf(gm, "char-pc1").sheet as {
+			weapons: Array<{ name: string }>;
+			assets: { details: Array<{ name: string }> };
+		};
+		expect(gmSheet.weapons[0]?.name).toBe("私人手枪");
+		expect(gmSheet.assets.details[0]?.name).toBe("秘密公寓");
 	});
 
 	test("F21 关闭：玩家只看到自己认领 PC 的人物卡，OB 无人物卡，GM 全量", async () => {

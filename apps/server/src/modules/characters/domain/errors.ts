@@ -56,6 +56,12 @@ export class ReviewAlreadyDecidedError extends AppError {
 	}
 }
 
+export class ReviewSheetVersionConflictError extends AppError {
+	constructor(message = "Sheet version has changed since submission") {
+		super("REVIEW_SHEET_VERSION_CONFLICT", message, 409);
+	}
+}
+
 export class CharacterAlreadySubmittedError extends AppError {
 	constructor(message = "This character is already submitted or linked") {
 		super("CHARACTER_ALREADY_SUBMITTED", message, 409);

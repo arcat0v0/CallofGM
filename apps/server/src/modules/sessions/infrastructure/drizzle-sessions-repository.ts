@@ -554,6 +554,7 @@ export class DrizzleSessionsRepository implements SessionsRepository {
 				sheetJson: sessionCharacters.sheetJson,
 				baseSheetVersion: sessionCharacters.baseSheetVersion,
 				baseProfileVersion: sessionCharacters.baseProfileVersion,
+				stateJson: sessionCharacters.stateJson,
 				kind: sessionCharacters.kind,
 				ruleId: sessionCharacters.ruleId,
 			})
@@ -576,6 +577,7 @@ export class DrizzleSessionsRepository implements SessionsRepository {
 			name?: string;
 			background?: string;
 			sheetJson?: string;
+			stateJson?: string;
 			baseSheetVersion?: number;
 			baseProfileVersion?: number;
 		},
@@ -595,12 +597,15 @@ export class DrizzleSessionsRepository implements SessionsRepository {
 		const rows = await this.db
 			.select({ characterId: characterReviews.characterId })
 			.from(characterReviews)
+			.innerJoin(characters, eq(characterReviews.characterId, characters.id))
 			.where(
 				and(
 					eq(characterReviews.scope, "session"),
 					eq(characterReviews.targetId, sessionId),
 					eq(characterReviews.status, "approved"),
+					eq(characterReviews.submittedSheetVersion, characters.sheetVersion),
 					isNull(characterReviews.deletedAt),
+					isNull(characters.deletedAt),
 				),
 			);
 		return [...new Set(rows.map((row) => row.characterId))];

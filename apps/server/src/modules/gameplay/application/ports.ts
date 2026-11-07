@@ -9,6 +9,7 @@ export interface CharacterSummary {
 export interface SessionCharacterSummary {
 	kind: string;
 	stateJson: string;
+	sheetJson: string;
 }
 
 export interface CheckRequestRecord {

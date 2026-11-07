@@ -1,0 +1,1 @@
+ALTER TABLE `import_stagings` ADD `patch_json` text;

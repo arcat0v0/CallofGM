@@ -2,6 +2,7 @@ import { type CharacterInviteInfoResponse, safeReturnTo } from "@cogm/shared";
 import {
 	createFileRoute,
 	isRedirect,
+	Link,
 	redirect,
 	useNavigate,
 } from "@tanstack/react-router";
@@ -9,11 +10,9 @@ import { CheckCircle2, Link2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Logo } from "@/components/brand/logo";
-import { FormField } from "@/components/shared/form-field";
 import { SegmentedControl } from "@/components/shared/segmented-control";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { LoadingIndicator } from "@/components/ui/loading-indicator";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { t, useI18nVersion } from "@/i18n";
@@ -22,7 +21,6 @@ import { errorText } from "@/lib/errors";
 import { formatStamp } from "@/lib/format";
 import { requireAccount } from "@/lib/identity";
 import { cn } from "@/lib/utils";
-import { getRuleComponent } from "@/rules/registry";
 
 export const Route = createFileRoute("/submit/$token")({
 	beforeLoad: async ({ params }) => {
@@ -49,7 +47,7 @@ function SubmitPage() {
 	const [info, setInfo] = useState<CharacterInviteInfoResponse | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [mode, setMode] = useState<"new" | "existing">("new");
-	const [name, setName] = useState("");
+	const [name] = useState("");
 	const [characterId, setCharacterId] = useState("");
 	const [pending, setPending] = useState(false);
 	const [done, setDone] = useState(false);
@@ -81,17 +79,7 @@ function SubmitPage() {
 		try {
 			await api(`/pl/invites/${encodeURIComponent(token)}/submissions`, {
 				method: "POST",
-				body: JSON.stringify(
-					mode === "new"
-						? {
-								mode: "new",
-								name: name.trim(),
-								sheetData: info
-									? getRuleComponent(info.ruleId).createEmptySheet()
-									: {},
-							}
-						: { mode: "existing", characterId },
-				),
+				body: JSON.stringify({ mode: "existing", characterId }),
 			});
 			setDone(true);
 		} catch (error) {
@@ -188,14 +176,24 @@ function SubmitPage() {
 					/>
 
 					{mode === "new" ? (
-						<FormField label={t("pl.characters.name")} htmlFor="submit-name">
-							<Input
-								id="submit-name"
-								value={name}
-								maxLength={100}
-								onChange={(event) => setName(event.target.value)}
-							/>
-						</FormField>
+						<div className="flex flex-col gap-3">
+							<p className="text-foreground-secondary text-body-medium">
+								{t("submit.newCharacterHint")}
+							</p>
+							<Button asChild variant="primary" className="h-12 w-full">
+								<Link
+									to="/pl/characters/new"
+									search={{
+										invite: token,
+										name: name || undefined,
+										rule: info?.ruleId,
+										targetName: info?.targetName,
+									}}
+								>
+									{t("submit.openCreator")}
+								</Link>
+							</Button>
+						</div>
 					) : (
 						<div className="flex flex-col gap-3">
 							<div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -249,15 +247,17 @@ function SubmitPage() {
 						</div>
 					)}
 
-					<Button
-						type="button"
-						variant="primary"
-						className="h-12 w-full"
-						disabled={pending || (mode === "new" ? !name.trim() : !characterId)}
-						onClick={() => void submit()}
-					>
-						{t("submit.submit")}
-					</Button>
+					{mode === "existing" ? (
+						<Button
+							type="button"
+							variant="primary"
+							className="h-12 w-full"
+							disabled={pending || !characterId}
+							onClick={() => void submit()}
+						>
+							{t("submit.submit")}
+						</Button>
+					) : null}
 				</div>
 			</div>
 		</main>

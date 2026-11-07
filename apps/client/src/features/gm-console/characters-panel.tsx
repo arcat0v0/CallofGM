@@ -2,7 +2,9 @@ import type { SnapshotCharacter } from "@cogm/shared";
 import {
 	ChevronDown,
 	ContactRound,
+	RefreshCw,
 	Search,
+	SlidersHorizontal,
 	UserRoundCheck,
 	UserRoundMinus,
 	UserRoundPlus,
@@ -37,6 +39,8 @@ import { cn } from "@/lib/utils";
 import { getRuleComponent } from "@/rules/registry";
 import { usePlayStore } from "@/stores/play-store";
 import { AddNpcDialog } from "./add-npc-dialog";
+import { CharacterPermanentFieldDialog } from "./character-permanent-field-dialog";
+import { CharacterSyncDialog } from "./character-sync-dialog";
 import { GmPanelShell, GmSelectField, GmValueField } from "./gm-panel-fields";
 import { GmStateEditor } from "./gm-state-editor";
 
@@ -77,6 +81,10 @@ function CharactersPanel({ onClose }: { onClose: () => void }) {
 	);
 	const [sheetOpen, setSheetOpen] = useState(false);
 	const [sheetCharacterId, setSheetCharacterId] = useState<string | null>(null);
+	const [syncCharacterId, setSyncCharacterId] = useState<string | null>(null);
+	const [permanentCharacterId, setPermanentCharacterId] = useState<
+		string | null
+	>(null);
 	const [claimPending, setClaimPending] = useState(false);
 	const [query, setQuery] = useState("");
 	const [kindFilter, setKindFilter] = useState<"all" | "pc" | "npc">("all");
@@ -527,6 +535,32 @@ function CharactersPanel({ onClose }: { onClose: () => void }) {
 													<ContactRound className="size-4" />
 													{t("gm.workbench.openSheet")}
 												</Button>
+												<Button
+													type="button"
+													variant="tertiary"
+													size="sm"
+													className="bg-md-surface-container-highest h-9"
+													disabled={ended}
+													onClick={() =>
+														setSyncCharacterId(character.characterId)
+													}
+												>
+													<RefreshCw className="size-4" />
+													{t("gm.workbench.syncSheet")}
+												</Button>
+												<Button
+													type="button"
+													variant="tertiary"
+													size="sm"
+													className="bg-md-surface-container-highest h-9"
+													disabled={ended}
+													onClick={() =>
+														setPermanentCharacterId(character.characterId)
+													}
+												>
+													<SlidersHorizontal className="size-4" />
+													{t("gm.workbench.permanentField")}
+												</Button>
 												{character.kind === "npc" ? (
 													<Button
 														type="button"
@@ -564,6 +598,26 @@ function CharactersPanel({ onClose }: { onClose: () => void }) {
 				open={sheetOpen}
 				onOpenChange={setSheetOpen}
 				initialCharacterId={sheetCharacterId}
+			/>
+			<CharacterSyncDialog
+				open={syncCharacterId !== null}
+				onOpenChange={(open) => {
+					if (!open) {
+						setSyncCharacterId(null);
+					}
+				}}
+				sessionId={sessionId}
+				characterId={syncCharacterId}
+			/>
+			<CharacterPermanentFieldDialog
+				open={permanentCharacterId !== null}
+				onOpenChange={(open) => {
+					if (!open) {
+						setPermanentCharacterId(null);
+					}
+				}}
+				sessionId={sessionId}
+				characterId={permanentCharacterId}
 			/>
 			<AddNpcDialog
 				open={addNpcOpen}

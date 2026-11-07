@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import type { coc7e } from "@cogm/shared";
+import { coc7e } from "@cogm/shared";
+import type { WorkSheet } from "xlsx";
 import { AppError } from "@/platform/errors/app-error";
 import type { RandomSource } from "@/platform/ports";
 import { Coc7eRuleSystem } from "@/rules/coc7e";
@@ -23,8 +24,7 @@ class FakeRandomSource implements RandomSource {
 
 const rule = new Coc7eRuleSystem();
 
-const baseSheet: coc7e.Coc7eCharacterSheet = {
-	schemaVersion: 1,
+const baseSheet: coc7e.Coc7eCharacterSheet = coc7e.normalizeCoc7eSheet({
 	attributes: {
 		str: 50,
 		con: 60,
@@ -37,7 +37,7 @@ const baseSheet: coc7e.Coc7eCharacterSheet = {
 		luck: 50,
 	},
 	skills: { 侦查: 60, 图书馆: 45 },
-};
+});
 
 const baseState: coc7e.CharacterSessionState = {
 	schemaVersion: 1,
@@ -322,7 +322,7 @@ describe("CoC 7e 状态变更", () => {
 		expect(preview.sheetData.skills["侦查"]).toBe(80);
 		expect(preview.sheetData.skills["聆听"]).toBe(45);
 		expect(preview.sheetData.skills["克苏鲁神话"]).toBe(5);
-		expect(preview.sheetData.skills["格斗"]).toBe(55);
+		expect(preview.sheetData.skills["格斗(斗殴)"]).toBe(55);
 		expect(preview.sheetData.skills["闪避"]).toBe(35);
 		expect(preview.sheetData.skills["母语"]).toBe(75);
 		expect(preview.sheetData.skills["会计"]).toBe(5);
@@ -349,11 +349,224 @@ describe("CoC 7e 状态变更", () => {
 		expect(preview.sheetData.attributes.luck).toBe(50);
 		expect(preview.sheetData.attributes.app).toBe(50);
 	});
+
+	test("读取人物卡/简化卡模板的固定坐标、专攻与明确字段", async () => {
+		const xlsx = await import("xlsx");
+		const workbook = xlsx.utils.book_new();
+		const cells: Record<string, { t: string; v: string | number }> = {};
+		const put = (address: string, value: string | number) => {
+			cells[address] = { t: typeof value === "number" ? "n" : "s", v: value };
+		};
+		put("E3", "七海莲");
+		put("E4", 42);
+		put("E5", "黑客");
+		put("M4", "现代");
+		put("U3", 55);
+		put("U5", 60);
+		put("U7", 70);
+		put("AA3", 65);
+		put("AA5", 50);
+		put("AA7", 70);
+		put("AG3", 60);
+		put("AG5", 75);
+		put("AG7", 45);
+		put("F20", "技艺①");
+		put("H20", "小提琴");
+		put("J20", 5);
+		put("L20", 10);
+		put("R20", 15);
+		put("AB35", "侦查");
+		put("AF35", 25);
+		put("AJ35", 33);
+		put("AN35", 58);
+		put("B54", "蝴蝶刀");
+		put("M54", "斗殴");
+		put("W54", "1D4+DB");
+		put("AA54", "接触");
+		put("AC54", "×");
+		put("AE54", "1");
+		put("AG54", "——");
+		put("AJ54", "——");
+		put("S62", "$");
+		put("I62", "200");
+		put("O62", 800);
+		put("L62", "2万");
+		put("F79", "小提琴");
+		put("N79", "笔记本");
+		put("Y114", "灰色束缚");
+		put("AC114", "8mp 1d6san 1h");
+		put("AH114", "控制死者");
+		put("W98", "米-戈");
+		put("AA98", "克苏鲁+3，SAN-6");
+		put("AK98", "第一次接触");
+		const worksheet = {
+			"!ref": "A1:CI181",
+			...cells,
+		} as unknown as WorkSheet;
+		xlsx.utils.book_append_sheet(workbook, worksheet, "人物卡");
+		const buffer = xlsx.write(workbook, {
+			type: "array",
+			bookType: "xlsx",
+		}) as ArrayBuffer;
+
+		const preview = await rule.parseCharacterSheet(buffer);
+		expect(preview.errors).toEqual([]);
+		expect(preview.characterName).toBe("七海莲");
+		expect(preview.sheetData.attributes).toMatchObject({
+			str: 55,
+			con: 60,
+			siz: 70,
+			dex: 65,
+			app: 50,
+			int: 70,
+			pow: 60,
+			edu: 75,
+			luck: 45,
+		});
+		expect(preview.sheetData.age).toBe(42);
+		expect(preview.sheetData.era).toBe("modern");
+		expect(preview.sheetData.occupation.presetId).toBe("hacker");
+		expect(preview.sheetData.skills["技艺(小提琴)"]).toBe(15);
+		expect(preview.sheetData.customSkills["技艺(小提琴)"]).toEqual({ base: 5 });
+		expect(preview.sheetData.skills["侦查"]).toBe(58);
+		expect(preview.sheetData.weapons[0]).toMatchObject({
+			name: "蝴蝶刀",
+			skillKey: "格斗(斗殴)",
+			damage: "1D4+DB",
+			applyDamageBonus: true,
+		});
+		expect(preview.sheetData.assets).toMatchObject({
+			currency: "$",
+			spendingLevel: 200,
+			cash: 800,
+			otherAssets: 20000,
+		});
+		expect(preview.sheetData.gear.map((item) => item.name)).toEqual([
+			"小提琴",
+			"笔记本",
+		]);
+		expect(preview.sheetData.spells[0]).toMatchObject({
+			name: "灰色束缚",
+			mpCost: "8",
+			sanCost: "1d6",
+			castingTime: "1h",
+		});
+		expect(preview.sheetData.encounters[0]).toMatchObject({
+			name: "米-戈",
+			mythosGain: 3,
+			sanLoss: "6",
+		});
+		expect(preview.providedFields).toContain("attributes.str");
+		expect(preview.providedFields).toContain("skills.侦查");
+		expect(preview.providedFields).toContain("assets");
+		expect(preview.patch).toMatchObject({
+			attributes: {
+				str: 55,
+				con: 60,
+				siz: 70,
+				dex: 65,
+				int: 70,
+				pow: 60,
+				edu: 75,
+			},
+			skills: { 侦查: 58, "技艺(小提琴)": 15 },
+		});
+	});
+
+	test("更新导入允许模板缺少部分属性且只记录明确出现的字段", async () => {
+		const xlsx = await import("xlsx");
+		const workbook = xlsx.utils.book_new();
+		xlsx.utils.book_append_sheet(
+			workbook,
+			{
+				"!ref": "A1:CI181",
+				E3: { t: "s", v: "局部更新" },
+				U3: { t: "n", v: 66 },
+				F16: { t: "s", v: "会计" },
+				R16: { t: "n", v: 7 },
+			} as unknown as WorkSheet,
+			"人物卡",
+		);
+		const buffer = xlsx.write(workbook, {
+			type: "array",
+			bookType: "xlsx",
+		}) as ArrayBuffer;
+		const preview = await rule.parseCharacterSheet(buffer, { partial: true });
+		expect(preview.errors).toEqual([]);
+		expect(preview.patch).toMatchObject({
+			attributes: { str: 66 },
+			skills: { 会计: 7 },
+		});
+		expect(
+			(preview.patch as { skills: Record<string, number> }).skills,
+		).not.toHaveProperty("图书馆");
+	});
+
+	test("更新合并只覆盖导入明确提供的字段", async () => {
+		const { mergeCoc7eSheetPatch } = await import("@/rules/coc7e/merge-patch");
+		const base = coc7e.normalizeCoc7eSheet({
+			attributes: { ...baseSheet.attributes, str: 10, con: 12 },
+			skills: { 侦查: 25 },
+			weapons: [
+				{
+					name: "旧枪",
+					skillKey: "射击(手枪)",
+					damage: "1d10",
+					range: "15",
+					attacks: "1",
+					ammo: 6,
+					malfunction: 100,
+					impale: false,
+					applyDamageBonus: false,
+				},
+			],
+			armor: { name: "旧甲", value: 3, locations: "躯干", penalty: 1 },
+			assets: {
+				currency: "$",
+				spendingLevel: 10,
+				cash: 100,
+				otherAssets: 2000,
+				details: [{ category: "residence", name: "公寓", value: 2000 }],
+			},
+			spells: [
+				{
+					name: "旧法术",
+					mpCost: "1",
+					sanCost: "1",
+					castingTime: "1 轮",
+					effect: "保留",
+				},
+			],
+		});
+		const merged = mergeCoc7eSheetPatch(base, {
+			attributes: { str: 60 },
+			skills: { 侦查: 58 },
+			armor: { name: "新甲" },
+			assets: { cash: 800 },
+		});
+		expect(merged.attributes.str).toBe(60);
+		expect(merged.attributes.con).toBe(12);
+		expect(merged.skills["侦查"]).toBe(58);
+		expect(merged.weapons[0]?.name).toBe("旧枪");
+		expect(merged.spells[0]?.effect).toBe("保留");
+		expect(merged.assets.cash).toBe(800);
+		expect(merged.assets.otherAssets).toBe(2000);
+		expect(merged.assets.details[0]?.name).toBe("公寓");
+		expect(merged.armor).toEqual({
+			name: "新甲",
+			value: 3,
+			locations: "躯干",
+			penalty: 1,
+		});
+	});
 });
 
 describe("CoC 7e getSkillTargetValue", () => {
 	function emptySheet(): coc7e.Coc7eCharacterSheet {
-		return { schemaVersion: 1, attributes: baseSheet.attributes, skills: {} };
+		return coc7e.normalizeCoc7eSheet({
+			attributes: baseSheet.attributes,
+			skills: {},
+		});
 	}
 
 	test("卡上无技能时回退技能目录基础值", () => {

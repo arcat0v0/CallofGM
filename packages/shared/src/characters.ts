@@ -41,6 +41,7 @@ export const ImportConfirmRequest = z.object({
 	ruleId: RuleId.optional(),
 	moduleId: z.string().min(1).optional(),
 	characterId: z.string().min(1).optional(),
+	expectedVersion: z.number().int().positive().optional(),
 });
 export type ImportConfirmRequest = z.infer<typeof ImportConfirmRequest>;
 
@@ -109,6 +110,7 @@ export const CharacterImportPreviewResponse = z.object({
 		sheetData: z.unknown(),
 		errors: z.array(CharacterImportErrorDto),
 		warnings: z.array(CharacterImportErrorDto).default([]),
+		providedFields: z.array(z.string()).default([]),
 	}),
 });
 export type CharacterImportPreviewResponse = z.infer<
@@ -167,6 +169,7 @@ export const GmPermanentFieldEditRequest = z.object({
 	value: z.number().int(),
 	sessionId: z.string().min(1).optional(),
 	reason: z.string().max(500).optional(),
+	expectedVersion: z.number().int().positive().optional(),
 });
 export type GmPermanentFieldEditRequest = z.infer<
 	typeof GmPermanentFieldEditRequest
@@ -260,6 +263,25 @@ export type DecideReviewRequest = z.infer<typeof DecideReviewRequest>;
 export const CharacterSyncField = z.enum(["name", "background", "sheet"]);
 export type CharacterSyncField = z.infer<typeof CharacterSyncField>;
 
+export const SyncStatePreviewDto = z.object({
+	current: z.object({
+		hp: z.number().int(),
+		maxHp: z.number().int(),
+		mp: z.number().int(),
+		maxMp: z.number().int(),
+		san: z.number().int(),
+		maxSan: z.number().int(),
+	}),
+	next: z.object({
+		hp: z.number().int(),
+		maxHp: z.number().int(),
+		mp: z.number().int(),
+		maxMp: z.number().int(),
+		san: z.number().int(),
+		maxSan: z.number().int(),
+	}),
+});
+
 export const CharacterSyncDiffDto = z.object({
 	characterId: z.string(),
 	sessionId: z.string(),
@@ -273,6 +295,7 @@ export const CharacterSyncDiffDto = z.object({
 	currentVersion: z.number().int(),
 	baseVersion: z.number().int(),
 	staleReview: z.boolean(),
+	statePreview: SyncStatePreviewDto.optional(),
 });
 export type CharacterSyncDiffDto = z.infer<typeof CharacterSyncDiffDto>;
 

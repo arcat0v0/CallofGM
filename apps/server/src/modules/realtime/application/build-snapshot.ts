@@ -457,7 +457,15 @@ export class BuildSessionSnapshotUseCase {
 				(kind === "pc" && settings.sharePcSheets && isParticipant);
 			if (sheetVisible) {
 				try {
-					sheet = JSON.parse(sc.sheetJson);
+					const parsedSheet = JSON.parse(sc.sheetJson);
+					if (isGm || ownPc) {
+						sheet = parsedSheet;
+					} else {
+						const rule = this.ruleRegistry.get(sc.ruleId);
+						sheet = rule.projectPublicSheet(
+							rule.characterSheetSchema.parse(parsedSheet),
+						);
+					}
 				} catch {
 					sheet = null;
 				}

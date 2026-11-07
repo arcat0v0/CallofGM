@@ -26,6 +26,13 @@ export interface CharacterSheetPreview<T> {
 		cell: string;
 		message: string;
 	}>;
+	patch?: unknown;
+	providedFields?: string[];
+	nameProvided?: boolean;
+}
+
+export interface CharacterSheetParseOptions {
+	partial?: boolean;
 }
 
 export interface SkillCheckInput {
@@ -68,9 +75,16 @@ export abstract class RuleSystem<TSheet, TSessionState> {
 
 	parseCharacterSheet?(
 		input: ArrayBuffer,
+		options?: CharacterSheetParseOptions,
 	): Promise<CharacterSheetPreview<TSheet>>;
 
 	abstract initializeSessionState(sheet: TSheet): TSessionState;
+	abstract recalculateStateOnSync(
+		state: TSessionState,
+		newSheet: TSheet,
+	): TSessionState;
+	abstract projectPublicSheet(sheet: TSheet): unknown;
+	abstract mergeSheetPatch(base: TSheet, patch: unknown): TSheet;
 	abstract readonly publicStateFields: readonly string[];
 	abstract projectPublicSessionState(
 		state: TSessionState,

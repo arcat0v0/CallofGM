@@ -3,8 +3,7 @@ import { coc7e } from "@cogm/shared";
 import { mapActivityEvent } from "../src/lib/chat-map";
 import { skillKeysFor, skillValue } from "../src/lib/coc-live";
 
-const sheet = {
-	schemaVersion: 1 as const,
+const sheet = coc7e.normalizeCoc7eSheet({
 	attributes: {
 		str: 60,
 		con: 50,
@@ -17,7 +16,7 @@ const sheet = {
 		luck: 45,
 	},
 	skills: { 侦查: 70, 聆听: 40 },
-};
+});
 
 describe("coc7e label mapping", () => {
 	test("attributes map to Chinese names, skills keep their catalog key", () => {

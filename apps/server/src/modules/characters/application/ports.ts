@@ -40,6 +40,7 @@ export interface StagingRecord {
 	ownerId: string;
 	characterName: string;
 	sheetJson: string;
+	patchJson: string | null;
 	ruleId: string;
 	errorsJson: string;
 	expiresAt: number;
@@ -159,6 +160,7 @@ export interface CharactersRepository {
 				| "deletedAt"
 			>
 		>,
+		expectedVersion?: number,
 	): Promise<CharacterRecord>;
 	softDeleteCharacter(id: string, deletedAt: number): Promise<void>;
 	listCharacters(

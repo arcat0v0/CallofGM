@@ -23,7 +23,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { t } from "@/i18n";
 import { api } from "@/lib/api";
-import { parseCocSheet } from "@/lib/coc-live";
 import { errorText } from "@/lib/errors";
 import { cn } from "@/lib/utils";
 import { FALLBACK_RULE_ID, getRuleComponent } from "@/rules/registry";
@@ -33,13 +32,17 @@ function ImportCharacterSheetDialog({
 	onOpenChange,
 	onImported,
 	updateCharacterId,
+	expectedVersion,
 	ruleId = FALLBACK_RULE_ID,
+	scope = "gm",
 }: {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	onImported?: () => void;
 	updateCharacterId?: string | null;
+	expectedVersion?: number | undefined;
 	ruleId?: string;
+	scope?: "gm" | "pl";
 }) {
 	const [file, setFile] = useState<File | null>(null);
 	const [preview, setPreview] = useState<CharacterImportPreviewResponse | null>(
@@ -54,8 +57,11 @@ function ImportCharacterSheetDialog({
 			const body = new FormData();
 			body.append("file", next);
 			body.append("ruleId", ruleId);
+			const query = updateCharacterId
+				? `?characterId=${encodeURIComponent(updateCharacterId)}`
+				: "";
 			const result = await api<CharacterImportPreviewResponse>(
-				"/gm/characters/import/preview",
+				`/${scope}/characters/import/preview${query}`,
 				{ method: "POST", body },
 			);
 			setFile(next);
@@ -77,12 +83,13 @@ function ImportCharacterSheetDialog({
 		}
 		setPending(true);
 		try {
-			await api("/gm/characters/import/confirm", {
+			await api(`/${scope}/characters/import/confirm`, {
 				method: "POST",
 				body: JSON.stringify({
 					importToken: preview.importToken,
-					kind,
+					kind: scope === "pl" ? "pc" : kind,
 					...(updateCharacterId ? { characterId: updateCharacterId } : {}),
+					...(expectedVersion === undefined ? {} : { expectedVersion }),
 				}),
 			});
 			toast.success(
@@ -171,6 +178,7 @@ function ImportCharacterSheetDialog({
 									size="sm"
 									variant="tertiary"
 									className="h-7"
+									disabled={scope === "pl"}
 									onClick={() => setKind(kind === "pc" ? "npc" : "pc")}
 								>
 									{t("gm.importSheet.switchKind", {
@@ -187,6 +195,13 @@ function ImportCharacterSheetDialog({
 									.map(({ key, value }) => `${rule.skillLabel(key)} ${value}`)
 									.join(" · ")}
 							</p>
+							{preview.preview.providedFields.length > 0 ? (
+								<p className="text-foreground-tertiary text-label-small">
+									{t("gm.importSheet.providedFields", {
+										count: preview.preview.providedFields.length,
+									})}
+								</p>
+							) : null}
 							{preview.preview.errors.length > 0 ? (
 								<Alert>
 									<AlertIcon>

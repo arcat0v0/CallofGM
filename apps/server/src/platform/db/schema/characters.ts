@@ -151,6 +151,7 @@ export const importStagings = sqliteTable("import_stagings", {
 		.references(() => users.id),
 	characterName: text("character_name").notNull(),
 	sheetJson: text("sheet_json").notNull(),
+	patchJson: text("patch_json"),
 	ruleId: text("rule_id").notNull(),
 	errorsJson: text("errors_json").notNull().default("[]"),
 	expiresAt: integer("expires_at").notNull(),
