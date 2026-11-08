@@ -81,6 +81,7 @@ export const COC7E_SKILL_CATALOG: readonly Coc7eSkillDefinition[] = [
 	skill("母语", 0, ["own language"]),
 	skill("法律", 5, ["law"]),
 	skill("图书馆", 20, ["图书馆使用", "library use", "library"]),
+	skill("礼仪", 5, ["etiquette"]),
 	skill("聆听", 20, ["listen"]),
 	skill("锁匠", 1, ["locksmith"]),
 	skill("机械维修", 10, ["mechanical repair"]),
@@ -273,6 +274,36 @@ export function coc7eSkillGrowthAllowed(
 	}
 	const canonical = canonicalizeCoc7eSkillKey(rawKey) ?? rawKey.trim();
 	return canonical !== "信用评级" && canonical !== "克苏鲁神话";
+}
+
+export function coc7eSkillFamily(rawKey: string): string | null {
+	const key = rawKey.trim();
+	if (key === "") {
+		return null;
+	}
+	const lowered = key.toLowerCase();
+	const matchesAlias = (alias: string) =>
+		alias.trim().toLowerCase() === lowered;
+	for (const [family, aliases] of Object.entries(COC7E_SKILL_GROUP_ALIASES)) {
+		if (aliases.some(matchesAlias)) {
+			return family;
+		}
+	}
+	const entry = COC7E_SKILL_CATALOG.find(
+		(item) => item.key === key || item.aliases.some((alias) => alias === key),
+	);
+	if (entry?.group) {
+		return entry.group;
+	}
+	const head = key.match(/^([^()（）]+)[(（]/)?.[1]?.trim();
+	if (head) {
+		for (const [family, aliases] of Object.entries(COC7E_SKILL_GROUP_ALIASES)) {
+			if (aliases.some((alias) => alias.trim() === head)) {
+				return family;
+			}
+		}
+	}
+	return null;
 }
 
 export function matchCoc7eSkillCell(raw: string): string | null {

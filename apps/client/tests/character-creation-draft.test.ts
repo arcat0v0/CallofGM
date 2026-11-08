@@ -47,12 +47,14 @@ describe("character creation draft", () => {
 		sheet.age = 42;
 		sheet.era = "modern";
 		sheet.occupation = {
-			presetId: "hacker",
-			name: "黑客",
+			presetId: "occ-25",
+			name: "黑客/骇客（现代）",
 			skillPointFormula: [{ attribute: "edu", multiplier: 4 }],
 			creditMin: 10,
 			creditMax: 70,
 			skillKeys: ["计算机使用"],
+			choiceSelections: { social: ["魅惑"] },
+			freeSkillKeys: ["锁匠"],
 		};
 		sheet.attributes = attributes;
 		sheet.skills = { 侦查: 55, 计算机使用: 65 };

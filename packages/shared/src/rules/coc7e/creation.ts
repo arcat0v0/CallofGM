@@ -1,5 +1,10 @@
 import { deriveCoc7eSheetStats } from "./derive";
-import type { Coc7eCharacterSheet } from "./sheet";
+import {
+	type Coc7eOccupationDefinition,
+	coc7eIsOccupationalSkill,
+	coc7eOccupation,
+} from "./occupations";
+import type { Coc7eCharacterSheet, Coc7eOccupation } from "./sheet";
 import { canonicalizeCoc7eSkillKey, coc7eSkillBaseValue } from "./skills";
 
 export interface Coc7eSkillPointBudget {
@@ -27,18 +32,13 @@ export function deriveCoc7eCreationLedger(
 	sheet: Coc7eCharacterSheet,
 ): Coc7eCreationLedger {
 	const derived = deriveCoc7eSheetStats(sheet);
-	const occupationSkills = new Set(
-		sheet.occupation.skillKeys.map(
-			(key) => canonicalizeCoc7eSkillKey(key) ?? key.trim(),
-		),
-	);
 	const entries = Object.entries(sheet.skills).map(([rawKey, value]) => {
 		const key = canonicalizeCoc7eSkillKey(rawKey) ?? rawKey;
 		const base = coc7eSkillBaseValue(sheet, key) ?? 0;
 		const source =
 			key === "克苏鲁神话"
 				? ("excluded" as const)
-				: key === "信用评级" || occupationSkills.has(key)
+				: coc7eIsOccupationalSkill(sheet.occupation, key)
 					? ("occupation" as const)
 					: ("interest" as const);
 		return {
@@ -72,6 +72,138 @@ export function deriveCoc7eCreationLedger(
 		excludedPoints,
 		entries,
 	};
+}
+
+export interface Coc7eOccupationChoiceProgress {
+	id: string;
+	label: string;
+	choose: number;
+	pool: string[];
+	selected: string[];
+}
+
+export interface Coc7eOccupationProgress {
+	definition: Coc7eOccupationDefinition | null;
+	choices: Coc7eOccupationChoiceProgress[];
+	freeSkillSlots: number;
+	freeSkillKeys: string[];
+	missingChoices: number;
+	complete: boolean;
+}
+
+export function coc7eOccupationProgress(
+	occupation: Coc7eOccupation,
+): Coc7eOccupationProgress {
+	const definition = coc7eOccupation(occupation.presetId);
+	if (!definition) {
+		return {
+			definition: null,
+			choices: [],
+			freeSkillSlots: 0,
+			freeSkillKeys: [],
+			missingChoices: 0,
+			complete: occupation.skillKeys.length > 0,
+		};
+	}
+	const choices = definition.choiceGroups.map((group) => {
+		const selected = (occupation.choiceSelections[group.id] ?? []).filter(
+			(key) => key.trim() !== "",
+		);
+		return {
+			id: group.id,
+			label: group.label,
+			choose: group.choose,
+			pool: group.pool,
+			selected,
+		};
+	});
+	const missingChoices = choices.reduce(
+		(total, group) => total + Math.max(0, group.choose - group.selected.length),
+		0,
+	);
+	const freeSkillKeys = occupation.freeSkillKeys.filter(
+		(key) => key.trim() !== "",
+	);
+	const missingFreeSkills = Math.max(
+		0,
+		definition.anySkillCount - freeSkillKeys.length,
+	);
+	return {
+		definition,
+		choices,
+		freeSkillSlots: definition.anySkillCount,
+		freeSkillKeys,
+		missingChoices: missingChoices + missingFreeSkills,
+		complete: missingChoices + missingFreeSkills === 0,
+	};
+}
+
+export function coc7eOccupationFromDefinition(
+	id: string,
+): Coc7eOccupation | null {
+	const definition = coc7eOccupation(id);
+	if (!definition) {
+		return null;
+	}
+	return {
+		presetId: definition.id,
+		name: definition.name,
+		skillPointFormula: definition.skillPointOptions[0] ?? [],
+		creditMin: definition.creditMin,
+		creditMax: definition.creditMax,
+		skillKeys: definition.fixedSkillKeys,
+		choiceSelections: {},
+		freeSkillKeys: [],
+	};
+}
+
+export function coc7eClearOccupation(): Coc7eOccupation {
+	return {
+		presetId: null,
+		name: "",
+		skillPointFormula: [],
+		creditMin: 0,
+		creditMax: 99,
+		skillKeys: [],
+		choiceSelections: {},
+		freeSkillKeys: [],
+	};
+}
+
+export function coc7eOccupationWithChoice(
+	occupation: Coc7eOccupation,
+	groupId: string,
+	keys: string[],
+): Coc7eOccupation {
+	const canonical = [
+		...new Set(
+			keys
+				.map((key) => key.trim())
+				.filter((key) => key !== "")
+				.map((key) => canonicalizeCoc7eSkillKey(key) ?? key),
+		),
+	];
+	return {
+		...occupation,
+		choiceSelections: { ...occupation.choiceSelections, [groupId]: canonical },
+	};
+}
+
+export function coc7eOccupationWithFreeSkills(
+	occupation: Coc7eOccupation,
+	keys: string[],
+): Coc7eOccupation {
+	const definition = coc7eOccupation(occupation.presetId);
+	const limit = definition ? definition.anySkillCount : keys.length;
+	const canonical = [
+		...new Set(
+			keys
+				.map((key) => key.trim())
+				.filter((key) => key !== "")
+				.map((key) => canonicalizeCoc7eSkillKey(key) ?? key),
+		),
+	].slice(0, limit);
+	return { ...occupation, freeSkillKeys: canonical };
 }
 
 export interface Coc7eAgeCreationGuidance {

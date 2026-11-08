@@ -1,3 +1,4 @@
+import { coc7eOccupationSkillPointFormula } from "./occupations";
 import type { Coc7eAttributes, Coc7eCharacterSheet, Coc7eEra } from "./sheet";
 import { coc7eSkillTargetValue } from "./skills";
 
@@ -64,11 +65,16 @@ export function coc7eMovement(
 	return Math.max(1, base - coc7eAgeMovementPenalty(age) + movementModifier);
 }
 
-export function deriveCoc7eSheetStats(sheet: Coc7eCharacterSheet): Coc7eDerivedStats {
+export function deriveCoc7eSheetStats(
+	sheet: Coc7eCharacterSheet,
+): Coc7eDerivedStats {
 	const { attributes } = sheet;
 	const combat = coc7eDamageBonusAndBuild(attributes.str, attributes.siz);
 	const maxHp = Math.max(1, Math.floor((attributes.con + attributes.siz) / 10));
-	const maxSan = Math.max(0, 99 - (coc7eSkillTargetValue(sheet, "克苏鲁神话") ?? 0));
+	const maxSan = Math.max(
+		0,
+		99 - (coc7eSkillTargetValue(sheet, "克苏鲁神话") ?? 0),
+	);
 	return {
 		maxHp,
 		maxMp: Math.floor(attributes.pow / 5),
@@ -79,7 +85,9 @@ export function deriveCoc7eSheetStats(sheet: Coc7eCharacterSheet): Coc7eDerivedS
 		mov: coc7eMovement(attributes, sheet.age, sheet.movementModifier),
 		majorWoundThreshold: Math.floor(maxHp / 2),
 		interestSkillPoints: attributes.int * 2,
-		occupationSkillPoints: sheet.occupation.skillPointFormula.reduce(
+		occupationSkillPoints: coc7eOccupationSkillPointFormula(
+			sheet.occupation,
+		).reduce(
 			(total, part) => total + attributes[part.attribute] * part.multiplier,
 			0,
 		),
@@ -105,7 +113,12 @@ export function coc7eAssetRecommendation(
 	}
 	if (credit === 99) {
 		return era === "1920s"
-			? { lifestyle: "豪富", cash: 50000, otherAssets: 5000000, spendingLevel: 5000 }
+			? {
+					lifestyle: "豪富",
+					cash: 50000,
+					otherAssets: 5000000,
+					spendingLevel: 5000,
+				}
 			: {
 					lifestyle: "豪富",
 					cash: 1000000,
@@ -115,12 +128,27 @@ export function coc7eAssetRecommendation(
 	}
 	if (credit <= 9) {
 		return era === "1920s"
-			? { lifestyle: "贫穷", cash: credit, otherAssets: credit * 10, spendingLevel: 2 }
-			: { lifestyle: "贫穷", cash: credit * 20, otherAssets: credit * 200, spendingLevel: 40 };
+			? {
+					lifestyle: "贫穷",
+					cash: credit,
+					otherAssets: credit * 10,
+					spendingLevel: 2,
+				}
+			: {
+					lifestyle: "贫穷",
+					cash: credit * 20,
+					otherAssets: credit * 200,
+					spendingLevel: 40,
+				};
 	}
 	if (credit <= 49) {
 		return era === "1920s"
-			? { lifestyle: "标准", cash: credit * 2, otherAssets: credit * 50, spendingLevel: 10 }
+			? {
+					lifestyle: "标准",
+					cash: credit * 2,
+					otherAssets: credit * 50,
+					spendingLevel: 10,
+				}
 			: {
 					lifestyle: "标准",
 					cash: credit * 40,
@@ -130,7 +158,12 @@ export function coc7eAssetRecommendation(
 	}
 	if (credit <= 89) {
 		return era === "1920s"
-			? { lifestyle: "小康", cash: credit * 5, otherAssets: credit * 500, spendingLevel: 50 }
+			? {
+					lifestyle: "小康",
+					cash: credit * 5,
+					otherAssets: credit * 500,
+					spendingLevel: 50,
+				}
 			: {
 					lifestyle: "小康",
 					cash: credit * 100,
@@ -139,7 +172,12 @@ export function coc7eAssetRecommendation(
 				};
 	}
 	return era === "1920s"
-		? { lifestyle: "富裕", cash: credit * 20, otherAssets: credit * 2000, spendingLevel: 250 }
+		? {
+				lifestyle: "富裕",
+				cash: credit * 20,
+				otherAssets: credit * 2000,
+				spendingLevel: 250,
+			}
 		: {
 				lifestyle: "富裕",
 				cash: credit * 400,

@@ -5,5 +5,7 @@ export * from "./occupations";
 export * from "./projection";
 export * from "./sheet";
 export * from "./skills";
+export * from "./spells";
 export * from "./state";
 export * from "./sync-state";
+export * from "./weapons";

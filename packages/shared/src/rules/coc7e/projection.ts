@@ -1,8 +1,8 @@
 import {
+	type Coc7eCharacterSheet,
 	createEmptyCoc7eArmor,
 	createEmptyCoc7eAssets,
 	normalizeCoc7eSheet,
-	type Coc7eCharacterSheet,
 } from "./sheet";
 
 export function projectPublicCoc7eSheet(input: unknown): Coc7eCharacterSheet {

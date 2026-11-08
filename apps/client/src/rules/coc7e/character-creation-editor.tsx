@@ -1,5 +1,12 @@
 import { coc7e } from "@cogm/shared";
-import { ChevronDown, Plus, RotateCcw, Trash2 } from "lucide-react";
+import {
+	ChevronDown,
+	ListChecks,
+	Plus,
+	RotateCcw,
+	Trash2,
+	XIcon,
+} from "lucide-react";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -13,10 +20,20 @@ import { SegmentedControl } from "@/components/shared/segmented-control";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+	Dialog,
+	DialogContent,
+	DialogHeader,
+	DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { t } from "@/i18n";
+import { cn } from "@/lib/utils";
 import { Coc7eCreationRecordsEditor } from "./creation-records-editor";
+import { Coc7eOccupationChoiceEditor } from "./occupation-choice-editor";
+import { Coc7eOccupationReferenceTable } from "./occupation-reference-table";
+import { Coc7eSkillPicker } from "./skill-picker";
 
 type Sheet = coc7e.Coc7eCharacterSheet;
 type AttributeKey = coc7e.Coc7eAttributeKey;
@@ -32,6 +49,8 @@ const attributeKeys: AttributeKey[] = [
 	"edu",
 	"luck",
 ];
+
+const ART_SLOTS = 3;
 
 const attributeOptions = attributeKeys.map((key) => ({
 	value: key,
@@ -58,6 +77,7 @@ export function Coc7eCharacterCreationEditor({
 	>("all");
 	const [customName, setCustomName] = useState("");
 	const [customBase, setCustomBase] = useState(0);
+	const [referenceOpen, setReferenceOpen] = useState(false);
 	const [eraNotice, setEraNotice] = useState(false);
 	const [wide, setWide] = useState(
 		() => typeof window === "undefined" || window.innerWidth >= 768,
@@ -65,12 +85,18 @@ export function Coc7eCharacterCreationEditor({
 	const [groupOverrides, setGroupOverrides] = useState<Record<string, boolean>>(
 		{},
 	);
+	const [customMode, setCustomMode] = useState(false);
 	const derived = coc7e.deriveCoc7eSheetStats(sheet);
 	const ledger = coc7e.deriveCoc7eCreationLedger(sheet);
 	const ageGuidance = coc7e.coc7eAgeCreationGuidance(sheet.age);
-	const occupation = coc7e.COC7E_OCCUPATIONS.find(
-		(item) => item.id === sheet.occupation.presetId,
-	);
+	const occupation = coc7e.coc7eOccupation(sheet.occupation.presetId);
+	const referenceCount = coc7e.COC7E_OCCUPATIONS.length;
+	const customActive =
+		sheet.occupation.presetId === null &&
+		(customMode ||
+			sheet.occupation.name.trim() !== "" ||
+			sheet.occupation.skillPointFormula.length > 0 ||
+			sheet.occupation.skillKeys.length > 0);
 
 	useEffect(() => {
 		function update() {
@@ -109,25 +135,56 @@ export function Coc7eCharacterCreationEditor({
 		update({ occupation: { ...sheet.occupation, ...patch } });
 	}
 
-	function selectOccupation(value: string) {
-		if (value === "custom") {
-			updateOccupation({ presetId: null });
-			return;
-		}
-		const definition = coc7e.COC7E_OCCUPATIONS.find(
-			(item) => item.id === value,
-		);
-		if (!definition) {
+	function applyOccupation(definition: coc7e.Coc7eOccupationDefinition) {
+		const next = coc7e.coc7eOccupationFromDefinition(definition.id);
+		if (!next) {
 			return;
 		}
 		setEraNotice(false);
-		updateOccupation({
-			presetId: definition.id,
-			name: definition.name,
-			skillPointFormula: [...(definition.skillPointFormulaOptions[0] ?? [])],
-			creditMin: definition.creditMin,
-			creditMax: definition.creditMax,
-			skillKeys: [...definition.skillKeys],
+		setCustomMode(false);
+		update({ occupation: next });
+	}
+
+	function selectCustomOccupation() {
+		setEraNotice(false);
+		setCustomMode(true);
+		updateOccupation(coc7e.coc7eClearOccupation());
+	}
+
+	function pickArtSkill(key: string) {
+		const trimmed = key.trim();
+		if (trimmed === "") {
+			return;
+		}
+		const canonical = coc7e.canonicalizeCoc7eSkillKey(trimmed);
+		const finalKey = canonical ?? trimmed;
+		if (sheet.skills[finalKey] !== undefined) {
+			return;
+		}
+		const base = coc7e.coc7eSkillBaseValue(sheet, finalKey) ?? 5;
+		if (canonical) {
+			update({ skills: { ...sheet.skills, [finalKey]: base } });
+			return;
+		}
+		update({
+			customSkills: { ...sheet.customSkills, [finalKey]: { base } },
+			skills: { ...sheet.skills, [finalKey]: base },
+		});
+	}
+
+	function addSkillKey(key: string, base: number) {
+		if (sheet.skills[key] !== undefined && sheet.customSkills[key]) {
+			return;
+		}
+		if (sheet.customSkills[key]) {
+			return;
+		}
+		if (coc7e.canonicalizeCoc7eSkillKey(key)) {
+			return;
+		}
+		update({
+			customSkills: { ...sheet.customSkills, [key]: { base } },
+			skills: { ...sheet.skills, [key]: base },
 		});
 	}
 
@@ -135,24 +192,23 @@ export function Coc7eCharacterCreationEditor({
 		if (era === sheet.era) {
 			return;
 		}
-		const modernOnly = occupation?.modernOnly && era === "1920s";
+		const blocked =
+			occupation !== null &&
+			((occupation.era === "modern" && era === "1920s") ||
+				(occupation.era === "classic" && era === "modern"));
 		update({
 			era,
-			occupation: modernOnly
-				? { ...sheet.occupation, presetId: null }
+			occupation: blocked
+				? { ...coc7e.coc7eClearOccupation(), name: sheet.occupation.name }
 				: sheet.occupation,
 		});
-		setEraNotice(Boolean(modernOnly));
+		setEraNotice(blocked);
 	}
 
-	const occupationOptions = coc7e.COC7E_OCCUPATIONS.filter(
-		(item) => sheet.era === "modern" || !item.modernOnly,
-	).map((item) => ({ value: item.id, label: item.name }));
-
 	const occupationSet = new Set(
-		sheet.occupation.skillKeys.map(
-			(key) => coc7e.canonicalizeCoc7eSkillKey(key) ?? key,
-		),
+		coc7e
+			.coc7eOccupationSkillKeys(sheet.occupation)
+			.map((key) => coc7e.canonicalizeCoc7eSkillKey(key) ?? key),
 	);
 
 	function toggleOccupationSkill(key: string, checked: boolean) {
@@ -226,7 +282,16 @@ export function Coc7eCharacterCreationEditor({
 		return [...standard, ...custom];
 	}, [sheet.customSkills]);
 
+	const artSkills = catalog.filter((entry) => entry.group === "技艺");
+	const artTaken = artSkills.filter(
+		(entry) => sheet.skills[entry.key] !== undefined,
+	);
+	const artSlotCount = Math.max(ART_SLOTS, artTaken.length);
+
 	const visibleSkills = catalog.filter((entry) => {
+		if (entry.group === "技艺") {
+			return false;
+		}
 		if (
 			search.trim() &&
 			!entry.key.toLowerCase().includes(search.trim().toLowerCase())
@@ -239,7 +304,7 @@ export function Coc7eCharacterCreationEditor({
 			return current > base;
 		}
 		if (filter === "occupation") {
-			return occupationSet.has(entry.key) || entry.key === "信用评级";
+			return coc7e.coc7eIsOccupationalSkill(sheet.occupation, entry.key);
 		}
 		if (filter === "specialization") {
 			return entry.key.includes("(");
@@ -255,11 +320,77 @@ export function Coc7eCharacterCreationEditor({
 
 	return (
 		<div className="flex flex-col gap-6">
+			<section
+				aria-label={t("characterCreation.liveSummary")}
+				className="border-md-outline-variant/40 bg-background/90 sticky top-16 z-10 flex flex-wrap items-center gap-1.5 rounded-2xl border px-3 py-2 backdrop-blur"
+			>
+				{[
+					{
+						label: t("characterCreation.maxHp"),
+						value: String(derived.maxHp),
+						tone: "danger" as const,
+					},
+					{
+						label: t("characterCreation.maxMp"),
+						value: String(derived.maxMp),
+						tone: "accent" as const,
+					},
+					{
+						label: t("characterCreation.initialSan"),
+						value: `${derived.initialSan}/${derived.maxSan}`,
+						tone: "success" as const,
+					},
+					{
+						label: t("characterCreation.mov"),
+						value: String(derived.mov),
+						tone: "default" as const,
+					},
+					{
+						label: t("characterCreation.damageBonus"),
+						value: derived.damageBonus,
+						tone: "default" as const,
+					},
+					{
+						label: t("characterCreation.build"),
+						value: String(derived.build),
+						tone: "default" as const,
+					},
+					{
+						label: t("characterCreation.majorWound"),
+						value: String(derived.majorWoundThreshold),
+						tone: "default" as const,
+					},
+				].map((metric) => (
+					<span
+						key={metric.label}
+						className="bg-md-surface-container-high flex items-center gap-1.5 rounded-full px-3 py-1 text-label-small"
+					>
+						<span className="text-foreground-tertiary">{metric.label}</span>
+						<span className="font-mono tabular-nums">{metric.value}</span>
+					</span>
+				))}
+				<span className="bg-md-surface-container-high ms-auto flex items-center gap-2 rounded-full px-3 py-1 text-label-small">
+					<span className="text-foreground-tertiary">
+						{t("occupation.ledger")}
+					</span>
+					<span
+						className={cn(
+							"font-mono tabular-nums",
+							ledger.occupation.remaining < 0 && "text-danger",
+						)}
+					>
+						{t("occupation.ledgerValues", {
+							occupation: ledger.occupation.remaining,
+							interest: ledger.interest.remaining,
+						})}
+					</span>
+				</span>
+			</section>
 			<SheetSection
 				title={t("characterCreation.identity")}
 				description={t("characterCreation.identityHint")}
 			>
-				<div className="grid gap-4 md:grid-cols-3">
+				<div className="grid gap-4 sm:grid-cols-2">
 					<div className="flex flex-col gap-1.5">
 						<Label>{t("characterCreation.era")}</Label>
 						<SegmentedControl
@@ -282,19 +413,263 @@ export function Coc7eCharacterCreationEditor({
 						onErrorChange={(message) => reportError("age", message)}
 						onChange={(value) => update({ age: value })}
 					/>
-					<SelectField
-						label={t("characterCreation.occupation")}
-						value={sheet.occupation.presetId ?? "custom"}
-						options={[
-							{
-								value: "custom",
-								label: t("characterCreation.customOccupation"),
-							},
-							...occupationOptions,
-						]}
-						onChange={selectOccupation}
-					/>
 				</div>
+				{occupation ? (
+					<div className="border-md-outline-variant/40 bg-md-surface-container flex flex-col gap-4 rounded-2xl border p-4">
+						<div className="flex flex-wrap items-center gap-2">
+							<h3 className="text-title-medium-emph text-foreground">
+								{sheet.occupation.name}
+							</h3>
+							<Badge variant="soft" tone="accent" size="sm">
+								{t("occupation.creditRange", {
+									min: occupation.creditMin,
+									max: occupation.creditMax,
+								})}
+							</Badge>
+							<div className="ms-auto flex flex-wrap items-center gap-2">
+								<Button
+									type="button"
+									variant="outline"
+									size="sm"
+									onClick={() => setReferenceOpen(true)}
+								>
+									<ListChecks className="size-4" />
+									{t("characterCreation.changeOccupation")}
+								</Button>
+								<Button
+									type="button"
+									variant="ghost"
+									size="sm"
+									onClick={selectCustomOccupation}
+								>
+									{t("characterCreation.customOccupation")}
+								</Button>
+							</div>
+						</div>
+						<SelectField
+							label={t("characterCreation.occupationFormula")}
+							value={String(
+								Math.max(
+									0,
+									occupation.skillPointOptions.findIndex(
+										(formula) =>
+											JSON.stringify(formula) ===
+											JSON.stringify(sheet.occupation.skillPointFormula),
+									),
+								),
+							)}
+							options={occupation.skillPointOptions.map((formula, index) => ({
+								value: String(index),
+								label: formula
+									.map(
+										(part) =>
+											`${coc7e.COC7E_ATTRIBUTE_LABELS[part.attribute]?.abbr ?? part.attribute}×${part.multiplier}`,
+									)
+									.join(" + "),
+							}))}
+							onChange={(value) => {
+								const formula = occupation.skillPointOptions[Number(value)];
+								if (formula) {
+									updateOccupation({ skillPointFormula: [...formula] });
+								}
+							}}
+						/>
+						<Coc7eOccupationChoiceEditor
+							sheet={sheet}
+							onChange={(next) => update({ occupation: next })}
+							onAddSkill={addSkillKey}
+						/>
+					</div>
+				) : customActive ? (
+					<div className="border-md-outline-variant/40 bg-md-surface-container flex flex-col gap-4 rounded-2xl border border-dashed p-4">
+						<div className="flex flex-wrap items-center justify-between gap-2">
+							<h3 className="text-title-medium-emph text-foreground">
+								{t("characterCreation.customOccupation")}
+							</h3>
+							<Button
+								type="button"
+								variant="ghost"
+								size="sm"
+								onClick={() => setReferenceOpen(true)}
+							>
+								<ListChecks className="size-4" />
+								{t("characterCreation.pickFromReference")}
+							</Button>
+						</div>
+						<div className="grid gap-4 md:grid-cols-2">
+							<TextField
+								label={t("characterCreation.occupationName")}
+								value={sheet.occupation.name}
+								showValidation={showValidation}
+								onChange={(name) => updateOccupation({ name })}
+							/>
+							<div className="grid grid-cols-2 gap-3">
+								<NumericField
+									label={t("characterCreation.creditMin")}
+									value={sheet.occupation.creditMin}
+									min={0}
+									max={99}
+									showValidation={showValidation}
+									onErrorChange={(message) => reportError("creditMin", message)}
+									onChange={(value) =>
+										updateOccupation({ creditMin: value ?? 0 })
+									}
+								/>
+								<NumericField
+									label={t("characterCreation.creditMax")}
+									value={sheet.occupation.creditMax}
+									min={0}
+									max={99}
+									showValidation={showValidation}
+									onErrorChange={(message) => reportError("creditMax", message)}
+									onChange={(value) =>
+										updateOccupation({ creditMax: value ?? 99 })
+									}
+								/>
+							</div>
+						</div>
+						<div className="bg-md-surface-container-high flex flex-col gap-3 rounded-xl p-4">
+							<div className="flex items-center justify-between gap-3">
+								<h3 className="text-label-large-emph text-foreground">
+									{t("characterCreation.customFormula")}
+								</h3>
+								<Button
+									type="button"
+									variant="outline"
+									size="sm"
+									disabled={sheet.occupation.skillPointFormula.length >= 4}
+									onClick={() =>
+										updateOccupation({
+											skillPointFormula: [
+												...sheet.occupation.skillPointFormula,
+												{ attribute: "edu", multiplier: 1 },
+											],
+										})
+									}
+								>
+									<Plus />
+									{t("characterCreation.addFormulaPart")}
+								</Button>
+							</div>
+							{sheet.occupation.skillPointFormula.map((part, index) => (
+								<div
+									key={`${part.attribute}-${part.multiplier}`}
+									className="grid grid-cols-[1fr_7rem_2.5rem] items-end gap-2"
+								>
+									<SelectField
+										label={t("characterCreation.formulaPart", {
+											index: index + 1,
+										})}
+										value={part.attribute}
+										options={attributeOptions}
+										onChange={(value) => {
+											const formula = [...sheet.occupation.skillPointFormula];
+											formula[index] = {
+												...part,
+												attribute: value as AttributeKey,
+											};
+											updateOccupation({ skillPointFormula: formula });
+										}}
+									/>
+									<NumericField
+										label={t("characterCreation.attributeMultiplier", {
+											attribute:
+												coc7e.COC7E_ATTRIBUTE_LABELS[part.attribute]?.abbr ??
+												part.attribute,
+										})}
+										value={part.multiplier}
+										min={1}
+										max={8}
+										showValidation={showValidation}
+										onErrorChange={(message) =>
+											reportError(`formula-${index}`, message)
+										}
+										onChange={(value) => {
+											const formula = [...sheet.occupation.skillPointFormula];
+											formula[index] = { ...part, multiplier: value ?? 1 };
+											updateOccupation({ skillPointFormula: formula });
+										}}
+									/>
+									<Button
+										type="button"
+										variant="ghost"
+										size="icon-sm"
+										aria-label={t("common.delete")}
+										onClick={() =>
+											updateOccupation({
+												skillPointFormula:
+													sheet.occupation.skillPointFormula.filter(
+														(_, itemIndex) => itemIndex !== index,
+													),
+											})
+										}
+									>
+										<Trash2 />
+									</Button>
+								</div>
+							))}
+						</div>
+						<div className="flex flex-col gap-2 rounded-xl bg-md-surface-container-high px-4 py-3">
+							<span className="text-label-medium text-foreground-secondary">
+								{t("characterCreation.occupationReference")}
+							</span>
+							<div className="flex flex-wrap gap-1.5">
+								{sheet.occupation.skillKeys.length === 0 ? (
+									<span className="text-foreground-tertiary text-body-small">
+										{t("characterCreation.customOccupationHint")}
+									</span>
+								) : (
+									sheet.occupation.skillKeys.map((key) => (
+										<Badge key={key} variant="soft" tone="default" size="sm">
+											{key}
+										</Badge>
+									))
+								)}
+							</div>
+							<p className="text-foreground-tertiary text-body-small">
+								{t("characterCreation.customOccupationHint")}
+							</p>
+						</div>
+					</div>
+				) : (
+					<div className="border-md-outline-variant/60 flex flex-col gap-3 rounded-2xl border border-dashed p-5 sm:flex-row sm:items-center">
+						<p className="text-body-medium text-foreground-secondary flex-1">
+							{t("characterCreation.occupationEmptyHint")}
+						</p>
+						<div className="flex flex-wrap items-center gap-2">
+							<Button type="button" onClick={() => setReferenceOpen(true)}>
+								<ListChecks className="size-4" />
+								{t("characterCreation.selectOccupation")}
+							</Button>
+							<Button
+								type="button"
+								variant="ghost"
+								onClick={selectCustomOccupation}
+							>
+								{t("characterCreation.customOccupation")}
+							</Button>
+						</div>
+					</div>
+				)}
+				<Dialog open={referenceOpen} onOpenChange={setReferenceOpen}>
+					<DialogContent className="max-w-5xl">
+						<DialogHeader>
+							<DialogTitle>
+								{t("occupation.referenceTable", { count: referenceCount })}
+							</DialogTitle>
+						</DialogHeader>
+						<div className="-mx-1 max-h-[60vh] overflow-y-auto px-1">
+							<Coc7eOccupationReferenceTable
+								attributes={sheet.attributes}
+								selectedId={sheet.occupation.presetId}
+								onSelect={(definition) => {
+									applyOccupation(definition);
+									setReferenceOpen(false);
+								}}
+							/>
+						</div>
+					</DialogContent>
+				</Dialog>
 				{eraNotice ? (
 					<p
 						role="status"
@@ -303,161 +678,6 @@ export function Coc7eCharacterCreationEditor({
 						{t("characterCreation.modernOccupationRetained")}
 					</p>
 				) : null}
-				<div className="grid gap-4 md:grid-cols-2">
-					<TextField
-						label={t("characterCreation.occupationName")}
-						value={sheet.occupation.name}
-						showValidation={showValidation}
-						onChange={(name) => updateOccupation({ presetId: null, name })}
-					/>
-					<div className="grid grid-cols-2 gap-3">
-						<NumericField
-							label={t("characterCreation.creditMin")}
-							value={sheet.occupation.creditMin}
-							min={0}
-							max={99}
-							showValidation={showValidation}
-							onErrorChange={(message) => reportError("creditMin", message)}
-							onChange={(value) => updateOccupation({ creditMin: value ?? 0 })}
-						/>
-						<NumericField
-							label={t("characterCreation.creditMax")}
-							value={sheet.occupation.creditMax}
-							min={0}
-							max={99}
-							showValidation={showValidation}
-							onErrorChange={(message) => reportError("creditMax", message)}
-							onChange={(value) => updateOccupation({ creditMax: value ?? 99 })}
-						/>
-					</div>
-				</div>
-				{occupation ? (
-					<SelectField
-						label={t("characterCreation.occupationFormula")}
-						value={String(
-							Math.max(
-								0,
-								occupation.skillPointFormulaOptions.findIndex(
-									(formula) =>
-										JSON.stringify(formula) ===
-										JSON.stringify(sheet.occupation.skillPointFormula),
-								),
-							),
-						)}
-						options={occupation.skillPointFormulaOptions.map(
-							(formula, index) => ({
-								value: String(index),
-								label: formula
-									.map(
-										(part) =>
-											`${coc7e.COC7E_ATTRIBUTE_LABELS[part.attribute]?.abbr ?? part.attribute}×${part.multiplier}`,
-									)
-									.join(" + "),
-							}),
-						)}
-						onChange={(value) => {
-							const formula =
-								occupation.skillPointFormulaOptions[Number(value)];
-							if (formula) {
-								updateOccupation({ skillPointFormula: [...formula] });
-							}
-						}}
-					/>
-				) : (
-					<div className="flex flex-col gap-3 rounded-xl bg-md-surface-container p-4">
-						<div className="flex items-center justify-between gap-3">
-							<h3 className="text-label-large-emph text-foreground">
-								{t("characterCreation.customFormula")}
-							</h3>
-							<Button
-								type="button"
-								variant="outline"
-								size="sm"
-								disabled={sheet.occupation.skillPointFormula.length >= 4}
-								onClick={() =>
-									updateOccupation({
-										skillPointFormula: [
-											...sheet.occupation.skillPointFormula,
-											{ attribute: "edu", multiplier: 1 },
-										],
-									})
-								}
-							>
-								<Plus />
-								{t("characterCreation.addFormulaPart")}
-							</Button>
-						</div>
-						{sheet.occupation.skillPointFormula.map((part, index) => (
-							<div
-								key={`${part.attribute}-${part.multiplier}`}
-								className="grid grid-cols-[1fr_7rem_2.5rem] items-end gap-2"
-							>
-								<SelectField
-									label={t("characterCreation.formulaPart", {
-										index: index + 1,
-									})}
-									value={part.attribute}
-									options={attributeOptions}
-									onChange={(value) => {
-										const formula = [...sheet.occupation.skillPointFormula];
-										formula[index] = {
-											...part,
-											attribute: value as AttributeKey,
-										};
-										updateOccupation({ skillPointFormula: formula });
-									}}
-								/>
-								<NumericField
-									label={t("characterCreation.attributeMultiplier", {
-										attribute:
-											coc7e.COC7E_ATTRIBUTE_LABELS[part.attribute]?.abbr ??
-											part.attribute,
-									})}
-									value={part.multiplier}
-									min={1}
-									max={8}
-									showValidation={showValidation}
-									onErrorChange={(message) =>
-										reportError(`formula-${index}`, message)
-									}
-									onChange={(value) => {
-										const formula = [...sheet.occupation.skillPointFormula];
-										formula[index] = { ...part, multiplier: value ?? 1 };
-										updateOccupation({ skillPointFormula: formula });
-									}}
-								/>
-								<Button
-									type="button"
-									variant="ghost"
-									size="icon-sm"
-									aria-label={t("common.delete")}
-									onClick={() =>
-										updateOccupation({
-											skillPointFormula:
-												sheet.occupation.skillPointFormula.filter(
-													(_, itemIndex) => itemIndex !== index,
-												),
-										})
-									}
-								>
-									<Trash2 />
-								</Button>
-							</div>
-						))}
-					</div>
-				)}
-				<div className="flex flex-col gap-2 rounded-xl bg-md-surface-container px-4 py-3">
-					<span className="text-label-medium text-foreground-secondary">
-						{t("characterCreation.occupationReference")}
-					</span>
-					<div className="flex flex-wrap gap-1.5">
-						{sheet.occupation.skillKeys.map((key) => (
-							<Badge key={key} variant="soft" tone="default" size="sm">
-								{key}
-							</Badge>
-						))}
-					</div>
-				</div>
 				{ageGuidance ? (
 					<div className="flex flex-col gap-1.5 text-body-medium text-foreground-secondary">
 						{ageGuidance.eduImprovementChecks === 0 ? null : (
@@ -635,6 +855,82 @@ export function Coc7eCharacterCreationEditor({
 						</p>
 					) : null}
 				</section>
+				<section
+					aria-label={t("characterCreation.artSkills")}
+					className="bg-md-surface-container flex flex-col gap-3 rounded-xl p-4"
+				>
+					<div className="flex flex-wrap items-baseline gap-2">
+						<h3 className="text-label-large-emph text-foreground">
+							{t("characterCreation.artSkills")}
+						</h3>
+						<span className="text-label-small text-foreground-tertiary">
+							{t("characterCreation.artSkillsHint", { count: ART_SLOTS })}
+						</span>
+					</div>
+					<div className="flex flex-wrap items-center gap-2">
+						{Array.from({ length: artSlotCount }, (_, index) => index).map(
+							(index) => {
+								const entry = artTaken[index];
+								if (!entry) {
+									return (
+										<Coc7eSkillPicker
+											key={`art-empty-${index}`}
+											title={t("characterCreation.artPick")}
+											triggerLabel={t("characterCreation.artPick")}
+											options={artSkills.map((skill) => ({
+												key: skill.key,
+												label: skill.key,
+												base: skill.base,
+												...(skill.group ? { group: skill.group } : {}),
+											}))}
+											exclude={artTaken.map((skill) => skill.key)}
+											onPick={(key) => pickArtSkill(key)}
+										/>
+									);
+								}
+								const key = entry.key;
+								const current = sheet.skills[key] ?? entry.base;
+								return (
+									<span
+										key={`art-${key}`}
+										className="bg-md-secondary-container text-md-on-secondary-container flex items-center gap-2 rounded-full py-1 ps-3 pe-1.5"
+									>
+										<span className="text-label-large">{key}</span>
+										<NumericField
+											label={t("characterCreation.skillValue", { name: key })}
+											hideLabel
+											className="w-24"
+											value={current}
+											min={0}
+											max={99}
+											showValidation={showValidation}
+											onErrorChange={(message) =>
+												reportError(`art-${key}`, message)
+											}
+											onChange={(value) => setSkill(key, value ?? current)}
+										/>
+										<Button
+											type="button"
+											variant="ghost"
+											size="icon-sm"
+											className="size-6 rounded-full"
+											aria-label={t("characterCreation.artRemove", {
+												name: key,
+											})}
+											onClick={() =>
+												sheet.customSkills[key]
+													? removeCustomSkill(key)
+													: resetSkill(key)
+											}
+										>
+											<XIcon className="size-3.5" />
+										</Button>
+									</span>
+								);
+							},
+						)}
+					</div>
+				</section>
 				<div className="flex flex-col gap-3 lg:flex-row lg:items-end">
 					<div className="flex min-w-0 flex-1 flex-col gap-1.5">
 						<Label htmlFor="coc-skill-search">
@@ -712,7 +1008,7 @@ export function Coc7eCharacterCreationEditor({
 										return (
 											<div
 												key={key}
-												className="grid grid-cols-[minmax(0,1fr)_5.5rem] gap-2 rounded-xl bg-md-surface-container p-3"
+												className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-2 rounded-xl bg-md-surface-container p-3"
 											>
 												<div className="flex min-w-0 flex-col justify-center gap-1">
 													<div className="flex min-w-0 flex-wrap items-center gap-1.5">
@@ -729,6 +1025,39 @@ export function Coc7eCharacterCreationEditor({
 																{t("characterCreation.uncommonSkill")}
 															</Badge>
 														) : null}
+														{occupation !== null || key === "信用评级" ? (
+															coc7e.coc7eIsOccupationalSkill(
+																sheet.occupation,
+																key,
+															) ? (
+																<Badge variant="soft" tone="accent" size="sm">
+																	{t("characterCreation.filterOccupation")}
+																</Badge>
+															) : null
+														) : (
+															<label
+																htmlFor={`occupation-${key}`}
+																className="flex w-fit cursor-pointer items-center gap-2 text-label-small text-foreground-secondary"
+															>
+																<Checkbox
+																	id={`occupation-${key}`}
+																	aria-label={t(
+																		"characterCreation.occupationSkill",
+																		{
+																			name: key,
+																		},
+																	)}
+																	checked={coc7e.coc7eIsOccupationalSkill(
+																		sheet.occupation,
+																		key,
+																	)}
+																	onCheckedChange={(checked) =>
+																		toggleOccupationSkill(key, checked === true)
+																	}
+																/>
+																{t("characterCreation.filterOccupation")}
+															</label>
+														)}
 													</div>
 													<span className="text-label-small text-foreground-secondary tabular-nums">
 														{t("characterCreation.skillBase", { value: base })}{" "}
@@ -738,34 +1067,14 @@ export function Coc7eCharacterCreationEditor({
 															fifth: Math.floor(current / 5),
 														})}
 													</span>
-													<label
-														htmlFor={`occupation-${key}`}
-														className="flex w-fit cursor-pointer items-center gap-2 text-label-small text-foreground-secondary"
-													>
-														<Checkbox
-															id={`occupation-${key}`}
-															aria-label={t(
-																"characterCreation.occupationSkill",
-																{
-																	name: key,
-																},
-															)}
-															checked={
-																occupationSet.has(key) || key === "信用评级"
-															}
-															disabled={key === "信用评级"}
-															onCheckedChange={(checked) =>
-																toggleOccupationSkill(key, checked === true)
-															}
-														/>
-														{t("characterCreation.filterOccupation")}
-													</label>
 												</div>
-												<div className="flex items-start gap-1">
+												<div className="flex items-center gap-1">
 													<NumericField
 														label={t("characterCreation.skillValue", {
 															name: key,
 														})}
+														hideLabel
+														className="w-28"
 														value={current}
 														min={0}
 														max={999}

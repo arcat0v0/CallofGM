@@ -425,7 +425,9 @@ describe("CoC 7e 状态变更", () => {
 		});
 		expect(preview.sheetData.age).toBe(42);
 		expect(preview.sheetData.era).toBe("modern");
-		expect(preview.sheetData.occupation.presetId).toBe("hacker");
+		expect(preview.sheetData.occupation.presetId).toBe("occ-25");
+		expect(preview.sheetData.occupation.name).toBe("黑客/骇客（现代）");
+		expect(preview.sheetData.occupation.skillKeys).toContain("计算机使用");
 		expect(preview.sheetData.skills["技艺(小提琴)"]).toBe(15);
 		expect(preview.sheetData.customSkills["技艺(小提琴)"]).toEqual({ base: 5 });
 		expect(preview.sheetData.skills["侦查"]).toBe(58);

@@ -1,4 +1,4 @@
-import type { CharacterDetailDto, CharacterDto } from "@cogm/shared";
+import type { CharacterDto } from "@cogm/shared";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import {
 	FileSpreadsheet,
@@ -25,7 +25,6 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
-import { CharacterProfileEditorDialog } from "@/features/characters/character-profile-editor-dialog";
 import { ImportCharacterSheetDialog } from "@/features/gm-admin/dialogs/import-character-sheet-dialog";
 import { t, useI18nVersion } from "@/i18n";
 import { api, fetchAllPages, isApiError } from "@/lib/api";
@@ -42,10 +41,9 @@ export const Route = createFileRoute("/pl/characters")({
 
 function PlCharactersPage() {
 	useI18nVersion();
+	const navigate = useNavigate();
 	const [characters, setCharacters] = useState<CharacterDto[]>([]);
 	const [loading, setLoading] = useState(true);
-	const [profileCharacter, setProfileCharacter] =
-		useState<CharacterDetailDto | null>(null);
 	const [deleteTarget, setDeleteTarget] = useState<CharacterDto | null>(null);
 	const [importTarget, setImportTarget] = useState<CharacterDto | null>(null);
 	const [importOpen, setImportOpen] = useState(false);
@@ -130,7 +128,11 @@ function PlCharactersPage() {
 								key={character.id}
 								className="border-separator-secondary/60 flex flex-col gap-3 border-b p-4 last:border-b-0 sm:flex-row sm:items-center sm:gap-4"
 							>
-								<div className="flex min-w-0 flex-1 items-center gap-3.5">
+								<Link
+									to="/pl/characters/$characterId"
+									params={{ characterId: character.id }}
+									className="group flex min-w-0 flex-1 items-center gap-3.5 rounded-xl"
+								>
 									<Avatar
 										size="lg"
 										shape="arch"
@@ -142,7 +144,7 @@ function PlCharactersPage() {
 									</Avatar>
 									<div className="flex min-w-0 flex-col gap-1">
 										<div className="flex flex-wrap items-center gap-2">
-											<h2 className="text-foreground truncate font-sans text-title-medium-emph">
+											<h2 className="text-foreground group-hover:text-md-primary truncate font-sans text-title-medium-emph transition-colors">
 												{character.name}
 											</h2>
 											<Badge variant="soft" tone="accent" size="sm">
@@ -159,26 +161,18 @@ function PlCharactersPage() {
 											</p>
 										) : null}
 									</div>
-								</div>
+								</Link>
 								<div className="flex items-center gap-1.5 sm:shrink-0">
 									<Button
 										type="button"
 										variant="outline"
 										size="sm"
-										onClick={() => {
-											void (async () => {
-												try {
-													const detail = await api<CharacterDetailDto>(
-														`/pl/characters/${encodeURIComponent(character.id)}`,
-													);
-													setProfileCharacter(detail);
-												} catch (error) {
-													toast.error(
-														errorText(error, "pl.characters.loadFailed"),
-													);
-												}
-											})();
-										}}
+										onClick={() =>
+											void navigate({
+												to: "/pl/characters/$characterId",
+												params: { characterId: character.id },
+											})
+										}
 									>
 										<Pencil className="size-3.5" />
 										{t("common.edit")}
@@ -227,19 +221,6 @@ function PlCharactersPage() {
 				expectedVersion={importTarget?.version}
 				onImported={() => void load()}
 			/>
-
-			{profileCharacter ? (
-				<CharacterProfileEditorDialog
-					scope="pl"
-					open
-					character={profileCharacter}
-					onClose={() => setProfileCharacter(null)}
-					onSaved={(next) => {
-						setProfileCharacter(next);
-						void load();
-					}}
-				/>
-			) : null}
 
 			<Dialog
 				open={deleteTarget !== null}

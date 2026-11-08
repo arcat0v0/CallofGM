@@ -123,12 +123,14 @@ describe("PL character ownership, versions and growth", () => {
 			era: "1920s",
 			age: 42,
 			occupation: {
-				presetId: "reporter",
+				presetId: "occ-220",
 				name: "记者",
 				skillPointFormula: [{ attribute: "edu", multiplier: 4 }],
 				creditMin: 9,
 				creditMax: 30,
 				skillKeys: ["历史", "图书馆"],
+				choiceSelections: {},
+				freeSkillKeys: [],
 			},
 			movementModifier: -2,
 			attributes: {
@@ -207,12 +209,14 @@ describe("PL character ownership, versions and growth", () => {
 		expect(sheet.era).toBe("1920s");
 		expect(sheet.age).toBe(42);
 		expect(sheet.occupation).toEqual({
-			presetId: "reporter",
+			presetId: "occ-220",
 			name: "记者",
 			skillPointFormula: [{ attribute: "edu", multiplier: 4 }],
 			creditMin: 9,
 			creditMax: 30,
 			skillKeys: ["历史", "图书馆"],
+			choiceSelections: {},
+			freeSkillKeys: [],
 		});
 		expect(sheet.movementModifier).toBe(-2);
 		expect(sheet.attributes.str).toBe(60);

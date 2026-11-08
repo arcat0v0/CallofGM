@@ -478,17 +478,30 @@ function applyTemplateOtherFields(
 	}
 	const occupationName = text(worksheet.E5);
 	if (occupationName) {
-		const preset = coc7e.COC7E_OCCUPATIONS.find(
-			(item) => item.name === occupationName,
-		);
+		const normalizedName = occupationName.replace(/[（(][^）)]*[）)]/g, "");
+		const preset =
+			coc7e.COC7E_OCCUPATIONS.find((item) => item.name === occupationName) ??
+			coc7e.COC7E_OCCUPATIONS.find(
+				(item) =>
+					item.name.replace(/[（(][^）)]*[）)]/g, "") === normalizedName,
+			) ??
+			coc7e.COC7E_OCCUPATIONS.find(
+				(item) =>
+					normalizedName !== "" &&
+					item.name
+						.replace(/[（(][^）)]*[）)]/g, "")
+						.startsWith(normalizedName),
+			);
 		patch.occupation = preset
 			? {
 					presetId: preset.id,
 					name: preset.name,
-					skillPointFormula: [...(preset.skillPointFormulaOptions[0] ?? [])],
+					skillPointFormula: [...(preset.skillPointOptions[0] ?? [])],
 					creditMin: preset.creditMin,
 					creditMax: preset.creditMax,
-					skillKeys: [...preset.skillKeys],
+					skillKeys: [...preset.fixedSkillKeys],
+					choiceSelections: {},
+					freeSkillKeys: [],
 				}
 			: {
 					presetId: null,
@@ -497,6 +510,8 @@ function applyTemplateOtherFields(
 					creditMin: 0,
 					creditMax: 99,
 					skillKeys: [],
+					choiceSelections: {},
+					freeSkillKeys: [],
 				};
 		patch.providedFields = [
 			...((patch.providedFields as string[] | undefined) ?? []),

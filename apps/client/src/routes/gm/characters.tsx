@@ -1,5 +1,4 @@
-import type { CharacterDetailDto } from "@cogm/shared";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
 	Ellipsis,
 	FileSpreadsheet,
@@ -10,7 +9,7 @@ import {
 	Trash2,
 	UserRound,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { SegmentedControl } from "@/components/shared/segmented-control";
@@ -29,9 +28,7 @@ import {
 	InputGroupAddon,
 	InputGroupInput,
 } from "@/components/ui/input-group";
-import { CharacterProfileEditorDialog } from "@/features/characters/character-profile-editor-dialog";
 import { AdminLayout } from "@/features/gm-admin/admin-layout";
-import { CharacterSheetEditorDialog } from "@/features/gm-admin/dialogs/character-sheet-editor-dialog";
 import { CreateCharacterDialog } from "@/features/gm-admin/dialogs/create-character-dialog";
 import { ImportCharacterSheetDialog } from "@/features/gm-admin/dialogs/import-character-sheet-dialog";
 import { t, useI18nVersion } from "@/i18n";
@@ -61,12 +58,10 @@ function GmCharactersPage() {
 	const [importOpen, setImportOpen] = useState(false);
 	const [importTargetId, setImportTargetId] = useState<string | null>(null);
 	const [createOpen, setCreateOpen] = useState(false);
-	const [editCharacterId, setEditCharacterId] = useState<string | null>(null);
 	const [deleteOpen, setDeleteOpen] = useState(false);
-	const [profileCharacter, setProfileCharacter] =
-		useState<CharacterDetailDto | null>(null);
+	const navigate = useNavigate();
 
-	async function reload() {
+	const reload = useCallback(async () => {
 		try {
 			const mapped = (await fetchAllPages<CharacterRow>("/gm/characters")).map(
 				mapCharacterRow,
@@ -80,11 +75,11 @@ function GmCharactersPage() {
 		} catch (error) {
 			toast.error(errorText(error, "gm.characters.loadFailed"));
 		}
-	}
+	}, []);
 
 	useEffect(() => {
 		void reload();
-	}, []);
+	}, [reload]);
 
 	useEffect(() => {
 		if (!selectedId) {
@@ -106,15 +101,11 @@ function GmCharactersPage() {
 			cancelled = true;
 		};
 	}, [selectedId]);
-	async function openProfile(id: string) {
-		try {
-			const detail = await api<CharacterDetailDto>(
-				`/gm/characters/${encodeURIComponent(id)}`,
-			);
-			setProfileCharacter(detail);
-		} catch (error) {
-			toast.error(errorText(error, "gm.characters.loadFailed"));
-		}
+	async function openSheet(id: string) {
+		await navigate({
+			to: "/gm/characters/$characterId",
+			params: { characterId: id },
+		});
 	}
 
 	const visible = useMemo(() => {
@@ -274,7 +265,7 @@ function GmCharactersPage() {
 											variant="ghost"
 											size="sm"
 											className="text-md-on-surface hover:bg-md-on-surface/10 h-9 gap-2 rounded-full px-3.5 text-label-medium"
-											onClick={() => setEditCharacterId(selected.id)}
+											onClick={() => void openSheet(selected.id)}
 										>
 											<PencilLine className="size-4" />
 											{t("gm.characters.editSheet")}
@@ -288,7 +279,7 @@ function GmCharactersPage() {
 											variant="ghost"
 											size="sm"
 											className="text-md-on-surface hover:bg-md-on-surface/10 h-9 gap-2 rounded-full px-3.5 text-label-medium"
-											onClick={() => void openProfile(selected.id)}
+											onClick={() => void openSheet(selected.id)}
 										>
 											<Settings2 className="size-4" />
 											{t("characterProfile.openToolbar")}
@@ -393,19 +384,9 @@ function GmCharactersPage() {
 				onOpenChange={setCreateOpen}
 				onCreated={(created) => {
 					setSelectedId(created.id);
-					setEditCharacterId(created.id);
+					void openSheet(created.id);
 					void reload();
 				}}
-			/>
-			<CharacterSheetEditorDialog
-				open={editCharacterId !== null}
-				onOpenChange={(open) => {
-					if (!open) {
-						setEditCharacterId(null);
-					}
-				}}
-				characterId={editCharacterId}
-				onSaved={() => void reload()}
 			/>
 			<ImportCharacterSheetDialog
 				open={importOpen}
@@ -418,18 +399,6 @@ function GmCharactersPage() {
 				onImported={() => void reload()}
 				updateCharacterId={importTargetId}
 			/>
-			{profileCharacter ? (
-				<CharacterProfileEditorDialog
-					scope="gm"
-					open
-					character={profileCharacter}
-					onClose={() => setProfileCharacter(null)}
-					onSaved={(next) => {
-						setProfileCharacter(next);
-						void reload();
-					}}
-				/>
-			) : null}
 			<ConfirmDialog
 				open={deleteOpen}
 				onOpenChange={setDeleteOpen}

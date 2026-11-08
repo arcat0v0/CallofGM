@@ -48,6 +48,13 @@ export const Coc7eOccupation = z.object({
 	creditMin: z.number().int().min(0).max(99).default(0),
 	creditMax: z.number().int().min(0).max(99).default(99),
 	skillKeys: z.array(z.string().trim().min(1).max(100)).max(32).default([]),
+	choiceSelections: z
+		.record(
+			z.string().trim().min(1).max(40),
+			z.array(z.string().trim().min(1).max(100)).max(16),
+		)
+		.default({}),
+	freeSkillKeys: z.array(z.string().trim().min(1).max(100)).max(16).default([]),
 });
 export type Coc7eOccupation = z.infer<typeof Coc7eOccupation>;
 
@@ -134,9 +141,16 @@ const emptyOccupation = {
 	creditMin: 0,
 	creditMax: 99,
 	skillKeys: [],
+	choiceSelections: {},
+	freeSkillKeys: [],
 } satisfies Coc7eOccupation;
 
-const emptyArmor = { name: "", value: 0, locations: "", penalty: 0 } satisfies Coc7eArmor;
+const emptyArmor = {
+	name: "",
+	value: 0,
+	locations: "",
+	penalty: 0,
+} satisfies Coc7eArmor;
 const emptyAssets = {
 	currency: "$",
 	spendingLevel: 0,
@@ -152,7 +166,10 @@ const Coc7eCharacterSheetV2 = z.object({
 	occupation: Coc7eOccupation.default(emptyOccupation),
 	movementModifier: z.number().int().min(-20).max(20).default(0),
 	attributes: Coc7eAttributes,
-	skills: z.record(z.string().trim().min(1).max(100), z.number().int().min(0).max(999)),
+	skills: z.record(
+		z.string().trim().min(1).max(100),
+		z.number().int().min(0).max(999),
+	),
 	customSkills: z
 		.record(z.string().trim().min(1).max(100), Coc7eCustomSkill)
 		.default({}),
@@ -196,7 +213,9 @@ export function normalizeCoc7eSheet(input: unknown): Coc7eCharacterSheet {
 	return Coc7eCharacterSheet.parse(input);
 }
 
-export function createEmptyCoc7eSheet(attributes: Coc7eAttributes): Coc7eCharacterSheet {
+export function createEmptyCoc7eSheet(
+	attributes: Coc7eAttributes,
+): Coc7eCharacterSheet {
 	return normalizeCoc7eSheet({ attributes, skills: {} });
 }
 

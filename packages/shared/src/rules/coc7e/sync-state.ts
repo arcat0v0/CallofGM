@@ -1,6 +1,6 @@
-import type { CharacterSessionState } from "./state";
-import type { Coc7eCharacterSheet } from "./sheet";
 import { deriveCoc7eSheetStats } from "./derive";
+import type { Coc7eCharacterSheet } from "./sheet";
+import type { CharacterSessionState } from "./state";
 
 export function recalculateCoc7eStateOnSync(
 	state: CharacterSessionState,

@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { useEffect, useId, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NumberStepper } from "@/components/ui/number-stepper";
 import {
 	Select,
 	SelectContent,
@@ -71,6 +72,7 @@ export function NumericField({
 	nullable = false,
 	showValidation = false,
 	onErrorChange,
+	hideLabel = false,
 	className,
 }: {
 	label: string;
@@ -82,6 +84,7 @@ export function NumericField({
 	nullable?: boolean;
 	showValidation?: boolean;
 	onErrorChange: (message: string | null) => void;
+	hideLabel?: boolean;
 	className?: string;
 }) {
 	const id = useId();
@@ -108,30 +111,25 @@ export function NumericField({
 			className={cn("flex min-w-0 flex-col gap-1.5", className)}
 			data-invalid={Boolean(error)}
 		>
-			<Label htmlFor={id}>{label}</Label>
-			<Input
+			<Label htmlFor={id} className={hideLabel ? "sr-only" : undefined}>
+				{label}
+			</Label>
+			<NumberStepper
 				id={id}
-				type="number"
-				inputMode={integer ? "numeric" : "decimal"}
-				step={integer ? 1 : "any"}
+				value={text}
+				label={label}
 				min={min}
 				max={max}
-				value={text}
-				aria-label={label}
-				aria-invalid={Boolean(error)}
-				aria-describedby={
-					error && (touched || showValidation) ? `${id}-error` : undefined
-				}
-				onInput={(event) => {
-					const next = event.currentTarget.value;
+				step={integer ? 1 : 0.01}
+				onValueChange={(next) => {
 					setText(next);
 					const nextError = validateNumber(next, min, max, integer, nullable);
 					errorRef.current(nextError);
 					if (!nextError) {
 						onChange(next === "" ? null : Number(next));
 					}
+					setTouched(true);
 				}}
-				onBlur={() => setTouched(true)}
 			/>
 			{error && (touched || showValidation) ? (
 				<p id={`${id}-error`} className="text-body-small text-danger">

@@ -97,7 +97,13 @@ describe("CoC 7e complete sheet normalization", () => {
 				},
 			],
 			encounters: [
-				{ name: "深潜者", sanLoss: "1/1D6", mythosGain: 1, count: 1, notes: "" },
+				{
+					name: "深潜者",
+					sanLoss: "1/1D6",
+					mythosGain: 1,
+					count: 1,
+					notes: "",
+				},
 			],
 			assets: {
 				currency: "$",
@@ -116,7 +122,10 @@ describe("CoC 7e complete sheet normalization", () => {
 
 	it("rejects invalid attributes, skills, and weapon values", () => {
 		expect(() =>
-			Coc7eCharacterSheet.parse({ ...completeSheet(), attributes: { ...attributes, str: 0 } }),
+			Coc7eCharacterSheet.parse({
+				...completeSheet(),
+				attributes: { ...attributes, str: 0 },
+			}),
 		).toThrow();
 		expect(() =>
 			Coc7eCharacterSheet.parse({ ...completeSheet(), skills: { 侦查: 1000 } }),
@@ -169,14 +178,38 @@ describe("CoC 7e official derivations", () => {
 	});
 
 	it("calculates every damage bonus boundary and continuation", () => {
-		expect(coc7eDamageBonusAndBuild(20, 44)).toEqual({ damageBonus: "-2", build: -2 });
-		expect(coc7eDamageBonusAndBuild(40, 44)).toEqual({ damageBonus: "-1", build: -1 });
-		expect(coc7eDamageBonusAndBuild(40, 45)).toEqual({ damageBonus: "0", build: 0 });
-		expect(coc7eDamageBonusAndBuild(80, 84)).toEqual({ damageBonus: "+1d4", build: 1 });
-		expect(coc7eDamageBonusAndBuild(80, 85)).toEqual({ damageBonus: "+1d6", build: 2 });
-		expect(coc7eDamageBonusAndBuild(99, 106)).toEqual({ damageBonus: "+2d6", build: 3 });
-		expect(coc7eDamageBonusAndBuild(150, 375)).toEqual({ damageBonus: "+6d6", build: 7 });
-		expect(coc7eDamageBonusAndBuild(200, 405)).toEqual({ damageBonus: "+7d6", build: 8 });
+		expect(coc7eDamageBonusAndBuild(20, 44)).toEqual({
+			damageBonus: "-2",
+			build: -2,
+		});
+		expect(coc7eDamageBonusAndBuild(40, 44)).toEqual({
+			damageBonus: "-1",
+			build: -1,
+		});
+		expect(coc7eDamageBonusAndBuild(40, 45)).toEqual({
+			damageBonus: "0",
+			build: 0,
+		});
+		expect(coc7eDamageBonusAndBuild(80, 84)).toEqual({
+			damageBonus: "+1d4",
+			build: 1,
+		});
+		expect(coc7eDamageBonusAndBuild(80, 85)).toEqual({
+			damageBonus: "+1d6",
+			build: 2,
+		});
+		expect(coc7eDamageBonusAndBuild(99, 106)).toEqual({
+			damageBonus: "+2d6",
+			build: 3,
+		});
+		expect(coc7eDamageBonusAndBuild(150, 375)).toEqual({
+			damageBonus: "+6d6",
+			build: 7,
+		});
+		expect(coc7eDamageBonusAndBuild(200, 405)).toEqual({
+			damageBonus: "+7d6",
+			build: 8,
+		});
 	});
 
 	it("handles MOV equality, age, and manual modifiers", () => {
@@ -220,12 +253,16 @@ describe("CoC 7e official derivations", () => {
 		});
 	});
 
-	it("contains the 28 reference occupations", () => {
-		expect(COC7E_OCCUPATIONS).toHaveLength(28);
-		expect(COC7E_OCCUPATIONS.find((occupation) => occupation.id === "reporter")).toMatchObject({
-			name: "记者",
-			creditMin: 9,
-			creditMax: 30,
+	it("exposes the full occupation reference table", () => {
+		expect(COC7E_OCCUPATIONS.length).toBeGreaterThan(200);
+		expect(
+			COC7E_OCCUPATIONS.find((occupation) => occupation.name === "会计师"),
+		).toMatchObject({
+			creditMin: 30,
+			creditMax: 70,
+			skillPointOptions: [[{ attribute: "edu", multiplier: 4 }]],
+			fixedSkillKeys: ["会计", "法律", "图书馆", "聆听", "说服", "侦查"],
+			anySkillCount: 2,
 		});
 	});
 });
@@ -254,8 +291,22 @@ describe("CoC 7e growth and public projection", () => {
 					applyDamageBonus: true,
 				},
 			],
-			assets: { currency: "$", spendingLevel: 999, cash: 888, otherAssets: 777, details: [] },
-			spells: [{ name: "秘密法术", mpCost: "10", sanCost: "2", castingTime: "1轮", effect: "" }],
+			assets: {
+				currency: "$",
+				spendingLevel: 999,
+				cash: 888,
+				otherAssets: 777,
+				details: [],
+			},
+			spells: [
+				{
+					name: "秘密法术",
+					mpCost: "10",
+					sanCost: "2",
+					castingTime: "1轮",
+					effect: "",
+				},
+			],
 		});
 		const projected = projectPublicCoc7eSheet(sheet);
 		expect(projected.attributes).toEqual(sheet.attributes);

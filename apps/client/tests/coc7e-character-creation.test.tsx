@@ -161,35 +161,95 @@ describe("CoC 7e character creation editor", () => {
 		expect(editor.latest().attributes.str).toBe(70);
 	});
 
-	test("loads an occupation without resetting existing skills", async () => {
+	test("loads an occupation from the reference table dialog without resetting skills", async () => {
 		const initial = emptySheet();
 		initial.skills = { 侦查: 60 };
 		const editor = renderEditor(initial);
-		await choose(editor.view, "职业", "记者");
+		fireEvent.click(editor.view.getByRole("button", { name: "选择职业…" }));
+		fireEvent.change(
+			editor.view.getByRole("searchbox", { name: "搜索职业或本职技能" }),
+			{ target: { value: "会计师" } },
+		);
+		fireEvent.click(editor.view.getByRole("button", { name: "会计师" }));
 		await waitFor(() =>
-			expect(editor.latest().occupation.presetId).toBe("reporter"),
+			expect(editor.latest().occupation.presetId).toBe("occ-2"),
 		);
 		expect(editor.latest().occupation.skillPointFormula).toEqual([
 			{ attribute: "edu", multiplier: 4 },
 		]);
-		expect(editor.latest().occupation.creditMin).toBe(9);
+		expect(editor.latest().occupation.creditMin).toBe(30);
 		expect(editor.latest().skills["侦查"]).toBe(60);
 	});
 
 	test("preserves a modern-only occupation as custom when returning to 1920s", async () => {
 		const editor = renderEditor();
 		fireEvent.click(editor.view.getByRole("radio", { name: "现代" }));
-		await choose(editor.view, "职业", "黑客");
+		fireEvent.click(editor.view.getByRole("button", { name: "选择职业…" }));
+		fireEvent.change(
+			editor.view.getByRole("searchbox", { name: "搜索职业或本职技能" }),
+			{ target: { value: "黑客" } },
+		);
+		fireEvent.click(
+			editor.view.getByRole("button", { name: "黑客/骇客（现代）" }),
+		);
 		await waitFor(() =>
-			expect(editor.latest().occupation.presetId).toBe("hacker"),
+			expect(editor.latest().occupation.presetId).toBe("occ-25"),
 		);
 		fireEvent.click(editor.view.getByRole("radio", { name: "1920 年代" }));
 		expect(editor.latest().era).toBe("1920s");
 		expect(editor.latest().occupation).toMatchObject({
 			presetId: null,
-			name: "黑客",
+			name: "黑客/骇客（现代）",
 		});
 		expect(editor.view.getByText(/已保留为自定义职业/)).toBeTruthy();
+		expect(
+			editor.view.getByRole("checkbox", { name: "本职 会计" }),
+		).toBeTruthy();
+	});
+
+	test("offers three art slots instead of the whole art catalogue", async () => {
+		const editor = renderEditor();
+		expect(editor.view.queryByText("技艺(表演)")).toBeNull();
+		const emptySlots = editor.view.getAllByRole("button", {
+			name: "选择技艺",
+		});
+		expect(emptySlots.length).toBe(3);
+		fireEvent.pointerDown(emptySlots[0] as HTMLElement, {
+			button: 0,
+			ctrlKey: false,
+		});
+		fireEvent.click(emptySlots[0] as HTMLElement);
+		fireEvent.click(
+			await within(editor.view.baseElement).findByRole("button", {
+				name: "技艺(表演) 5",
+			}),
+		);
+		await waitFor(() => expect(editor.latest().skills["技艺(表演)"]).toBe(5));
+		expect(
+			editor.view.getByRole("spinbutton", { name: "技能 技艺(表演)" }),
+		).toBeTruthy();
+		expect(
+			editor.view.getAllByRole("button", { name: "选择技艺" }).length,
+		).toBe(2);
+	});
+
+	test("marks occupational skills read-only once a preset occupation is chosen", async () => {
+		const editor = renderEditor();
+		expect(
+			editor.view.getByRole("checkbox", { name: "本职 会计" }),
+		).toBeTruthy();
+		fireEvent.click(editor.view.getByRole("button", { name: "选择职业…" }));
+		fireEvent.change(
+			editor.view.getByRole("searchbox", { name: "搜索职业或本职技能" }),
+			{ target: { value: "会计师" } },
+		);
+		fireEvent.click(editor.view.getByRole("button", { name: "会计师" }));
+		await waitFor(() =>
+			expect(editor.latest().occupation.presetId).toBe("occ-2"),
+		);
+		expect(
+			editor.view.queryByRole("checkbox", { name: "本职 会计" }),
+		).toBeNull();
 	});
 
 	test("adds a custom skill and keeps filtering from deleting other values", async () => {

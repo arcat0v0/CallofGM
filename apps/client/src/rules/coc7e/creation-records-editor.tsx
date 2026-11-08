@@ -10,6 +10,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { t } from "@/i18n";
+import { Coc7eArmorPicker, Coc7eWeaponPicker } from "./equipment-picker";
+import { Coc7eSpellPicker } from "./spell-picker";
 
 type Sheet = coc7e.Coc7eCharacterSheet;
 
@@ -83,6 +85,16 @@ export function Coc7eCreationRecordsEditor({
 					title={t("characterCreation.weapons")}
 					actionLabel={t("characterCreation.addWeapon")}
 					disabled={sheet.weapons.length >= 100}
+					extraAction={
+						<Coc7eWeaponPicker
+							era={sheet.era}
+							exclude={sheet.weapons.map((weapon) => weapon.name)}
+							disabled={sheet.weapons.length >= 100}
+							onPick={(weapon) =>
+								update({ weapons: [...sheet.weapons, weapon] })
+							}
+						/>
+					}
 					onAdd={() =>
 						update({
 							weapons: [
@@ -224,9 +236,15 @@ export function Coc7eCreationRecordsEditor({
 				</RecordGroup>
 
 				<div className="flex flex-col gap-3 rounded-xl bg-md-surface-container p-4">
-					<h3 className="text-label-large-emph text-foreground">
-						{t("characterCreation.armor")}
-					</h3>
+					<div className="flex flex-wrap items-center justify-between gap-3">
+						<h3 className="text-label-large-emph text-foreground">
+							{t("characterCreation.armor")}
+						</h3>
+						<Coc7eArmorPicker
+							era={sheet.era}
+							onPick={(armor) => update({ armor })}
+						/>
+					</div>
 					<div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
 						<TextField
 							label={t("characterCreation.armorName")}
@@ -547,6 +565,25 @@ export function Coc7eCreationRecordsEditor({
 					title={t("characterCreation.spells")}
 					actionLabel={t("characterCreation.addSpell")}
 					disabled={sheet.spells.length >= 100}
+					extraAction={
+						<Coc7eSpellPicker
+							exclude={sheet.spells.map((spell) => spell.name)}
+							onPick={(spell) =>
+								update({
+									spells: [
+										...sheet.spells,
+										{
+											name: spell.name,
+											mpCost: spell.mpCost,
+											sanCost: spell.sanCost,
+											castingTime: spell.castingTime,
+											effect: spell.effect,
+										},
+									],
+								})
+							}
+						/>
+					}
 					onAdd={() =>
 						update({
 							spells: [
@@ -838,28 +875,33 @@ function RecordGroup({
 	actionLabel,
 	disabled,
 	onAdd,
+	extraAction,
 	children,
 }: {
 	title: string;
 	actionLabel: string;
 	disabled: boolean;
 	onAdd: () => void;
+	extraAction?: ReactNode;
 	children: ReactNode;
 }) {
 	return (
 		<div className="flex flex-col gap-3">
-			<div className="flex items-center justify-between gap-3">
+			<div className="flex flex-wrap items-center justify-between gap-3">
 				<h3 className="text-title-medium-emph text-foreground">{title}</h3>
-				<Button
-					type="button"
-					variant="outline"
-					size="sm"
-					disabled={disabled}
-					onClick={onAdd}
-				>
-					<Plus />
-					{actionLabel}
-				</Button>
+				<div className="flex items-center gap-2">
+					{extraAction}
+					<Button
+						type="button"
+						variant="outline"
+						size="sm"
+						disabled={disabled}
+						onClick={onAdd}
+					>
+						<Plus />
+						{actionLabel}
+					</Button>
+				</div>
 			</div>
 			{children}
 		</div>
