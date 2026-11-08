@@ -430,6 +430,7 @@ export class UpdatePortraitUseCase {
 		label?: string;
 		isDefault?: boolean;
 		sortOrder?: number;
+		portraitAssetId?: string;
 	}) {
 		const character = await this.repo.findCharacterById(input.characterId);
 		if (
@@ -443,9 +444,22 @@ export class UpdatePortraitUseCase {
 		if (!portrait || portrait.characterId !== character.id) {
 			throw new CharacterNotFoundError();
 		}
+		if (input.portraitAssetId !== undefined) {
+			const asset = await this.repo.findMediaAsset(input.portraitAssetId);
+			if (!asset || asset.purpose !== "portrait") {
+				throw new AppError(
+					"MEDIA_INVALID",
+					"Media asset is not a portrait",
+					400,
+				);
+			}
+		}
 		const patch: Parameters<CharactersRepository["updatePortrait"]>[1] = {};
 		if (input.label !== undefined) patch.label = input.label;
 		if (input.sortOrder !== undefined) patch.sortOrder = input.sortOrder;
+		if (input.portraitAssetId !== undefined) {
+			patch.portraitAssetId = input.portraitAssetId;
+		}
 		if (input.isDefault !== undefined) {
 			if (input.isDefault) {
 				await this.repo.unsetDefaultPortraits(character.id);

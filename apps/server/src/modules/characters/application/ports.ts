@@ -213,7 +213,7 @@ export interface CharactersRepository {
 		updates: Partial<
 			Pick<
 				CharacterPortraitRecord,
-				"label" | "isDefault" | "sortOrder" | "deletedAt"
+				"label" | "isDefault" | "sortOrder" | "deletedAt" | "portraitAssetId"
 			>
 		>,
 	): Promise<void>;

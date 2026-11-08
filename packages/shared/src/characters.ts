@@ -58,6 +58,7 @@ export const UpdatePortraitRequest = z.object({
 	label: z.string().trim().max(64).optional(),
 	isDefault: z.boolean().optional(),
 	sortOrder: z.number().int().min(0).optional(),
+	portraitAssetId: z.string().min(1).optional(),
 });
 export type UpdatePortraitRequest = z.infer<typeof UpdatePortraitRequest>;
 

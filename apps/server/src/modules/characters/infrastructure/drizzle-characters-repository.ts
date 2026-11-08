@@ -214,7 +214,7 @@ export class DrizzleCharactersRepository implements CharactersRepository {
 		updates: Partial<
 			Pick<
 				typeof characterPortraits.$inferInsert,
-				"label" | "isDefault" | "sortOrder" | "deletedAt"
+				"label" | "isDefault" | "sortOrder" | "deletedAt" | "portraitAssetId"
 			>
 		>,
 	): Promise<void> {

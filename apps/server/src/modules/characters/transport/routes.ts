@@ -372,6 +372,7 @@ export function createCharactersRoutes(container: Container) {
 					label: data.label,
 					isDefault: data.isDefault,
 					sortOrder: data.sortOrder,
+					portraitAssetId: data.portraitAssetId,
 				}),
 			);
 		})
@@ -636,6 +637,7 @@ export function createCharactersRoutes(container: Container) {
 					label: data.label,
 					isDefault: data.isDefault,
 					sortOrder: data.sortOrder,
+					portraitAssetId: data.portraitAssetId,
 				}),
 			);
 		})

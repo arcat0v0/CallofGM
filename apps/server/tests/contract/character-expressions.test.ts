@@ -289,4 +289,44 @@ describe("Custom expressions contract tests", () => {
 		expect(reply.payload.code).toBe("EXPRESSION_NOT_FOUND");
 		await closeWs(pc1);
 	});
+
+	test("PATCH portrait can replace the underlying image asset", async () => {
+		const { mediaAssets } = await import("@/platform/db/schema");
+		await ctx.container.db
+			.insert(mediaAssets)
+			.values({
+				id: "asset-cropped",
+				ownerId: ctx.gmUserId,
+				purpose: "portrait",
+				storageKey: "test-cropped",
+				filename: "cropped.jpg",
+				mimeType: "image/jpeg",
+				size: 1,
+				sha256: "cropped",
+				metadataJson: "{}",
+				deletedAt: null,
+				createdAt: Date.now(),
+			})
+			.onConflictDoNothing();
+		const url =
+			"http://localhost/api/v1/gm/characters/char-exp/portraits/portrait-char-exp-default";
+		const patch = async (portraitAssetId: string) =>
+			ctx.app.handle(
+				new Request(url, {
+					method: "PATCH",
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: `Bearer ${ctx.gmToken}`,
+					},
+					body: JSON.stringify({ portraitAssetId }),
+				}),
+			);
+		const res = await patch("asset-cropped");
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as { portraitAssetId: string };
+		expect(body.portraitAssetId).toBe("asset-cropped");
+
+		const invalid = await patch("asset-missing");
+		expect(invalid.status).toBe(400);
+	});
 });
