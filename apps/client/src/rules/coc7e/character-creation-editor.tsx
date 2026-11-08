@@ -1,12 +1,5 @@
 import { coc7e } from "@cogm/shared";
-import {
-	ChevronDown,
-	ListChecks,
-	Plus,
-	RotateCcw,
-	Trash2,
-	XIcon,
-} from "lucide-react";
+import { ChevronDown, ListChecks, Plus, RotateCcw, Trash2 } from "lucide-react";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -33,7 +26,11 @@ import { cn } from "@/lib/utils";
 import { Coc7eCreationRecordsEditor } from "./creation-records-editor";
 import { Coc7eOccupationChoiceEditor } from "./occupation-choice-editor";
 import { Coc7eOccupationReferenceTable } from "./occupation-reference-table";
-import { Coc7eSkillPicker } from "./skill-picker";
+import {
+	Coc7eSpecialtyAddRow,
+	Coc7eSpecialtySlotsSection,
+	SkillNameWithHint,
+} from "./specialty-slots-section";
 
 type Sheet = coc7e.Coc7eCharacterSheet;
 type AttributeKey = coc7e.Coc7eAttributeKey;
@@ -49,8 +46,6 @@ const attributeKeys: AttributeKey[] = [
 	"edu",
 	"luck",
 ];
-
-const ART_SLOTS = 3;
 
 const attributeOptions = attributeKeys.map((key) => ({
 	value: key,
@@ -151,13 +146,19 @@ export function Coc7eCharacterCreationEditor({
 		updateOccupation(coc7e.coc7eClearOccupation());
 	}
 
+	function cancelCustomOccupation() {
+		setCustomMode(false);
+		setEraNotice(false);
+		update({ occupation: coc7e.coc7eClearOccupation() });
+	}
+
 	function pickArtSkill(key: string) {
 		const trimmed = key.trim();
 		if (trimmed === "") {
 			return;
 		}
 		const canonical = coc7e.canonicalizeCoc7eSkillKey(trimmed);
-		const finalKey = canonical ?? trimmed;
+		const finalKey = canonical ?? `技艺(${trimmed})`;
 		if (sheet.skills[finalKey] !== undefined) {
 			return;
 		}
@@ -169,6 +170,50 @@ export function Coc7eCharacterCreationEditor({
 		update({
 			customSkills: { ...sheet.customSkills, [finalKey]: { base } },
 			skills: { ...sheet.skills, [finalKey]: base },
+		});
+	}
+
+	function addLanguageSkill(name: string) {
+		const trimmed = name.trim();
+		if (trimmed === "") {
+			return;
+		}
+		const key = `外语(${trimmed})`;
+		if (sheet.skills[key] !== undefined) {
+			return;
+		}
+		const base = coc7e.COC7E_SKILL_GROUP_INFO["语言"]?.base ?? 1;
+		update({
+			customSkills: { ...sheet.customSkills, [key]: { base } },
+			skills: { ...sheet.skills, [key]: base },
+		});
+	}
+
+	function addGroupSpecialty(group: string, name: string) {
+		const trimmed = name.trim();
+		if (trimmed === "") {
+			return;
+		}
+		const canonical = coc7e.canonicalizeCoc7eSkillKey(trimmed);
+		if (canonical) {
+			if (sheet.skills[canonical] === undefined) {
+				update({
+					skills: {
+						...sheet.skills,
+						[canonical]: coc7e.coc7eSkillBaseValue(sheet, canonical) ?? 0,
+					},
+				});
+			}
+			return;
+		}
+		const key = `${group}(${trimmed})`;
+		if (sheet.skills[key] !== undefined || sheet.customSkills[key]) {
+			return;
+		}
+		const base = coc7e.COC7E_SKILL_GROUP_INFO[group]?.base ?? 0;
+		update({
+			customSkills: { ...sheet.customSkills, [key]: { base } },
+			skills: { ...sheet.skills, [key]: base },
 		});
 	}
 
@@ -274,7 +319,7 @@ export function Coc7eCharacterCreationEditor({
 				key,
 				aliases: [key],
 				base: definition.base,
-				group: key.includes("(") ? key.split("(")[0] : undefined,
+				group: coc7e.coc7eSkillFamily(key) ?? undefined,
 				custom: true,
 				modernOnly: false,
 				uncommon: false,
@@ -282,14 +327,30 @@ export function Coc7eCharacterCreationEditor({
 		return [...standard, ...custom];
 	}, [sheet.customSkills]);
 
-	const artSkills = catalog.filter((entry) => entry.group === "技艺");
-	const artTaken = artSkills.filter(
-		(entry) => sheet.skills[entry.key] !== undefined,
+	const artEntries = useMemo(
+		() =>
+			catalog
+				.filter((entry) => entry.group === "技艺")
+				.map((entry) => ({ key: entry.key, base: entry.base })),
+		[catalog],
 	);
-	const artSlotCount = Math.max(ART_SLOTS, artTaken.length);
+	const artSuggestions = useMemo(
+		() =>
+			artEntries
+				.filter((entry) => !entry.key.startsWith("技艺("))
+				.map((entry) => entry.key),
+		[artEntries],
+	);
+	const languageEntries = useMemo(
+		() =>
+			catalog
+				.filter((entry) => entry.group === "语言")
+				.map((entry) => ({ key: entry.key, base: entry.base })),
+		[catalog],
+	);
 
 	const visibleSkills = catalog.filter((entry) => {
-		if (entry.group === "技艺") {
+		if (entry.group === "技艺" || entry.group === "语言") {
 			return false;
 		}
 		if (
@@ -320,72 +381,6 @@ export function Coc7eCharacterCreationEditor({
 
 	return (
 		<div className="flex flex-col gap-6">
-			<section
-				aria-label={t("characterCreation.liveSummary")}
-				className="border-md-outline-variant/40 bg-background/90 sticky top-16 z-10 flex flex-wrap items-center gap-1.5 rounded-2xl border px-3 py-2 backdrop-blur"
-			>
-				{[
-					{
-						label: t("characterCreation.maxHp"),
-						value: String(derived.maxHp),
-						tone: "danger" as const,
-					},
-					{
-						label: t("characterCreation.maxMp"),
-						value: String(derived.maxMp),
-						tone: "accent" as const,
-					},
-					{
-						label: t("characterCreation.initialSan"),
-						value: `${derived.initialSan}/${derived.maxSan}`,
-						tone: "success" as const,
-					},
-					{
-						label: t("characterCreation.mov"),
-						value: String(derived.mov),
-						tone: "default" as const,
-					},
-					{
-						label: t("characterCreation.damageBonus"),
-						value: derived.damageBonus,
-						tone: "default" as const,
-					},
-					{
-						label: t("characterCreation.build"),
-						value: String(derived.build),
-						tone: "default" as const,
-					},
-					{
-						label: t("characterCreation.majorWound"),
-						value: String(derived.majorWoundThreshold),
-						tone: "default" as const,
-					},
-				].map((metric) => (
-					<span
-						key={metric.label}
-						className="bg-md-surface-container-high flex items-center gap-1.5 rounded-full px-3 py-1 text-label-small"
-					>
-						<span className="text-foreground-tertiary">{metric.label}</span>
-						<span className="font-mono tabular-nums">{metric.value}</span>
-					</span>
-				))}
-				<span className="bg-md-surface-container-high ms-auto flex items-center gap-2 rounded-full px-3 py-1 text-label-small">
-					<span className="text-foreground-tertiary">
-						{t("occupation.ledger")}
-					</span>
-					<span
-						className={cn(
-							"font-mono tabular-nums",
-							ledger.occupation.remaining < 0 && "text-danger",
-						)}
-					>
-						{t("occupation.ledgerValues", {
-							occupation: ledger.occupation.remaining,
-							interest: ledger.interest.remaining,
-						})}
-					</span>
-				</span>
-			</section>
 			<SheetSection
 				title={t("characterCreation.identity")}
 				description={t("characterCreation.identityHint")}
@@ -486,15 +481,26 @@ export function Coc7eCharacterCreationEditor({
 							<h3 className="text-title-medium-emph text-foreground">
 								{t("characterCreation.customOccupation")}
 							</h3>
-							<Button
-								type="button"
-								variant="ghost"
-								size="sm"
-								onClick={() => setReferenceOpen(true)}
-							>
-								<ListChecks className="size-4" />
-								{t("characterCreation.pickFromReference")}
-							</Button>
+							<div className="flex flex-wrap items-center gap-2">
+								<Button
+									type="button"
+									variant="ghost"
+									size="sm"
+									onClick={() => setReferenceOpen(true)}
+								>
+									<ListChecks className="size-4" />
+									{t("characterCreation.pickFromReference")}
+								</Button>
+								<Button
+									type="button"
+									variant="ghost"
+									size="sm"
+									className="text-danger"
+									onClick={cancelCustomOccupation}
+								>
+									{t("characterCreation.cancelCustomOccupation")}
+								</Button>
+							</div>
 						</div>
 						<div className="grid gap-4 md:grid-cols-2">
 							<TextField
@@ -614,17 +620,11 @@ export function Coc7eCharacterCreationEditor({
 								{t("characterCreation.occupationReference")}
 							</span>
 							<div className="flex flex-wrap gap-1.5">
-								{sheet.occupation.skillKeys.length === 0 ? (
-									<span className="text-foreground-tertiary text-body-small">
-										{t("characterCreation.customOccupationHint")}
-									</span>
-								) : (
-									sheet.occupation.skillKeys.map((key) => (
-										<Badge key={key} variant="soft" tone="default" size="sm">
-											{key}
-										</Badge>
-									))
-								)}
+								{sheet.occupation.skillKeys.map((key) => (
+									<Badge key={key} variant="soft" tone="default" size="sm">
+										{key}
+									</Badge>
+								))}
 							</div>
 							<p className="text-foreground-tertiary text-body-small">
 								{t("characterCreation.customOccupationHint")}
@@ -855,82 +855,38 @@ export function Coc7eCharacterCreationEditor({
 						</p>
 					) : null}
 				</section>
-				<section
-					aria-label={t("characterCreation.artSkills")}
-					className="bg-md-surface-container flex flex-col gap-3 rounded-xl p-4"
-				>
-					<div className="flex flex-wrap items-baseline gap-2">
-						<h3 className="text-label-large-emph text-foreground">
-							{t("characterCreation.artSkills")}
-						</h3>
-						<span className="text-label-small text-foreground-tertiary">
-							{t("characterCreation.artSkillsHint", { count: ART_SLOTS })}
-						</span>
-					</div>
-					<div className="flex flex-wrap items-center gap-2">
-						{Array.from({ length: artSlotCount }, (_, index) => index).map(
-							(index) => {
-								const entry = artTaken[index];
-								if (!entry) {
-									return (
-										<Coc7eSkillPicker
-											key={`art-empty-${index}`}
-											title={t("characterCreation.artPick")}
-											triggerLabel={t("characterCreation.artPick")}
-											options={artSkills.map((skill) => ({
-												key: skill.key,
-												label: skill.key,
-												base: skill.base,
-												...(skill.group ? { group: skill.group } : {}),
-											}))}
-											exclude={artTaken.map((skill) => skill.key)}
-											onPick={(key) => pickArtSkill(key)}
-										/>
-									);
-								}
-								const key = entry.key;
-								const current = sheet.skills[key] ?? entry.base;
-								return (
-									<span
-										key={`art-${key}`}
-										className="bg-md-secondary-container text-md-on-secondary-container flex items-center gap-2 rounded-full py-1 ps-3 pe-1.5"
-									>
-										<span className="text-label-large">{key}</span>
-										<NumericField
-											label={t("characterCreation.skillValue", { name: key })}
-											hideLabel
-											className="w-24"
-											value={current}
-											min={0}
-											max={99}
-											showValidation={showValidation}
-											onErrorChange={(message) =>
-												reportError(`art-${key}`, message)
-											}
-											onChange={(value) => setSkill(key, value ?? current)}
-										/>
-										<Button
-											type="button"
-											variant="ghost"
-											size="icon-sm"
-											className="size-6 rounded-full"
-											aria-label={t("characterCreation.artRemove", {
-												name: key,
-											})}
-											onClick={() =>
-												sheet.customSkills[key]
-													? removeCustomSkill(key)
-													: resetSkill(key)
-											}
-										>
-											<XIcon className="size-3.5" />
-										</Button>
-									</span>
-								);
-							},
-						)}
-					</div>
-				</section>
+				<Coc7eSpecialtySlotsSection
+					title={t("characterCreation.artSkills")}
+					hint={t("characterCreation.artSkillsHint")}
+					family="技艺"
+					slotsPrefix="技艺"
+					entries={artEntries}
+					skills={sheet.skills}
+					suggestions={artSuggestions}
+					showValidation={showValidation}
+					onAddName={pickArtSkill}
+					onRemoveKey={(key) =>
+						sheet.customSkills[key] ? removeCustomSkill(key) : resetSkill(key)
+					}
+					onSetValue={setSkill}
+					reportError={reportError}
+				/>
+				<Coc7eSpecialtySlotsSection
+					title={t("characterCreation.languageSlots")}
+					hint={t("characterCreation.languageSlotsHint")}
+					family="语言"
+					slotsPrefix="外语"
+					entries={languageEntries}
+					skills={sheet.skills}
+					suggestions={[]}
+					showValidation={showValidation}
+					onAddName={addLanguageSkill}
+					onRemoveKey={(key) =>
+						sheet.customSkills[key] ? removeCustomSkill(key) : resetSkill(key)
+					}
+					onSetValue={setSkill}
+					reportError={reportError}
+				/>
 				<div className="flex flex-col gap-3 lg:flex-row lg:items-end">
 					<div className="flex min-w-0 flex-1 flex-col gap-1.5">
 						<Label htmlFor="coc-skill-search">
@@ -986,7 +942,10 @@ export function Coc7eCharacterCreationEditor({
 									className="bg-md-surface-container hover:bg-md-surface-container-high flex items-center gap-2 rounded-xl px-3 py-2 text-left transition-colors"
 								>
 									<h3 className="text-label-large-emph text-foreground-secondary flex-1">
-										{group}
+										<SkillNameWithHint
+											name={group}
+											className="cursor-help text-label-large-emph text-foreground-secondary"
+										/>
 									</h3>
 									<span className="text-label-small text-foreground-tertiary tabular-nums">
 										{entries.length} 项
@@ -1012,9 +971,7 @@ export function Coc7eCharacterCreationEditor({
 											>
 												<div className="flex min-w-0 flex-col justify-center gap-1">
 													<div className="flex min-w-0 flex-wrap items-center gap-1.5">
-														<span className="truncate text-label-large-emph text-foreground">
-															{key}
-														</span>
+														<SkillNameWithHint name={key} />
 														{entry.modernOnly ? (
 															<Badge variant="soft" tone="default" size="sm">
 																{t("characterCreation.modernSkill")}
@@ -1138,6 +1095,12 @@ export function Coc7eCharacterCreationEditor({
 											</div>
 										);
 									})}
+									{!filterActive && coc7e.COC7E_SKILL_GROUP_INFO[group] ? (
+										<Coc7eSpecialtyAddRow
+											group={group}
+											onAdd={(name) => addGroupSpecialty(group, name)}
+										/>
+									) : null}
 								</div>
 							</div>
 						);

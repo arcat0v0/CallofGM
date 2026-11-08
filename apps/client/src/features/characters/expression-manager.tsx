@@ -1,8 +1,9 @@
 import type { CharacterPortraitDto } from "@cogm/shared";
-import { ArrowDown, ArrowUp, Pencil, Plus, Star, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Crop, Pencil, Plus, Star, Trash2 } from "lucide-react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { ImageCropDialog } from "@/components/shared/image-crop-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { t } from "@/i18n";
@@ -36,6 +37,9 @@ export function ExpressionManager({
 	const [renamingId, setRenamingId] = useState<string | null>(null);
 	const [renameValue, setRenameValue] = useState("");
 	const [deleteTarget, setDeleteTarget] = useState<CharacterPortraitDto | null>(
+		null,
+	);
+	const [cropTarget, setCropTarget] = useState<CharacterPortraitDto | null>(
 		null,
 	);
 	const fileInputRef = useRef<HTMLInputElement>(null);
@@ -202,6 +206,33 @@ export function ExpressionManager({
 		}
 	}
 
+	async function replacePortraitImage(
+		portrait: CharacterPortraitDto,
+		blob: Blob,
+	) {
+		try {
+			const file = new File([blob], `${portrait.id}-cropped.jpg`, {
+				type: "image/jpeg",
+			});
+			const body = new FormData();
+			body.append("file", file);
+			body.append("purpose", "portrait");
+			body.append("filename", file.name);
+			const asset = await api<{ id: string }>("/media/upload", {
+				method: "POST",
+				body,
+			});
+			await api(`${portraitBase}/${encodeURIComponent(portrait.id)}`, {
+				method: "PATCH",
+				body: JSON.stringify({ portraitAssetId: asset.id }),
+			});
+			setCropTarget(null);
+			onChange();
+		} catch (error) {
+			toast.error(errorText(error, "expressions.cropFailed"));
+		}
+	}
+
 	return (
 		<section className="flex flex-col gap-3">
 			<div className="flex items-center justify-between gap-3">
@@ -322,6 +353,16 @@ export function ExpressionManager({
 									variant="ghost"
 									size="icon-sm"
 									className="size-7 text-foreground-tertiary"
+									aria-label={t("expressions.crop", { name })}
+									onClick={() => setCropTarget(portrait)}
+								>
+									<Crop className="size-3.5" />
+								</Button>
+								<Button
+									type="button"
+									variant="ghost"
+									size="icon-sm"
+									className="size-7 text-foreground-tertiary"
 									aria-label={t("expressions.rename", { name })}
 									onClick={() => beginRename(portrait)}
 								>
@@ -428,6 +469,22 @@ export function ExpressionManager({
 				})}
 				confirmLabel={t("common.delete")}
 				onConfirm={() => void remove()}
+			/>
+			<ImageCropDialog
+				open={cropTarget !== null}
+				onOpenChange={(open) => {
+					if (!open) {
+						setCropTarget(null);
+					}
+				}}
+				imageUrl={cropTarget ? mediaUrl(cropTarget.portraitAssetId) : null}
+				aspect={1}
+				title={t("expressions.crop", {
+					name: expressionLabel(cropTarget?.expressionKey, cropTarget?.label),
+				})}
+				description={t("expressions.cropReplaceHint")}
+				confirmLabel={t("crop.confirm")}
+				onConfirm={(blob) => void replacePortraitImage(cropTarget!, blob)}
 			/>
 		</section>
 	);

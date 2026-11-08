@@ -207,30 +207,106 @@ describe("CoC 7e character creation editor", () => {
 		).toBeTruthy();
 	});
 
-	test("offers three art slots instead of the whole art catalogue", async () => {
+	test("no longer renders the sticky live summary bar", () => {
+		const editor = renderEditor();
+		expect(
+			editor.view.queryByRole("region", { name: "实时派生数值" }),
+		).toBeNull();
+	});
+
+	test("accepts free-form art slots like the blank sheet", async () => {
 		const editor = renderEditor();
 		expect(editor.view.queryByText("技艺(表演)")).toBeNull();
-		const emptySlots = editor.view.getAllByRole("button", {
-			name: "选择技艺",
+		const slotInputs = editor.view.getAllByLabelText(/技艺[①②③]名称/);
+		expect(slotInputs.length).toBe(3);
+		setValue(slotInputs[0] as HTMLElement, "绘画");
+		fireEvent.click(editor.view.getByRole("button", { name: "添加技艺①" }));
+		await waitFor(() => {
+			expect(editor.latest().skills["技艺(绘画)"]).toBe(5);
+			expect(editor.latest().customSkills["技艺(绘画)"]).toEqual({ base: 5 });
 		});
-		expect(emptySlots.length).toBe(3);
-		fireEvent.pointerDown(emptySlots[0] as HTMLElement, {
-			button: 0,
-			ctrlKey: false,
-		});
-		fireEvent.click(emptySlots[0] as HTMLElement);
-		fireEvent.click(
-			await within(editor.view.baseElement).findByRole("button", {
-				name: "技艺(表演) 5",
-			}),
-		);
+		const remaining = editor.view.getAllByLabelText(/技艺[①②③]名称/);
+		expect(remaining.length).toBe(2);
+		setValue(remaining[0] as HTMLElement, "表演");
+		fireEvent.click(editor.view.getByRole("button", { name: "添加技艺②" }));
 		await waitFor(() => expect(editor.latest().skills["技艺(表演)"]).toBe(5));
+		expect(editor.view.getAllByLabelText(/技艺[①②③]名称/).length).toBe(1);
+	});
+
+	test("offers free-form language slots like the blank sheet", async () => {
+		const editor = renderEditor();
+		const slotInputs = editor.view.getAllByLabelText(/外语[①②③]名称/);
+		expect(slotInputs.length).toBe(3);
+		setValue(slotInputs[0] as HTMLElement, "法语");
+		fireEvent.click(editor.view.getByRole("button", { name: "添加外语①" }));
+		await waitFor(() => {
+			expect(editor.latest().skills["外语(法语)"]).toBe(1);
+			expect(editor.latest().customSkills["外语(法语)"]).toEqual({ base: 1 });
+		});
+	});
+
+	test("adds free-form specialties inside skill groups", async () => {
+		const editor = renderEditor();
+		setValue(
+			editor.view.getByLabelText("自定义科学专攻名称"),
+			"结晶学",
+		);
+		fireEvent.click(
+			editor.view.getByRole("button", { name: "添加自定义科学专攻" }),
+		);
+		await waitFor(() =>
+			expect(editor.latest().skills["科学(结晶学)"]).toBe(1),
+		);
+		setValue(
+			editor.view.getByLabelText("自定义格斗专攻名称"),
+			"鞭子",
+		);
+		fireEvent.click(
+			editor.view.getByRole("button", { name: "添加自定义格斗专攻" }),
+		);
+		await waitFor(() =>
+			expect(editor.latest().skills["格斗(鞭子)"]).toBe(0),
+		);
+		setValue(
+			editor.view.getByLabelText("自定义科学专攻名称"),
+			"化学",
+		);
+		fireEvent.click(
+			editor.view.getByRole("button", { name: "添加自定义科学专攻" }),
+		);
+		await waitFor(() => expect(editor.latest().skills["科学(化学)"]).toBe(1));
+	});
+
+	test("shows skill descriptions on hover", async () => {
+		const editor = renderEditor();
+		fireEvent.focus(editor.view.getByText("侦查"));
+		const tooltip = await within(editor.view.baseElement).findByRole(
+			"tooltip",
+		);
+		expect(tooltip.textContent).toContain("调查的核心技能");
+	});
+
+	test("cancels a custom occupation back to the empty state", () => {
+		const editor = renderEditor();
+		fireEvent.click(editor.view.getByRole("button", { name: "自定义职业" }));
 		expect(
-			editor.view.getByRole("spinbutton", { name: "技能 技艺(表演)" }),
+			editor.view.getByRole("textbox", { name: "职业名称" }),
 		).toBeTruthy();
 		expect(
-			editor.view.getAllByRole("button", { name: "选择技艺" }).length,
-		).toBe(2);
+			editor.view.getAllByText(/自定义职业可以手动勾选本职技能/).length,
+		).toBe(1);
+		fireEvent.click(editor.view.getByRole("button", { name: "取消自定义" }));
+		expect(editor.latest().occupation).toMatchObject({
+			presetId: null,
+			name: "",
+			skillPointFormula: [],
+		});
+		expect(
+			editor.view.queryByRole("textbox", { name: "职业名称" }),
+		).toBeNull();
+		expect(
+			editor.view.getByRole("button", { name: "选择职业…" }),
+		).toBeTruthy();
 	});
 
 	test("marks occupational skills read-only once a preset occupation is chosen", async () => {
