@@ -327,7 +327,7 @@ export const COC7E_SPELL_DATA: readonly Coc7eSpellDefinition[] = [
 	},
 	{
 		name: "等边屏幕术",
-		englishName: "Equilaterial Screen",
+		englishName: "Equilateral Screen",
 		category: "梦",
 		mpCost: "10 点魔法值",
 		sanCost: "1D4 点理智值",
@@ -2082,7 +2082,7 @@ export const COC7E_SPELL_DATA: readonly Coc7eSpellDefinition[] = [
 	},
 	{
 		name: "帕祖祖之怒",
-		englishName: "Wrath of Pazzuzu",
+		englishName: "Wrath of Pazuzu",
 		category: "战",
 		mpCost: "4 点魔法值",
 		sanCost: "1D4 点理智值",
@@ -2091,7 +2091,7 @@ export const COC7E_SPELL_DATA: readonly Coc7eSpellDefinition[] = [
 	},
 	{
 		name: "帕祖祖之息",
-		englishName: "Breath of Pazzuzu",
+		englishName: "Breath of Pazuzu",
 		category: "",
 		mpCost: "3 点魔法值",
 		sanCost: "3 点理智值",
@@ -2261,15 +2261,6 @@ export const COC7E_SPELL_DATA: readonly Coc7eSpellDefinition[] = [
 		effect: "长期冥想训练，短时使抵抗精神攻击的 POW 加倍。",
 	},
 	{
-		name: "请神术",
-		englishName: "CALL DEITY SPELLS",
-		category: "",
-		mpCost: "每人 1+ 点魔法值",
-		sanCost: "（仅施法者）1D10 点理智值",
-		castingTime: "1~100 分钟",
-		effect: "举行群体吟唱仪式，将外神或旧日支配者召唤至施法者面前。",
-	},
-	{
 		name: "劝服项链",
 		englishName: "Necklace of Suasion",
 		category: "附、支",
@@ -2334,7 +2325,7 @@ export const COC7E_SPELL_DATA: readonly Coc7eSpellDefinition[] = [
 	},
 	{
 		name: "仁慈感化术",
-		englishName: "Benevelent Influence",
+		englishName: "Benevolent Influence",
 		category: "",
 		mpCost: "10 点魔法值",
 		sanCost: "1D4 点理智值",
@@ -2541,7 +2532,7 @@ export const COC7E_SPELL_DATA: readonly Coc7eSpellDefinition[] = [
 	},
 	{
 		name: "深渊之音加速术",
-		englishName: "Quicken the Voice the Deep",
+		englishName: "Quicken the Voice of the Deep",
 		category: "变",
 		mpCost: "可变的魔法值",
 		sanCost: "1D8 点理智值",
@@ -2640,7 +2631,7 @@ export const COC7E_SPELL_DATA: readonly Coc7eSpellDefinition[] = [
 	},
 	{
 		name: "尸体占据术",
-		englishName: "Possesss Corpse",
+		englishName: "Possess Corpse",
 		category: "变",
 		mpCost: "1 点魔法值",
 		sanCost: "1D8+2 点理智值",
@@ -2838,15 +2829,6 @@ export const COC7E_SPELL_DATA: readonly Coc7eSpellDefinition[] = [
 		effect: "以星之精脓液写成的书，增加召唤它的成功率。",
 	},
 	{
-		name: "束缚术",
-		englishName: "BINDING SPELLS",
-		category: "",
-		mpCost: "",
-		sanCost: "1 点理智值",
-		castingTime: "1 轮",
-		effect: "通过意志对抗强行约束召唤或出现的神话怪物，使其服从具体指令。",
-	},
-	{
 		name: "水晶调谐术",
 		englishName: "Attune Crystal",
 		category: "",
@@ -2944,15 +2926,6 @@ export const COC7E_SPELL_DATA: readonly Coc7eSpellDefinition[] = [
 		sanCost: "1D4 点理智值",
 		castingTime: "1+ 小时",
 		effect: "投入等同于灵魂魔法值的魔法值将其驱离。",
-	},
-	{
-		name: "送神术",
-		englishName: "DISMISS DEITY",
-		category: "驱",
-		mpCost: "可变的魔法值",
-		sanCost: "",
-		castingTime: "1+ 分钟",
-		effect: "投入魔法值，遣返不愿离开地球的神祇。",
 	},
 	{
 		name: "苏莱曼之尘",
@@ -3088,15 +3061,6 @@ export const COC7E_SPELL_DATA: readonly Coc7eSpellDefinition[] = [
 		sanCost: "1D3 点理智值",
 		castingTime: "1D6+4 轮",
 		effect: "需不大于一二零度的夹角，念咒吸引猎犬。",
-	},
-	{
-		name: "通神术",
-		englishName: "CONTACT DEITY SPELLS",
-		category: "",
-		mpCost: "5 点 POW",
-		sanCost: "1D6 点理智值（目睹神祇消耗更多）",
-		castingTime: "5~10（1D6+4）轮",
-		effect: "举行仪式联络外神或旧日支配者，以半友好的方式进行交流。",
 	},
 	{
 		name: "痛苦屏障",

@@ -28,4 +28,20 @@ describe("CoC 7e spell presets", () => {
 		expect(contact?.mpCost).toContain("魔法值");
 		expect(contact?.castingTime).not.toBe("");
 	});
+
+	it("does not ship rulebook section headers as individual spells", () => {
+		const headers = COC7E_SPELLS.filter((spell) =>
+			/^[A-Z0-9 .'-]+$/.test(spell.englishName),
+		);
+		expect(headers.map((spell) => spell.name)).toEqual([]);
+	});
+
+	it("spells deity names with the standard romanization", () => {
+		for (const spell of COC7E_SPELLS) {
+			expect(spell.englishName).not.toContain("Pazzuzu");
+		}
+		expect(
+			COC7E_SPELLS.some((spell) => spell.englishName === "Wrath of Pazuzu"),
+		).toBe(true);
+	});
 });
