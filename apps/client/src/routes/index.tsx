@@ -85,7 +85,7 @@ function HomePage() {
 					</Link>
 				</Button>
 			</div>
-			<VersionBadge className="absolute bottom-6 left-6" />
+			<VersionBadge />
 		</main>
 	);
 }

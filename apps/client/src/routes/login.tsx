@@ -70,13 +70,16 @@ function LoginPage() {
 	}
 
 	return (
-		<main className="bg-background relative grid min-h-dvh lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
+		<main className="bg-background grid min-h-dvh lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
 			<section className="bg-md-surface-container-low hidden flex-col justify-between p-12 lg:flex xl:p-16">
 				<div className="flex items-center gap-3">
 					<Logo className="size-10" />
-					<span className="text-foreground font-serif text-title-medium-emph">
-						{t("app.name")}
-					</span>
+					<div className="flex items-center gap-2">
+						<span className="text-foreground font-serif text-title-medium-emph">
+							{t("app.name")}
+						</span>
+						<VersionBadge className="px-2" />
+					</div>
 				</div>
 				<div className="flex max-w-xl flex-col gap-4">
 					<p className="text-foreground font-serif text-display-medium-emph">
@@ -99,9 +102,12 @@ function LoginPage() {
 					<div className="flex flex-col gap-3 lg:hidden">
 						<Logo className="size-12" />
 						<div className="flex flex-col gap-0.5">
-							<span className="text-foreground font-serif text-title-large-emph">
-								{t("app.name")}
-							</span>
+							<div className="flex items-center gap-2">
+								<span className="text-foreground font-serif text-title-large-emph">
+									{t("app.name")}
+								</span>
+								<VersionBadge className="px-2" />
+							</div>
 							<span className="text-foreground-tertiary text-label-small">
 								{t("app.subtitle")}
 							</span>
@@ -218,7 +224,6 @@ function LoginPage() {
 					</div>
 				</div>
 			</section>
-			<VersionBadge className="absolute right-4 bottom-4" />
 		</main>
 	);
 }
