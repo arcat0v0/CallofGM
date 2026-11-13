@@ -1,6 +1,7 @@
 import { createHash } from "crypto";
 import type { DbClient } from "@/platform/db/client";
 import { mediaAssets } from "@/platform/db/schema";
+import { detectFileMimeType } from "@/platform/file-type";
 import type { Clock, IdGenerator } from "@/platform/ports";
 import {
 	FileSizeExceededError,
@@ -35,7 +36,7 @@ export class UploadMediaUseCase {
 			throw new FileSizeExceededError();
 		}
 
-		const mimeType = this.detectMimeType(data);
+		const mimeType = detectFileMimeType(data);
 		if (!mimeType) {
 			throw new UnsupportedMimeTypeError();
 		}
@@ -69,94 +70,5 @@ export class UploadMediaUseCase {
 		}
 
 		return asset;
-	}
-
-	private detectMimeType(data: Uint8Array): string | null {
-		if (
-			data.length >= 8 &&
-			data[0] === 0x89 &&
-			data[1] === 0x50 &&
-			data[2] === 0x4e &&
-			data[3] === 0x47 &&
-			data[4] === 0x0d &&
-			data[5] === 0x0a &&
-			data[6] === 0x1a &&
-			data[7] === 0x0a
-		) {
-			return "image/png";
-		}
-		if (
-			data.length >= 3 &&
-			data[0] === 0xff &&
-			data[1] === 0xd8 &&
-			data[2] === 0xff
-		) {
-			return "image/jpeg";
-		}
-		if (
-			data.length >= 4 &&
-			data[0] === 0x47 &&
-			data[1] === 0x49 &&
-			data[2] === 0x46 &&
-			data[3] === 0x38
-		) {
-			return "image/gif";
-		}
-		if (
-			data.length >= 12 &&
-			data[0] === 0x52 &&
-			data[1] === 0x49 &&
-			data[2] === 0x46 &&
-			data[3] === 0x46 &&
-			data[8] === 0x57 &&
-			data[9] === 0x45 &&
-			data[10] === 0x42 &&
-			data[11] === 0x50
-		) {
-			return "image/webp";
-		}
-		if (
-			data.length >= 4 &&
-			data[0] === 0x50 &&
-			data[1] === 0x4b &&
-			data[2] === 0x03 &&
-			data[3] === 0x04
-		) {
-			return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-		}
-		if (
-			data.length >= 3 &&
-			data[0] === 0x49 &&
-			data[1] === 0x44 &&
-			data[2] === 0x33
-		) {
-			return "audio/mpeg";
-		}
-		const b0 = data[0];
-		const b1 = data[1];
-		if (
-			data.length >= 2 &&
-			b0 === 0xff &&
-			b1 !== undefined &&
-			(b1 & 0xe0) === 0xe0
-		) {
-			return "audio/mpeg";
-		}
-
-		const previewLen = Math.min(data.length, 1024);
-		const text = new TextDecoder("utf-8", { fatal: false })
-			.decode(data.subarray(0, previewLen))
-			.trim();
-
-		if (
-			text.includes("<svg") &&
-			(text.startsWith("<?xml") ||
-				text.startsWith("<svg") ||
-				text.includes('xmlns="http://www.w3.org/2000/svg"'))
-		) {
-			return "image/svg+xml";
-		}
-
-		return null;
 	}
 }

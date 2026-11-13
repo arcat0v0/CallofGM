@@ -590,7 +590,10 @@ describe("Characters contract tests", () => {
 		return rows;
 	}
 
-	async function previewRows(rows: unknown[][]): Promise<{
+	async function previewRows(
+		rows: unknown[][],
+		characterId?: string,
+	): Promise<{
 		importToken: string;
 		preview: {
 			characterName: string;
@@ -614,12 +617,18 @@ describe("Characters contract tests", () => {
 			"sheet.xlsx",
 		);
 		formData.append("ruleId", "coc7e");
+		const query = characterId
+			? `?characterId=${encodeURIComponent(characterId)}`
+			: "";
 		const res = await app.handle(
-			new Request("http://localhost/api/v1/gm/characters/import/preview", {
-				method: "POST",
-				headers: { Authorization: `Bearer ${gmToken}` },
-				body: formData,
-			}),
+			new Request(
+				`http://localhost/api/v1/gm/characters/import/preview${query}`,
+				{
+					method: "POST",
+					headers: { Authorization: `Bearer ${gmToken}` },
+					body: formData,
+				},
+			),
 		);
 		expect(res.status).toBe(200);
 		return (await res.json()) as {
@@ -713,7 +722,7 @@ describe("Characters contract tests", () => {
 		expect(createRes.status).toBe(200);
 		const existing = (await createRes.json()) as TestCharacterResponse;
 
-		const preview = await previewRows(excelRows("姓名", "新名字"));
+		const preview = await previewRows(excelRows("姓名", "新名字"), existing.id);
 		const res = await confirmImport({
 			importToken: preview.importToken,
 			kind: "pc",
@@ -737,5 +746,315 @@ describe("Characters contract tests", () => {
 		const ignored = await previewRows(excelRows("玩家姓名", "赵六"));
 		expect(ignored.preview.characterName).toBe("无名氏");
 		expect(ignored.preview.warnings).toHaveLength(0);
+	});
+
+	test("Excel import preview rejects invalid files with 400 INVALID_FILE_CONTENT", async () => {
+		const { zipSync } = await import("fflate");
+		const enc = new TextEncoder();
+		const invalidPayloads: Array<{
+			name: string;
+			bytes: Uint8Array;
+			mime: string;
+		}> = [
+			{
+				name: "spoofed.xlsx",
+				bytes: enc.encode("力量 (STR) 60\n体质 (CON) 70\n姓名 伪造\n"),
+				mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+			},
+			{
+				name: "legacy.xls",
+				bytes: new Uint8Array([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]),
+				mime: "application/vnd.ms-excel",
+			},
+			{
+				name: "unrelated.zip",
+				bytes: zipSync({ "notes.txt": enc.encode("plain text inside zip") }),
+				mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+			},
+			{
+				name: "truncated.xlsx",
+				bytes: zipSync({
+					"[Content_Types].xml": enc.encode(
+						`<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/></Types>`,
+					),
+					"xl/workbook.xml": enc.encode(`<workbook/>`),
+				}).subarray(0, 32),
+				mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+			},
+			{
+				name: "sheet.csv",
+				bytes: enc.encode("姓名,力量\n张三,60\n"),
+				mime: "text/csv",
+			},
+			{
+				name: "root-entry-alias.xlsx",
+				bytes: zipSync({
+					"[Content_Types].xml": enc.encode(
+						`<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/></Types>`,
+					),
+					"xl/workbook.xml": enc.encode(
+						`<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheets/></workbook>`,
+					),
+					"Root Entry/xl/workbook.xml": enc.encode(
+						`<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheets><sheet name="FROM_ROOT" sheetId="1"/></sheets></workbook>`,
+					),
+				}),
+				mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+			},
+			{
+				name: "mismatched-container.xlsx",
+				bytes: zipSync({
+					"[Content_Types].xml": enc.encode(
+						`<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/></Types>`,
+					),
+					"xl/workbook.xml": enc.encode(
+						`<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheets/></workbook>`,
+					),
+					"objectdata.xml": enc.encode("not an xlsx marker"),
+				}),
+				mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+			},
+			{
+				name: "missing-namespace.xlsx",
+				bytes: zipSync({
+					"[Content_Types].xml": enc.encode(
+						`<Types><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/></Types>`,
+					),
+					"xl/workbook.xml": enc.encode(
+						`<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheets/></workbook>`,
+					),
+				}),
+				mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+			},
+			{
+				name: "data-descriptor-bomb.xlsx",
+				bytes: (() => {
+					const z = zipSync({
+						"[Content_Types].xml": enc.encode(
+							`<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/></Types>`,
+						),
+						"xl/workbook.xml": enc.encode(`<workbook/>`),
+						"xl/unused.bin": enc.encode("A".repeat(1024 * 1024)),
+					});
+					const dv = new DataView(z.buffer, z.byteOffset, z.byteLength);
+					const eocd = z.length - 22;
+					const cdOffset = dv.getUint32(eocd + 16, true);
+					const cdSize = dv.getUint32(eocd + 12, true);
+					let pos = cdOffset;
+					while (pos < cdOffset + cdSize) {
+						const nameLength = dv.getUint16(pos + 28, true);
+						const extraLength = dv.getUint16(pos + 30, true);
+						const commentLength = dv.getUint16(pos + 32, true);
+						const name = new TextDecoder().decode(
+							z.subarray(pos + 46, pos + 46 + nameLength),
+						);
+						if (name === "xl/unused.bin") {
+							const localOffset = dv.getUint32(pos + 42, true);
+							dv.setUint16(pos + 8, dv.getUint16(pos + 8, true) | 8, true);
+							dv.setUint32(pos + 24, 4096, true);
+							dv.setUint16(
+								localOffset + 6,
+								dv.getUint16(localOffset + 6, true) | 8,
+								true,
+							);
+							dv.setUint32(localOffset + 18, 0, true);
+							dv.setUint32(localOffset + 22, 0, true);
+						}
+						pos += 46 + nameLength + extraLength + commentLength;
+					}
+					return z;
+				})(),
+				mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+			},
+			{
+				name: "zip64-bomb.xlsx",
+				bytes: (() => {
+					const z = zipSync({
+						"[Content_Types].xml": enc.encode(
+							`<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/></Types>`,
+						),
+						"xl/workbook.xml": enc.encode(`<workbook/>`),
+					});
+					const eocd = z.length - 22;
+					const dv = new DataView(z.buffer, z.byteOffset);
+					dv.setUint16(eocd + 8, 0xffff, true);
+					dv.setUint16(eocd + 10, 0xffff, true);
+					dv.setUint32(eocd + 12, 0xffffffff, true);
+					dv.setUint32(eocd + 16, 0xffffffff, true);
+					return z;
+				})(),
+				mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+			},
+		];
+
+		for (const payload of invalidPayloads) {
+			const formData = new FormData();
+			formData.append(
+				"file",
+				new Blob([payload.bytes], { type: payload.mime }),
+				payload.name,
+			);
+			formData.append("ruleId", "coc7e");
+			const res = await app.handle(
+				new Request("http://localhost/api/v1/gm/characters/import/preview", {
+					method: "POST",
+					headers: { Authorization: `Bearer ${gmToken}` },
+					body: formData,
+				}),
+			);
+			expect(res.status).toBe(400);
+			const body = (await res.json()) as { code: string };
+			expect(body.code).toBe("INVALID_FILE_CONTENT");
+		}
+	});
+
+	test("Excel import preview rejects files above 10MB with 400 FILE_SIZE_EXCEEDED", async () => {
+		const formData = new FormData();
+		formData.append(
+			"file",
+			new Blob([new Uint8Array(10 * 1024 * 1024 + 1)], {
+				type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+			}),
+			"oversized.xlsx",
+		);
+		formData.append("ruleId", "coc7e");
+		const res = await app.handle(
+			new Request("http://localhost/api/v1/gm/characters/import/preview", {
+				method: "POST",
+				headers: { Authorization: `Bearer ${gmToken}` },
+				body: formData,
+			}),
+		);
+		expect(res.status).toBe(400);
+		const body = (await res.json()) as { code: string };
+		expect(body.code).toBe("FILE_SIZE_EXCEEDED");
+	});
+
+	test("Excel import confirm rejects characterId target mismatch and create-vs-update mismatch with 409 STAGING_TARGET_MISMATCH", async () => {
+		const createCharacter = async (name: string, str: number) => {
+			const res = await app.handle(
+				new Request("http://localhost/api/v1/gm/characters", {
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: `Bearer ${gmToken}`,
+					},
+					body: JSON.stringify({
+						name,
+						kind: "pc",
+						ruleId: "coc7e",
+						sheetData: {
+							attributes: {
+								str,
+								con: 10,
+								siz: 10,
+								dex: 10,
+								app: 10,
+								int: 10,
+								pow: 10,
+								edu: 10,
+								luck: 10,
+							},
+							skills: {},
+						},
+					}),
+				}),
+			);
+			expect(res.status).toBe(200);
+			return (await res.json()) as TestCharacterResponse;
+		};
+
+		const charA = await createCharacter("目标A", 20);
+		const charB = await createCharacter("目标B", 30);
+
+		const wb = xlsx.utils.book_new();
+		xlsx.utils.book_append_sheet(
+			wb,
+			xlsx.utils.aoa_to_sheet(excelRows("姓名", "覆盖姓名")),
+			"Sheet1",
+		);
+		const excelBuffer = xlsx.write(wb, { type: "array", bookType: "xlsx" });
+
+		const previewForTarget = async (characterId?: string) => {
+			const formData = new FormData();
+			formData.append(
+				"file",
+				new Blob([excelBuffer], {
+					type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+				}),
+				"sheet.xlsx",
+			);
+			formData.append("ruleId", "coc7e");
+			const query = characterId
+				? `?characterId=${encodeURIComponent(characterId)}`
+				: "";
+			const res = await app.handle(
+				new Request(
+					`http://localhost/api/v1/gm/characters/import/preview${query}`,
+					{
+						method: "POST",
+						headers: { Authorization: `Bearer ${gmToken}` },
+						body: formData,
+					},
+				),
+			);
+			expect(res.status).toBe(200);
+			return (await res.json()) as { importToken: string };
+		};
+
+		const previewA = await previewForTarget(charA.id);
+		const mismatchAB = await confirmImport({
+			importToken: previewA.importToken,
+			kind: "pc",
+			characterId: charB.id,
+		});
+		expect(mismatchAB.status).toBe(409);
+		expect(((await mismatchAB.json()) as { code: string }).code).toBe(
+			"STAGING_TARGET_MISMATCH",
+		);
+
+		const mismatchUpdateToCreate = await confirmImport({
+			importToken: previewA.importToken,
+			kind: "pc",
+		});
+		expect(mismatchUpdateToCreate.status).toBe(409);
+		expect(
+			((await mismatchUpdateToCreate.json()) as { code: string }).code,
+		).toBe("STAGING_TARGET_MISMATCH");
+
+		const getB = await app.handle(
+			new Request(`http://localhost/api/v1/gm/characters/${charB.id}`, {
+				method: "GET",
+				headers: { Authorization: `Bearer ${gmToken}` },
+			}),
+		);
+		expect(((await getB.json()) as TestCharacterResponse).name).toBe("目标B");
+
+		const validConfirmA = await confirmImport({
+			importToken: previewA.importToken,
+			kind: "pc",
+			characterId: charA.id,
+		});
+		expect(validConfirmA.status).toBe(200);
+		expect(((await validConfirmA.json()) as TestCharacterResponse).name).toBe(
+			"覆盖姓名",
+		);
+
+		const previewCreate = await previewForTarget();
+		const mismatchCreateToUpdate = await confirmImport({
+			importToken: previewCreate.importToken,
+			kind: "pc",
+			characterId: charB.id,
+		});
+		expect(mismatchCreateToUpdate.status).toBe(409);
+		expect(
+			((await mismatchCreateToUpdate.json()) as { code: string }).code,
+		).toBe("STAGING_TARGET_MISMATCH");
+
+		const validConfirmCreate = await confirmImport({
+			importToken: previewCreate.importToken,
+			kind: "pc",
+		});
+		expect(validConfirmCreate.status).toBe(200);
 	});
 });

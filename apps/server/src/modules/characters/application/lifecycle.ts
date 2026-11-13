@@ -1,5 +1,5 @@
-import { ModuleNotFoundError } from "@/modules/catalog";
 import { coc7e } from "@cogm/shared";
+import { ModuleNotFoundError } from "@/modules/catalog";
 import { hashToken, issueOpaqueToken } from "@/modules/identity";
 import { SessionNotFoundError } from "@/modules/sessions";
 import type { Clock, IdGenerator } from "@/platform/ports";
@@ -159,7 +159,10 @@ export class GetInviteInfoUseCase {
 				name: character.name,
 				ruleId: character.ruleId,
 				sheetVersion: character.sheetVersion,
-				alreadySubmitted: review !== null && review.status !== "rejected",
+				alreadySubmitted:
+					review !== null &&
+					review.status !== "rejected" &&
+					review.submittedSheetVersion === character.sheetVersion,
 			});
 		}
 
@@ -285,34 +288,26 @@ export class SubmitCharacterUseCase {
 			throw new CharacterNotFoundError();
 		}
 
-		const existing = await this.repo.findReviewForCharacter(
-			invite.scope,
-			invite.targetId,
-			characterId,
-		);
-		if (existing && existing.status !== "rejected") {
-			throw new ReviewAlreadyDecidedError(
-				"This character is already submitted for this target",
-			);
-		}
-
 		const reviewId = this.idGenerator.nextId();
-		await this.repo.saveReview({
-			id: reviewId,
-			inviteId: invite.id,
-			scope: invite.scope,
-			targetId: invite.targetId,
-			ownerId: invite.ownerId,
-			characterId,
-			submittedByUserId: input.userId,
-			submittedSheetVersion: character.sheetVersion,
-			status: "pending",
-			decisionReason: null,
-			decidedByUserId: null,
-			decidedAt: null,
-			deletedAt: null,
-			createdAt: now,
-		});
+		await this.repo.replacePendingReview(
+			{
+				id: reviewId,
+				inviteId: invite.id,
+				scope: invite.scope,
+				targetId: invite.targetId,
+				ownerId: invite.ownerId,
+				characterId,
+				submittedByUserId: input.userId,
+				submittedSheetVersion: character.sheetVersion,
+				status: "pending",
+				decisionReason: null,
+				decidedByUserId: null,
+				decidedAt: null,
+				deletedAt: null,
+				createdAt: now,
+			},
+			now,
+		);
 
 		return { reviewId, characterId };
 	}
@@ -433,7 +428,10 @@ export class GmEditPermanentFieldUseCase {
 		if (!character || character.deletedAt !== null) {
 			throw new CharacterNotFoundError();
 		}
-		if (input.expectedVersion !== undefined && input.expectedVersion !== character.version) {
+		if (
+			input.expectedVersion !== undefined &&
+			input.expectedVersion !== character.version
+		) {
 			throw new CharacterVersionConflictError();
 		}
 
@@ -457,12 +455,16 @@ export class GmEditPermanentFieldUseCase {
 
 		const now = this.clock.nowEpochMs();
 		const nextSheetJson = JSON.stringify(nextSheet);
-		await this.repo.updateCharacter(character.id, {
-			sheetJson: nextSheetJson,
-			sheetVersion: character.sheetVersion + 1,
-			version: character.version + 1,
-			updatedAt: now,
-		}, character.version);
+		await this.repo.updateCharacter(
+			character.id,
+			{
+				sheetJson: nextSheetJson,
+				sheetVersion: character.sheetVersion + 1,
+				version: character.version + 1,
+				updatedAt: now,
+			},
+			character.version,
+		);
 
 		await this.repo.appendAudit({
 			id: this.idGenerator.nextId(),
@@ -516,7 +518,10 @@ export class ConfirmGrowthUseCase {
 		if (!character || character.deletedAt !== null) {
 			throw new CharacterNotFoundError();
 		}
-		if (input.expectedVersion !== undefined && input.expectedVersion !== character.version) {
+		if (
+			input.expectedVersion !== undefined &&
+			input.expectedVersion !== character.version
+		) {
 			throw new CharacterVersionConflictError();
 		}
 
@@ -532,7 +537,8 @@ export class ConfirmGrowthUseCase {
 		}> = [];
 
 		for (const gain of input.gains) {
-			const canonical = coc7e.canonicalizeCoc7eSkillKey(gain.skillKey) ?? gain.skillKey;
+			const canonical =
+				coc7e.canonicalizeCoc7eSkillKey(gain.skillKey) ?? gain.skillKey;
 			if (canonical === "信用评级" || canonical === "克苏鲁神话") {
 				continue;
 			}
@@ -555,12 +561,16 @@ export class ConfirmGrowthUseCase {
 		}
 
 		const nextSheetJson = JSON.stringify(sheet);
-		await this.repo.updateCharacter(character.id, {
-			sheetJson: nextSheetJson,
-			sheetVersion: character.sheetVersion + 1,
-			version: character.version + 1,
-			updatedAt: now,
-		}, character.version);
+		await this.repo.updateCharacter(
+			character.id,
+			{
+				sheetJson: nextSheetJson,
+				sheetVersion: character.sheetVersion + 1,
+				version: character.version + 1,
+				updatedAt: now,
+			},
+			character.version,
+		);
 
 		for (const entry of entries) {
 			await this.repo.appendGrowth({

@@ -704,7 +704,7 @@ function ModuleDetailPage() {
 										</span>
 										<FilePicker
 											name="audio"
-											accept="audio/*"
+											accept=".mp3,audio/mpeg,.wav,audio/wav,.ogg,audio/ogg,.flac,audio/flac,.m4a,audio/mp4"
 											label={t("gm.module.chooseAudio")}
 											value={trackFileName}
 											className="w-full max-w-none"
@@ -721,7 +721,11 @@ function ModuleDetailPage() {
 										<Upload />
 										{t("gm.module.upload")}
 									</Button>
+									<p className="text-foreground-tertiary text-label-small lg:col-span-full">
+										{t("gm.module.audioFormatHint")}
+									</p>
 								</form>
+
 								{tracks.length === 0 ? (
 									<EmptyState
 										icon={Music2}

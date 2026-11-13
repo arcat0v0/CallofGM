@@ -1,7 +1,7 @@
 import type { MyClaimResponse } from "@cogm/shared";
 import { useCallback, useEffect, useState } from "react";
 import { api, isApiError } from "@/lib/api";
-import { fetchAccountMe } from "@/lib/identity";
+import { ensurePlayer, fetchAccountMe } from "@/lib/identity";
 import { type PlayEntryGate, resolvePlayEntry } from "@/lib/play-entry";
 
 async function autoClaimIfSingleOption(sessionId: string): Promise<void> {
@@ -40,6 +40,8 @@ export function usePlayEntry(sessionId: string): {
 				const account = await fetchAccountMe();
 				if (account?.role === "pl") {
 					await autoClaimIfSingleOption(sessionId);
+				} else if (!account) {
+					await ensurePlayer();
 				}
 				const result = await api<MyClaimResponse>(
 					`/sessions/${encodeURIComponent(sessionId)}/my-claim`,

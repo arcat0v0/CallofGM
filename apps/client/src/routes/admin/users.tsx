@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { EmptyState, ListSkeleton } from "@/components/shared/empty-state";
 import { FormField } from "@/components/shared/form-field";
 import { PageHeader } from "@/components/shared/page-header";
@@ -113,6 +114,7 @@ function AdminUsersPage() {
 	const [filter, setFilter] = useState<UserFilter>("all");
 	const [createOpen, setCreateOpen] = useState(false);
 	const [resetTarget, setResetTarget] = useState<UserDto | null>(null);
+	const [disableTarget, setDisableTarget] = useState<UserDto | null>(null);
 	const [password, setPassword] = useState("");
 	const [pending, setPending] = useState(false);
 
@@ -343,11 +345,13 @@ function AdminUsersPage() {
 													) : (
 														<>
 															<DropdownMenuItem
-																onClick={() =>
-																	void patchUser(user, {
-																		disabled: user.disabledAt === null,
-																	})
-																}
+																onClick={() => {
+																	if (user.disabledAt === null) {
+																		setDisableTarget(user);
+																	} else {
+																		void patchUser(user, { disabled: false });
+																	}
+																}}
 															>
 																{user.disabledAt === null ? (
 																	<UserX />
@@ -395,7 +399,11 @@ function AdminUsersPage() {
 						<DialogTitle>{t("admin.resetPassword")}</DialogTitle>
 						<DialogDescription>{resetTarget?.username ?? ""}</DialogDescription>
 					</DialogHeader>
-					<FormField label={t("account.newPassword")} htmlFor="reset-password">
+					<FormField
+						label={t("account.newPassword")}
+						htmlFor="reset-password"
+						description={t("admin.passwordHint")}
+					>
 						<Input
 							id="reset-password"
 							type="password"
@@ -416,6 +424,30 @@ function AdminUsersPage() {
 					</DialogFooter>
 				</DialogContent>
 			</Dialog>
+
+			<ConfirmDialog
+				open={disableTarget !== null}
+				onOpenChange={(open) => {
+					if (!open) {
+						setDisableTarget(null);
+					}
+				}}
+				icon={UserX}
+				confirmIcon={UserX}
+				title={t("admin.disableTitle", {
+					username: disableTarget?.username ?? "",
+				})}
+				description={t("admin.disableDescription")}
+				confirmLabel={t("admin.disableConfirm")}
+				variant="warning"
+				onConfirm={() => {
+					const target = disableTarget;
+					setDisableTarget(null);
+					if (target) {
+						void patchUser(target, { disabled: true });
+					}
+				}}
+			/>
 		</AdminShell>
 	);
 }
@@ -487,7 +519,11 @@ function CreateUserDialog({
 							</SelectContent>
 						</Select>
 					</FormField>
-					<FormField label={t("account.newPassword")} htmlFor="new-password">
+					<FormField
+						label={t("account.newPassword")}
+						htmlFor="new-password"
+						description={t("admin.passwordHint")}
+					>
 						<Input
 							id="new-password"
 							type="password"

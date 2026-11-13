@@ -1,6 +1,14 @@
 import type { CharacterPortraitDto } from "@cogm/shared";
-import { ArrowDown, ArrowUp, Crop, Pencil, Plus, Star, Trash2 } from "lucide-react";
-import { useRef, useState } from "react";
+import {
+	ArrowDown,
+	ArrowUp,
+	Crop,
+	Pencil,
+	Plus,
+	Star,
+	Trash2,
+} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { ImageCropDialog } from "@/components/shared/image-crop-dialog";
@@ -17,6 +25,7 @@ type PendingPortrait = {
 	id: string;
 	file: File;
 	name: string;
+	previewUrl: string;
 	failed: boolean;
 };
 
@@ -43,6 +52,24 @@ export function ExpressionManager({
 		null,
 	);
 	const fileInputRef = useRef<HTMLInputElement>(null);
+	const activePreviewUrls = useRef(new Set<string>());
+
+	useEffect(() => {
+		const urls = activePreviewUrls.current;
+		return () => {
+			for (const url of urls) {
+				URL.revokeObjectURL(url);
+			}
+			urls.clear();
+		};
+	}, []);
+
+	function releasePreview(url: string) {
+		if (!activePreviewUrls.current.delete(url)) {
+			return;
+		}
+		URL.revokeObjectURL(url);
+	}
 
 	const portraitBase = `${basePath}/${encodeURIComponent(characterId)}/portraits`;
 
@@ -50,13 +77,26 @@ export function ExpressionManager({
 		if (!files || files.length === 0) {
 			return;
 		}
-		const rows = Array.from(files).map((file) => ({
-			id: crypto.randomUUID(),
-			file,
-			name: file.name.replace(/\.[^.]+$/, ""),
-			failed: false,
-		}));
+		const rows = Array.from(files).map((file) => {
+			const previewUrl = URL.createObjectURL(file);
+			activePreviewUrls.current.add(previewUrl);
+			return {
+				id: crypto.randomUUID(),
+				file,
+				name: file.name.replace(/\.[^.]+$/, ""),
+				previewUrl,
+				failed: false,
+			};
+		});
 		setPending((current) => [...current, ...rows]);
+	}
+
+	function removePending(row: PendingPortrait) {
+		if (uploading) {
+			return;
+		}
+		releasePreview(row.previewUrl);
+		setPending((current) => current.filter((item) => item.id !== row.id));
 	}
 
 	async function uploadPending() {
@@ -92,6 +132,7 @@ export function ExpressionManager({
 					}),
 				});
 				setPending((current) => current.filter((item) => item.id !== row.id));
+				releasePreview(row.previewUrl);
 				onChange();
 			} catch (error) {
 				setPending((current) =>
@@ -402,32 +443,40 @@ export function ExpressionManager({
 								: "border-separator-secondary/60 bg-md-surface-container-low flex items-center gap-3 rounded-2xl border p-2"
 						}
 					>
+						<div className="bg-surface-tertiary relative size-16 shrink-0 overflow-hidden rounded-xl">
+							<img
+								src={row.previewUrl}
+								alt={row.name}
+								className="size-full object-cover"
+							/>
+						</div>
 						<Input
 							value={row.name}
+							disabled={uploading}
 							aria-label={`${t("expressions.pending")} · ${t("expressions.namePlaceholder")}`}
 							placeholder={t("expressions.namePlaceholder")}
-							onChange={(event) =>
+							onChange={(event) => {
+								if (uploading) {
+									return;
+								}
 								setPending((current) =>
 									current.map((item) =>
 										item.id === row.id
 											? { ...item, name: event.target.value }
 											: item,
 									),
-								)
-							}
+								);
+							}}
 							className="h-7 flex-1 text-label-medium"
 						/>
 						<Button
 							type="button"
 							variant="ghost"
 							size="icon-sm"
+							disabled={uploading}
 							className="size-7 shrink-0 text-foreground-tertiary"
 							aria-label={t("common.delete")}
-							onClick={() =>
-								setPending((current) =>
-									current.filter((item) => item.id !== row.id),
-								)
-							}
+							onClick={() => removePending(row)}
 						>
 							<Trash2 className="size-3.5" />
 						</Button>

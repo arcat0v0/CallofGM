@@ -2,8 +2,26 @@ import { beforeEach, describe, expect, spyOn, test } from "bun:test";
 import { toast } from "sonner";
 import { usePlayStore } from "../src/stores/play-store";
 
+const commandToast = {
+	id: "session-command-error",
+	position: "bottom-left",
+	closeButton: true,
+} as const;
+
+function rejection(commandId: string, code: string) {
+	usePlayStore.getState().applyMessage({
+		protocolVersion: 1,
+		commandId,
+		type: "command:rejected",
+		payload: { code, message: "Server detail" },
+	});
+}
+
 describe("play-store draft-loss and command rejection tracking", () => {
 	beforeEach(() => {
+		for (const item of toast.getToasts()) {
+			toast.dismiss(item.id);
+		}
 		usePlayStore.getState().reset();
 	});
 
@@ -22,6 +40,49 @@ describe("play-store draft-loss and command rejection tracking", () => {
 		expect(rejection).not.toBeNull();
 		expect(rejection?.commandId).toBe("cmd-xyz-123");
 		expect(rejection?.message).toBe("提交的内容不符合要求，请检查后重试");
+	});
+
+	test("repeated and distinct command rejections keep one closable bottom-left toast and every rejection", () => {
+		const error = spyOn(toast, "error");
+		try {
+			rejection("cmd-repeat", "VALIDATION_FAILED");
+			rejection("cmd-repeat", "VALIDATION_FAILED");
+			rejection("cmd-other", "RATE_LIMITED");
+
+			expect(error).toHaveBeenCalledTimes(3);
+			for (const call of error.mock.calls) {
+				expect(call[1]).toEqual(commandToast);
+			}
+			expect(error.mock.calls[2]?.[0]).toBe("操作太频繁，请稍后再试");
+			expect(toast.getToasts()).toHaveLength(1);
+			expect(toast.getToasts()[0]).toMatchObject({
+				...commandToast,
+				title: "操作太频繁，请稍后再试",
+			});
+			expect(usePlayStore.getState().lastRejection).toEqual({
+				commandId: "cmd-other",
+				message: "操作太频繁，请稍后再试",
+			});
+		} finally {
+			error.mockRestore();
+		}
+	});
+
+	test("accepted commands clear pending state without disturbing the singleton error toast", () => {
+		usePlayStore.setState({ historyLoading: true, historyCommandId: "cmd-1" });
+		rejection("cmd-1", "VALIDATION_FAILED");
+
+		usePlayStore.getState().applyMessage({
+			protocolVersion: 1,
+			commandId: "cmd-1",
+			type: "command:accepted",
+			payload: { rewindId: "r1", action: "rewind" },
+		});
+
+		expect(usePlayStore.getState().historyLoading).toBe(false);
+		expect(usePlayStore.getState().historyCommandId).toBeNull();
+		expect(usePlayStore.getState().lastRejection?.commandId).toBe("cmd-1");
+		expect(toast.getToasts()[0]).toMatchObject(commandToast);
 	});
 
 	test("snapshot viewer carries the server-provided seat role", () => {
@@ -206,7 +267,9 @@ describe("play-store draft-loss and command rejection tracking", () => {
 		});
 		const activity = usePlayStore
 			.getState()
-			.messages.find((message) => message.activityType === "expression:changed");
+			.messages.find(
+				(message) => message.activityType === "expression:changed",
+			);
 		expect(activity?.body).toBe("表情切换为「微笑脸」");
 	});
 

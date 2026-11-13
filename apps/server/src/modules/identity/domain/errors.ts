@@ -89,3 +89,21 @@ export class InvalidCurrentPasswordError extends AppError {
 		super("INVALID_CURRENT_PASSWORD", message, 400);
 	}
 }
+
+export class InvalidPasswordError extends AppError {
+	constructor(message = "Password must be between 8 and 128 characters") {
+		super("INVALID_PASSWORD", message, 400);
+	}
+}
+
+export function isPasswordFieldFailure(
+	error: { issues: ReadonlyArray<{ path: readonly PropertyKey[] }> },
+	field = "password",
+): boolean {
+	return (
+		error.issues.length > 0 &&
+		error.issues.every(
+			(issue) => issue.path.length === 1 && issue.path[0] === field,
+		)
+	);
+}

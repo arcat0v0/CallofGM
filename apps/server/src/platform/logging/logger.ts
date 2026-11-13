@@ -30,6 +30,13 @@ const REDACT_KEYS = new Set([
 	"secret",
 ]);
 
+export function redactSensitivePath(pathname: string): string {
+	return pathname.replace(
+		/^\/(api\/v1\/pl\/invites|submit)\/[^/]+/,
+		"/$1/[redacted]",
+	);
+}
+
 function sanitize(fields: LogFields): LogFields {
 	const out: LogFields = {};
 	for (const [key, value] of Object.entries(fields)) {

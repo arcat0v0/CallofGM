@@ -25,7 +25,11 @@ import {
 	LoginUseCase,
 	LogoutUseCase,
 } from "../application/user-accounts";
-import { AuthRequiredError } from "../domain/errors";
+import {
+	AuthRequiredError,
+	InvalidPasswordError,
+	isPasswordFieldFailure,
+} from "../domain/errors";
 import { DrizzleIdentityRepository } from "../infrastructure/drizzle-identity-repository";
 import {
 	createAuthPlugin,
@@ -140,6 +144,9 @@ export function createIdentityRoutes(container: Container) {
 			}
 			const parsed = ChangePasswordRequest.safeParse(body);
 			if (!parsed.success) {
+				if (isPasswordFieldFailure(parsed.error, "newPassword")) {
+					throw new InvalidPasswordError();
+				}
 				throw validationFailed(parsed.error);
 			}
 			await changePasswordUseCase.execute({

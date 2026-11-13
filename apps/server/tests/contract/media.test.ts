@@ -521,4 +521,172 @@ describe("Media Storage contract tests", () => {
 		const handoutBuf = await checkDownload(handoutAsset.id);
 		expect(handoutBuf.byteLength).toBe(12);
 	});
+
+	test("Upload media - Supported audio formats detected by bytes regardless of extension or MIME", async () => {
+		const makeBox = (type: string, body: Uint8Array) => {
+			const out = new Uint8Array(8 + body.length);
+			new DataView(out.buffer).setUint32(0, out.length, false);
+			out.set(new TextEncoder().encode(type), 4);
+			out.set(body, 8);
+			return out;
+		};
+		const makeM4a = () => {
+			const ftyp = new Uint8Array(16);
+			new DataView(ftyp.buffer).setUint32(0, 16);
+			ftyp.set(new TextEncoder().encode("ftypM4A "), 4);
+			const hdlrBody = new Uint8Array(24);
+			hdlrBody.set(new TextEncoder().encode("soun"), 8);
+			const moov = makeBox(
+				"moov",
+				makeBox("trak", makeBox("mdia", makeBox("hdlr", hdlrBody))),
+			);
+			const bytes = new Uint8Array(ftyp.length + moov.length);
+			bytes.set(ftyp);
+			bytes.set(moov, ftyp.length);
+			return bytes;
+		};
+		const wav = new Uint8Array(16);
+		wav.set(new TextEncoder().encode("RIFF"));
+		wav.set(new TextEncoder().encode("WAVEfmt "), 8);
+		const vorbisOgg = (() => {
+			const payload = new Uint8Array(16);
+			payload[0] = 0x01;
+			payload.set(new TextEncoder().encode("vorbis"), 1);
+			const page = new Uint8Array(28 + payload.length);
+			page.set(new TextEncoder().encode("OggS\x00\x02"), 0);
+			page[26] = 1;
+			page[27] = payload.length;
+			page.set(payload, 28);
+			return page;
+		})();
+		const cases: Array<{ bytes: Uint8Array; filename: string; mime: string }> =
+			[
+				{
+					bytes: new Uint8Array([0x49, 0x44, 0x33, 0x04, 0, 0, 0, 0]),
+					filename: "track.bin",
+					mime: "audio/mpeg",
+				},
+				{
+					bytes: wav,
+					filename: "sfx.bin",
+					mime: "audio/wav",
+				},
+				{
+					bytes: vorbisOgg,
+					filename: "ambient.ogg",
+					mime: "audio/ogg",
+				},
+				{
+					bytes: new TextEncoder().encode("fLaC\x00\x00\x00\x22"),
+					filename: "theme.flac",
+					mime: "audio/flac",
+				},
+				{
+					bytes: makeM4a(),
+					filename: "bgm.m4a",
+					mime: "audio/mp4",
+				},
+			];
+		for (const entry of cases) {
+			const formData = new FormData();
+			formData.append(
+				"file",
+				new Blob([entry.bytes], { type: "application/octet-stream" }),
+				entry.filename,
+			);
+			formData.append("purpose", "audio");
+			formData.append("filename", entry.filename);
+			const res = await app.handle(
+				new Request("http://localhost/api/v1/media/upload", {
+					method: "POST",
+					headers: { Authorization: `Bearer ${gmToken}` },
+					body: formData,
+				}),
+			);
+			expect(res.status).toBe(200);
+			const body = (await res.json()) as { mimeType: string };
+			expect(body.mimeType).toBe(entry.mime);
+		}
+	});
+
+	test("Upload media - Rejects Theora-only Ogg and video-track MP4 even when declared audio", async () => {
+		const theoraPayload = new Uint8Array(7);
+		theoraPayload[0] = 0x80;
+		theoraPayload.set(new TextEncoder().encode("theora"), 1);
+		const theoraOgg = new Uint8Array(28 + theoraPayload.length);
+		theoraOgg.set(new TextEncoder().encode("OggS\x00\x02"), 0);
+		theoraOgg[26] = 1;
+		theoraOgg[27] = theoraPayload.length;
+		theoraOgg.set(theoraPayload, 28);
+
+		const makeBox = (type: string, body: Uint8Array) => {
+			const out = new Uint8Array(8 + body.length);
+			new DataView(out.buffer).setUint32(0, out.length, false);
+			out.set(new TextEncoder().encode(type), 4);
+			out.set(body, 8);
+			return out;
+		};
+		const ftypBox = new Uint8Array(20);
+		new DataView(ftypBox.buffer).setUint32(0, 20, false);
+		ftypBox.set(new TextEncoder().encode("ftypM4A isom"), 4);
+		const hdlrBody = new Uint8Array(24);
+		hdlrBody.set(new TextEncoder().encode("vide"), 8);
+		const moovBox = makeBox(
+			"moov",
+			makeBox("trak", makeBox("mdia", makeBox("hdlr", hdlrBody))),
+		);
+		const videoMp4 = new Uint8Array(ftypBox.length + moovBox.length);
+		videoMp4.set(ftypBox, 0);
+		videoMp4.set(moovBox, ftypBox.length);
+
+		for (const bad of [
+			{ bytes: theoraOgg, name: "video.ogg", mime: "audio/ogg" },
+			{ bytes: videoMp4, name: "video.m4a", mime: "audio/mp4" },
+		]) {
+			const formData = new FormData();
+			formData.append(
+				"file",
+				new Blob([bad.bytes], { type: bad.mime }),
+				bad.name,
+			);
+			formData.append("purpose", "audio");
+			formData.append("filename", bad.name);
+			const response = await app.handle(
+				new Request("http://localhost/api/v1/media/upload", {
+					method: "POST",
+					headers: { Authorization: `Bearer ${gmToken}` },
+					body: formData,
+				}),
+			);
+			expect(response.status).toBe(400);
+			const body = (await response.json()) as { code: string };
+			expect(body.code).toBe("UNSUPPORTED_MIME_TYPE");
+		}
+	});
+
+	test("Upload media - Rejects generic MP4 video even when named .m4a or declared audio/mp4", async () => {
+		const video = new Uint8Array(16);
+		new DataView(video.buffer).setUint32(0, 16);
+		video.set(new TextEncoder().encode("ftypavc1"), 4);
+
+		const formData = new FormData();
+		formData.append(
+			"file",
+			new Blob([video], { type: "audio/mp4" }),
+			"video.m4a",
+		);
+		formData.append("purpose", "audio");
+		formData.append("filename", "video.m4a");
+
+		const response = await app.handle(
+			new Request("http://localhost/api/v1/media/upload", {
+				method: "POST",
+				headers: { Authorization: `Bearer ${gmToken}` },
+				body: formData,
+			}),
+		);
+		expect(response.status).toBe(400);
+		const body = (await response.json()) as { code: string };
+		expect(body.code).toBe("UNSUPPORTED_MIME_TYPE");
+	});
 });

@@ -238,6 +238,48 @@ export const MyClaimResponse = z.object({
 });
 export type MyClaimResponse = z.infer<typeof MyClaimResponse>;
 
+export const ResolveSessionReferenceResponse = z.object({
+	sessionId: z.string(),
+});
+export type ResolveSessionReferenceResponse = z.infer<
+	typeof ResolveSessionReferenceResponse
+>;
+
+const SIX_HEX_SESSION_REFERENCE = /^[0-9a-f]{6}$/i;
+
+export function isSixHexSessionReference(reference: string): boolean {
+	return SIX_HEX_SESSION_REFERENCE.test(reference);
+}
+
+function safeDecodeURIComponent(value: string): string | null {
+	try {
+		return decodeURIComponent(value);
+	} catch {
+		return null;
+	}
+}
+
+export function extractSessionReference(input: string): string | null {
+	const trimmed = input.trim();
+	if (!trimmed) {
+		return null;
+	}
+	const joinMatch = trimmed.match(/(?:^|\/)join\/([^/?#]*)/);
+	const rawSegment = joinMatch ? joinMatch[1] : trimmed;
+	if (!rawSegment) {
+		return null;
+	}
+	const decoded = safeDecodeURIComponent(rawSegment);
+	if (decoded === null) {
+		return null;
+	}
+	const cleaned = decoded.trim().replace(/^#+/, "").trim();
+	if (!cleaned) {
+		return null;
+	}
+	return isSixHexSessionReference(cleaned) ? cleaned.toLowerCase() : cleaned;
+}
+
 export const JoinInfoResponse = z.object({
 	session: z.object({
 		id: z.string(),

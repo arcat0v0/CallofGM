@@ -28,6 +28,7 @@ describe("Invite, submit and review chain", () => {
 	let plToken = "";
 	let otherPlToken = "";
 	let plUserId = "";
+	let otherPlUserId = "";
 	let moduleId = "";
 	let fullApp: ReturnType<typeof createApp>;
 
@@ -75,6 +76,7 @@ describe("Invite, submit and review chain", () => {
 			"invite-b",
 		]);
 		plUserId = accounts.get("invite-a")!.userId;
+		otherPlUserId = accounts.get("invite-b")!.userId;
 		plToken = await loginToken(ctx.app, "invite-a", PASSWORD);
 		otherPlToken = await loginToken(ctx.app, "invite-b", PASSWORD);
 
@@ -287,6 +289,82 @@ describe("Invite, submit and review chain", () => {
 				)
 				.get()?.count ?? 0
 		);
+	}
+
+	function countActiveClaims(sessionId: string): number {
+		return (
+			ctx.container.dbContext.sqlite
+				.query<{ count: number }, [string]>(
+					"select count(*) as count from session_claims where session_id = ? and released_at is null",
+				)
+				.get(sessionId)?.count ?? 0
+		);
+	}
+
+	async function createSession(characterIds: string[] = []): Promise<string> {
+		const res = await api("/api/v1/gm/sessions", {
+			method: "POST",
+			token: ctx.gmToken,
+			body: JSON.stringify({ moduleId, characterIds }),
+		});
+		expect(res.status).toBe(200);
+		return ((await res.json()) as { session: { id: string } }).session.id;
+	}
+
+	async function createCharacterFor(
+		token: string,
+		name: string,
+	): Promise<CharacterDto> {
+		const res = await api("/api/v1/pl/characters", {
+			method: "POST",
+			token,
+			body: JSON.stringify({
+				name,
+				ruleId: "coc7e",
+				sheetData: {
+					attributes: {
+						str: 50,
+						con: 50,
+						siz: 50,
+						dex: 50,
+						app: 50,
+						int: 60,
+						pow: 60,
+						edu: 70,
+						luck: 50,
+					},
+					skills: { 侦查: 40 },
+				},
+			}),
+		});
+		expect(res.status).toBe(200);
+		return CharacterDto.parse(await res.json());
+	}
+
+	async function bumpSheetVersion(
+		token: string,
+		characterId: string,
+		spotValue: number,
+	): Promise<CharacterDto> {
+		const detailRes = await api(`/api/v1/pl/characters/${characterId}`, {
+			token,
+		});
+		expect(detailRes.status).toBe(200);
+		const detail = CharacterDetailDto.parse(await detailRes.json());
+		const sheet = coc7e.Coc7eCharacterSheet.parse(JSON.parse(detail.sheetJson));
+		const patchRes = await api(`/api/v1/pl/characters/${characterId}`, {
+			method: "PATCH",
+			token,
+			body: JSON.stringify({
+				sheetData: {
+					...sheet,
+					skills: { ...sheet.skills, 侦查: spotValue },
+				},
+				expectedVersion: detail.version,
+			}),
+		});
+		expect(patchRes.status).toBe(200);
+		return CharacterDto.parse(await patchRes.json());
 	}
 
 	test("模组链接：PL 可查看邀请信息并提交已有同规则人物", async () => {
@@ -833,5 +911,950 @@ describe("Invite, submit and review chain", () => {
 		expect(res.status).toBe(400);
 		expect(countCharacters()).toBe(charactersBefore);
 		expect(countReviews()).toBe(reviewsBefore);
+	});
+
+	test("POST invite 生成的明文 token 不会出现在后续列表响应中", async () => {
+		const invite = await createInvite("module", moduleId);
+		expect(invite.token).toBeTruthy();
+
+		const listRes = await api("/api/v1/gm/invites", { token: ctx.gmToken });
+		expect(listRes.status).toBe(200);
+		const rawBody = await listRes.text();
+		expect(rawBody).not.toContain(invite.token!);
+		const list = (JSON.parse(rawBody) as unknown[]).map((item) =>
+			CharacterInviteDto.parse(item),
+		);
+		const found = list.find((item) => item.id === invite.id);
+		expect(found).toBeDefined();
+		expect(found?.token).toBeNull();
+	});
+
+	test("他人认领 PL A 已审核但尚未认领的 PC 时被拒绝且不写入认领记录", async () => {
+		const sessionId = await createSession();
+		const invite = await createInvite("session", sessionId);
+		const character = await createPlCharacter("A专属调查员");
+		const token = encodeURIComponent(invite.token!);
+
+		const submit = await api(`/api/v1/pl/invites/${token}/submissions`, {
+			method: "POST",
+			token: plToken,
+			body: JSON.stringify({ mode: "existing", characterId: character.id }),
+		});
+		expect(submit.status).toBe(200);
+		const { reviewId } = (await submit.json()) as { reviewId: string };
+		const decide = await api(`/api/v1/gm/reviews/${reviewId}/decide`, {
+			method: "POST",
+			token: ctx.gmToken,
+			body: JSON.stringify({ approve: true }),
+		});
+		expect(decide.status).toBe(200);
+
+		const bMyClaim = await api(`/api/v1/sessions/${sessionId}/my-claim`, {
+			token: otherPlToken,
+		});
+		expect(bMyClaim.status).toBe(200);
+		expect(
+			((await bMyClaim.json()) as { canAutoClaimCharacterId: string | null })
+				.canAutoClaimCharacterId,
+		).toBeNull();
+
+		const bJoinInfo = await api(
+			`/api/v1/public/sessions/${sessionId}/join-info`,
+			{ token: otherPlToken },
+		);
+		expect(bJoinInfo.status).toBe(200);
+		const bInfo = (await bJoinInfo.json()) as {
+			characters: Array<{ id: string; claimable: boolean }>;
+		};
+		expect(bInfo.characters.find((c) => c.id === character.id)?.claimable).toBe(
+			false,
+		);
+
+		const bClaim = await api(`/api/v1/sessions/${sessionId}/claim`, {
+			method: "POST",
+			token: otherPlToken,
+			body: JSON.stringify({ role: "pc", characterId: character.id }),
+		});
+		expect(bClaim.status).toBe(403);
+		expect(((await bClaim.json()) as { code: string }).code).toBe(
+			"SESSION_CHARACTER_NOT_CLAIMABLE",
+		);
+		expect(countActiveClaims(sessionId)).toBe(0);
+
+		const aMyClaim = await api(`/api/v1/sessions/${sessionId}/my-claim`, {
+			token: plToken,
+		});
+		expect(aMyClaim.status).toBe(200);
+		expect(
+			((await aMyClaim.json()) as { canAutoClaimCharacterId: string | null })
+				.canAutoClaimCharacterId,
+		).toBe(character.id);
+
+		const aClaim = await api(`/api/v1/sessions/${sessionId}/claim`, {
+			method: "POST",
+			token: plToken,
+			body: JSON.stringify({ role: "pc", characterId: character.id }),
+		});
+		expect(aClaim.status).toBe(200);
+	});
+
+	test("join-info 按登录 PL 返回各自的 claimable，且匿名保留登录入口", async () => {
+		const gmPrebuiltRes = await api("/api/v1/gm/characters", {
+			method: "POST",
+			token: ctx.gmToken,
+			body: JSON.stringify({
+				name: "GM预建调查员",
+				kind: "pc",
+				ruleId: "coc7e",
+			}),
+		});
+		expect(gmPrebuiltRes.status).toBe(200);
+		const gmPrebuilt = CharacterDto.parse(await gmPrebuiltRes.json());
+		await api(`/api/v1/gm/modules/${moduleId}/characters`, {
+			method: "POST",
+			token: ctx.gmToken,
+			body: JSON.stringify({ characterId: gmPrebuilt.id }),
+		});
+
+		const sessionId = await createSession([gmPrebuilt.id]);
+		const invite = await createInvite("session", sessionId);
+		const charA = await createCharacterFor(plToken, "PL-A人物");
+		const charB = await createCharacterFor(otherPlToken, "PL-B人物");
+		const token = encodeURIComponent(invite.token!);
+
+		const subA = await api(`/api/v1/pl/invites/${token}/submissions`, {
+			method: "POST",
+			token: plToken,
+			body: JSON.stringify({ mode: "existing", characterId: charA.id }),
+		});
+		const subB = await api(`/api/v1/pl/invites/${token}/submissions`, {
+			method: "POST",
+			token: otherPlToken,
+			body: JSON.stringify({ mode: "existing", characterId: charB.id }),
+		});
+		const revA = ((await subA.json()) as { reviewId: string }).reviewId;
+		const revB = ((await subB.json()) as { reviewId: string }).reviewId;
+		await api(`/api/v1/gm/reviews/${revA}/decide`, {
+			method: "POST",
+			token: ctx.gmToken,
+			body: JSON.stringify({ approve: true }),
+		});
+		await api(`/api/v1/gm/reviews/${revB}/decide`, {
+			method: "POST",
+			token: ctx.gmToken,
+			body: JSON.stringify({ approve: true }),
+		});
+
+		const anonInfo = (await (
+			await api(`/api/v1/public/sessions/${sessionId}/join-info`)
+		).json()) as {
+			requiresLogin: boolean;
+			characters: Array<{ id: string; claimable: boolean }>;
+		};
+		expect(anonInfo.requiresLogin).toBe(true);
+		expect(anonInfo.characters.find((c) => c.id === charA.id)?.claimable).toBe(
+			true,
+		);
+		expect(anonInfo.characters.find((c) => c.id === charB.id)?.claimable).toBe(
+			true,
+		);
+		expect(
+			anonInfo.characters.find((c) => c.id === gmPrebuilt.id)?.claimable,
+		).toBe(true);
+
+		const aInfo = (await (
+			await api(`/api/v1/public/sessions/${sessionId}/join-info`, {
+				token: plToken,
+			})
+		).json()) as {
+			characters: Array<{ id: string; claimable: boolean }>;
+		};
+		expect(aInfo.characters.find((c) => c.id === charA.id)?.claimable).toBe(
+			true,
+		);
+		expect(aInfo.characters.find((c) => c.id === charB.id)?.claimable).toBe(
+			false,
+		);
+		expect(
+			aInfo.characters.find((c) => c.id === gmPrebuilt.id)?.claimable,
+		).toBe(true);
+
+		const bInfo = (await (
+			await api(`/api/v1/public/sessions/${sessionId}/join-info`, {
+				token: otherPlToken,
+			})
+		).json()) as {
+			characters: Array<{ id: string; claimable: boolean }>;
+		};
+		expect(bInfo.characters.find((c) => c.id === charA.id)?.claimable).toBe(
+			false,
+		);
+		expect(bInfo.characters.find((c) => c.id === charB.id)?.claimable).toBe(
+			true,
+		);
+		expect(
+			bInfo.characters.find((c) => c.id === gmPrebuilt.id)?.claimable,
+		).toBe(true);
+	});
+
+	test("过期已审核版本即使当前无任何有效审核也不能认领，且重提通过后恢复资格", async () => {
+		const sessionId = await createSession();
+		const invite = await createInvite("session", sessionId);
+		const character = await createPlCharacter("版本变更人物");
+		const token = encodeURIComponent(invite.token!);
+
+		const sub1 = await api(`/api/v1/pl/invites/${token}/submissions`, {
+			method: "POST",
+			token: plToken,
+			body: JSON.stringify({ mode: "existing", characterId: character.id }),
+		});
+		const { reviewId: review1 } = (await sub1.json()) as { reviewId: string };
+		await api(`/api/v1/gm/reviews/${review1}/decide`, {
+			method: "POST",
+			token: ctx.gmToken,
+			body: JSON.stringify({ approve: true }),
+		});
+
+		const updated = await bumpSheetVersion(plToken, character.id, 77);
+		expect(updated.sheetVersion).toBe(2);
+
+		const staleInfoA = (await (
+			await api(`/api/v1/public/sessions/${sessionId}/join-info`, {
+				token: plToken,
+			})
+		).json()) as {
+			characters: Array<{ id: string; claimable: boolean }>;
+		};
+		expect(
+			staleInfoA.characters.find((c) => c.id === character.id)?.claimable,
+		).toBe(false);
+
+		const staleInfoAnon = (await (
+			await api(`/api/v1/public/sessions/${sessionId}/join-info`)
+		).json()) as {
+			requiresLogin: boolean;
+			characters: Array<{ id: string; claimable: boolean }>;
+		};
+		expect(
+			staleInfoAnon.characters.find((c) => c.id === character.id)?.claimable,
+		).toBe(false);
+		expect(staleInfoAnon.requiresLogin).toBe(false);
+
+		const staleMyClaim = (await (
+			await api(`/api/v1/sessions/${sessionId}/my-claim`, { token: plToken })
+		).json()) as { canAutoClaimCharacterId: string | null };
+		expect(staleMyClaim.canAutoClaimCharacterId).toBeNull();
+
+		const staleClaimA = await api(`/api/v1/sessions/${sessionId}/claim`, {
+			method: "POST",
+			token: plToken,
+			body: JSON.stringify({ role: "pc", characterId: character.id }),
+		});
+		expect(staleClaimA.status).toBe(403);
+		expect(((await staleClaimA.json()) as { code: string }).code).toBe(
+			"SESSION_CHARACTER_NOT_CLAIMABLE",
+		);
+		expect(countActiveClaims(sessionId)).toBe(0);
+
+		const inviteInfo = CharacterInviteInfoResponse.parse(
+			await (
+				await api(`/api/v1/pl/invites/${token}`, { token: plToken })
+			).json(),
+		);
+		expect(
+			inviteInfo.ownedCharacters.find((c) => c.id === character.id)
+				?.alreadySubmitted,
+		).toBe(false);
+
+		const sub2 = await api(`/api/v1/pl/invites/${token}/submissions`, {
+			method: "POST",
+			token: plToken,
+			body: JSON.stringify({ mode: "existing", characterId: character.id }),
+		});
+		expect(sub2.status).toBe(200);
+		const { reviewId: review2 } = (await sub2.json()) as { reviewId: string };
+
+		const dup2 = await api(`/api/v1/pl/invites/${token}/submissions`, {
+			method: "POST",
+			token: plToken,
+			body: JSON.stringify({ mode: "existing", characterId: character.id }),
+		});
+		expect(dup2.status).toBe(409);
+
+		const pendingClaimA = await api(`/api/v1/sessions/${sessionId}/claim`, {
+			method: "POST",
+			token: plToken,
+			body: JSON.stringify({ role: "pc", characterId: character.id }),
+		});
+		expect(pendingClaimA.status).toBe(403);
+
+		const approve2 = await api(`/api/v1/gm/reviews/${review2}/decide`, {
+			method: "POST",
+			token: ctx.gmToken,
+			body: JSON.stringify({ approve: true }),
+		});
+		expect(approve2.status).toBe(200);
+
+		const restoredInfoA = (await (
+			await api(`/api/v1/public/sessions/${sessionId}/join-info`, {
+				token: plToken,
+			})
+		).json()) as {
+			characters: Array<{ id: string; claimable: boolean }>;
+		};
+		expect(
+			restoredInfoA.characters.find((c) => c.id === character.id)?.claimable,
+		).toBe(true);
+
+		const restoredClaimA = await api(`/api/v1/sessions/${sessionId}/claim`, {
+			method: "POST",
+			token: plToken,
+			body: JSON.stringify({ role: "pc", characterId: character.id }),
+		});
+		expect(restoredClaimA.status).toBe(200);
+	});
+
+	test("待审核卡改卡重提会取代旧待审记录（不物理删除也不留重复待办），通过后恢复认领资格", async () => {
+		const sessionId = await createSession();
+		const invite = await createInvite("session", sessionId);
+		const character = await createPlCharacter("待审改卡人物");
+		const token = encodeURIComponent(invite.token!);
+
+		const sub1 = await api(`/api/v1/pl/invites/${token}/submissions`, {
+			method: "POST",
+			token: plToken,
+			body: JSON.stringify({ mode: "existing", characterId: character.id }),
+		});
+		expect(sub1.status).toBe(200);
+		const { reviewId: review1 } = (await sub1.json()) as { reviewId: string };
+		const reviewsAfterFirst = countReviews();
+
+		await bumpSheetVersion(plToken, character.id, 66);
+
+		const inviteInfo = CharacterInviteInfoResponse.parse(
+			await (
+				await api(`/api/v1/pl/invites/${token}`, { token: plToken })
+			).json(),
+		);
+		expect(
+			inviteInfo.ownedCharacters.find((c) => c.id === character.id)
+				?.alreadySubmitted,
+		).toBe(false);
+
+		const sub2 = await api(`/api/v1/pl/invites/${token}/submissions`, {
+			method: "POST",
+			token: plToken,
+			body: JSON.stringify({ mode: "existing", characterId: character.id }),
+		});
+		expect(sub2.status).toBe(200);
+		const { reviewId: review2 } = (await sub2.json()) as { reviewId: string };
+		expect(review2).not.toBe(review1);
+		expect(countReviews()).toBe(reviewsAfterFirst + 1);
+
+		const dup2 = await api(`/api/v1/pl/invites/${token}/submissions`, {
+			method: "POST",
+			token: plToken,
+			body: JSON.stringify({ mode: "existing", characterId: character.id }),
+		});
+		expect(dup2.status).toBe(409);
+
+		const pendingRes = await api("/api/v1/gm/reviews?status=pending", {
+			token: ctx.gmToken,
+		});
+		expect(pendingRes.status).toBe(200);
+		const pendingForChar = (
+			(await pendingRes.json()) as CharacterReviewDto[]
+		).filter(
+			(r) =>
+				r.scope === "session" &&
+				r.targetId === sessionId &&
+				r.characterId === character.id,
+		);
+		expect(pendingForChar.map((r) => r.id)).toEqual([review2]);
+
+		const decideOld = await api(`/api/v1/gm/reviews/${review1}/decide`, {
+			method: "POST",
+			token: ctx.gmToken,
+			body: JSON.stringify({ approve: true }),
+		});
+		expect(decideOld.status).toBe(404);
+
+		const decideNew = await api(`/api/v1/gm/reviews/${review2}/decide`, {
+			method: "POST",
+			token: ctx.gmToken,
+			body: JSON.stringify({ approve: true }),
+		});
+		expect(decideNew.status).toBe(200);
+
+		const claimA = await api(`/api/v1/sessions/${sessionId}/claim`, {
+			method: "POST",
+			token: plToken,
+			body: JSON.stringify({ role: "pc", characterId: character.id }),
+		});
+		expect(claimA.status).toBe(200);
+	});
+
+	test("无审核遗留认领、GM 显式指派与匿名 OB 规则保持有效", async () => {
+		const gmPrebuiltRes = await api("/api/v1/gm/characters", {
+			method: "POST",
+			token: ctx.gmToken,
+			body: JSON.stringify({
+				name: "遗留预建PC",
+				kind: "pc",
+				ruleId: "coc7e",
+			}),
+		});
+		const gmPrebuilt = CharacterDto.parse(await gmPrebuiltRes.json());
+		await api(`/api/v1/gm/modules/${moduleId}/characters`, {
+			method: "POST",
+			token: ctx.gmToken,
+			body: JSON.stringify({ characterId: gmPrebuilt.id }),
+		});
+
+		const sessionId = await createSession([gmPrebuilt.id]);
+		const legacyClaim = await api(`/api/v1/sessions/${sessionId}/claim`, {
+			method: "POST",
+			token: plToken,
+			body: JSON.stringify({ role: "pc", characterId: gmPrebuilt.id }),
+		});
+		expect(legacyClaim.status).toBe(200);
+
+		const invite = await createInvite("session", sessionId);
+		const pendingChar = await createCharacterFor(plToken, "待审被指派PC");
+		const sub = await api(
+			`/api/v1/pl/invites/${encodeURIComponent(invite.token!)}/submissions`,
+			{
+				method: "POST",
+				token: plToken,
+				body: JSON.stringify({ mode: "existing", characterId: pendingChar.id }),
+			},
+		);
+		const { reviewId } = (await sub.json()) as { reviewId: string };
+		await api(`/api/v1/gm/reviews/${reviewId}/decide`, {
+			method: "POST",
+			token: ctx.gmToken,
+			body: JSON.stringify({ approve: false, reason: "测试驳回" }),
+		});
+
+		const rejectedClaim = await api(`/api/v1/sessions/${sessionId}/claim`, {
+			method: "POST",
+			token: plToken,
+			body: JSON.stringify({ role: "pc", characterId: pendingChar.id }),
+		});
+		expect([403, 404]).toContain(rejectedClaim.status);
+
+		const anonIdentity = await api("/api/v1/player/identity", {
+			method: "POST",
+			body: JSON.stringify({ fingerprint: "fp-invite-anon-ob" }),
+		});
+		const anonToken = ((await anonIdentity.json()) as { token: string }).token;
+		const anonPc = await api(`/api/v1/sessions/${sessionId}/claim`, {
+			method: "POST",
+			token: anonToken,
+			body: JSON.stringify({ role: "pc", characterId: gmPrebuilt.id }),
+		});
+		expect(anonPc.status).toBe(401);
+		const anonOb = await api(`/api/v1/sessions/${sessionId}/claim`, {
+			method: "POST",
+			token: anonToken,
+			body: JSON.stringify({ role: "ob" }),
+		});
+		expect(anonOb.status).toBe(200);
+
+		const assignRes = await api(
+			`/api/v1/gm/sessions/${sessionId}/claims/assign`,
+			{
+				method: "POST",
+				token: ctx.gmToken,
+				body: JSON.stringify({
+					userId: otherPlUserId,
+					characterId: gmPrebuilt.id,
+				}),
+			},
+		);
+		expect(assignRes.status).toBe(200);
+	});
+
+	test("模组邀请过审后建团（无团审记录）仅允许所属 PL 认领，他人不可自动或直接认领且匿名可见登录入口", async () => {
+		const invite = await createInvite("module", moduleId);
+		const character = await createPlCharacter("模组过审人物");
+		const submit = await fullApi(
+			`/api/v1/pl/invites/${encodeURIComponent(invite.token!)}/submissions`,
+			{
+				method: "POST",
+				token: plToken,
+				body: JSON.stringify({ mode: "existing", characterId: character.id }),
+			},
+		);
+		expect(submit.status).toBe(200);
+		const { reviewId } = (await submit.json()) as { reviewId: string };
+
+		const decide = await fullApi(`/api/v1/gm/reviews/${reviewId}/decide`, {
+			method: "POST",
+			token: ctx.gmToken,
+			body: JSON.stringify({ approve: true }),
+		});
+		expect(decide.status).toBe(200);
+
+		const sessionRes = await fullApi("/api/v1/gm/sessions", {
+			method: "POST",
+			token: ctx.gmToken,
+			body: JSON.stringify({ moduleId, characterIds: [character.id] }),
+		});
+		expect(sessionRes.status).toBe(200);
+		const sessionId = ((await sessionRes.json()) as { session: { id: string } })
+			.session.id;
+
+		const anonJoinInfo = await fullApi(
+			`/api/v1/public/sessions/${sessionId}/join-info`,
+		);
+		expect(anonJoinInfo.status).toBe(200);
+		const anonBody = (await anonJoinInfo.json()) as {
+			requiresLogin: boolean;
+			characters: Array<{ id: string; claimable: boolean; claimed: boolean }>;
+		};
+		expect(anonBody.requiresLogin).toBe(true);
+		expect(
+			anonBody.characters.find((c) => c.id === character.id),
+		).toMatchObject({
+			id: character.id,
+			claimable: true,
+			claimed: false,
+		});
+
+		const bMyClaim = await fullApi(`/api/v1/sessions/${sessionId}/my-claim`, {
+			token: otherPlToken,
+		});
+		expect(bMyClaim.status).toBe(200);
+		expect(
+			((await bMyClaim.json()) as { canAutoClaimCharacterId: string | null })
+				.canAutoClaimCharacterId,
+		).toBeNull();
+
+		const bJoinInfo = await fullApi(
+			`/api/v1/public/sessions/${sessionId}/join-info`,
+			{ token: otherPlToken },
+		);
+		expect(bJoinInfo.status).toBe(200);
+		const bInfo = (await bJoinInfo.json()) as {
+			requiresLogin: boolean;
+			characters: Array<{ id: string; claimable: boolean }>;
+		};
+		expect(bInfo.characters.find((c) => c.id === character.id)?.claimable).toBe(
+			false,
+		);
+		expect(bInfo.requiresLogin).toBe(false);
+
+		const bClaim = await fullApi(`/api/v1/sessions/${sessionId}/claim`, {
+			method: "POST",
+			token: otherPlToken,
+			body: JSON.stringify({ role: "pc", characterId: character.id }),
+		});
+		expect(bClaim.status).toBe(403);
+		expect(((await bClaim.json()) as { code: string }).code).toBe(
+			"SESSION_CHARACTER_NOT_CLAIMABLE",
+		);
+		expect(countActiveClaims(sessionId)).toBe(0);
+
+		const aMyClaim = await fullApi(`/api/v1/sessions/${sessionId}/my-claim`, {
+			token: plToken,
+		});
+		expect(aMyClaim.status).toBe(200);
+		expect(
+			((await aMyClaim.json()) as { canAutoClaimCharacterId: string | null })
+				.canAutoClaimCharacterId,
+		).toBe(character.id);
+
+		const aJoinInfo = await fullApi(
+			`/api/v1/public/sessions/${sessionId}/join-info`,
+			{ token: plToken },
+		);
+		expect(aJoinInfo.status).toBe(200);
+		const aInfo = (await aJoinInfo.json()) as {
+			characters: Array<{ id: string; claimable: boolean }>;
+		};
+		expect(aInfo.characters.find((c) => c.id === character.id)?.claimable).toBe(
+			true,
+		);
+
+		const aClaim = await fullApi(`/api/v1/sessions/${sessionId}/claim`, {
+			method: "POST",
+			token: plToken,
+			body: JSON.stringify({ role: "pc", characterId: character.id }),
+		});
+		expect(aClaim.status).toBe(200);
+		expect(countActiveClaims(sessionId)).toBe(1);
+	});
+
+	test("GM 预建无审核 PC 仍保持对匿名与任意已登录 PL 可见、可自动认领与直接入团", async () => {
+		const gmPrebuiltRes = await fullApi("/api/v1/gm/characters", {
+			method: "POST",
+			token: ctx.gmToken,
+			body: JSON.stringify({
+				name: "回归预建PC",
+				kind: "pc",
+				ruleId: "coc7e",
+			}),
+		});
+		expect(gmPrebuiltRes.status).toBe(200);
+		const gmPrebuilt = CharacterDto.parse(await gmPrebuiltRes.json());
+		const linkRes = await fullApi(`/api/v1/gm/modules/${moduleId}/characters`, {
+			method: "POST",
+			token: ctx.gmToken,
+			body: JSON.stringify({ characterId: gmPrebuilt.id }),
+		});
+		expect(linkRes.status).toBe(200);
+
+		const sessionId = await createSession([gmPrebuilt.id]);
+
+		const anonInfo = (await (
+			await fullApi(`/api/v1/public/sessions/${sessionId}/join-info`)
+		).json()) as {
+			requiresLogin: boolean;
+			characters: Array<{ id: string; claimable: boolean }>;
+		};
+		expect(anonInfo.requiresLogin).toBe(true);
+		expect(
+			anonInfo.characters.find((c) => c.id === gmPrebuilt.id)?.claimable,
+		).toBe(true);
+
+		const bInfo = (await (
+			await fullApi(`/api/v1/public/sessions/${sessionId}/join-info`, {
+				token: otherPlToken,
+			})
+		).json()) as {
+			characters: Array<{ id: string; claimable: boolean }>;
+		};
+		expect(
+			bInfo.characters.find((c) => c.id === gmPrebuilt.id)?.claimable,
+		).toBe(true);
+
+		const bMyClaim = (await (
+			await fullApi(`/api/v1/sessions/${sessionId}/my-claim`, {
+				token: otherPlToken,
+			})
+		).json()) as { canAutoClaimCharacterId: string | null };
+		expect(bMyClaim.canAutoClaimCharacterId).toBe(gmPrebuilt.id);
+
+		const bClaim = await fullApi(`/api/v1/sessions/${sessionId}/claim`, {
+			method: "POST",
+			token: otherPlToken,
+			body: JSON.stringify({ role: "pc", characterId: gmPrebuilt.id }),
+		});
+		expect(bClaim.status).toBe(200);
+	});
+
+	test("重提替换新审核插入失败时事务回滚，旧待审记录保持有效且仅有一条可操作待审", async () => {
+		const sessionId = await createSession();
+		const invite = await createInvite("session", sessionId);
+		const character = await createPlCharacter("事务回滚测试人物");
+		if (!invite.token) {
+			throw new Error("Expected invite token");
+		}
+		const token = encodeURIComponent(invite.token);
+
+		const sub1 = await api(`/api/v1/pl/invites/${token}/submissions`, {
+			method: "POST",
+			token: plToken,
+			body: JSON.stringify({ mode: "existing", characterId: character.id }),
+		});
+		expect(sub1.status).toBe(200);
+		const { reviewId: review1 } = (await sub1.json()) as { reviewId: string };
+
+		await bumpSheetVersion(plToken, character.id, 72);
+
+		ctx.container.dbContext.sqlite.exec(`
+			CREATE TRIGGER test_fail_review_insert
+			BEFORE INSERT ON character_reviews
+			WHEN NEW.character_id = '${character.id}' AND NEW.submitted_sheet_version = 2
+			BEGIN
+				SELECT RAISE(ABORT, 'injected review insert failure');
+			END;
+		`);
+		try {
+			const failedResubmit = await api(
+				`/api/v1/pl/invites/${token}/submissions`,
+				{
+					method: "POST",
+					token: plToken,
+					body: JSON.stringify({ mode: "existing", characterId: character.id }),
+				},
+			);
+			expect(failedResubmit.status).toBeGreaterThanOrEqual(500);
+		} finally {
+			ctx.container.dbContext.sqlite.exec(
+				"DROP TRIGGER IF EXISTS test_fail_review_insert;",
+			);
+		}
+
+		const rowsAfterFailure = ctx.container.dbContext.sqlite
+			.query<
+				{
+					id: string;
+					status: string;
+					submitted_sheet_version: number;
+					deleted_at: number | null;
+				},
+				[string, string]
+			>(
+				"select id, status, submitted_sheet_version, deleted_at from character_reviews where scope = 'session' and target_id = ? and character_id = ? order by created_at asc, rowid asc",
+			)
+			.all(sessionId, character.id);
+		expect(rowsAfterFailure).toEqual([
+			{
+				id: review1,
+				status: "pending",
+				submitted_sheet_version: 1,
+				deleted_at: null,
+			},
+		]);
+
+		const pendingAfterFailure = await api("/api/v1/gm/reviews?status=pending", {
+			token: ctx.gmToken,
+		});
+		expect(pendingAfterFailure.status).toBe(200);
+		const pendingIdsAfterFailure = (
+			(await pendingAfterFailure.json()) as CharacterReviewDto[]
+		)
+			.filter(
+				(r) =>
+					r.scope === "session" &&
+					r.targetId === sessionId &&
+					r.characterId === character.id,
+			)
+			.map((r) => r.id);
+		expect(pendingIdsAfterFailure).toEqual([review1]);
+
+		const retryResubmit = await api(`/api/v1/pl/invites/${token}/submissions`, {
+			method: "POST",
+			token: plToken,
+			body: JSON.stringify({ mode: "existing", characterId: character.id }),
+		});
+		expect(retryResubmit.status).toBe(200);
+		const { reviewId: review2 } = (await retryResubmit.json()) as {
+			reviewId: string;
+		};
+		expect(review2).not.toBe(review1);
+
+		const rowsAfterRetry = ctx.container.dbContext.sqlite
+			.query<
+				{
+					id: string;
+					status: string;
+					submitted_sheet_version: number;
+					deleted_at: number | null;
+				},
+				[string, string]
+			>(
+				"select id, status, submitted_sheet_version, deleted_at from character_reviews where scope = 'session' and target_id = ? and character_id = ? order by created_at asc, rowid asc",
+			)
+			.all(sessionId, character.id);
+		expect(rowsAfterRetry).toHaveLength(2);
+		expect(rowsAfterRetry[0]?.id).toBe(review1);
+		expect(rowsAfterRetry[0]?.deleted_at).not.toBeNull();
+		expect(rowsAfterRetry[1]).toMatchObject({
+			id: review2,
+			status: "pending",
+			submitted_sheet_version: 2,
+			deleted_at: null,
+		});
+	});
+
+	test("并发重提同一新版本不会产生重复可操作待审，且连续改卡替换保留软删除历史", async () => {
+		const sessionId = await createSession();
+		const invite = await createInvite("session", sessionId);
+		const character = await createPlCharacter("并发重提人物");
+		if (!invite.token) {
+			throw new Error("Expected invite token");
+		}
+		const token = encodeURIComponent(invite.token);
+
+		const sub1 = await api(`/api/v1/pl/invites/${token}/submissions`, {
+			method: "POST",
+			token: plToken,
+			body: JSON.stringify({ mode: "existing", characterId: character.id }),
+		});
+		expect(sub1.status).toBe(200);
+		const { reviewId: review1 } = (await sub1.json()) as { reviewId: string };
+
+		await bumpSheetVersion(plToken, character.id, 65);
+
+		const [raceA, raceB] = await Promise.all([
+			api(`/api/v1/pl/invites/${token}/submissions`, {
+				method: "POST",
+				token: plToken,
+				body: JSON.stringify({ mode: "existing", characterId: character.id }),
+			}),
+			api(`/api/v1/pl/invites/${token}/submissions`, {
+				method: "POST",
+				token: plToken,
+				body: JSON.stringify({ mode: "existing", characterId: character.id }),
+			}),
+		]);
+		const statuses = [raceA.status, raceB.status].sort((a, b) => a - b);
+		expect(statuses).toEqual([200, 409]);
+
+		const winnerBody = (await (raceA.status === 200
+			? raceA
+			: raceB
+		).json()) as { reviewId: string };
+		const review2 = winnerBody.reviewId;
+		expect(review2).not.toBe(review1);
+
+		const activePendingsAfterRace = ctx.container.dbContext.sqlite
+			.query<{ id: string; submitted_sheet_version: number }, [string, string]>(
+				"select id, submitted_sheet_version from character_reviews where scope = 'session' and target_id = ? and character_id = ? and status = 'pending' and deleted_at is null",
+			)
+			.all(sessionId, character.id);
+		expect(activePendingsAfterRace).toEqual([
+			{ id: review2, submitted_sheet_version: 2 },
+		]);
+
+		await bumpSheetVersion(plToken, character.id, 78);
+		const sub3 = await api(`/api/v1/pl/invites/${token}/submissions`, {
+			method: "POST",
+			token: plToken,
+			body: JSON.stringify({ mode: "existing", characterId: character.id }),
+		});
+		expect(sub3.status).toBe(200);
+		const { reviewId: review3 } = (await sub3.json()) as { reviewId: string };
+
+		const dup3 = await api(`/api/v1/pl/invites/${token}/submissions`, {
+			method: "POST",
+			token: plToken,
+			body: JSON.stringify({ mode: "existing", characterId: character.id }),
+		});
+		expect(dup3.status).toBe(409);
+
+		const allHistoryRows = ctx.container.dbContext.sqlite
+			.query<
+				{
+					id: string;
+					status: string;
+					submitted_sheet_version: number;
+					deleted_at: number | null;
+				},
+				[string, string]
+			>(
+				"select id, status, submitted_sheet_version, deleted_at from character_reviews where scope = 'session' and target_id = ? and character_id = ? order by submitted_sheet_version asc, rowid asc",
+			)
+			.all(sessionId, character.id);
+		expect(allHistoryRows).toHaveLength(3);
+		expect(allHistoryRows[0]?.id).toBe(review1);
+		expect(allHistoryRows[0]?.deleted_at).not.toBeNull();
+		expect(allHistoryRows[1]?.id).toBe(review2);
+		expect(allHistoryRows[1]?.deleted_at).not.toBeNull();
+		expect(allHistoryRows[2]).toMatchObject({
+			id: review3,
+			status: "pending",
+			submitted_sheet_version: 3,
+			deleted_at: null,
+		});
+
+		const approve3 = await api(`/api/v1/gm/reviews/${review3}/decide`, {
+			method: "POST",
+			token: ctx.gmToken,
+			body: JSON.stringify({ approve: true }),
+		});
+		expect(approve3.status).toBe(200);
+
+		await bumpSheetVersion(plToken, character.id, 88);
+		const sub4 = await api(`/api/v1/pl/invites/${token}/submissions`, {
+			method: "POST",
+			token: plToken,
+			body: JSON.stringify({ mode: "existing", characterId: character.id }),
+		});
+		expect(sub4.status).toBe(200);
+		const { reviewId: review4 } = (await sub4.json()) as { reviewId: string };
+
+		const activePendingsAfterApprovedResubmit = ctx.container.dbContext.sqlite
+			.query<{ id: string; submitted_sheet_version: number }, [string, string]>(
+				"select id, submitted_sheet_version from character_reviews where scope = 'session' and target_id = ? and character_id = ? and status = 'pending' and deleted_at is null",
+			)
+			.all(sessionId, character.id);
+		expect(activePendingsAfterApprovedResubmit).toEqual([
+			{ id: review4, submitted_sheet_version: 4 },
+		]);
+	});
+
+	test("无审核 GM 预建 PC 主卡被软删除后不可自动认领、join-info 不可认领、直接认领被拒且不写入认领记录", async () => {
+		const gmPrebuiltRes = await fullApi("/api/v1/gm/characters", {
+			method: "POST",
+			token: ctx.gmToken,
+			body: JSON.stringify({
+				name: "被删除预建PC",
+				kind: "pc",
+				ruleId: "coc7e",
+			}),
+		});
+		expect(gmPrebuiltRes.status).toBe(200);
+		const gmPrebuilt = CharacterDto.parse(await gmPrebuiltRes.json());
+		const linkRes = await fullApi(`/api/v1/gm/modules/${moduleId}/characters`, {
+			method: "POST",
+			token: ctx.gmToken,
+			body: JSON.stringify({ characterId: gmPrebuilt.id }),
+		});
+		expect(linkRes.status).toBe(200);
+
+		const sessionId = await createSession([gmPrebuilt.id]);
+
+		const deleteRes = await fullApi(`/api/v1/gm/characters/${gmPrebuilt.id}`, {
+			method: "DELETE",
+			token: ctx.gmToken,
+		});
+		expect(deleteRes.status).toBe(200);
+
+		const myClaimRes = await fullApi(`/api/v1/sessions/${sessionId}/my-claim`, {
+			token: plToken,
+		});
+		expect(myClaimRes.status).toBe(200);
+		expect(
+			(
+				(await myClaimRes.json()) as {
+					canAutoClaimCharacterId: string | null;
+				}
+			).canAutoClaimCharacterId,
+		).toBeNull();
+
+		const joinInfoPl = (await (
+			await fullApi(`/api/v1/public/sessions/${sessionId}/join-info`, {
+				token: plToken,
+			})
+		).json()) as {
+			requiresLogin: boolean;
+			characters: Array<{ id: string; claimable: boolean }>;
+		};
+		expect(joinInfoPl.requiresLogin).toBe(false);
+		expect(
+			joinInfoPl.characters.find((c) => c.id === gmPrebuilt.id)?.claimable,
+		).toBe(false);
+
+		const joinInfoAnon = (await (
+			await fullApi(`/api/v1/public/sessions/${sessionId}/join-info`)
+		).json()) as {
+			requiresLogin: boolean;
+			characters: Array<{ id: string; claimable: boolean }>;
+		};
+		expect(joinInfoAnon.requiresLogin).toBe(false);
+		expect(
+			joinInfoAnon.characters.find((c) => c.id === gmPrebuilt.id)?.claimable,
+		).toBe(false);
+
+		const directClaim = await fullApi(`/api/v1/sessions/${sessionId}/claim`, {
+			method: "POST",
+			token: plToken,
+			body: JSON.stringify({ role: "pc", characterId: gmPrebuilt.id }),
+		});
+		expect(directClaim.status).toBe(403);
+		expect(((await directClaim.json()) as { code: string }).code).toBe(
+			"SESSION_CHARACTER_NOT_CLAIMABLE",
+		);
+
+		const claimRows = ctx.container.dbContext.sqlite
+			.query<{ count: number }, [string]>(
+				"select count(*) as count from session_claims where session_id = ?",
+			)
+			.get(sessionId)?.count;
+		expect(claimRows).toBe(0);
 	});
 });

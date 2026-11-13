@@ -1,7 +1,7 @@
 import { VersionResponseSchema } from "@cogm/shared";
-import { Elysia } from "elysia";
-import { ZodError } from "zod";
+import { Elysia, NotFoundError } from "elysia";
 import { extname, resolve, sep } from "path";
+import { ZodError } from "zod";
 import type { Container } from "./bootstrap/container";
 import { corsOriginsFor } from "./config/env";
 import { createAdminRoutes, createTrashRoutes } from "./modules/admin";
@@ -17,14 +17,16 @@ import { createThemeRoutes } from "./modules/themes";
 import { createUiSettingsRoutes } from "./modules/ui-settings";
 import { getServerBuildInfo } from "./platform/build-info";
 import { AppError } from "./platform/errors/app-error";
-import { logger } from "./platform/logging/logger";
+import { logger, redactSensitivePath } from "./platform/logging/logger";
 import { isAllowedOrigin } from "./platform/security/origin";
 
 const clientDist = resolve(import.meta.dir, "../../client/dist");
 
+function isApiPath(pathname: string): boolean {
+	return pathname === "/api" || pathname.startsWith("/api/");
+}
+
 async function serveClient(pathname: string): Promise<Response> {
-	if (pathname.startsWith("/api/"))
-		return new Response("Not Found", { status: 404 });
 	const relativePath = decodeURIComponent(pathname).replace(/^\/+/, "");
 	const requested = resolve(clientDist, relativePath || "index.html");
 	if (
@@ -86,7 +88,7 @@ export function createApp(
 			logger.info("http.request", {
 				requestId,
 				method: request.method,
-				path: new URL(request.url).pathname,
+				path: redactSensitivePath(new URL(request.url).pathname),
 			});
 		})
 		.options("/*", ({ request, set }) => {
@@ -94,12 +96,12 @@ export function createApp(
 			set.status = 204;
 			return "";
 		})
-		.onError(({ error, code, set, ...rest }) => {
+		.onError(({ error, code, request, set, ...rest }) => {
 			const context = rest as Record<string, unknown>;
 			const requestId =
 				typeof context.requestId === "string"
 					? context.requestId
-					: crypto.randomUUID();
+					: request.headers.get("x-request-id") || crypto.randomUUID();
 
 			if (error instanceof AppError) {
 				set.status = error.statusCode;
@@ -121,6 +123,14 @@ export function createApp(
 				return {
 					code: "VALIDATION_FAILED",
 					message: "Invalid request",
+					requestId,
+				};
+			}
+			if (code === "NOT_FOUND") {
+				set.status = 404;
+				return {
+					code: "NOT_FOUND",
+					message: "Not found",
 					requestId,
 				};
 			}
@@ -169,7 +179,13 @@ export function createApp(
 			}
 			return { status: "ready" };
 		})
-		.get("/*", ({ request }) => serveClient(new URL(request.url).pathname));
+		.get("/*", ({ request }) => {
+			const pathname = new URL(request.url).pathname;
+			if (isApiPath(pathname)) {
+				throw new NotFoundError();
+			}
+			return serveClient(pathname);
+		});
 
 	return app;
 }

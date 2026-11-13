@@ -149,6 +149,9 @@ export const importStagings = sqliteTable("import_stagings", {
 	ownerId: text("owner_id")
 		.notNull()
 		.references(() => users.id),
+	targetCharacterId: text("target_character_id").references(
+		() => characters.id,
+	),
 	characterName: text("character_name").notNull(),
 	sheetJson: text("sheet_json").notNull(),
 	patchJson: text("patch_json"),

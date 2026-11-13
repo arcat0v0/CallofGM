@@ -23,18 +23,35 @@ const STAGGER_DELAYS = ["delay-75", "delay-150", "delay-225"] as const;
 
 const joinInfoRequests = new Map<string, Promise<JoinInfoResponse>>();
 
-function fetchJoinInfo(sessionId: string): Promise<JoinInfoResponse> {
-	const pending = joinInfoRequests.get(sessionId);
+function viewerCacheKey(
+	account: Awaited<ReturnType<typeof fetchAccountMe>>,
+	playerId: string | null,
+): string {
+	if (!account) {
+		return `anonymous:${playerId ?? ""}`;
+	}
+	if (account.role === "pl") {
+		return `pl:${account.userId}`;
+	}
+	return `account:${account.role}:${account.userId}`;
+}
+
+function fetchJoinInfo(
+	sessionId: string,
+	viewerKey: string,
+): Promise<JoinInfoResponse> {
+	const cacheKey = `${encodeURIComponent(sessionId)}:${viewerKey}`;
+	const pending = joinInfoRequests.get(cacheKey);
 	if (pending) {
 		return pending;
 	}
 	const request = api<JoinInfoResponse>(
 		`/public/sessions/${encodeURIComponent(sessionId)}/join-info`,
 	);
-	joinInfoRequests.set(sessionId, request);
+	joinInfoRequests.set(cacheKey, request);
 	const clear = () => {
-		if (joinInfoRequests.get(sessionId) === request) {
-			joinInfoRequests.delete(sessionId);
+		if (joinInfoRequests.get(cacheKey) === request) {
+			joinInfoRequests.delete(cacheKey);
 		}
 	};
 	void request.then(clear, clear);
@@ -73,18 +90,19 @@ function JoinPage() {
 				if (!cancelled) {
 					setAccountRole(account?.role ?? null);
 				}
-				if (account?.role !== "pl") {
-					await ensurePlayer();
-				}
+				const player = account?.role !== "pl" ? await ensurePlayer() : null;
 				if (cancelled) {
 					return;
 				}
-				const info = await fetchJoinInfo(sessionId);
+				const info = await fetchJoinInfo(
+					sessionId,
+					viewerCacheKey(account, player?.playerId ?? null),
+				);
 				if (cancelled) {
 					return;
 				}
 				const nextPcSeats = info.characters
-					.filter((character) => character.kind === "pc")
+					.filter((character) => character.kind === "pc" && character.claimable)
 					.map((character) => ({
 						id: character.id,
 						name: character.name,

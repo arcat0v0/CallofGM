@@ -859,4 +859,142 @@ describe("PL character ownership, versions and growth", () => {
 		expect(countCharacters()).toBe(charactersBefore);
 		expect(countReviews()).toBe(reviewsBefore);
 	});
+
+	test("PL Excel 预览拒绝纯文本伪造 .xlsx 与非 OOXML 工作簿并返回 400 INVALID_FILE_CONTENT", async () => {
+		const { zipSync } = await import("fflate");
+		const enc = new TextEncoder();
+		const invalidPayloads: Array<{
+			name: string;
+			bytes: Uint8Array;
+			mime: string;
+		}> = [
+			{
+				name: "fake.xlsx",
+				bytes: enc.encode("姓名,张三\n力量,60\n体质,60\n体型,60\n"),
+				mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+			},
+			{
+				name: "legacy.xls",
+				bytes: new Uint8Array([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]),
+				mime: "application/vnd.ms-excel",
+			},
+			{
+				name: "arbitrary.zip",
+				bytes: zipSync({ "hello.txt": enc.encode("world") }),
+				mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+			},
+		];
+
+		for (const payload of invalidPayloads) {
+			const form = new FormData();
+			form.append(
+				"file",
+				new Blob([payload.bytes], { type: payload.mime }),
+				payload.name,
+			);
+			form.append("ruleId", "coc7e");
+			const res = await ctx.app.handle(
+				new Request("http://localhost/api/v1/pl/characters/import/preview", {
+					method: "POST",
+					headers: { Authorization: `Bearer ${plToken}` },
+					body: form,
+				}),
+			);
+			expect(res.status).toBe(400);
+			const body = (await res.json()) as { code: string };
+			expect(body.code).toBe("INVALID_FILE_CONTENT");
+		}
+	});
+
+	test("PL Excel 导入暂存绑定目标角色：错目标或新建/更新模式不匹配返回 409 且不消耗暂存也不改写角色", async () => {
+		const xlsx = await import("xlsx");
+		const charA = await createPlCharacter("PL目标A");
+		const charB = await createPlCharacter("PL目标B");
+
+		const wb = xlsx.utils.book_new();
+		xlsx.utils.book_append_sheet(
+			wb,
+			xlsx.utils.aoa_to_sheet([
+				["姓名", "改写名字"],
+				["力量", 75],
+				["侦查", 65],
+			]),
+			"Sheet1",
+		);
+		const buf = xlsx.write(wb, {
+			type: "array",
+			bookType: "xlsx",
+		}) as ArrayBuffer;
+
+		const previewForm = new FormData();
+		previewForm.append(
+			"file",
+			new Blob([buf], {
+				type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+			}),
+			"update.xlsx",
+		);
+		previewForm.append("ruleId", "coc7e");
+
+		const previewRes = await ctx.app.handle(
+			new Request(
+				`http://localhost/api/v1/pl/characters/import/preview?characterId=${encodeURIComponent(charA.id)}`,
+				{
+					method: "POST",
+					headers: { Authorization: `Bearer ${plToken}` },
+					body: previewForm,
+				},
+			),
+		);
+		expect(previewRes.status).toBe(200);
+		const { importToken } = (await previewRes.json()) as {
+			importToken: string;
+		};
+
+		const wrongTarget = await api("/api/v1/pl/characters/import/confirm", {
+			method: "POST",
+			token: plToken,
+			body: JSON.stringify({
+				importToken,
+				kind: "pc",
+				characterId: charB.id,
+			}),
+		});
+		expect(wrongTarget.status).toBe(409);
+		expect(((await wrongTarget.json()) as { code: string }).code).toBe(
+			"STAGING_TARGET_MISMATCH",
+		);
+
+		const createMismatch = await api("/api/v1/pl/characters/import/confirm", {
+			method: "POST",
+			token: plToken,
+			body: JSON.stringify({
+				importToken,
+				kind: "pc",
+			}),
+		});
+		expect(createMismatch.status).toBe(409);
+		expect(((await createMismatch.json()) as { code: string }).code).toBe(
+			"STAGING_TARGET_MISMATCH",
+		);
+
+		const checkB = await api(`/api/v1/pl/characters/${charB.id}`, {
+			token: plToken,
+		});
+		expect(CharacterDetailDto.parse(await checkB.json()).name).toBe("PL目标B");
+
+		const correctTarget = await api("/api/v1/pl/characters/import/confirm", {
+			method: "POST",
+			token: plToken,
+			body: JSON.stringify({
+				importToken,
+				kind: "pc",
+				characterId: charA.id,
+			}),
+		});
+		expect(correctTarget.status).toBe(200);
+		expect(CharacterDto.parse(await correctTarget.json()).name).toBe(
+			"改写名字",
+		);
+	});
 });

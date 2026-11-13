@@ -13,6 +13,8 @@ import {
 	CreateUserUseCase,
 	createAuthPlugin,
 	DrizzleIdentityRepository,
+	InvalidPasswordError,
+	isPasswordFieldFailure,
 	ResetUserPasswordUseCase,
 	UpdateUserUseCase,
 	UserNotFoundError,
@@ -85,6 +87,9 @@ export function createAdminRoutes(container: Container) {
 			requireAdmin(actor);
 			const parsed = CreateUserRequest.safeParse(body);
 			if (!parsed.success) {
+				if (isPasswordFieldFailure(parsed.error, "password")) {
+					throw new InvalidPasswordError();
+				}
 				throw validationFailed(parsed.error);
 			}
 			const user = await createUser.execute(parsed.data);
@@ -124,6 +129,9 @@ export function createAdminRoutes(container: Container) {
 				requireAdmin(actor);
 				const parsed = ResetUserPasswordRequest.safeParse(body);
 				if (!parsed.success) {
+					if (isPasswordFieldFailure(parsed.error, "password")) {
+						throw new InvalidPasswordError();
+					}
 					throw validationFailed(parsed.error);
 				}
 				await resetPassword.execute({

@@ -1,4 +1,16 @@
-import { and, asc, desc, eq, gt, inArray, isNull, or } from "drizzle-orm";
+import {
+	and,
+	asc,
+	desc,
+	eq,
+	gt,
+	gte,
+	inArray,
+	isNull,
+	lt,
+	or,
+	sql,
+} from "drizzle-orm";
 import type { DbClient } from "@/platform/db/client";
 import {
 	anonymousPlayers,
@@ -16,6 +28,8 @@ import {
 import type {
 	ClaimRecord,
 	SeatHolderInput,
+	SessionCharacterOwnerState,
+	SessionCharacterReviewState,
 	SessionKickInput,
 	SessionKickRecord,
 	SessionsRepository,
@@ -40,6 +54,38 @@ export class DrizzleSessionsRepository implements SessionsRepository {
 			.where(eq(sessions.id, id))
 			.limit(1);
 		return result[0] ?? null;
+	}
+
+	async findActiveSessionById(id: string, db: DbClient = this.db) {
+		const result = await db
+			.select()
+			.from(sessions)
+			.where(and(eq(sessions.id, id), isNull(sessions.deletedAt)))
+			.limit(1);
+		return result[0] ?? null;
+	}
+
+	async findActiveSessionIdsByPrefix(
+		prefix: string,
+		limit: number,
+		db: DbClient = this.db,
+	): Promise<string[]> {
+		const normalized = prefix.toLowerCase();
+		const upper =
+			normalized.slice(0, -1) +
+			String.fromCharCode(normalized.charCodeAt(normalized.length - 1) + 1);
+		const rows = await db
+			.select({ id: sessions.id })
+			.from(sessions)
+			.where(
+				and(
+					gte(sessions.id, normalized),
+					lt(sessions.id, upper),
+					isNull(sessions.deletedAt),
+				),
+			)
+			.limit(limit);
+		return rows.map((row) => row.id);
 	}
 
 	async saveSession(session: typeof sessions.$inferInsert): Promise<void> {
@@ -593,22 +639,83 @@ export class DrizzleSessionsRepository implements SessionsRepository {
 			);
 	}
 
-	async findApprovedReviewCharacters(sessionId: string): Promise<string[]> {
+	async findSessionReviewStates(
+		sessionId: string,
+		characterIds?: string[],
+	): Promise<Map<string, SessionCharacterReviewState>> {
+		if (characterIds && characterIds.length === 0) {
+			return new Map();
+		}
+		const conditions = [
+			eq(characterReviews.scope, "session"),
+			eq(characterReviews.targetId, sessionId),
+			isNull(characterReviews.deletedAt),
+		];
+		if (characterIds && characterIds.length > 0) {
+			conditions.push(inArray(characterReviews.characterId, characterIds));
+		}
 		const rows = await this.db
-			.select({ characterId: characterReviews.characterId })
+			.select({
+				characterId: characterReviews.characterId,
+				status: characterReviews.status,
+				submittedByUserId: characterReviews.submittedByUserId,
+				submittedSheetVersion: characterReviews.submittedSheetVersion,
+				currentSheetVersion: characters.sheetVersion,
+				characterDeletedAt: characters.deletedAt,
+			})
 			.from(characterReviews)
-			.innerJoin(characters, eq(characterReviews.characterId, characters.id))
-			.where(
-				and(
-					eq(characterReviews.scope, "session"),
-					eq(characterReviews.targetId, sessionId),
-					eq(characterReviews.status, "approved"),
-					eq(characterReviews.submittedSheetVersion, characters.sheetVersion),
-					isNull(characterReviews.deletedAt),
-					isNull(characters.deletedAt),
-				),
+			.leftJoin(characters, eq(characterReviews.characterId, characters.id))
+			.where(and(...conditions))
+			.orderBy(
+				desc(characterReviews.createdAt),
+				desc(sql`character_reviews.rowid`),
 			);
-		return [...new Set(rows.map((row) => row.characterId))];
+
+		const latest = new Map<string, SessionCharacterReviewState>();
+		for (const row of rows) {
+			if (!latest.has(row.characterId)) {
+				latest.set(row.characterId, {
+					characterId: row.characterId,
+					status: row.status,
+					submittedByUserId: row.submittedByUserId,
+					submittedSheetVersion: row.submittedSheetVersion,
+					currentSheetVersion: row.currentSheetVersion ?? null,
+					characterDeleted: row.characterDeletedAt !== null,
+				});
+			}
+		}
+		return latest;
+	}
+
+	async findCharacterOwners(
+		characterIds: string[],
+	): Promise<Map<string, SessionCharacterOwnerState>> {
+		if (characterIds.length === 0) {
+			return new Map();
+		}
+		const rows = await this.db
+			.select({
+				characterId: characters.id,
+				ownerId: characters.ownerId,
+				ownerKind: characters.ownerKind,
+				ownerRole: users.role,
+				characterDeletedAt: characters.deletedAt,
+			})
+			.from(characters)
+			.leftJoin(users, eq(characters.ownerId, users.id))
+			.where(inArray(characters.id, characterIds));
+
+		const owners = new Map<string, SessionCharacterOwnerState>();
+		for (const row of rows) {
+			owners.set(row.characterId, {
+				characterId: row.characterId,
+				ownerId: row.ownerId,
+				ownerKind: row.ownerKind,
+				ownerRole: row.ownerRole ?? null,
+				characterDeleted: row.characterDeletedAt !== null,
+			});
+		}
+		return owners;
 	}
 
 	async findActiveClaims(sessionId: string): Promise<ClaimRecord[]> {

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from "bun:test";
-import { render } from "@testing-library/react";
+import { render, waitFor } from "@testing-library/react";
 import { ChatMessageCard } from "../src/features/chat/chat-message-card";
 import { GmChatPanel } from "../src/features/gm-console/gm-chat-panel";
 import { GmToolProvider } from "../src/features/gm-console/gm-tool-context";
@@ -72,6 +72,100 @@ describe("GM stage and speaker labels", () => {
 		}
 		view.rerender(<DialogueBox speaker="主持人" text="新发言" />);
 		expect(body?.scrollTop).toBe(0);
+	});
+
+	test("delegated GM stage shows the empty state for a selected scene with no background", () => {
+		const view = render(
+			<GmConsoleStage
+				view={{
+					sceneName: "弗兰克餐馆 · 街景",
+					sceneBgUrl: null,
+					status: "active",
+					phase: "performance_time",
+					hasDialogue: false,
+				}}
+				nodes={{
+					sceneInfo: null,
+					portrait: <div data-testid="portrait">立绘</div>,
+					dialogue: null,
+					audio: null,
+				}}
+			/>,
+		);
+		const title = view.getByText("暂无场景画面");
+		expect(
+			view.getByText("选择场景或背景后，画面会显示在这里。"),
+		).not.toBeNull();
+		const surface = title.closest(".pointer-events-none.bg-transparent");
+		expect(surface?.className).toContain("rounded-none");
+		expect(
+			view.container.querySelector("svg.lucide-clapperboard"),
+		).not.toBeNull();
+		expect(view.getByTestId("portrait")).not.toBeNull();
+		expect(view.container.querySelector("img")).toBeNull();
+	});
+
+	test("delegated GM stage crossfades backgrounds and restores empty state on deselection", async () => {
+		const nodes = {
+			sceneInfo: null,
+			portrait: null,
+			dialogue: null,
+			audio: null,
+		};
+		const view = render(
+			<GmConsoleStage
+				view={{
+					sceneName: "弗兰克餐馆 · 街景",
+					sceneBgUrl: "/media/first.png",
+					status: "active",
+					phase: "performance_time",
+					hasDialogue: false,
+				}}
+				nodes={nodes}
+			/>,
+		);
+		expect(
+			view.container.querySelector('img[src="/media/first.png"]'),
+		).not.toBeNull();
+
+		view.rerender(
+			<GmConsoleStage
+				view={{
+					sceneName: "夜色街道",
+					sceneBgUrl: "/media/second.png",
+					status: "active",
+					phase: "performance_time",
+					hasDialogue: false,
+				}}
+				nodes={nodes}
+			/>,
+		);
+		await waitFor(() => {
+			expect(
+				view.container.querySelector('img[src="/media/first.png"]'),
+			).not.toBeNull();
+			const front = view.container.querySelector(
+				'img[src="/media/second.png"]',
+			);
+			expect(front?.className).toContain("opacity-100");
+		});
+
+		view.rerender(
+			<GmConsoleStage
+				view={{
+					sceneName: "夜色街道",
+					sceneBgUrl: null,
+					status: "active",
+					phase: "performance_time",
+					hasDialogue: false,
+				}}
+				nodes={nodes}
+			/>,
+		);
+		await waitFor(() => {
+			expect(view.getByText("暂无场景画面")).not.toBeNull();
+			expect(view.container.querySelector("img")).toBeNull();
+		});
 	});
 
 	test("GM stage reuses the player desktop stage layout", () => {

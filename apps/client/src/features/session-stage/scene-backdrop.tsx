@@ -1,4 +1,7 @@
+import { Clapperboard } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { EmptyState } from "@/components/shared/empty-state";
+import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 
 export function SceneBackdrop({
@@ -24,26 +27,37 @@ export function SceneBackdrop({
 			return;
 		}
 		frontRef.current = src;
-		setBack(previous);
+		setBack(src ? previous : undefined);
 		setFront(src);
 		setFrontVisible(false);
 		const frame = window.requestAnimationFrame(() => {
 			window.requestAnimationFrame(() => setFrontVisible(true));
 		});
-		const timer = window.setTimeout(() => setBack(undefined), 320);
+		const timer = src ? window.setTimeout(() => setBack(undefined), 320) : null;
 		return () => {
 			window.cancelAnimationFrame(frame);
-			window.clearTimeout(timer);
+			if (timer !== null) {
+				window.clearTimeout(timer);
+			}
 		};
 	}, [src]);
 
 	return (
 		<div
 			className={cn(
-				"absolute inset-0 overflow-hidden bg-stage-scrim",
+				"absolute inset-0 overflow-hidden",
+				front ? "bg-stage-scrim" : "bg-transparent",
 				className,
 			)}
 		>
+			{!front ? (
+				<EmptyState
+					icon={Clapperboard}
+					title={t("play.sceneEmpty")}
+					description={t("play.sceneEmptyDescription")}
+					className="pointer-events-none absolute inset-0 rounded-none bg-transparent"
+				/>
+			) : null}
 			{back ? (
 				<img
 					src={back}

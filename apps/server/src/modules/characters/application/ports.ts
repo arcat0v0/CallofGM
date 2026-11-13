@@ -38,6 +38,7 @@ export interface CharacterPortraitRecord {
 export interface StagingRecord {
 	id: string;
 	ownerId: string;
+	targetCharacterId: string | null;
 	characterName: string;
 	sheetJson: string;
 	patchJson: string | null;
@@ -113,6 +114,16 @@ export interface CharacterReviewRecord {
 	deletedAt: number | null;
 	createdAt: number;
 }
+
+export type NewCharacterReviewInput = Omit<
+	CharacterReviewRecord,
+	"decisionReason" | "decidedByUserId" | "decidedAt" | "deletedAt"
+> & {
+	decisionReason?: string | null;
+	decidedByUserId?: string | null;
+	decidedAt?: number | null;
+	deletedAt?: number | null;
+};
 
 export interface CharacterReviewDetail extends CharacterReviewRecord {
 	characterName: string;
@@ -317,6 +328,10 @@ export interface CharactersRepository {
 		targetId: string,
 		characterId: string,
 	): Promise<CharacterReviewRecord | null>;
+	replacePendingReview(
+		review: NewCharacterReviewInput,
+		supersededAt: number,
+	): Promise<void>;
 
 	findUserDisplayName(userId: string): Promise<string | null>;
 }

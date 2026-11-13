@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { RandomSource } from "@/platform/ports";
 import {
 	DICE_LIMITS,
+	DiceExpressionOutOfRangeError,
 	evaluateLossExpression,
 	formatExpression,
 	formatRollDetail,
@@ -60,11 +61,42 @@ describe("DiceExpressionParser", () => {
 			faces: 8,
 			modifier: 0,
 		});
+		expect(parseDiceExpression("1d2")).toEqual({
+			count: 1,
+			faces: 2,
+			modifier: 0,
+		});
+		expect(
+			parseDiceExpression(
+				`${DICE_LIMITS.maxCount}d${DICE_LIMITS.maxFaces}+${DICE_LIMITS.maxModifier}`,
+			),
+		).toEqual({
+			count: DICE_LIMITS.maxCount,
+			faces: DICE_LIMITS.maxFaces,
+			modifier: DICE_LIMITS.maxModifier,
+		});
+		expect(
+			parseDiceExpression(
+				`${DICE_LIMITS.maxCount}d${DICE_LIMITS.maxFaces}-${DICE_LIMITS.maxModifier}`,
+			),
+		).toEqual({
+			count: DICE_LIMITS.maxCount,
+			faces: DICE_LIMITS.maxFaces,
+			modifier: -DICE_LIMITS.maxModifier,
+		});
+		const maxLengthExpr = `1d6+${"0".repeat(DICE_LIMITS.maxExpressionLength - 8)}1000`;
+		expect(maxLengthExpr.length).toBe(DICE_LIMITS.maxExpressionLength);
+		expect(parseDiceExpression(maxLengthExpr)).toEqual({
+			count: 1,
+			faces: 6,
+			modifier: 1000,
+		});
 	});
 
 	test("拒绝非法表达式", () => {
 		for (const expr of [
 			"",
+			"   ",
 			"abc",
 			"1d",
 			"d",
@@ -72,8 +104,6 @@ describe("DiceExpressionParser", () => {
 			"1d6*2",
 			"1 d 6",
 			"-3d6",
-			"0d6",
-			"1d1",
 		]) {
 			expect(() => parseDiceExpression(expr)).toThrow(
 				InvalidDiceExpressionError,
@@ -82,21 +112,29 @@ describe("DiceExpressionParser", () => {
 	});
 
 	test("拒绝超限表达式", () => {
-		expect(() =>
-			parseDiceExpression(`${DICE_LIMITS.maxCount + 1}d6`),
-		).toThrow();
-		expect(() =>
-			parseDiceExpression(`1d${DICE_LIMITS.maxFaces + 1}`),
-		).toThrow();
-		expect(() =>
-			parseDiceExpression(`1d6+${DICE_LIMITS.maxModifier + 1}`),
-		).toThrow();
-		expect(() =>
-			parseDiceExpression(`1d6-${DICE_LIMITS.maxModifier + 1}`),
-		).toThrow();
-		expect(() =>
-			parseDiceExpression("1".repeat(DICE_LIMITS.maxExpressionLength + 1)),
-		).toThrow();
+		for (const expr of [
+			"0d6",
+			"1d0",
+			"1d1",
+			`${DICE_LIMITS.maxCount + 1}d6`,
+			`1d${DICE_LIMITS.maxFaces + 1}`,
+			`1d6+${DICE_LIMITS.maxModifier + 1}`,
+			`1d6-${DICE_LIMITS.maxModifier + 1}`,
+			"1".repeat(DICE_LIMITS.maxExpressionLength + 1),
+			`1d6+${"0".repeat(DICE_LIMITS.maxExpressionLength - 3)}1`,
+		]) {
+			let caught: unknown;
+			try {
+				parseDiceExpression(expr);
+			} catch (err) {
+				caught = err;
+			}
+			expect(caught).toBeInstanceOf(DiceExpressionOutOfRangeError);
+			expect(caught).not.toBeInstanceOf(InvalidDiceExpressionError);
+			expect((caught as DiceExpressionOutOfRangeError).code).toBe(
+				"DICE_EXPRESSION_OUT_OF_RANGE",
+			);
+		}
 	});
 
 	test("掷骰合计", () => {

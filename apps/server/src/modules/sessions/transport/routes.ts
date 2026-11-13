@@ -15,6 +15,7 @@ import {
 	PlSessionSummaryDto,
 	RemoveSessionNpcResponse,
 	RenameSessionRequest,
+	ResolveSessionReferenceResponse,
 	SessionCloseCode,
 	SessionDetailResponse,
 	SessionDto,
@@ -59,6 +60,8 @@ import {
 	ListSessionsUseCase,
 	ReleaseSeatUseCase,
 	RenameSessionUseCase,
+	ResolveSessionReferenceUseCase,
+	resolveSessionClaimableCharacterIds,
 	UpdateSessionPhaseUseCase,
 	UpdateSessionStatusUseCase,
 } from "../application/use-cases";
@@ -142,6 +145,7 @@ export function createSessionsRoutes(container: Container) {
 	const getSessionSnapshot = new GetSessionSnapshotUseCase(repo);
 	const listSessions = new ListSessionsUseCase(repo);
 	const renameSession = new RenameSessionUseCase(repo);
+	const resolveSessionReference = new ResolveSessionReferenceUseCase(repo);
 	const releaseSeat = new ReleaseSeatUseCase(repo, container.clock);
 	const gmAssignClaim = new GmAssignClaimUseCase(
 		repo,
@@ -482,25 +486,43 @@ export function createSessionsRoutes(container: Container) {
 			},
 		)
 		.get(
+			"/api/v1/public/session-references/:reference",
+			async ({ params: { reference }, request, server }) => {
+				container.httpLimits.sessionReferenceRateLimiter.assert(
+					clientIp(request, server, container.env.TRUST_PROXY),
+				);
+				return ResolveSessionReferenceResponse.parse(
+					await resolveSessionReference.execute(
+						typeof reference === "string" ? reference : "",
+					),
+				);
+			},
+		)
+		.get(
 			"/api/v1/public/sessions/:id/join-info",
-			async ({ params: { id } }) => {
+			async ({ actor, params: { id } }) => {
 				const snapshot = await getSessionSnapshot.execute(id);
 				const moduleRecord = await repo.findModuleById(
 					snapshot.session.moduleId,
 				);
-				const approvedIds = new Set(
-					await repo.findApprovedReviewCharacters(id),
+				const viewerUserId =
+					actor?.type === "user" && actor.role === "pl" ? actor.userId : null;
+				const pcSnapshots = snapshot.characters.filter(
+					(character) => character.kind === "pc",
 				);
-				const characters = snapshot.characters
-					.filter((character) => character.kind === "pc")
-					.map((character) => ({
-						id: character.characterId ?? character.id,
-						name: character.name,
-						kind: character.kind,
-						claimed: character.claim !== null,
-						claimable:
-							approvedIds.size === 0 || approvedIds.has(character.characterId),
-					}));
+				const claimableIds = await resolveSessionClaimableCharacterIds(
+					repo,
+					id,
+					pcSnapshots.map((character) => character.characterId),
+					viewerUserId,
+				);
+				const characters = pcSnapshots.map((character) => ({
+					id: character.characterId ?? character.id,
+					name: character.name,
+					kind: character.kind,
+					claimed: character.claim !== null,
+					claimable: claimableIds.has(character.characterId),
+				}));
 				return JoinInfoResponse.parse({
 					session: {
 						id: snapshot.session.id,
@@ -582,17 +604,22 @@ export function createSessionsRoutes(container: Container) {
 			}
 			const holder = requireSeatHolder(actor);
 			const claim = await repo.findActiveClaimByHolder(id, holder);
-			const approved = await repo.findApprovedReviewCharacters(id);
-			const claimableIds = new Set(approved);
 			const autoCandidate =
-				!claim && holder.holderKind === "user"
-					? (await repo.findSessionCharactersWithClaims(id)).filter(
-							(entry) =>
-								entry.kind === "pc" &&
-								entry.claim === null &&
-								(claimableIds.size === 0 ||
-									claimableIds.has(entry.characterId)),
-						)
+				!claim && holder.holderKind === "user" && holder.userId
+					? await (async () => {
+							const openPcs = (
+								await repo.findSessionCharactersWithClaims(id)
+							).filter((entry) => entry.kind === "pc" && entry.claim === null);
+							const claimableIds = await resolveSessionClaimableCharacterIds(
+								repo,
+								id,
+								openPcs.map((entry) => entry.characterId),
+								holder.userId,
+							);
+							return openPcs.filter((entry) =>
+								claimableIds.has(entry.characterId),
+							);
+						})()
 					: [];
 			return MyClaimResponse.parse({
 				claim: claim

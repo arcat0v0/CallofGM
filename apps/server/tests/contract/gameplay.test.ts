@@ -603,4 +603,34 @@ describe("Gameplay contract tests", () => {
 
 		await closeAll(gm2, pc1Again, pc2Again);
 	});
+
+	test("骰点越界返回 DICE_EXPRESSION_OUT_OF_RANGE，语法错误与 SAN 损失映射保持不变", async () => {
+		await setSessionPhase(ctx, "free_discussion");
+		const { gm, pc1, pc2 } = await openAll();
+
+		for (const expr of ["0d6", "51d6", "1d1001", "1d6+10001", "1".repeat(33)]) {
+			const commandId = `oor-${expr.length}-${expr.slice(0, 6)}`;
+			sendCommand(pc1, "dice:roll", { expression: expr }, commandId);
+			const reply = await pc1.waitFor((m) => m.commandId === commandId);
+			expect(reply.type).toBe("command:rejected");
+			expect(reply.payload.code).toBe("DICE_EXPRESSION_OUT_OF_RANGE");
+		}
+
+		sendCommand(pc1, "dice:roll", { expression: "bad" }, "bad-syntax");
+		const badReply = await pc1.waitFor((m) => m.commandId === "bad-syntax");
+		expect(badReply.type).toBe("command:rejected");
+		expect(badReply.payload.code).toBe("INVALID_DICE_EXPRESSION");
+
+		sendCommand(
+			gm,
+			"check:san",
+			{ characterId: "char-pc1", sanLossExpression: "1/51d6" },
+			"san-oor",
+		);
+		const sanReply = await gm.waitFor((m) => m.commandId === "san-oor");
+		expect(sanReply.type).toBe("command:rejected");
+		expect(sanReply.payload.code).toBe("INVALID_SAN_LOSS_EXPRESSION");
+
+		await closeAll(gm, pc1, pc2);
+	});
 });

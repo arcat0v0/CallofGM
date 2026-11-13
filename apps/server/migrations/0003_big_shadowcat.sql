@@ -1,0 +1,1 @@
+ALTER TABLE `import_stagings` ADD `target_character_id` text REFERENCES characters(id);

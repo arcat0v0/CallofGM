@@ -198,7 +198,7 @@ BgmState = { trackId, playing, volume, loop, seekOffset, startedAt(服务器时�
 | `/gm` | GM 后台：模组/人物/团/模板/审核待办/回收站 |
 | `/gm/session/$sessionId` | GM 控制台：控场、切场景/立绘/音乐、发放情报、演绎队列放行、历史与回溯、在线管理 |
 
-选 TanStack Router 而非 React Router：路由参数与 search params 全类型安全，`$sessionId` 这类参数不会出现手写字符串取参的运行时错误，与 Eden Treaty / Drizzle / zod 的端到端类型安全路线一致。路由树按角色挂守卫：`/admin/*` 仅 admin，`/gm/*` 仅 gm，`/pl/*` 仅 pl；越权访问重定向到 `/login` 或 404。
+选 TanStack Router 而非 React Router：路由参数与 search params 全类型安全，`$sessionId` 这类参数不会出现手写字符串取参的运行时错误，与 Eden Treaty / Drizzle / zod 的端到端类型安全路线一致。路由树按角色挂守卫：`/admin/*` 仅 admin，`/gm/*` 仅 gm，`/pl/*` 仅 pl；未登录访问重定向到 `/login`，已登录但角色不符时重定向到当前角色自己的工作台，不继承其他角色权限。
 
 ## Excel 人物卡导入
 

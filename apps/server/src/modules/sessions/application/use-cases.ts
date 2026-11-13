@@ -1,3 +1,7 @@
+import {
+	extractSessionReference,
+	isSixHexSessionReference,
+} from "@cogm/shared";
 import { ModuleNotFoundError } from "@/modules/catalog";
 import { CharacterNotFoundError } from "@/modules/characters";
 import type { SessionEventBus } from "@/modules/realtime";
@@ -8,11 +12,19 @@ import {
 	CharacterAlreadyParticipatingError,
 	CharacterNotInModuleError,
 	SeatAlreadyClaimedError,
+	SessionCharacterNotClaimableError,
 	SessionKickedError,
 	SessionNotFoundError,
+	SessionReferenceAmbiguousError,
 	SessionStateInvalidError,
 } from "../domain/errors";
-import type { HolderKind, SeatHolderInput, SessionsRepository } from "./ports";
+import type {
+	HolderKind,
+	SeatHolderInput,
+	SessionCharacterOwnerState,
+	SessionCharacterReviewState,
+	SessionsRepository,
+} from "./ports";
 import { holderKeyOf } from "./ports";
 
 function normaliseSessionName(name: string | null | undefined): string | null {
@@ -29,6 +41,69 @@ function resolvedHolder(holder: SeatHolderInput) {
 		playerId: holder.holderKind === "anonymous" ? holder.playerId : null,
 		userId: holder.holderKind === "user" ? holder.userId : null,
 	};
+}
+
+export function isSessionCharacterClaimable(
+	review: SessionCharacterReviewState | undefined,
+	owner: SessionCharacterOwnerState | undefined,
+	viewerUserId: string | null,
+): boolean {
+	if (review) {
+		const isCurrentApproved =
+			review.status === "approved" &&
+			!review.characterDeleted &&
+			review.currentSheetVersion !== null &&
+			review.submittedSheetVersion === review.currentSheetVersion;
+		if (!isCurrentApproved) {
+			return false;
+		}
+		return viewerUserId === null || review.submittedByUserId === viewerUserId;
+	}
+	if (!owner || owner.characterDeleted) {
+		return false;
+	}
+	if (viewerUserId === null) {
+		return true;
+	}
+	if (owner.ownerRole === "gm" && owner.ownerKind === "gm") {
+		return true;
+	}
+	return owner.ownerId === viewerUserId;
+}
+
+export async function resolveSessionClaimableCharacterIds(
+	repo: SessionsRepository,
+	sessionId: string,
+	characterIds: string[],
+	viewerUserId: string | null,
+): Promise<Set<string>> {
+	if (characterIds.length === 0) {
+		return new Set();
+	}
+	const reviewStates = await repo.findSessionReviewStates(
+		sessionId,
+		characterIds,
+	);
+	const unreviewedIds = characterIds.filter(
+		(characterId) => !reviewStates.has(characterId),
+	);
+	const ownerStates =
+		unreviewedIds.length > 0
+			? await repo.findCharacterOwners(unreviewedIds)
+			: new Map();
+	const claimable = new Set<string>();
+	for (const characterId of characterIds) {
+		if (
+			isSessionCharacterClaimable(
+				reviewStates.get(characterId),
+				ownerStates.get(characterId),
+				viewerUserId,
+			)
+		) {
+			claimable.add(characterId);
+		}
+	}
+	return claimable;
 }
 
 export class CreateSessionUseCase {
@@ -261,7 +336,7 @@ export class ClaimSeatUseCase {
 		}
 
 		if (input.role === "pc") {
-			if (input.holder.holderKind !== "user") {
+			if (input.holder.holderKind !== "user" || !input.holder.userId) {
 				throw new SessionStateInvalidError("PC seats require a player account");
 			}
 			if (!input.characterId) {
@@ -297,6 +372,16 @@ export class ClaimSeatUseCase {
 						"This character's seat is already claimed",
 					);
 				}
+			}
+
+			const claimableIds = await resolveSessionClaimableCharacterIds(
+				this.repo,
+				input.sessionId,
+				[input.characterId],
+				input.holder.userId,
+			);
+			if (!claimableIds.has(input.characterId)) {
+				throw new SessionCharacterNotClaimableError();
 			}
 		}
 
@@ -580,6 +665,47 @@ export class ListSessionsUseCase {
 		cursor?: string;
 	}) {
 		return await this.repo.listSessions(options);
+	}
+}
+
+export class ResolveSessionReferenceUseCase {
+	constructor(private readonly repo: SessionsRepository) {}
+
+	async execute(reference: string): Promise<{ sessionId: string }> {
+		const trimmed = reference.trim();
+		if (!trimmed) {
+			throw new SessionNotFoundError();
+		}
+
+		const exact = await this.repo.findActiveSessionById(trimmed);
+		if (exact) {
+			return { sessionId: exact.id };
+		}
+
+		const extracted = extractSessionReference(trimmed);
+		if (!extracted) {
+			throw new SessionNotFoundError();
+		}
+		if (extracted !== trimmed) {
+			const extractedExact = await this.repo.findActiveSessionById(extracted);
+			if (extractedExact) {
+				return { sessionId: extractedExact.id };
+			}
+		}
+
+		if (!isSixHexSessionReference(extracted)) {
+			throw new SessionNotFoundError();
+		}
+
+		const matches = await this.repo.findActiveSessionIdsByPrefix(extracted, 2);
+		const [match] = matches;
+		if (!match) {
+			throw new SessionNotFoundError();
+		}
+		if (matches.length > 1) {
+			throw new SessionReferenceAmbiguousError();
+		}
+		return { sessionId: match };
 	}
 }
 

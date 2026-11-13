@@ -106,6 +106,9 @@ describe("Admin account management", () => {
 			}),
 		});
 		expect(res.status).toBe(409);
+		expect(((await res.json()) as { code: string }).code).toBe(
+			"USERNAME_TAKEN",
+		);
 	});
 
 	test("禁用后该账号无法登录，且撤销其活动会话", async () => {
@@ -128,6 +131,21 @@ describe("Admin account management", () => {
 			body: JSON.stringify({ username: "flow-disable", password: PASSWORD }),
 		});
 		expect(login.status).toBe(403);
+		expect(((await login.json()) as { code: string }).code).toBe(
+			"ACCOUNT_DISABLED",
+		);
+
+		const wrongPassword = await api("/api/v1/auth/login", {
+			method: "POST",
+			body: JSON.stringify({
+				username: "flow-disable",
+				password: "wrong-password",
+			}),
+		});
+		expect(wrongPassword.status).toBe(401);
+		expect(((await wrongPassword.json()) as { code: string }).code).toBe(
+			"INVALID_CREDENTIALS",
+		);
 
 		const enable = await api(`/api/v1/admin/users/${created.id}`, {
 			method: "PATCH",
@@ -157,6 +175,21 @@ describe("Admin account management", () => {
 			body: JSON.stringify({ username: "flow-deleted", password: PASSWORD }),
 		});
 		expect(login.status).toBe(403);
+		expect(((await login.json()) as { code: string }).code).toBe(
+			"ACCOUNT_DISABLED",
+		);
+
+		const wrongPassword = await api("/api/v1/auth/login", {
+			method: "POST",
+			body: JSON.stringify({
+				username: "flow-deleted",
+				password: "wrong-password",
+			}),
+		});
+		expect(wrongPassword.status).toBe(401);
+		expect(((await wrongPassword.json()) as { code: string }).code).toBe(
+			"INVALID_CREDENTIALS",
+		);
 
 		const reuse = await api("/api/v1/admin/users", {
 			method: "POST",
@@ -168,6 +201,9 @@ describe("Admin account management", () => {
 			}),
 		});
 		expect(reuse.status).toBe(409);
+		expect(((await reuse.json()) as { code: string }).code).toBe(
+			"USERNAME_TAKEN",
+		);
 
 		const restore = await api(`/api/v1/admin/users/${created.id}`, {
 			method: "PATCH",
@@ -260,5 +296,66 @@ describe("Admin account management", () => {
 			body: JSON.stringify({ disabled: true }),
 		});
 		expect(disable.status).toBe(200);
+	});
+
+	test("建号与重置密码时校验密码长度并返回 400 INVALID_PASSWORD（不含 Zod 内部细节）", async () => {
+		for (const badPassword of ["short7", "x".repeat(129)]) {
+			const createRes = await api("/api/v1/admin/users", {
+				method: "POST",
+				token: adminToken,
+				body: JSON.stringify({
+					username: "flow-bad-pw",
+					password: badPassword,
+					role: "pl",
+				}),
+			});
+			expect(createRes.status).toBe(400);
+			const createText = await createRes.text();
+			const createBody = JSON.parse(createText) as Record<string, unknown>;
+			expect(createBody.code).toBe("INVALID_PASSWORD");
+			expect(createText).not.toContain("too_small");
+			expect(createText).not.toContain("too_big");
+			expect(createText).not.toContain("issues");
+		}
+
+		const badUsernameRes = await api("/api/v1/admin/users", {
+			method: "POST",
+			token: adminToken,
+			body: JSON.stringify({
+				username: "ab",
+				password: PASSWORD,
+				role: "pl",
+			}),
+		});
+		expect(badUsernameRes.status).toBe(400);
+		expect(((await badUsernameRes.json()) as { code: string }).code).toBe(
+			"VALIDATION_FAILED",
+		);
+
+		const created = await createUser("flow-pw-bounds", "pl");
+		for (const badPassword of ["1234567", "y".repeat(129)]) {
+			const resetRes = await api(`/api/v1/admin/users/${created.id}/password`, {
+				method: "POST",
+				token: adminToken,
+				body: JSON.stringify({ password: badPassword }),
+			});
+			expect(resetRes.status).toBe(400);
+			const resetText = await resetRes.text();
+			const resetBody = JSON.parse(resetText) as Record<string, unknown>;
+			expect(resetBody.code).toBe("INVALID_PASSWORD");
+			expect(resetText).not.toContain("too_small");
+			expect(resetText).not.toContain("too_big");
+			expect(resetText).not.toContain("issues");
+		}
+
+		const okBoundaryReset = await api(
+			`/api/v1/admin/users/${created.id}/password`,
+			{
+				method: "POST",
+				token: adminToken,
+				body: JSON.stringify({ password: "z".repeat(128) }),
+			},
+		);
+		expect(okBoundaryReset.status).toBe(200);
 	});
 });

@@ -8,6 +8,35 @@ import { usePlayStore } from "../src/stores/play-store";
 import { PlayLayout } from "../src/themes/default/slots/play-layout";
 import { PlayStage } from "../src/themes/default/slots/play-stage";
 
+type StageView = Parameters<typeof PlayStage>[0]["view"];
+
+const emptyView = {
+	sceneName: "林中小屋",
+	sceneBgUrl: null,
+	status: "active",
+	phase: "free_discussion",
+	hasDialogue: false,
+} satisfies StageView;
+
+const stageNodes = {
+	sceneInfo: <div data-testid="scene-info">林中小屋</div>,
+	portrait: null,
+	dialogue: null,
+	audio: null,
+};
+
+function expectEmptyScene(view: ReturnType<typeof render>) {
+	const title = view.getByText("暂无场景画面");
+	const description = view.getByText("选择场景或背景后，画面会显示在这里。");
+	const surface = title.closest(".pointer-events-none.bg-transparent");
+	expect(surface?.className).toContain("rounded-none");
+	expect(
+		view.container.querySelector("svg.lucide-clapperboard"),
+	).not.toBeNull();
+	expect(description).not.toBeNull();
+	expect(view.container.querySelector("img")).toBeNull();
+}
+
 function expectStageGlass(element: Element | null) {
 	expect(element).not.toBeNull();
 	expect(element?.classList.contains("stage-glass")).toBe(true);
@@ -80,6 +109,57 @@ describe("stage glass surfaces", () => {
 			/>,
 		);
 		expectStageGlass(layout.getByTestId("chat").parentElement);
+	});
+
+	test("empty player stages reuse the transparent, non-interactive empty state", () => {
+		for (const viewport of ["desktop", "landscape", "portrait"] as const) {
+			const stage = render(
+				<PlayStage viewport={viewport} view={emptyView} nodes={stageNodes} />,
+			);
+			expectEmptyScene(stage);
+			expectStageGlass(stage.getByTestId("scene-info").parentElement);
+			stage.unmount();
+		}
+	});
+
+	test("a selected scene with no background still shows the empty state", () => {
+		usePlayStore.setState({
+			scene: { id: "scene-1", name: "林中小屋", bgAssetId: null },
+		});
+		const stage = render(
+			<PlayStage
+				viewport="desktop"
+				view={{ ...emptyView, sceneName: "林中小屋" }}
+				nodes={stageNodes}
+			/>,
+		);
+		expectEmptyScene(stage);
+	});
+
+	test("image appears on selection and the empty state returns on deselection", async () => {
+		const stage = render(
+			<PlayStage viewport="desktop" view={emptyView} nodes={stageNodes} />,
+		);
+		expectEmptyScene(stage);
+
+		stage.rerender(
+			<PlayStage
+				viewport="desktop"
+				view={{ ...emptyView, sceneBgUrl: "/media/scene-1.png" }}
+				nodes={stageNodes}
+			/>,
+		);
+		await waitFor(() => {
+			expect(
+				stage.container.querySelector('img[src="/media/scene-1.png"]'),
+			).not.toBeNull();
+			expect(stage.queryByText("暂无场景画面")).toBeNull();
+		});
+
+		stage.rerender(
+			<PlayStage viewport="desktop" view={emptyView} nodes={stageNodes} />,
+		);
+		await waitFor(() => expectEmptyScene(stage));
 	});
 
 	test("tool dock, player popover, and GM floating cards use the shared material", async () => {

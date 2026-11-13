@@ -6,6 +6,12 @@ export class SessionNotFoundError extends AppError {
 	}
 }
 
+export class SessionReferenceAmbiguousError extends AppError {
+	constructor(message = "Session reference is ambiguous") {
+		super("SESSION_REFERENCE_AMBIGUOUS", message, 409);
+	}
+}
+
 export class SessionStateInvalidError extends AppError {
 	constructor(message = "Session state is invalid") {
 		super("SESSION_STATE_INVALID", message, 400);
@@ -21,6 +27,12 @@ export class SessionPhaseForbidsActionError extends AppError {
 export class SeatAlreadyClaimedError extends AppError {
 	constructor(message = "Seat already claimed") {
 		super("SEAT_ALREADY_CLAIMED", message, 400);
+	}
+}
+
+export class SessionCharacterNotClaimableError extends AppError {
+	constructor(message = "This character cannot be claimed by you") {
+		super("SESSION_CHARACTER_NOT_CLAIMABLE", message, 403);
 	}
 }
 

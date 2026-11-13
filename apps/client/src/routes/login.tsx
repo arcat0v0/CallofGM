@@ -1,4 +1,4 @@
-import { LoginSearch, safeReturnTo, type UserRole } from "@cogm/shared";
+import { LoginSearch, safeReturnTo } from "@cogm/shared";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, Eye, EyeOff, Lock, User } from "lucide-react";
 import type * as React from "react";
@@ -14,22 +14,12 @@ import {
 import { VersionBadge } from "@/features/version/version-badge";
 import { t, useI18nVersion } from "@/i18n";
 import { isApiError } from "@/lib/api";
-import { loginAccount } from "@/lib/identity";
+import { loginAccount, roleHome } from "@/lib/identity";
 
 export const Route = createFileRoute("/login")({
 	validateSearch: (search) => LoginSearch.parse(search),
 	component: LoginPage,
 });
-
-function roleHome(role: UserRole): string {
-	if (role === "admin") {
-		return "/admin";
-	}
-	if (role === "pl") {
-		return "/pl";
-	}
-	return "/gm";
-}
 
 function LoginPage() {
 	useI18nVersion();

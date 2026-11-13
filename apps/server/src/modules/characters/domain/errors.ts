@@ -128,6 +128,14 @@ export class StagingOwnerMismatchError extends AppError {
 	}
 }
 
+export class StagingTargetMismatchError extends AppError {
+	constructor(
+		message = "Staging record target does not match confirm character target",
+	) {
+		super("STAGING_TARGET_MISMATCH", message, 409);
+	}
+}
+
 export class InvalidMediaAssetError extends AppError {
 	constructor(message = "Media asset is not valid for this purpose") {
 		super("MEDIA_INVALID", message, 400);

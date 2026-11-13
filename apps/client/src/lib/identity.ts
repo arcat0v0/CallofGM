@@ -3,6 +3,7 @@ import type {
 	LoginResponse,
 	PlayerIdentityResponse,
 	PlayerMeResponse,
+	UserRole,
 } from "@cogm/shared";
 import { redirect } from "@tanstack/react-router";
 import { type AccountRole, useIdentityStore } from "@/stores/identity-store";
@@ -90,6 +91,15 @@ export async function fetchAccountMe(): Promise<AuthMeResponse | null> {
 	}
 }
 
+export function roleHome(role: UserRole): "/admin" | "/gm" | "/pl" {
+	const homes: Record<UserRole, "/admin" | "/gm" | "/pl"> = {
+		admin: "/admin",
+		gm: "/gm",
+		pl: "/pl",
+	};
+	return homes[role];
+}
+
 export async function requireAccount(
 	roles: AccountRole[] = ["gm", "admin", "pl"],
 ): Promise<AuthMeResponse> {
@@ -98,7 +108,7 @@ export async function requireAccount(
 		throw redirect({ to: "/login" });
 	}
 	if (!roles.includes(me.role as AccountRole)) {
-		throw redirect({ to: "/login" });
+		throw redirect({ to: roleHome(me.role) });
 	}
 	return me;
 }

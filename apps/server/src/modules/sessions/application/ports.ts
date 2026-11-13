@@ -112,8 +112,34 @@ export interface SessionKickInput {
 	createdAt: number;
 }
 
+export interface SessionCharacterReviewState {
+	characterId: string;
+	status: string;
+	submittedByUserId: string;
+	submittedSheetVersion: number;
+	currentSheetVersion: number | null;
+	characterDeleted: boolean;
+}
+
+export interface SessionCharacterOwnerState {
+	characterId: string;
+	ownerId: string;
+	ownerKind: string;
+	ownerRole: string | null;
+	characterDeleted: boolean;
+}
+
 export interface SessionsRepository {
 	findSessionById(id: string, db?: DbClient): Promise<SessionRecord | null>;
+	findActiveSessionById(
+		id: string,
+		db?: DbClient,
+	): Promise<SessionRecord | null>;
+	findActiveSessionIdsByPrefix(
+		prefix: string,
+		limit: number,
+		db?: DbClient,
+	): Promise<string[]>;
 	saveSession(session: SessionRecord): Promise<void>;
 	updateSession(
 		id: string,
@@ -255,8 +281,13 @@ export interface SessionsRepository {
 			baseProfileVersion?: number;
 		},
 	): Promise<void>;
-	/** 本团已通过审核的可认领人物 id 列表；空表示未使用审核流程，全部 PC 可认领 */
-	findApprovedReviewCharacters(sessionId: string): Promise<string[]>;
+	findSessionReviewStates(
+		sessionId: string,
+		characterIds?: string[],
+	): Promise<Map<string, SessionCharacterReviewState>>;
+	findCharacterOwners(
+		characterIds: string[],
+	): Promise<Map<string, SessionCharacterOwnerState>>;
 	findActiveClaims(sessionId: string): Promise<ClaimRecord[]>;
 	findActiveSessionKick(
 		sessionId: string,

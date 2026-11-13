@@ -38,6 +38,7 @@ import {
 } from "@/modules/sessions";
 import { AppError } from "@/platform/errors/app-error";
 import { validationFailed } from "@/platform/errors/validation";
+import { assertXlsxUploadSize } from "@/platform/file-type";
 import { assertTrustedOrigin } from "@/platform/security/origin";
 import {
 	AddPortraitUseCase,
@@ -306,6 +307,7 @@ export function createCharactersRoutes(container: Container) {
 			async ({ body, actor, query }) => {
 				const gm = requireGm(actor);
 				const file = body.file as Blob;
+				assertXlsxUploadSize(file.size);
 				const parsedRuleId = RuleId.safeParse(body.ruleId);
 				if (!parsedRuleId.success) {
 					throw validationFailed(parsedRuleId.error);
@@ -655,6 +657,7 @@ export function createCharactersRoutes(container: Container) {
 			async ({ actor, body, query }) => {
 				const user = requireUser(actor);
 				const file = body.file as Blob;
+				assertXlsxUploadSize(file.size);
 				const parsedRuleId = RuleId.safeParse(body.ruleId);
 				if (!parsedRuleId.success) {
 					throw validationFailed(parsedRuleId.error);

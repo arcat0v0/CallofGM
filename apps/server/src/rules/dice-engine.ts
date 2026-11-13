@@ -21,6 +21,12 @@ export class InvalidDiceExpressionError extends AppError {
 	}
 }
 
+export class DiceExpressionOutOfRangeError extends AppError {
+	constructor(message = "Dice expression out of range") {
+		super("DICE_EXPRESSION_OUT_OF_RANGE", message, 400);
+	}
+}
+
 const DICE_PATTERN = /^(\d+)?[dD](\d+)([+-]\d+)?$/;
 
 /**
@@ -29,11 +35,13 @@ const DICE_PATTERN = /^(\d+)?[dD](\d+)([+-]\d+)?$/;
  */
 export function parseDiceExpression(input: string): DiceTerm {
 	const expression = input.trim();
-	if (
-		expression.length === 0 ||
-		expression.length > DICE_LIMITS.maxExpressionLength
-	) {
-		throw new InvalidDiceExpressionError("Expression is empty or too long");
+	if (expression.length === 0) {
+		throw new InvalidDiceExpressionError("Expression is empty");
+	}
+	if (expression.length > DICE_LIMITS.maxExpressionLength) {
+		throw new DiceExpressionOutOfRangeError(
+			`Expression length must be at most ${DICE_LIMITS.maxExpressionLength}`,
+		);
 	}
 
 	const match = DICE_PATTERN.exec(expression);
@@ -48,17 +56,17 @@ export function parseDiceExpression(input: string): DiceTerm {
 	const modifier = match[3] ? parseInt(match[3], 10) : 0;
 
 	if (count < 1 || count > DICE_LIMITS.maxCount) {
-		throw new InvalidDiceExpressionError(
+		throw new DiceExpressionOutOfRangeError(
 			`Dice count must be between 1 and ${DICE_LIMITS.maxCount}`,
 		);
 	}
 	if (faces < 2 || faces > DICE_LIMITS.maxFaces) {
-		throw new InvalidDiceExpressionError(
+		throw new DiceExpressionOutOfRangeError(
 			`Dice faces must be between 2 and ${DICE_LIMITS.maxFaces}`,
 		);
 	}
 	if (Math.abs(modifier) > DICE_LIMITS.maxModifier) {
-		throw new InvalidDiceExpressionError(
+		throw new DiceExpressionOutOfRangeError(
 			`Modifier must be within ±${DICE_LIMITS.maxModifier}`,
 		);
 	}

@@ -225,6 +225,16 @@ const empty = {
 	auditBeforeAt: null as number | null,
 };
 
+const COMMAND_ERROR_TOAST_ID = "session-command-error";
+
+export function showCommandError(message: string): void {
+	toast.error(message, {
+		id: COMMAND_ERROR_TOAST_ID,
+		position: "bottom-left",
+		closeButton: true,
+	});
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null;
 }
@@ -733,7 +743,7 @@ export const usePlayStore = create<PlayState>((set, get) => ({
 				const errorMsg = errorCopy({
 					code: typeof payload.code === "string" ? payload.code : null,
 				});
-				toast.error(errorMsg);
+				showCommandError(errorMsg);
 				set((state) => ({
 					lastRejection: { commandId, message: errorMsg },
 					...clearPendingCommand(state, commandId),

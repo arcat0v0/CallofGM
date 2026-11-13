@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gt, inArray, isNull, or } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, isNull, or, sql } from "drizzle-orm";
 import type { DbClient } from "@/platform/db/client";
 import {
 	characterAudits,
@@ -12,8 +12,8 @@ import {
 	mediaAssets,
 	moduleCharacters,
 	modules,
-	sessions as sessionsTable,
 	sessionCharacters,
+	sessions as sessionsTable,
 	users,
 } from "@/platform/db/schema";
 import type {
@@ -26,7 +26,11 @@ import type {
 	CharacterVersionRecord,
 	CursorPageOptions,
 } from "../application/ports";
-import { CharacterNotFoundError, CharacterVersionConflictError } from "../domain/errors";
+import {
+	CharacterNotFoundError,
+	CharacterVersionConflictError,
+	ReviewAlreadyDecidedError,
+} from "../domain/errors";
 
 function paginated<T extends { id: string }>(items: T[], limit: number) {
 	const hasMore = items.length > limit;
@@ -63,9 +67,10 @@ export class DrizzleCharactersRepository implements CharactersRepository {
 		>,
 		expectedVersion?: number,
 	) {
-		const whereClause = expectedVersion !== undefined
-			? and(eq(characters.id, id), eq(characters.version, expectedVersion))
-			: eq(characters.id, id);
+		const whereClause =
+			expectedVersion !== undefined
+				? and(eq(characters.id, id), eq(characters.version, expectedVersion))
+				: eq(characters.id, id);
 		const result = await this.db
 			.update(characters)
 			.set(updates)
@@ -637,9 +642,66 @@ export class DrizzleCharactersRepository implements CharactersRepository {
 					isNull(characterReviews.deletedAt),
 				),
 			)
-			.orderBy(desc(characterReviews.createdAt))
+			.orderBy(
+				desc(characterReviews.createdAt),
+				desc(sql`character_reviews.rowid`),
+			)
 			.limit(1);
 		return (rows[0] as CharacterReviewRecord | undefined) ?? null;
+	}
+
+	async replacePendingReview(
+		review: typeof characterReviews.$inferInsert,
+		supersededAt: number,
+	): Promise<void> {
+		this.db.transaction(
+			(tx) => {
+				const existing = tx
+					.select()
+					.from(characterReviews)
+					.where(
+						and(
+							eq(characterReviews.scope, review.scope),
+							eq(characterReviews.targetId, review.targetId),
+							eq(characterReviews.characterId, review.characterId),
+							isNull(characterReviews.deletedAt),
+						),
+					)
+					.orderBy(
+						desc(characterReviews.createdAt),
+						desc(sql`character_reviews.rowid`),
+					)
+					.limit(1)
+					.get();
+
+				if (
+					existing &&
+					(existing.submittedSheetVersion > review.submittedSheetVersion ||
+						(existing.status !== "rejected" &&
+							existing.submittedSheetVersion === review.submittedSheetVersion))
+				) {
+					throw new ReviewAlreadyDecidedError(
+						"This character is already submitted for this target",
+					);
+				}
+
+				tx.update(characterReviews)
+					.set({ deletedAt: supersededAt })
+					.where(
+						and(
+							eq(characterReviews.scope, review.scope),
+							eq(characterReviews.targetId, review.targetId),
+							eq(characterReviews.characterId, review.characterId),
+							eq(characterReviews.status, "pending"),
+							isNull(characterReviews.deletedAt),
+						),
+					)
+					.run();
+
+				tx.insert(characterReviews).values(review).run();
+			},
+			{ behavior: "immediate" },
+		);
 	}
 
 	async findUserDisplayName(userId: string): Promise<string | null> {

@@ -264,4 +264,71 @@ describe("Identity and Auth contract tests", () => {
 		expect(clientIp(req, fakeServer, true)).toBe("203.0.113.195");
 		expect(clientIp(req, fakeServer, false)).toBe("172.18.0.2");
 	});
+
+	test("Login leaves short passwords as INVALID_CREDENTIALS rather than INVALID_PASSWORD", async () => {
+		const response = await app.handle(
+			new Request("http://localhost/api/v1/auth/login", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ username: "gm", password: "short" }),
+			}),
+		);
+		expect(response.status).toBe(401);
+		const body = (await response.json()) as { code: string };
+		expect(body.code).toBe("INVALID_CREDENTIALS");
+	});
+
+	test("Change Password returns 400 INVALID_PASSWORD without Zod internals for PasswordSchema failures", async () => {
+		const loginRes = await app.handle(
+			new Request("http://localhost/api/v1/auth/login", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ username: "gm", password: gmPassword }),
+			}),
+		);
+		const { sessionToken } = (await loginRes.json()) as {
+			sessionToken: string;
+		};
+
+		for (const badNewPassword of ["short7", "p".repeat(129)]) {
+			const res = await app.handle(
+				new Request("http://localhost/api/v1/auth/password", {
+					method: "PUT",
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: `Bearer ${sessionToken}`,
+					},
+					body: JSON.stringify({
+						currentPassword: gmPassword,
+						newPassword: badNewPassword,
+					}),
+				}),
+			);
+			expect(res.status).toBe(400);
+			const text = await res.text();
+			const body = JSON.parse(text) as { code: string };
+			expect(body.code).toBe("INVALID_PASSWORD");
+			expect(text).not.toContain("too_small");
+			expect(text).not.toContain("too_big");
+			expect(text).not.toContain("issues");
+		}
+
+		const missingCurrent = await app.handle(
+			new Request("http://localhost/api/v1/auth/password", {
+				method: "PUT",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${sessionToken}`,
+				},
+				body: JSON.stringify({
+					currentPassword: "",
+					newPassword: "valid-new-password",
+				}),
+			}),
+		);
+		expect(missingCurrent.status).toBe(400);
+		expect(((await missingCurrent.json()) as { code: string }).code).toBe(
+			"VALIDATION_FAILED",
+		);
+	});
 });

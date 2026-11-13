@@ -3,13 +3,13 @@ import {
 	ArrowLeft,
 	Check,
 	CircleCheck,
-	FileSpreadsheet,
 	Info,
 	TriangleAlert,
 	X,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { FilePicker } from "@/components/shared/file-picker";
 import { Alert, AlertDescription, AlertIcon } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,7 +20,6 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { t } from "@/i18n";
 import { api } from "@/lib/api";
 import { errorText } from "@/lib/errors";
@@ -50,8 +49,40 @@ function ImportCharacterSheetDialog({
 	);
 	const [kind, setKind] = useState<"pc" | "npc">("pc");
 	const [pending, setPending] = useState(false);
+	const generationRef = useRef(0);
+	const previewRequestRef = useRef(0);
+	const lifecycleKey = JSON.stringify([
+		open,
+		scope,
+		ruleId,
+		updateCharacterId ?? null,
+	]);
+
+	useEffect(() => {
+		void lifecycleKey;
+		generationRef.current += 1;
+		previewRequestRef.current += 1;
+		setFile(null);
+		setPreview(null);
+		setPending(false);
+	}, [lifecycleKey]);
+
+	function handleOpenChange(nextOpen: boolean) {
+		if (!nextOpen) {
+			generationRef.current += 1;
+			previewRequestRef.current += 1;
+			setFile(null);
+			setPreview(null);
+			setPending(false);
+		}
+		onOpenChange(nextOpen);
+	}
 
 	async function uploadPreview(next: File) {
+		const generation = generationRef.current;
+		const requestId = ++previewRequestRef.current;
+		setFile(next);
+		setPreview(null);
 		setPending(true);
 		try {
 			const body = new FormData();
@@ -64,12 +95,28 @@ function ImportCharacterSheetDialog({
 				`/${scope}/characters/import/preview${query}`,
 				{ method: "POST", body },
 			);
-			setFile(next);
+			if (
+				generationRef.current !== generation ||
+				previewRequestRef.current !== requestId
+			) {
+				return;
+			}
 			setPreview(result);
 		} catch (error) {
+			if (
+				generationRef.current !== generation ||
+				previewRequestRef.current !== requestId
+			) {
+				return;
+			}
 			toast.error(errorText(error, "gm.importSheet.parseFailed"));
 		} finally {
-			setPending(false);
+			if (
+				generationRef.current === generation &&
+				previewRequestRef.current === requestId
+			) {
+				setPending(false);
+			}
 		}
 	}
 
@@ -81,6 +128,7 @@ function ImportCharacterSheetDialog({
 			toast.error(t("gm.importSheet.errors"));
 			return;
 		}
+		const generation = generationRef.current;
 		setPending(true);
 		try {
 			await api(`/${scope}/characters/import/confirm`, {
@@ -92,19 +140,30 @@ function ImportCharacterSheetDialog({
 					...(expectedVersion === undefined ? {} : { expectedVersion }),
 				}),
 			});
+			if (generationRef.current !== generation) {
+				return;
+			}
 			toast.success(
 				updateCharacterId
 					? t("gm.importSheet.updated")
 					: t("gm.importSheet.imported"),
 			);
-			onOpenChange(false);
+			generationRef.current += 1;
+			previewRequestRef.current += 1;
 			setPreview(null);
 			setFile(null);
+			setPending(false);
+			onOpenChange(false);
 			onImported?.();
 		} catch (error) {
+			if (generationRef.current !== generation) {
+				return;
+			}
 			toast.error(errorText(error, "gm.importSheet.importFailed"));
 		} finally {
-			setPending(false);
+			if (generationRef.current === generation) {
+				setPending(false);
+			}
 		}
 	}
 
@@ -114,9 +173,10 @@ function ImportCharacterSheetDialog({
 		rule.attributeEntries(sheet).map(({ key, value }) => [key, value]),
 	);
 	const skills = (sheet ? rule.skillEntries(sheet) : []).slice(0, 6);
+	const hasErrors = (preview?.preview.errors.length ?? 0) > 0;
 
 	return (
-		<Dialog open={open} onOpenChange={onOpenChange}>
+		<Dialog open={open} onOpenChange={handleOpenChange}>
 			<DialogContent className="max-w-160 gap-0 p-0" showCloseButton={false}>
 				<DialogHeader className="flex-row items-center justify-between px-5 py-[18px]">
 					<div className="flex flex-col gap-0.5">
@@ -135,31 +195,31 @@ function ImportCharacterSheetDialog({
 						variant="ghost"
 						size="icon-sm"
 						aria-label={t("gm.importSheet.close")}
-						onClick={() => onOpenChange(false)}
+						onClick={() => handleOpenChange(false)}
 					>
 						<X />
 					</Button>
 				</DialogHeader>
 				<div className="flex flex-col gap-4 px-5 py-5">
-					<Input
-						type="file"
-						accept=".xlsx,.xls"
-						aria-label={t("gm.importSheet.chooseFile")}
-						onChange={(event) => {
-							const next = event.target.files?.[0];
-							if (next) {
-								void uploadPreview(next);
-							}
-						}}
-					/>
-					{file ? (
-						<div className="flex items-center gap-2">
-							<FileSpreadsheet className="text-accent-hover size-4" />
-							<span className="text-foreground text-body-medium">
-								{file.name}
-							</span>
-						</div>
-					) : null}
+					<div className="flex flex-col gap-1.5">
+						<FilePicker
+							name="sheet"
+							accept=".xlsx"
+							label={t("gm.importSheet.chooseFile")}
+							value={file?.name ?? ""}
+							className="w-full max-w-none"
+							onChange={(event) => {
+								const next = event.target.files?.[0];
+								event.currentTarget.value = "";
+								if (next) {
+									void uploadPreview(next);
+								}
+							}}
+						/>
+						<p className="text-foreground-tertiary text-label-small">
+							{t("gm.importSheet.formatHint")}
+						</p>
+					</div>
 					{preview ? (
 						<>
 							<div className="flex items-center gap-2">
@@ -239,14 +299,18 @@ function ImportCharacterSheetDialog({
 					) : null}
 				</div>
 				<div className="bg-md-surface-container-low flex items-center justify-between rounded-b-xl px-5 py-4">
-					<Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>
+					<Button
+						variant="ghost"
+						size="sm"
+						onClick={() => handleOpenChange(false)}
+					>
 						<ArrowLeft />
 						{t("common.cancel")}
 					</Button>
 					<Button
 						variant="primary"
 						size="sm"
-						disabled={!preview || pending}
+						disabled={!preview || pending || hasErrors}
 						onClick={() => void confirm()}
 					>
 						<Check className={cn("size-4", pending && "opacity-50")} />

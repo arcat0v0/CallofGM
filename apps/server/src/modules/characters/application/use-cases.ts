@@ -1,5 +1,10 @@
 import { ModuleNotFoundError } from "@/modules/catalog";
 import { AppError } from "@/platform/errors/app-error";
+import {
+	assertXlsxUploadSize,
+	invalidXlsxWorkbookError,
+	sanitizeXlsxWorkbook,
+} from "@/platform/file-type";
 import type { Clock, IdGenerator, RandomSource } from "@/platform/ports";
 import type { RuleRegistry } from "@/rules/registry";
 import {
@@ -14,6 +19,7 @@ import {
 	StagingHasErrorsError,
 	StagingOwnerMismatchError,
 	StagingRecordNotFoundError,
+	StagingTargetMismatchError,
 } from "../domain/errors";
 import type { CharactersRepository, CursorPageOptions } from "./ports";
 
@@ -549,15 +555,26 @@ export class ImportPreviewUseCase {
 				);
 			}
 		}
-		const preview = await ruleSystem.parseCharacterSheet(input.file, {
-			partial: input.characterId !== undefined,
-		});
+		assertXlsxUploadSize(input.file.byteLength);
+		let preview: Awaited<ReturnType<typeof ruleSystem.parseCharacterSheet>>;
+		try {
+			const safeFile = sanitizeXlsxWorkbook(new Uint8Array(input.file));
+			preview = await ruleSystem.parseCharacterSheet(safeFile, {
+				partial: input.characterId !== undefined,
+			});
+		} catch (error) {
+			if (error instanceof AppError) {
+				throw error;
+			}
+			throw invalidXlsxWorkbookError();
+		}
 		const now = this.clock.nowEpochMs();
 		const importToken = this.idGenerator.nextId();
 
 		await this.repo.saveStaging({
 			id: importToken,
 			ownerId: input.ownerId,
+			targetCharacterId: input.characterId ?? null,
 			characterName:
 				preview.nameProvided === false ? "" : preview.characterName,
 			sheetJson: JSON.stringify(preview.sheetData),
@@ -614,6 +631,11 @@ export class ImportConfirmUseCase {
 		}
 		if (parseStagingErrors(staging.errorsJson).length > 0) {
 			throw new StagingHasErrorsError();
+		}
+		const expectedTargetId = staging.targetCharacterId ?? null;
+		const requestedTargetId = input.characterId ?? null;
+		if (expectedTargetId !== requestedTargetId) {
+			throw new StagingTargetMismatchError();
 		}
 
 		assertKind(input.kind);

@@ -3,6 +3,7 @@ import { Elysia } from "elysia";
 import { createApp } from "@/app";
 import { Container } from "@/bootstrap/container";
 import { createIdentityRoutes } from "@/modules/identity/transport/routes";
+import { modules, sessions } from "@/platform/db/schema";
 import { AppError } from "@/platform/errors/app-error";
 import { HttpLimits } from "@/platform/security/http-limits";
 import { RateLimiter } from "@/platform/security/rate-limiter";
@@ -111,5 +112,115 @@ describe("HTTP rate limits", () => {
 		}
 		expect(limiter.check("198.51.100.7")).toBe(false);
 		expect(limiter.check("198.51.100.8")).toBe(true);
+	});
+
+	test("session reference resolver has a separate 30/min limiter with reset and does not consume claim budget", async () => {
+		const limits = new HttpLimits();
+		const defaultLimiter = limits.sessionReferenceRateLimiter;
+		for (let i = 0; i < 30; i++) {
+			expect(defaultLimiter.check("198.51.100.9")).toBe(true);
+		}
+		expect(defaultLimiter.check("198.51.100.9")).toBe(false);
+		expect(defaultLimiter.check("198.51.100.10")).toBe(true);
+		limits.reset();
+		expect(defaultLimiter.check("198.51.100.9")).toBe(true);
+
+		process.env.DATABASE_URL = ":memory:";
+		const bounded = new Container([], {
+			httpLimits: new HttpLimits({
+				sessionReference: new RateLimiter(2, 60_000),
+				join: new RateLimiter(1, 60_000),
+			}),
+		});
+		await bounded.startupService.startup();
+		try {
+			const seeded = await seedAccounts(bounded.db, gmPassword);
+			const sessionUuid = "a1b2c3d4-0000-4000-8000-000000000001";
+			await bounded.db.insert(modules).values({
+				id: "module-rl",
+				ownerId: seeded.gmUserId,
+				name: "Rate Limit Module",
+				description: "",
+				ruleId: "coc7e",
+				themeId: null,
+				sourceTemplateId: null,
+				sourceTemplateVersion: null,
+				deletedAt: null,
+				createdAt: Date.now(),
+				updatedAt: Date.now(),
+			});
+			await bounded.db.insert(sessions).values({
+				id: sessionUuid,
+				ownerId: seeded.gmUserId,
+				name: "Rate Limit Session",
+				moduleId: "module-rl",
+				ruleId: "coc7e",
+				status: "waiting",
+				phase: "free_discussion",
+				currentSceneId: null,
+				lastEventId: 0,
+				sharePcSheets: 1,
+				obSeePcState: 1,
+				portraitLayout: "auto",
+				portraitScale: "md",
+				growthConfirmedAt: null,
+				deletedAt: null,
+				createdAt: Date.now(),
+			});
+
+			const app = createApp(bounded);
+			const resolve = () =>
+				app.handle(
+					new Request(
+						"http://localhost/api/v1/public/session-references/a1b2c3",
+					),
+				);
+
+			expect((await resolve()).status).toBe(200);
+			expect((await resolve()).status).toBe(200);
+			const blockedResolve = await resolve();
+			expect(blockedResolve.status).toBe(429);
+			expect(((await blockedResolve.json()) as { code: string }).code).toBe(
+				"RATE_LIMITED",
+			);
+
+			const identityRes = await app.handle(
+				new Request("http://localhost/api/v1/player/identity", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ fingerprint: "fp-rl-ob" }),
+				}),
+			);
+			const { token } = (await identityRes.json()) as { token: string };
+
+			const claimOk = await app.handle(
+				new Request(`http://localhost/api/v1/sessions/${sessionUuid}/claim`, {
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: `Bearer ${token}`,
+					},
+					body: JSON.stringify({ role: "ob" }),
+				}),
+			);
+			expect(claimOk.status).toBe(200);
+
+			const claimBlocked = await app.handle(
+				new Request(`http://localhost/api/v1/sessions/${sessionUuid}/claim`, {
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: `Bearer ${token}`,
+					},
+					body: JSON.stringify({ role: "ob" }),
+				}),
+			);
+			expect(claimBlocked.status).toBe(429);
+
+			bounded.httpLimits.reset();
+			expect((await resolve()).status).toBe(200);
+		} finally {
+			bounded.dbContext.sqlite.close();
+		}
 	});
 });

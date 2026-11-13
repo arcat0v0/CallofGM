@@ -1,6 +1,5 @@
 import { Dices, EyeOff } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { toast } from "sonner";
 import { SegmentedControl } from "@/components/shared/segmented-control";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,7 +15,7 @@ import { skillKeysFor, skillValue } from "@/lib/coc-live";
 import { sendSessionCommand } from "@/lib/session-socket";
 import { cn } from "@/lib/utils";
 import { getRuleComponent } from "@/rules/registry";
-import { usePlayStore } from "@/stores/play-store";
+import { showCommandError, usePlayStore } from "@/stores/play-store";
 
 const DICE_PRESETS = ["1d100", "1d6", "1d4", "1d8", "1d10", "3d6"];
 
@@ -73,12 +72,12 @@ function DiceTray({
 			...(comment.trim() ? { comment: comment.trim() } : {}),
 			...(gm && hidden ? { hidden: true } : {}),
 		});
-		if (!sent) toast.error(t("chat.notConnected"));
+		if (!sent) showCommandError(t("chat.notConnected"));
 	}
 
 	function check() {
 		if (!resolvedId) {
-			toast.error(t("dice.noCharacter"));
+			showCommandError(t("dice.noCharacter"));
 			return;
 		}
 		const sent = sendSessionCommand("check:perform", {
@@ -89,7 +88,7 @@ function DiceTray({
 			penaltyDice,
 			...(gm && hidden ? { hidden: true } : {}),
 		});
-		if (!sent) toast.error(t("chat.notConnected"));
+		if (!sent) showCommandError(t("chat.notConnected"));
 	}
 
 	return (
