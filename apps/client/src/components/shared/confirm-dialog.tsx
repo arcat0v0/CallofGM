@@ -63,6 +63,7 @@ function ConfirmDialog({
 					<Button
 						type="button"
 						variant="outline"
+						size="sm"
 						onClick={() => onOpenChange(false)}
 						className="h-11 flex-1"
 					>
