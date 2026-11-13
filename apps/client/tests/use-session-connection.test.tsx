@@ -62,6 +62,18 @@ function Harness() {
 	return null;
 }
 
+function ObservedHarness({
+	onLiveEvent,
+}: {
+	onLiveEvent: (eventId: number) => void;
+}) {
+	useSessionConnection("session-1", {
+		ensurePlayer: false,
+		onLiveEvent: (event) => onLiveEvent(event.eventId),
+	});
+	return null;
+}
+
 describe("useSessionConnection retry", () => {
 	beforeEach(() => {
 		connections.length = 0;
@@ -139,5 +151,31 @@ describe("useSessionConnection retry", () => {
 		);
 		expect(usePlayStore.getState().status).toBe("ended");
 		await waitFor(() => expect(connections.length).toBe(2), { timeout: 3000 });
+	});
+
+	test("skips onLiveEvent for replayed reconnect events while forwarding live events", async () => {
+		const observed: number[] = [];
+		render(<ObservedHarness onLiveEvent={(id) => observed.push(id)} />);
+		await waitFor(() => expect(connections.length).toBe(1));
+
+		act(() => {
+			connections[0]?.onMessage({
+				protocolVersion: 1,
+				eventId: 4,
+				type: "dice:rolled",
+				occurredAt: 1,
+				payload: {},
+				replayed: true,
+			});
+			connections[0]?.onMessage({
+				protocolVersion: 1,
+				eventId: 5,
+				type: "dice:rolled",
+				occurredAt: 2,
+				payload: {},
+			});
+		});
+
+		expect(observed).toEqual([5]);
 	});
 });

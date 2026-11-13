@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
 	buildDiceAnimationDice,
+	computeDiceGridLayout,
 	d100Digits,
 	normalizeRollValue,
 	parseDiceFaces,
@@ -25,6 +26,63 @@ describe("dice animation model", () => {
 		expect(dice.map((die) => die.value)).toEqual(["00", "0"]);
 	});
 
+	test("uses the 00 tens face for d100 results between 1 and 9", () => {
+		for (const roll of [1, 5, 9]) {
+			const dice = buildDiceAnimationDice({
+				id: `roll-${roll}`,
+				kind: "roll",
+				faces: 100,
+				total: roll,
+				rolls: [roll],
+				label: `1d100 = ${roll}`,
+			});
+			expect(dice.map((die) => die.value)).toEqual(["00", String(roll)]);
+		}
+	});
+
+	test("splits d100 rolls individually even with modifiers or multiple dice", () => {
+		const modified = buildDiceAnimationDice({
+			id: "roll-mod",
+			kind: "roll",
+			faces: 100,
+			total: 55,
+			rolls: [50],
+			label: "1d100+5 = 55",
+		});
+		expect(modified.map((die) => die.value)).toEqual(["50", "0"]);
+
+		const multi = buildDiceAnimationDice({
+			id: "roll-multi",
+			kind: "roll",
+			faces: 100,
+			total: 41,
+			rolls: [34, 7],
+			label: "2d100 = 41",
+		});
+		expect(multi.map((die) => die.value)).toEqual(["30", "4", "00", "7"]);
+	});
+
+	test("fits single and 50-dice rolls within the frustum on desktop and mobile", () => {
+		for (const [width, height] of [
+			[640, 320],
+			[350, 260],
+		] as const) {
+			for (const count of [1, 2, 4, 6, 50, 100]) {
+				const layout = computeDiceGridLayout(count, width, height);
+				expect(layout.positions).toHaveLength(count);
+				expect(layout.dieWorldSize).toBeGreaterThan(0);
+				for (const pos of layout.positions) {
+					expect(Math.abs(pos.x) + layout.dieWorldSize / 2).toBeLessThanOrEqual(
+						layout.usableWidth / 2 + 1e-6,
+					);
+					expect(Math.abs(pos.y) + layout.dieWorldSize / 2).toBeLessThanOrEqual(
+						layout.usableHeight / 2 + 1e-6,
+					);
+				}
+			}
+		}
+	});
+
 	test("uses a single olive die for common direct rolls", () => {
 		const dice = buildDiceAnimationDice({
 			id: "roll-1",
@@ -43,17 +101,24 @@ describe("dice animation model", () => {
 		]);
 	});
 
-	test("uses the CC0 set for dice without an olive model", () => {
-		const dice = buildDiceAnimationDice({
-			id: "roll-2",
-			kind: "roll",
-			faces: 8,
-			total: 3,
-			rolls: [3],
-			label: "1d8 = 3",
-		});
-		expect(dice[0]?.asset).toBe("/dice/cc0-black-gold/D8.gltf");
-		expect(dice[0]?.value).toBe("3");
+	test("uses custom olive models and orientation maps for d4, d8, and d12", () => {
+		for (const faces of [4, 8, 12]) {
+			const dice = buildDiceAnimationDice({
+				id: `roll-${faces}`,
+				kind: "roll",
+				faces,
+				total: 3,
+				rolls: [3],
+				label: `1d${faces} = 3`,
+			});
+			expect(dice).toEqual([
+				{
+					asset: `/dice/olive/d${faces}.gltf`,
+					value: "3",
+					orientationHint: `/dice/orientations/d${faces}.json`,
+				},
+			]);
+		}
 	});
 
 	test("uses the authoritative check roll for the percentile pair", () => {

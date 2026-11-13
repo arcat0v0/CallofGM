@@ -4,10 +4,9 @@
 
 ## 文件
 
-- `olive/`：定制款「雾湖石」，`d6` / `d10` / `d100-tens` / `d20` 四颗自包含 `.gltf`。
-- `bone/`：定制款「骨白」，同上四颗。
-- `cc0-black-gold/`：CC0 1.0 套装，`D4` / `D6` / `D8` / `D10_Ones` / `D10_Percentile` / `D12` / `D20` 七颗自包含 `.gltf`；许可见 `LICENSE.txt`。
-- `orientations/`：`d6.json` / `d10.json` / `d100-tens.json` / `d20.json`，每个点数对应 three.js 四元数 `[x, y, z, w]`；两套定制款几何相同，共用这份数据。
+- `olive/`：定制款「雾湖石」，`d4` / `d6` / `d8` / `d10` / `d100-tens` / `d12` / `d20` 七颗自包含 `.gltf`。
+- `bone/`：定制款「骨白」，`d6` / `d10` / `d100-tens` / `d20` 四颗。
+- `orientations/`：`d4.json` / `d6.json` / `d8.json` / `d10.json` / `d100-tens.json` / `d12.json` / `d20.json`，每个点数对应 three.js 四元数 `[x, y, z, w]`；两套定制款几何相同，共用这份数据。
 
 所有 `.gltf` 均为单文件 glTF 2.0，几何与贴图以内嵌 data URI 保存，`GLTFLoader.loadAsync()` 可直接加载。Pachat 原始附件后缀为 `.gltf.json`，入库时已统一改回 `.gltf`。
 

@@ -10,6 +10,7 @@ export function diceAnimationFromMessage(
 	message: SessionEvent,
 ): DiceAnimationRequest | null {
 	if (
+		message.replayed === true ||
 		typeof message.eventId !== "number" ||
 		!isRecord(message.payload) ||
 		(message.type !== "dice:rolled" && message.type !== "check:resolved")

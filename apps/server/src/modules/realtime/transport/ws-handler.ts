@@ -245,7 +245,7 @@ export function createRealtimeRoutes(container: Container) {
 								connectionId,
 							)
 						) {
-							ws.send(JSON.stringify(event));
+							ws.send(JSON.stringify({ ...event, replayed: true }));
 						}
 					}
 					if (actor.type === "user" && actor.role === "gm") {

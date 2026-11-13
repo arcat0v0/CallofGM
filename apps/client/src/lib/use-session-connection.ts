@@ -63,7 +63,10 @@ export function useSessionConnection(
 
 		function handleMessage(message: ServerMessage): void {
 			if ("eventId" in message) {
-				options?.onLiveEvent?.(message as SessionEvent);
+				const event = message as SessionEvent;
+				if (!event.replayed) {
+					options?.onLiveEvent?.(event);
+				}
 			}
 			if ("type" in message && message.type === "session:refresh") {
 				void refreshSnapshot();

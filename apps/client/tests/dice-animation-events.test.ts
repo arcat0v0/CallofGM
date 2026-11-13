@@ -52,6 +52,12 @@ describe("dice animation event mapping", () => {
 		expect(
 			diceAnimationFromMessage({
 				...liveDiceRoll,
+				replayed: true,
+			}),
+		).toBeNull();
+		expect(
+			diceAnimationFromMessage({
+				...liveDiceRoll,
 				payload: { ...liveDiceRoll.payload, hidden: true },
 			}),
 		).toBeNull();

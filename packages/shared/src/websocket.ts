@@ -60,6 +60,7 @@ export const SessionEvent = z.object({
 	type: z.string(),
 	occurredAt: z.number(),
 	payload: z.unknown(),
+	replayed: z.boolean().optional(),
 });
 export type SessionEvent = z.infer<typeof SessionEvent>;
 

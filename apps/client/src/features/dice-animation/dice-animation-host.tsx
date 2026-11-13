@@ -1,13 +1,17 @@
 import type { SessionEvent } from "@cogm/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { diceAnimationFromMessage } from "./animation-events";
-import { DiceAnimationLayer } from "./dice-animation";
+import { DiceAnimationLayer, preloadDiceAssets } from "./dice-animation";
 import type { DiceAnimationRequest } from "./model";
 
 function DiceAnimationHost({ message }: { message: SessionEvent | null }) {
 	const [current, setCurrent] = useState<DiceAnimationRequest | null>(null);
 	const queueRef = useRef<DiceAnimationRequest[]>([]);
 	const seenRef = useRef(new Set<string>());
+
+	useEffect(() => {
+		preloadDiceAssets();
+	}, []);
 
 	useEffect(() => {
 		if (!message) return;
@@ -22,6 +26,8 @@ function DiceAnimationHost({ message }: { message: SessionEvent | null }) {
 		queueRef.current = queueRef.current.filter((item) => item.id !== id);
 		setCurrent(queueRef.current[0] ?? null);
 	}, []);
+
+	if (!current) return null;
 
 	return <DiceAnimationLayer request={current} onComplete={complete} />;
 }
