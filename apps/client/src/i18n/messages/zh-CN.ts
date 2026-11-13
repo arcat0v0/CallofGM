@@ -744,6 +744,8 @@ export const zhCN: Record<string, string> = {
 	"dice.target": "鉴定对象",
 	"dice.noCharacter": "没有可鉴定的角色",
 	"dice.notConnected": "尚未连接到团",
+	"dice.animationRolling": "骰子翻滚中…",
+	"dice.animationResult": "结果 {total}",
 
 	"check.title": "鉴定请求",
 	"check.hiddenSuffix": " · 暗骰（结果仅主持可见）",

@@ -308,6 +308,7 @@ export class RollDiceHandler implements CommandHandler {
 					expression: formatExpression(term),
 					detail: formatRollDetail(term, outcome),
 					total: outcome.total,
+					rolls: outcome.rolls,
 					comment: input.comment,
 				},
 			},

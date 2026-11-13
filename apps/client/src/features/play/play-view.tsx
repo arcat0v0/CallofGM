@@ -1,9 +1,11 @@
+import type { SessionEvent } from "@cogm/shared";
 import type { ChatMessageView } from "@cogm/theme-sdk";
 import { Link, useParams } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { LoadingIndicator } from "@/components/ui/loading-indicator";
 import { isSystemMessage } from "@/features/chat/message-list";
+import { DiceAnimationHost } from "@/features/dice-animation/dice-animation-host";
 import { Composer } from "@/features/play/composer";
 import { ConnectionBanner } from "@/features/play/connection-banner";
 import { PlayOverlays } from "@/features/play/play-overlays";
@@ -20,7 +22,6 @@ import {
 	writeRotateSuggestionDismissed,
 } from "@/lib/storage";
 import { useSessionConnection } from "@/lib/use-session-connection";
-import { useIdentityStore } from "@/stores/identity-store";
 import { usePlayDisplayStore } from "@/stores/play-display-store";
 import { usePlayStore } from "@/stores/play-store";
 import { ThemeScope } from "@/themes/runtime/theme-scope";
@@ -144,7 +145,14 @@ function PlayView() {
 }
 
 function PlaySession({ sessionId }: { sessionId: string }) {
-	const { retry } = useSessionConnection(sessionId, { ensurePlayer: false });
+	const [lastMessage, setLastMessage] = useState<SessionEvent | null>(null);
+	const observeMessage = useCallback((message: SessionEvent) => {
+		setLastMessage(message);
+	}, []);
+	const { retry } = useSessionConnection(sessionId, {
+		ensurePlayer: false,
+		onLiveEvent: observeMessage,
+	});
 	useSessionTheme(sessionId);
 	usePlayAudio();
 	const viewport = usePlayViewport();
@@ -307,63 +315,66 @@ function PlaySession({ sessionId }: { sessionId: string }) {
 	);
 
 	return (
-		<ThemeScope themeId={themeId}>
-			<div className="bg-background relative h-dvh w-full overflow-hidden">
-				<ThemeSlot
-					name="play.layout"
-					ctx={{
-						viewport,
-						nodes: {
-							stage,
-							chat,
-							composer: <Composer compact={viewport !== "desktop"} />,
-							dock: <PlayerActionDock variant={viewport} />,
-							overlays: (
-								<PlayOverlays
-									sessionId={sessionId}
-									retry={retry}
-									showRotateSuggestion={
-										viewport === "portrait" && showRotateSuggestion
-									}
-									onDismissRotate={() => {
-										writeRotateSuggestionDismissed();
-										setShowRotateSuggestion(false);
-									}}
-									endDialogOpen={endDialogOpen}
-									onEndDialogChange={setEndDialogOpen}
-									handoutPromptEnabled={display.handoutPrompt}
-									onOpenHistory={() => setHistoryOpen(true)}
-								/>
-							),
-							connection: <ConnectionBanner />,
-						},
-						view: {
-							sessionId,
-							status,
-							phase,
-							landscapeChatOpen: display.chat,
-							chatOpen: display.chat,
-						},
-						actions: {
-							setLandscapeChatOpen: (open) => setDisplayVisible("chat", open),
-							setChatOpen: (open) => setDisplayVisible("chat", open),
-						},
-					}}
-				/>
-				<ThemeSlot
-					name="play.history"
-					ctx={{
-						open: historyOpen,
-						onClose: () => setHistoryOpen(false),
-						messages: buildChatMessages(messages, selfName),
-						selfName,
-						hasOlder: historyHasMore,
-						loadingOlder: historyLoading,
-						onLoadOlder: loadOlderHistory,
-					}}
-				/>
-			</div>
-		</ThemeScope>
+		<>
+			<ThemeScope themeId={themeId}>
+				<div className="bg-background relative h-dvh w-full overflow-hidden">
+					<ThemeSlot
+						name="play.layout"
+						ctx={{
+							viewport,
+							nodes: {
+								stage,
+								chat,
+								composer: <Composer compact={viewport !== "desktop"} />,
+								dock: <PlayerActionDock variant={viewport} />,
+								overlays: (
+									<PlayOverlays
+										sessionId={sessionId}
+										retry={retry}
+										showRotateSuggestion={
+											viewport === "portrait" && showRotateSuggestion
+										}
+										onDismissRotate={() => {
+											writeRotateSuggestionDismissed();
+											setShowRotateSuggestion(false);
+										}}
+										endDialogOpen={endDialogOpen}
+										onEndDialogChange={setEndDialogOpen}
+										handoutPromptEnabled={display.handoutPrompt}
+										onOpenHistory={() => setHistoryOpen(true)}
+									/>
+								),
+								connection: <ConnectionBanner />,
+							},
+							view: {
+								sessionId,
+								status,
+								phase,
+								landscapeChatOpen: display.chat,
+								chatOpen: display.chat,
+							},
+							actions: {
+								setLandscapeChatOpen: (open) => setDisplayVisible("chat", open),
+								setChatOpen: (open) => setDisplayVisible("chat", open),
+							},
+						}}
+					/>
+					<ThemeSlot
+						name="play.history"
+						ctx={{
+							open: historyOpen,
+							onClose: () => setHistoryOpen(false),
+							messages: buildChatMessages(messages, selfName),
+							selfName,
+							hasOlder: historyHasMore,
+							loadingOlder: historyLoading,
+							onLoadOlder: loadOlderHistory,
+						}}
+					/>
+				</div>
+			</ThemeScope>
+			<DiceAnimationHost message={lastMessage} />
+		</>
 	);
 }
 

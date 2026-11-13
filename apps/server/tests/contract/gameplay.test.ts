@@ -116,6 +116,7 @@ describe("Gameplay contract tests", () => {
 		);
 		const diceEvent = await gm.waitFor((m) => m.type === "dice:rolled");
 		expect(diceEvent.payload.result.total).toBe(12);
+		expect(diceEvent.payload.result.rolls).toEqual([3, 4, 5]);
 		expect(diceEvent.payload.result.expression).toBe("3d6");
 		expect(diceEvent.payload.hidden).toBe(false);
 

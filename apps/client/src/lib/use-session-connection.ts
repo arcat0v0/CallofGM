@@ -1,4 +1,8 @@
-import { type ServerMessage, SessionCloseCode } from "@cogm/shared";
+import {
+	type ServerMessage,
+	SessionCloseCode,
+	type SessionEvent,
+} from "@cogm/shared";
 import { useCallback, useEffect, useRef } from "react";
 import { usePlayStore } from "@/stores/play-store";
 import { ensurePlayer } from "./identity";
@@ -9,7 +13,10 @@ const SESSION_ENDED_REASON = "session ended";
 
 export function useSessionConnection(
 	sessionId: string,
-	options?: { ensurePlayer?: boolean },
+	options?: {
+		ensurePlayer?: boolean;
+		onLiveEvent?: (message: SessionEvent) => void;
+	},
 ): { retry: () => void } {
 	const applyMessage = usePlayStore((state) => state.applyMessage);
 	const reset = usePlayStore((state) => state.reset);
@@ -55,6 +62,9 @@ export function useSessionConnection(
 		}
 
 		function handleMessage(message: ServerMessage): void {
+			if ("eventId" in message) {
+				options?.onLiveEvent?.(message as SessionEvent);
+			}
 			if ("type" in message && message.type === "session:refresh") {
 				void refreshSnapshot();
 				return;
@@ -169,6 +179,7 @@ export function useSessionConnection(
 	}, [
 		sessionId,
 		options?.ensurePlayer,
+		options?.onLiveEvent,
 		applyMessage,
 		reset,
 		setConnected,
