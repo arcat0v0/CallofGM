@@ -178,4 +178,30 @@ describe("useSessionConnection retry", () => {
 
 		expect(observed).toEqual([5]);
 	});
+
+	test("skips onLiveEvent for late events at or below the current watermark", async () => {
+		const observed: number[] = [];
+		render(<ObservedHarness onLiveEvent={(id) => observed.push(id)} />);
+		await waitFor(() => expect(connections.length).toBe(1));
+
+		act(() => {
+			usePlayStore.setState({ lastEventId: 10 });
+			connections[0]?.onMessage({
+				protocolVersion: 1,
+				eventId: 10,
+				type: "dice:rolled",
+				occurredAt: 1,
+				payload: {},
+			});
+			connections[0]?.onMessage({
+				protocolVersion: 1,
+				eventId: 11,
+				type: "dice:rolled",
+				occurredAt: 2,
+				payload: {},
+			});
+		});
+
+		expect(observed).toEqual([11]);
+	});
 });

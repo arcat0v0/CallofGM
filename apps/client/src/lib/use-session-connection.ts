@@ -64,7 +64,8 @@ export function useSessionConnection(
 		function handleMessage(message: ServerMessage): void {
 			if ("eventId" in message) {
 				const event = message as SessionEvent;
-				if (!event.replayed) {
+				const watermark = usePlayStore.getState().lastEventId;
+				if (!event.replayed && event.eventId > watermark) {
 					options?.onLiveEvent?.(event);
 				}
 			}
@@ -94,6 +95,8 @@ export function useSessionConnection(
 		async function open(lastEventId?: number): Promise<void> {
 			const generation = ++attemptGeneration;
 			const isCurrent = () => !cancelled && generation === attemptGeneration;
+			socket?.close();
+			socket = null;
 			try {
 				if (options?.ensurePlayer !== false) {
 					await ensurePlayer();

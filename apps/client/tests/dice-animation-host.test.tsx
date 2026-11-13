@@ -37,4 +37,23 @@ describe("DiceAnimationHost", () => {
 		const { container } = render(<DiceAnimationLayer request={null} />);
 		expect(container.firstChild).toBeNull();
 	});
+
+	test("renders active animation layer above drawers and dialogs at z-[60]", () => {
+		const { container } = render(
+			<DiceAnimationLayer
+				request={{
+					id: "dice-99",
+					kind: "roll",
+					faces: 20,
+					total: 14,
+					rolls: [14],
+					label: "结果 14",
+				}}
+			/>,
+		);
+		const overlay = container.firstElementChild as HTMLElement | null;
+		expect(overlay).not.toBeNull();
+		expect(overlay?.className).toContain("fixed");
+		expect(overlay?.className).toContain("z-[60]");
+	});
 });

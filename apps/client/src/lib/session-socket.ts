@@ -20,6 +20,7 @@ type ConnectSessionOptions = {
 };
 
 const HEARTBEAT_MS = 20_000;
+const PONG_TIMEOUT_MS = 10_000;
 
 let active: SessionSocket | null = null;
 
@@ -40,7 +41,74 @@ export async function connectSession(
 	const previous = active;
 	const ws = new WebSocket(url);
 	let heartbeat: ReturnType<typeof setInterval> | null = null;
+	let pongTimer: ReturnType<typeof setTimeout> | null = null;
 	let closedByClient = false;
+	let notifiedClose = false;
+
+	const clearTimers = () => {
+		if (heartbeat) {
+			clearInterval(heartbeat);
+			heartbeat = null;
+		}
+		if (pongTimer) {
+			clearTimeout(pongTimer);
+			pongTimer = null;
+		}
+	};
+
+	const clearPong = () => {
+		if (pongTimer) {
+			clearTimeout(pongTimer);
+			pongTimer = null;
+		}
+	};
+
+	const notifyClosed = (code: number, reason: string) => {
+		if (closedByClient || notifiedClose) return;
+		notifiedClose = true;
+		options.onClose?.({ code, reason });
+	};
+
+	const onVisibilityOrOnline = () => {
+		if (
+			typeof document !== "undefined" &&
+			document.visibilityState === "hidden"
+		) {
+			return;
+		}
+		sendPing();
+	};
+
+	const cleanupListeners = () => {
+		if (typeof document !== "undefined") {
+			document.removeEventListener("visibilitychange", onVisibilityOrOnline);
+		}
+		if (typeof window !== "undefined") {
+			window.removeEventListener("online", onVisibilityOrOnline);
+		}
+	};
+
+	const sendPing = () => {
+		if (closedByClient || ws.readyState !== WebSocket.OPEN) return;
+		ws.send("ping");
+		if (!pongTimer) {
+			pongTimer = setTimeout(() => {
+				pongTimer = null;
+				if (closedByClient) return;
+				clearTimers();
+				cleanupListeners();
+				if (active === socket) {
+					active = null;
+				}
+				try {
+					ws.close(4008, "heartbeat timeout");
+				} catch {
+					// ignore close errors on dead socket
+				}
+				notifyClosed(4008, "heartbeat timeout");
+			}, PONG_TIMEOUT_MS);
+		}
+	};
 
 	const sendCommand = (type: ClientCommandType, payload: unknown): string => {
 		const commandId = crypto.randomUUID();
@@ -60,10 +128,8 @@ export async function connectSession(
 		sendCommand,
 		close: () => {
 			closedByClient = true;
-			if (heartbeat) {
-				clearInterval(heartbeat);
-				heartbeat = null;
-			}
+			clearTimers();
+			cleanupListeners();
 			if (active === socket) {
 				active = null;
 			}
@@ -87,14 +153,18 @@ export async function connectSession(
 	options.signal?.addEventListener("abort", abortConnection, { once: true });
 
 	ws.addEventListener("open", () => {
-		heartbeat = setInterval(() => {
-			if (ws.readyState === WebSocket.OPEN) {
-				ws.send("ping");
-			}
-		}, HEARTBEAT_MS);
+		if (typeof document !== "undefined") {
+			document.addEventListener("visibilitychange", onVisibilityOrOnline);
+		}
+		if (typeof window !== "undefined") {
+			window.addEventListener("online", onVisibilityOrOnline);
+		}
+		heartbeat = setInterval(sendPing, HEARTBEAT_MS);
 	});
 
 	ws.addEventListener("message", (event) => {
+		if (closedByClient) return;
+		clearPong();
 		if (typeof event.data === "string" && event.data === "pong") {
 			return;
 		}
@@ -107,16 +177,12 @@ export async function connectSession(
 	});
 
 	ws.addEventListener("close", (event) => {
-		if (heartbeat) {
-			clearInterval(heartbeat);
-			heartbeat = null;
-		}
+		clearTimers();
+		cleanupListeners();
 		if (active === socket) {
 			active = null;
 		}
-		if (!closedByClient) {
-			options.onClose?.({ code: event.code, reason: event.reason });
-		}
+		notifyClosed(event.code, event.reason);
 	});
 
 	await new Promise<void>((resolve, reject) => {

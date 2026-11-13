@@ -394,7 +394,7 @@ function DiceAnimationStage({
 
 	return (
 		<div
-			className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center"
+			className="pointer-events-none fixed inset-0 z-[60] flex items-center justify-center"
 			aria-hidden="true"
 		>
 			<div className="stage-glass shadow-overlay relative flex h-[min(46vh,360px)] w-[min(90vw,640px)] flex-col overflow-hidden rounded-xl">
