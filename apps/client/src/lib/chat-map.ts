@@ -1,5 +1,7 @@
 import {
 	type ChatMessageDto,
+	DiceSealedEvent,
+	type DiceSealedEvent as DiceSealedEventPayload,
 	type HistoryItem,
 	RewindEvent,
 	SessionPhase,
@@ -126,11 +128,42 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null;
 }
 
+function mapSealedDiceEvent(
+	payload: DiceSealedEventPayload,
+	eventId: number,
+	occurredAt?: number,
+): ChatMessage {
+	const time = formatClock(occurredAt ?? Date.now());
+	const name = t("common.gmShort");
+	return {
+		id: `sealed-${eventId}`,
+		sortKey: eventId,
+		eventId,
+		anchorable: true,
+		activityType: "dice:sealed",
+		sealedActivityType: payload.activityType,
+		speakerName: name,
+		speakerRoleLabel: t("chat.role.dice"),
+		avatarInitials: initialsOf(name),
+		avatarBg: "bg-default",
+		avatarFg: "text-foreground",
+		time,
+		body: `${name}${t("message.diceHidden")}`,
+		tone: "ooc",
+		isSystem: true,
+		hidden: true,
+		gmVisible: false,
+	};
+}
+
 export function resolveActivityPayload(
 	type: string,
 	payload: Record<string, unknown>,
 	characters: SnapshotCharacter[],
 ): Record<string, unknown> {
+	if (type === "dice:sealed") {
+		return payload;
+	}
 	if (type !== "dice:rolled" || payload.rollerType !== "player") {
 		return payload;
 	}
@@ -163,6 +196,12 @@ export function mapActivityEvent(
 	characters: SnapshotCharacter[] = [],
 	viewer: { isGm?: boolean } = {},
 ): ChatMessage | null {
+	if (type === "dice:sealed" && isRecord(payload)) {
+		const parsed = DiceSealedEvent.safeParse(payload);
+		return parsed.success
+			? mapSealedDiceEvent(parsed.data, eventId, occurredAt)
+			: null;
+	}
 	if (!isRecord(payload)) {
 		return null;
 	}

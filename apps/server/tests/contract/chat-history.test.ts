@@ -146,6 +146,15 @@ describe("Chat history pagination contract tests", () => {
 				},
 				visibility: { type: "gmOnly" },
 			},
+			{
+				type: "dice:sealed",
+				payload: {
+					activityType: "dice:rolled",
+					rollerType: "gm",
+					hidden: true,
+				},
+				visibility: { type: "playerOnly" },
+			},
 		]);
 
 		const pc = await connectWs(wsUrl(), ctx.playerTokens.get("pc1")!);
@@ -175,7 +184,7 @@ describe("Chat history pagination contract tests", () => {
 		}
 
 		const timeline = [...pages.reverse().flat(), ...snapshotItems];
-		expect(timeline).toHaveLength(121);
+		expect(timeline).toHaveLength(122);
 		const eventIds = timeline.map((item) => item.eventId);
 		expect(eventIds).toEqual([...eventIds].sort((a, b) => a - b));
 		expect(new Set(eventIds).size).toBe(eventIds.length);
@@ -189,7 +198,14 @@ describe("Chat history pagination contract tests", () => {
 		}
 
 		const activities = timeline.filter((item) => item.kind === "activity");
-		expect(activities).toHaveLength(1);
+		expect(activities).toHaveLength(2);
+		expect(
+			activities.some(
+				(item) =>
+					item.type === "dice:sealed" &&
+					(item.payload as { result?: unknown }).result === undefined,
+			),
+		).toBe(true);
 
 		await closeWs(pc);
 	});
@@ -212,7 +228,13 @@ describe("Chat history pagination contract tests", () => {
 		const gmActivities = gmItems.filter((item) => item.kind === "activity");
 		const obActivities = obItems.filter((item) => item.kind === "activity");
 		expect(gmActivities).toHaveLength(2);
-		expect(obActivities).toHaveLength(1);
+		expect(obActivities).toHaveLength(2);
+		expect(
+			gmActivities.some((item) => item.type === "dice:sealed"),
+		).toBe(false);
+		expect(
+			obActivities.some((item) => item.type === "dice:sealed"),
+		).toBe(true);
 
 		await closeWs(gm);
 		await closeWs(ob);

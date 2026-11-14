@@ -38,6 +38,7 @@ type ChatMessage = {
 	eventId?: number;
 	anchorable?: boolean;
 	activityType?: string;
+	sealedActivityType?: string;
 	roll?: ChatRollView;
 	check?: ChatCheckView;
 	phase?: ChatPhaseView;

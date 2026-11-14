@@ -128,6 +128,15 @@ describe("Hidden check confidentiality", () => {
 		await gm.waitFor(
 			(m) => m.type === "state:changed" && m.payload.characterId === "char-pc1",
 		);
+		const pc2Sealed = await pc2.waitFor((m) => m.type === "dice:sealed");
+		expect(pc2Sealed.payload.hidden).toBe(true);
+		expect(pc2Sealed.payload.activityType).toBe("check:resolved");
+		expect(pc2Sealed.payload.result).toBeUndefined();
+		expect(Object.keys(pc2Sealed.payload).sort()).toEqual([
+			"activityType",
+			"hidden",
+			"rollerType",
+		]);
 		expect(pc1.messages.some((m) => m.type === "state:changed")).toBe(false);
 		expect(pc2.messages.some((m) => m.type === "state:changed")).toBe(false);
 
@@ -205,6 +214,9 @@ describe("Hidden check confidentiality", () => {
 		await gm.waitFor(
 			(m) => m.type === "state:changed" && m.payload.characterId === "char-pc1",
 		);
+		const pc2Sealed = await pc2.waitFor((m) => m.type === "dice:sealed");
+		expect(pc2Sealed.payload.activityType).toBe("check:resolved");
+		expect(pc2Sealed.payload.result).toBeUndefined();
 
 		const afterHidden = await outboxFor("state:changed");
 		const hiddenRows = afterHidden.filter(

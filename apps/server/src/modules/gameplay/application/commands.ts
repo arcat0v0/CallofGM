@@ -2,6 +2,7 @@ import {
 	type CheckRequestDto,
 	CreateCheckRequestCommand,
 	canPlayerInitiateDiceRoll,
+	type DiceSealedEvent,
 	EditCharacterStateCommand,
 	PerformCheckCommand,
 	PerformSanCheckCommand,
@@ -203,6 +204,28 @@ function checkVisibilityScope(
 	return { type: "public" };
 }
 
+function sealedDiceEvent(
+	activityType: DiceSealedEvent["activityType"],
+): DiceSealedEvent {
+	return { activityType, rollerType: "gm", hidden: true };
+}
+
+function withSealedDiceEvent(
+	events: ProducedEvent[],
+	activityType: DiceSealedEvent["activityType"],
+	hidden: boolean,
+): ProducedEvent[] {
+	if (!hidden) return events;
+	return [
+		...events,
+		{
+			type: "dice:sealed",
+			payload: sealedDiceEvent(activityType),
+			visibility: { type: "playerOnly" },
+		},
+	];
+}
+
 function stateVisibilityScope(
 	hidden: boolean,
 	kind: string,
@@ -316,7 +339,7 @@ export class RollDiceHandler implements CommandHandler {
 		};
 
 		return {
-			events: [event],
+			events: withSealedDiceEvent([event], "dice:rolled", hidden),
 			replyPayload: { rolled: true, total: outcome.total, hidden },
 		};
 	}
@@ -380,20 +403,24 @@ export class PerformCheckHandler implements CommandHandler {
 			ctx.randomSource,
 		);
 
-		const events: ProducedEvent[] = [
-			{
-				type: "check:resolved",
-				payload: {
-					requestId: null,
-					characterId: input.characterId,
-					characterName: character.name,
-					skillKey: input.skillKey,
-					hidden,
-					result,
+		const events: ProducedEvent[] = withSealedDiceEvent(
+			[
+				{
+					type: "check:resolved",
+					payload: {
+						requestId: null,
+						characterId: input.characterId,
+						characterName: character.name,
+						skillKey: input.skillKey,
+						hidden,
+						result,
+					},
+					visibility: checkVisibilityScope(hidden, sessionCharacter.kind),
 				},
-				visibility: checkVisibilityScope(hidden, sessionCharacter.kind),
-			},
-		];
+			],
+			"check:resolved",
+			hidden,
+		);
 
 		if (isGrowthEligible(result)) {
 			const newState = hidden
@@ -464,20 +491,24 @@ export class PerformSanCheckHandler implements CommandHandler {
 			ctx.randomSource,
 		) as { loss: number };
 
-		const events: ProducedEvent[] = [
-			{
-				type: "check:resolved",
-				payload: {
-					requestId: null,
-					characterId: input.characterId,
-					characterName: character.name,
-					skillKey: "san",
-					hidden,
-					result: sanResult,
+		const events: ProducedEvent[] = withSealedDiceEvent(
+			[
+				{
+					type: "check:resolved",
+					payload: {
+						requestId: null,
+						characterId: input.characterId,
+						characterName: character.name,
+						skillKey: "san",
+						hidden,
+						result: sanResult,
+					},
+					visibility: checkVisibilityScope(hidden, sessionCharacter.kind),
 				},
-				visibility: checkVisibilityScope(hidden, sessionCharacter.kind),
-			},
-		];
+			],
+			"check:resolved",
+			hidden,
+		);
 
 		const mutated = rule.applySanLoss(state, sanResult.loss) as {
 			state: unknown;
@@ -651,20 +682,24 @@ export class RespondCheckRequestHandler implements CommandHandler {
 			throw new CheckRequestAlreadyResolvedError();
 		}
 
-		const events: ProducedEvent[] = [
-			{
-				type: "check:resolved",
-				payload: {
-					requestId: request.id,
-					characterId: request.characterId,
-					characterName: character.name,
-					skillKey: request.skillKey,
-					hidden,
-					result: skillResult,
+		const events: ProducedEvent[] = withSealedDiceEvent(
+			[
+				{
+					type: "check:resolved",
+					payload: {
+						requestId: request.id,
+						characterId: request.characterId,
+						characterName: character.name,
+						skillKey: request.skillKey,
+						hidden,
+						result: skillResult,
+					},
+					visibility: checkVisibilityScope(hidden, sessionCharacter.kind),
 				},
-				visibility: checkVisibilityScope(hidden, sessionCharacter.kind),
-			},
-		];
+			],
+			"check:resolved",
+			hidden,
+		);
 
 		if (isGrowthEligible(skillResult)) {
 			const newState = hidden

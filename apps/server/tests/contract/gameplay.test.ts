@@ -132,14 +132,25 @@ describe("Gameplay contract tests", () => {
 			(m) => m.type === "dice:rolled" && m.payload.hidden === true,
 		);
 		expect(gmHidden.payload.result.total).toBe(50);
+		const pc2Sealed = await pc2.waitFor((m) => m.type === "dice:sealed");
+		expect(pc2Sealed.payload.hidden).toBe(true);
+		expect(pc2Sealed.payload.result).toBeUndefined();
+		expect(pc2Sealed.payload.activityType).toBe("dice:rolled");
+		expect(Object.keys(pc2Sealed.payload).sort()).toEqual([
+			"activityType",
+			"hidden",
+			"rollerType",
+		]);
+		expect(pc2Sealed.payload.rollerType).toBe("gm");
 		await new Promise((r) => setTimeout(r, 200));
-		// pc2 收到了 pc1 的公开骰点，但绝不应收到 GM 的暗骰
+		// pc2 收到了 pc1 的公开骰点与去数值的暗骰封存提示，但绝不应收到结果事件
 		expect(
 			pc2.messages.filter(
 				(m) => m.type === "dice:rolled" && m.payload.hidden === true,
 			).length,
 		).toBe(0);
 		expect(pc2.messages.filter((m) => m.type === "dice:rolled").length).toBe(1);
+		expect(gm.messages.some((m) => m.type === "dice:sealed")).toBe(false);
 
 		await closeAll(gm, pc1, pc2);
 
@@ -369,6 +380,9 @@ describe("Gameplay contract tests", () => {
 			(m) => m.type === "check:resolved" && m.payload.requestId === requestId,
 		);
 		expect(gmResult.payload.result.roll).toBe(21);
+		const pc2Sealed = await pc2.waitFor((m) => m.type === "dice:sealed");
+		expect(pc2Sealed.payload.activityType).toBe("check:resolved");
+		expect(pc2Sealed.payload.result).toBeUndefined();
 
 		// 玩家（含发起者与其他玩家）都收不到结果事件
 		await new Promise((r) => setTimeout(r, 200));
@@ -455,6 +469,9 @@ describe("Gameplay contract tests", () => {
 		await gm.waitFor(
 			(m) => m.type === "check:resolved" && m.payload.hidden === true,
 		);
+		const pc2Sealed = await pc2.waitFor((m) => m.type === "dice:sealed");
+		expect(pc2Sealed.payload.activityType).toBe("check:resolved");
+		expect(pc2Sealed.payload.result).toBeUndefined();
 		const gmState = await gm.waitFor(
 			(m) => m.type === "state:changed" && m.payload.characterId === "char-pc1",
 		);

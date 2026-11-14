@@ -95,6 +95,13 @@
   --text-display-small-emph--line-height: 2.9375rem;
   --text-display-small-emph--font-weight: 700;
 
+  --text-ticket-total: 2.875rem;
+  --text-ticket-total--line-height: 1;
+  --text-ticket-total--font-weight: 700;
+  --text-check-roll: 2.625rem;
+  --text-check-roll--line-height: 1;
+  --text-check-roll--font-weight: 700;
+
   --text-headline-large-emph: 2rem;
   --text-headline-large-emph--line-height: 2.6875rem;
   --text-headline-large-emph--font-weight: 700;
@@ -819,4 +826,11 @@
   --radius-m3-button-md-pressed: 12px;
   --radius-m3-button-lg-pressed: 16px;
   --radius-m3-button-xl-pressed: 16px;
+}
+
+@media (width < 420px) {
+  :root {
+    --text-ticket-total: 2.5rem;
+    --text-check-roll: 2.375rem;
+  }
 }

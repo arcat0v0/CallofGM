@@ -42,6 +42,7 @@ export type ChatMessageView = {
   gmVisible?: boolean;
   outcome?: "success" | "failure";
   activityType?: string;
+  sealedActivityType?: string;
   roll?: ChatRollView;
   check?: ChatCheckView;
   phase?: ChatPhaseView;

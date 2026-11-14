@@ -99,6 +99,7 @@ function buildChatMessages(
 			eventId: message.eventId,
 			anchorable: message.anchorable,
 			activityType: message.activityType,
+			sealedActivityType: message.sealedActivityType,
 			roll: message.roll,
 			check: message.check,
 			phase: message.phase,

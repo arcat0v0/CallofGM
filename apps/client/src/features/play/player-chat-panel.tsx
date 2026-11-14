@@ -107,6 +107,7 @@ function PlayerChatPanel({
 						gmVisible: message.gmVisible,
 						outcome: message.outcome,
 						activityType: message.activityType,
+						sealedActivityType: message.sealedActivityType,
 						roll: message.roll,
 						check: message.check,
 						phase: message.phase,

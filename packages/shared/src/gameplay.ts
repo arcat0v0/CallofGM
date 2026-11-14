@@ -93,6 +93,14 @@ export const DiceRolledEvent = z.object({
 });
 export type DiceRolledEvent = z.infer<typeof DiceRolledEvent>;
 
+/** Event payload: dice:sealed。玩家侧封存提示，绝不包含掷骰结果或目标身份。 */
+export const DiceSealedEvent = z.object({
+	activityType: z.enum(["dice:rolled", "check:resolved"]),
+	rollerType: z.literal("gm"),
+	hidden: z.literal(true),
+});
+export type DiceSealedEvent = z.infer<typeof DiceSealedEvent>;
+
 export const CheckRequestDto = z.object({
 	id: z.string(),
 	sessionId: z.string(),

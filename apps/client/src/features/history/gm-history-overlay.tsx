@@ -104,7 +104,9 @@ function matchesEventType(
 	const option = EVENT_TYPE_OPTIONS.find((item) => item.value === filter);
 	return (
 		option?.activityType !== undefined &&
-		message.activityType === option.activityType
+		(message.activityType === option.activityType ||
+			(message.sealedActivityType !== undefined &&
+				message.sealedActivityType === option.activityType))
 	);
 }
 

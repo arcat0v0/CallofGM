@@ -3,6 +3,7 @@ import {
 	type CatalogHandoutDto,
 	type ChatMessageDto,
 	type CheckRequestDto,
+	DiceSealedEvent,
 	type GrantedHandoutDto,
 	type HandoutGrantDetailDto,
 	HandoutGrantOverviewDto,
@@ -401,7 +402,14 @@ function applyEvent(
 			};
 		}
 		case "dice:rolled":
+		case "dice:sealed":
 		case "check:resolved": {
+			if (
+				type === "dice:sealed" &&
+				!DiceSealedEvent.safeParse(payload).success
+			) {
+				return {};
+			}
 			const activityPayload = resolveActivityPayload(
 				type,
 				payload,

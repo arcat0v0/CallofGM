@@ -138,7 +138,7 @@ function DiceTicket({
 						{message.speakerName}
 					</span>
 					<span className="font-mono text-label-small text-[var(--paper-ink-2)]">
-						{t("chat.rollPublic")}
+						{message.hidden ? t("chat.rollPrivate") : t("chat.rollPublic")}
 					</span>
 					<span className="ml-auto shrink-0 font-mono text-label-small text-[var(--paper-ink-2)]">
 						{message.time}
@@ -146,7 +146,7 @@ function DiceTicket({
 				</div>
 				<div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
 					<span className="font-mono text-body-medium">{roll.expression}</span>
-					<span className="font-serif text-display-small-emph leading-none tabular-nums max-[420px]:text-[38px]">
+					<span className="font-serif text-ticket-total leading-none tabular-nums">
 						{roll.total}
 					</span>
 					<span className="-rotate-3 border border-[var(--paper-line)] px-1.5 py-0.5 font-serif text-body-medium text-[var(--paper-ink-2)]">
@@ -169,7 +169,7 @@ function DiceTicket({
 					</p>
 				) : null}
 				<span className="-rotate-3 self-end border border-[var(--ink-olive)] px-2 py-0.5 font-mono text-label-small text-[var(--ink-olive)] opacity-80">
-					{t("chat.public")}
+					{message.hidden ? t("chat.private") : t("chat.public")}
 				</span>
 			</div>
 		</Sheet>
@@ -244,7 +244,7 @@ function CheckVerdict({
 					</span>
 				</div>
 				<div className="flex items-baseline gap-1.5">
-					<span className="font-serif text-display-small-emph leading-none tabular-nums">
+					<span className="font-serif text-check-roll leading-none tabular-nums">
 						{check.roll}
 					</span>
 					<span className="font-serif text-title-large-emph text-[var(--paper-ink-2)]">
