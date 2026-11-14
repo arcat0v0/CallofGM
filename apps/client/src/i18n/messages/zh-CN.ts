@@ -471,8 +471,12 @@ export const zhCN: Record<string, string> = {
 	"characterCreation.collapseDetails": "收起详细参数",
 	"characterCreation.wearSlotsTitle": "穿戴在身",
 	"characterCreation.wearSlotsHint": "按身体部位佩戴的装备与当前状态",
+	"characterCreation.wearSlotsEmpty":
+		"暂无穿戴在身的装备；点击下方背包卡片可指定佩戴部位与状态。",
 	"characterCreation.backpackTitle": "背包格",
 	"characterCreation.backpackHint": "点击卡片调数量、备注或补登记为武器",
+	"characterCreation.backpackEmpty":
+		"背包暂无物品，可通过上方输入框或「添加装备」放入。",
 	"characterCreation.gearSlot": "位置",
 	"characterCreation.gearStatus": "状态",
 	"characterCreation.gearNote": "备注",

@@ -180,7 +180,27 @@ describe("Character sheet context and v2 sheet fields", () => {
 		const sessionId = ((await sessRes.json()) as { session: { id: string } })
 			.session.id;
 
-		// Seed one active phase event, one archived phase event, and one growth record
+		// Transition session to active and change phase via real GM endpoint
+		const prepRes = await api(`/api/v1/gm/sessions/${sessionId}/status`, {
+			method: "POST",
+			token: ctx.gmToken,
+			body: JSON.stringify({ status: "preparing" }),
+		});
+		expect(prepRes.status).toBe(200);
+		const activeRes = await api(`/api/v1/gm/sessions/${sessionId}/status`, {
+			method: "POST",
+			token: ctx.gmToken,
+			body: JSON.stringify({ status: "active" }),
+		});
+		expect(activeRes.status).toBe(200);
+		const phaseRes = await api(`/api/v1/gm/sessions/${sessionId}/phase`, {
+			method: "POST",
+			token: ctx.gmToken,
+			body: JSON.stringify({ phase: "free_discussion" }),
+		});
+		expect(phaseRes.status).toBe(200);
+
+		// Seed one legacy { to } phase event, one archived phase event, and one growth record
 		await ctx.container.db.insert(sessionHistoryEvents).values([
 			{
 				id: "hist-phase-1",
@@ -201,7 +221,7 @@ describe("Character sheet context and v2 sheet fields", () => {
 				sessionId,
 				eventId: 11,
 				type: "session:phase-changed",
-				payloadJson: JSON.stringify({ from: "investigation", to: "ended" }),
+				payloadJson: JSON.stringify({ phase: "forced_cg" }),
 				visibilityJson: JSON.stringify({ kind: "public" }),
 				playerVisible: 1,
 				anchorable: 1,
@@ -241,6 +261,11 @@ describe("Character sheet context and v2 sheet fields", () => {
 			},
 		]);
 		expect(plCtx.phaseRecords).toEqual([
+			expect.objectContaining({
+				sessionId,
+				sessionName: "血月夜",
+				phase: "free_discussion",
+			}),
 			{
 				eventId: 10,
 				sessionId,

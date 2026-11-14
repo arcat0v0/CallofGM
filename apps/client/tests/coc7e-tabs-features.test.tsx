@@ -259,6 +259,9 @@ describe("CoC 7e v2 7-tab features", () => {
 			/>,
 		);
 		openTab(view, /装备·资产/);
+		expect(view.getByText("穿戴在身")).toBeTruthy();
+		expect(view.getByText(/暂无穿戴在身的装备/)).toBeTruthy();
+		expect(view.getByText(/背包暂无物品/)).toBeTruthy();
 		const quickInput = view.getByPlaceholderText("输入物品名称快速添加…");
 		setValue(quickInput, "警用左轮手枪");
 		fireEvent.click(view.getByRole("button", { name: "放入背包" }));
@@ -317,7 +320,7 @@ describe("CoC 7e v2 7-tab features", () => {
 					sessionId: "sess-1",
 					sessionName: "阿卡姆迷雾",
 					eventId: 1,
-					phase: "第二幕 · 密大档案室",
+					phase: "free_discussion",
 					occurredAt: 1_700_000_000_000,
 				},
 			],
@@ -359,10 +362,12 @@ describe("CoC 7e v2 7-tab features", () => {
 
 		// Claim from KP phase records
 		fireEvent.click(view.getByRole("button", { name: "认领团阶段记录" }));
+		expect(view.getByText("阿卡姆迷雾 · 自由讨论")).toBeTruthy();
 		fireEvent.click(view.getByRole("button", { name: "认领" }));
 		await waitFor(() => {
 			expect(latest.experiences).toHaveLength(2);
 			expect(latest.experiences[0]?.sourceType).toBe("session_phase");
+			expect(latest.experiences[0]?.refLabel).toBe("阿卡姆迷雾 · 自由讨论");
 		});
 
 		// Add manual experience

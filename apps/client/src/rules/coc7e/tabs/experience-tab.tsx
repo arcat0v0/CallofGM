@@ -1,4 +1,9 @@
-import type { CharacterSheetContextResponse, coc7e } from "@cogm/shared";
+import {
+	type CharacterSheetContextResponse,
+	type coc7e,
+	SessionPhase,
+	SessionPhaseLabel,
+} from "@cogm/shared";
 import { BookOpen, Link2, PenLine, ScrollText, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { SheetSection, TextField } from "@/components/shared/creation-form";
@@ -216,7 +221,11 @@ export function Coc7eExperienceTab({
 							phaseRecords.map((record) => {
 								const refId = `${record.sessionId}:${record.eventId}`;
 								const claimed = isClaimed("phase", refId);
-								const label = `${record.sessionName} · ${record.phase}`;
+								const parsedPhase = SessionPhase.safeParse(record.phase);
+								const phaseLabel = parsedPhase.success
+									? SessionPhaseLabel[parsedPhase.data]
+									: record.phase;
+								const label = `${record.sessionName} · ${phaseLabel}`;
 								return (
 									<div
 										key={refId}

@@ -773,11 +773,15 @@ export function Coc7eEquipmentAssetsTab({
 						</Button>
 					</div>
 
-					{wornGear.length > 0 ? (
-						<div className="flex flex-col gap-2">
-							<h4 className="font-mono text-label-large-emph text-foreground-secondary">
-								{t("characterCreation.wearSlotsTitle")}
-							</h4>
+					<div className="flex flex-col gap-2">
+						<h4 className="font-mono text-label-large-emph text-foreground-secondary">
+							{t("characterCreation.wearSlotsTitle")}
+						</h4>
+						{wornGear.length === 0 ? (
+							<p className="border-md-outline-variant/40 bg-md-surface-container rounded-xl border border-dashed px-3.5 py-2.5 text-body-small text-foreground-tertiary">
+								{t("characterCreation.wearSlotsEmpty")}
+							</p>
+						) : (
 							<div className="grid gap-2.5 md:grid-cols-2">
 								{wornGear.map(({ item, index }) => (
 									<GearCard
@@ -808,8 +812,8 @@ export function Coc7eEquipmentAssetsTab({
 									/>
 								))}
 							</div>
-						</div>
-					) : null}
+						)}
+					</div>
 
 					<div className="flex flex-col gap-2">
 						<div className="flex items-center gap-2">
@@ -818,36 +822,42 @@ export function Coc7eEquipmentAssetsTab({
 								{t("characterCreation.backpackTitle")}
 							</h4>
 						</div>
-						<div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
-							{backpackGear.map(({ item, index }) => (
-								<GearCard
-									key={`${item.name}-${index}`}
-									item={item}
-									index={index}
-									expanded={expandedGearIndex === index}
-									onToggleExpand={() =>
-										setExpandedGearIndex(
-											expandedGearIndex === index ? null : index,
-										)
-									}
-									showValidation={showValidation}
-									reportError={reportError}
-									onUpdate={(patch) => updateGear(index, patch)}
-									onRemove={() =>
-										onChange({
-											gear: sheet.gear.filter(
-												(_, itemIndex) => itemIndex !== index,
-											),
-										})
-									}
-									unregisteredWeapon={
-										WEAPON_NAME_PATTERN.test(item.name) &&
-										!sheet.weapons.some((w) => w.name === item.name)
-									}
-									onRegisterWeapon={() => registerGearAsWeapon(item.name)}
-								/>
-							))}
-						</div>
+						{backpackGear.length === 0 ? (
+							<p className="border-md-outline-variant/40 bg-md-surface-container rounded-xl border border-dashed px-3.5 py-2.5 text-body-small text-foreground-tertiary">
+								{t("characterCreation.backpackEmpty")}
+							</p>
+						) : (
+							<div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+								{backpackGear.map(({ item, index }) => (
+									<GearCard
+										key={`${item.name}-${index}`}
+										item={item}
+										index={index}
+										expanded={expandedGearIndex === index}
+										onToggleExpand={() =>
+											setExpandedGearIndex(
+												expandedGearIndex === index ? null : index,
+											)
+										}
+										showValidation={showValidation}
+										reportError={reportError}
+										onUpdate={(patch) => updateGear(index, patch)}
+										onRemove={() =>
+											onChange({
+												gear: sheet.gear.filter(
+													(_, itemIndex) => itemIndex !== index,
+												),
+											})
+										}
+										unregisteredWeapon={
+											WEAPON_NAME_PATTERN.test(item.name) &&
+											!sheet.weapons.some((w) => w.name === item.name)
+										}
+										onRegisterWeapon={() => registerGearAsWeapon(item.name)}
+									/>
+								))}
+							</div>
+						)}
 					</div>
 				</div>
 			</SheetSection>

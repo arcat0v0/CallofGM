@@ -787,8 +787,13 @@ export class DrizzleCharactersRepository implements CharactersRepository {
 		for (const row of rows) {
 			let phase = "";
 			try {
-				const parsed = JSON.parse(row.payloadJson) as { to?: unknown };
-				if (typeof parsed.to === "string") {
+				const parsed = JSON.parse(row.payloadJson) as {
+					phase?: unknown;
+					to?: unknown;
+				};
+				if (typeof parsed.phase === "string") {
+					phase = parsed.phase;
+				} else if (typeof parsed.to === "string") {
 					phase = parsed.to;
 				}
 			} catch {
