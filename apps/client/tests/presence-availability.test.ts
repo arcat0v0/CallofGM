@@ -13,7 +13,11 @@ const snapshotBase = {
 		phase: "free_discussion" as const,
 		currentSceneId: null,
 		lastEventId: 0,
-		settings: { sharePcSheets: true, obSeePcState: true },
+		settings: {
+			sharePcSheets: true,
+			obSeePcState: true,
+			diceSkin: "olive" as const,
+		},
 	},
 	currentScene: null,
 	viewer: { isGm: false, seatRole: null, holderKind: null, holderId: null },

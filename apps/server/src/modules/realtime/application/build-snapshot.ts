@@ -184,6 +184,7 @@ export class BuildSessionSnapshotUseCase {
 			this.buildCharacters(sessionId, ruleId, actor, seatRole, {
 				sharePcSheets: session.sharePcSheets === 1,
 				obSeePcState: session.obSeePcState === 1,
+				diceSkin: session.diceSkin === "bone" ? "bone" : "olive",
 			}),
 			this.buildCurrentScene(session.currentSceneId),
 			this.buildBgm(sessionId),
@@ -244,6 +245,7 @@ export class BuildSessionSnapshotUseCase {
 				settings: {
 					sharePcSheets: session.sharePcSheets === 1,
 					obSeePcState: session.obSeePcState === 1,
+					diceSkin: session.diceSkin === "bone" ? "bone" : "olive",
 				},
 				portraitLayout:
 					session.portraitLayout as SessionSnapshotPayload["session"]["portraitLayout"],
@@ -304,7 +306,11 @@ export class BuildSessionSnapshotUseCase {
 		ruleId: RuleId,
 		actor: ActorContext,
 		seatRole: "pc" | "ob" | null,
-		settings: { sharePcSheets: boolean; obSeePcState: boolean },
+		settings: {
+			sharePcSheets: boolean;
+			obSeePcState: boolean;
+			diceSkin: "olive" | "bone";
+		},
 	): Promise<SnapshotCharacter[]> {
 		const isGm = actor.type === "user" && actor.role === "gm";
 		const actorHolder =

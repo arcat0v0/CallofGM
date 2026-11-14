@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" role="img" aria-label="做旧印泥纹理">
+  <!-- 做旧印泥纹理平铺片（24×24，可无缝平铺）：斜向细纹 + 斑点。
+       用法二选一：
+       A. 作 CSS mask-image（配合 stamp-frame.svg 的印章框，印泥不均）；
+       B. 作低 opacity 的背景纹理叠加在纸面 / 印章上。
+       黑白灰阶，不含颜色，换主题不失效。 -->
+  <defs>
+    <pattern id="grunge" width="24" height="24" patternUnits="userSpaceOnUse">
+      <rect width="24" height="24" fill="#fff"/>
+      <g stroke="#000" stroke-width="1" opacity="0.35">
+        <line x1="2" y1="0" x2="0" y2="24"/>
+        <line x1="10" y1="0" x2="8" y2="24"/>
+        <line x1="18" y1="0" x2="16" y2="24"/>
+      </g>
+      <g fill="#000" opacity="0.4">
+        <circle cx="6" cy="6" r="0.9"/>
+        <circle cx="15" cy="14" r="1.2"/>
+        <circle cx="21" cy="4" r="0.8"/>
+        <circle cx="11" cy="21" r="1"/>
+      </g>
+    </pattern>
+  </defs>
+  <rect width="24" height="24" fill="url(#grunge)"/>
+</svg>

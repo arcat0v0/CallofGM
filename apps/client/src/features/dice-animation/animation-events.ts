@@ -1,6 +1,10 @@
 import type { SessionEvent } from "@cogm/shared";
 import { t } from "@/i18n";
-import { type DiceAnimationRequest, parseDiceFaces } from "./model";
+import {
+	type DiceAnimationRequest,
+	type DiceSkin,
+	parseDiceFaces,
+} from "./model";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null;
@@ -8,6 +12,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 export function diceAnimationFromMessage(
 	message: SessionEvent,
+	skin: DiceSkin = "olive",
 ): DiceAnimationRequest | null {
 	if (
 		message.replayed === true ||
@@ -44,6 +49,7 @@ export function diceAnimationFromMessage(
 			total,
 			rolls,
 			label: t("dice.animationResult", { total }),
+			skin,
 		};
 	}
 
@@ -65,6 +71,7 @@ export function diceAnimationFromMessage(
 			roll,
 			outcome,
 			label: t("dice.animationResult", { total: roll }),
+			skin,
 		};
 	}
 

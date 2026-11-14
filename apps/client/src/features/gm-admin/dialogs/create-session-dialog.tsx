@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { DiceSkinSelector } from "@/features/dice-skin/dice-skin-selector";
 import {
 	Select,
 	SelectContent,
@@ -56,6 +57,7 @@ function CreateSessionDialog({
 	const [selectedIds, setSelectedIds] = useState(new Set<string>());
 	const [status, setStatus] =
 		useState<(typeof statusOptions)[number]>("waiting");
+	const [diceSkin, setDiceSkin] = useState<"olive" | "bone">("olive");
 	const [pending, setPending] = useState(false);
 	const statusSegments = statusOptions.map((option) => ({
 		value: option,
@@ -113,6 +115,7 @@ function CreateSessionDialog({
 				body: JSON.stringify({
 					moduleId,
 					name: name.trim() || undefined,
+					diceSkin,
 					characterIds: [...selectedIds],
 				}),
 			});
@@ -267,6 +270,10 @@ function CreateSessionDialog({
 							className="h-[38px] rounded-md p-[3px]"
 							itemClassName="h-full text-label-large"
 						/>
+					</FormField>
+
+					<FormField label={t("diceSkin.sessionLabel")}>
+						<DiceSkinSelector value={diceSkin} onValueChange={setDiceSkin} />
 					</FormField>
 				</div>
 

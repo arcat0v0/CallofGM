@@ -1,4 +1,4 @@
-import { SessionSettingsDefaults } from "@cogm/shared";
+import { SessionSettings, SessionSettingsDefaults } from "@cogm/shared";
 import type { CatalogRepository } from "@/modules/catalog";
 import type { CharactersRepository } from "@/modules/characters";
 import type { SessionsRepository } from "@/modules/sessions";
@@ -438,6 +438,10 @@ export class InstantiateTemplateUseCase {
 		}
 
 		const sessionId = this.idGenerator.nextId();
+		const settings = SessionSettings.parse({
+			...SessionSettingsDefaults,
+			...JSON.parse(source.settingsJson),
+		});
 		await this.sessions.createSession(
 			{
 				id: sessionId,
@@ -449,8 +453,9 @@ export class InstantiateTemplateUseCase {
 				phase: "free_discussion",
 				currentSceneId: null,
 				lastEventId: 0,
-				sharePcSheets: 1,
-				obSeePcState: 1,
+				sharePcSheets: settings.sharePcSheets ? 1 : 0,
+				obSeePcState: settings.obSeePcState ? 1 : 0,
+				diceSkin: settings.diceSkin,
 				portraitLayout: "auto",
 				portraitScale: "md",
 				growthConfirmedAt: null,

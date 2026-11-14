@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 64" fill="none" stroke="currentColor" role="img" aria-label="大成功印章">
+  <!-- 成品印章：大成功。印泥色由调用处 currentColor 给（纸面加深金 #8a6414）。 -->
+  <defs>
+    <mask id="ink-wear">
+      <rect x="0" y="0" width="120" height="64" fill="#fff"/>
+      <g stroke="#000" stroke-width="1.4" opacity="0.55">
+        <line x1="14" y1="0" x2="8" y2="64"/>
+        <line x1="52" y1="0" x2="46" y2="64"/>
+        <line x1="96" y1="0" x2="90" y2="64"/>
+      </g>
+      <g fill="#000" opacity="0.5">
+        <circle cx="26" cy="50" r="1.6"/>
+        <circle cx="84" cy="10" r="1.7"/>
+      </g>
+    </mask>
+  </defs>
+  <g mask="url(#ink-wear)">
+    <rect x="2" y="2" width="116" height="60" rx="6" stroke-width="3"/>
+    <rect x="7" y="7" width="106" height="50" rx="4" stroke-width="1"/>
+    <text x="60" y="32" text-anchor="middle" font-family="Georgia, 'Songti SC', 'STSong', serif" font-size="19" font-weight="700" letter-spacing="2" fill="currentColor" stroke="none">大成功</text>
+    <text x="60" y="50" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="8" letter-spacing="3" fill="currentColor" stroke="none">CRITICAL</text>
+  </g>
+</svg>

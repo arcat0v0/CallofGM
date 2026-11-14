@@ -86,7 +86,8 @@ export function useSessionConnection(
 			const settingsAfter = usePlayStore.getState().settings;
 			if (
 				settingsAfter.sharePcSheets !== settingsBefore.sharePcSheets ||
-				settingsAfter.obSeePcState !== settingsBefore.obSeePcState
+				settingsAfter.obSeePcState !== settingsBefore.obSeePcState ||
+				settingsAfter.diceSkin !== settingsBefore.diceSkin
 			) {
 				void refreshSnapshot();
 			}

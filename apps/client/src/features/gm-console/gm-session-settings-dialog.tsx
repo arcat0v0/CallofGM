@@ -1,4 +1,4 @@
-import type { SessionSettings } from "@cogm/shared";
+import { SessionSettingsDefaults, type SessionSettings } from "@cogm/shared";
 import {
 	Dialog,
 	DialogContent,
@@ -10,6 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { t } from "@/i18n";
 import { sendSessionCommand } from "@/lib/session-socket";
 import { usePlayStore } from "@/stores/play-store";
+import { DiceSkinSelector } from "@/features/dice-skin/dice-skin-selector";
 
 function GmSessionSettingsDialog({
 	open,
@@ -19,6 +20,7 @@ function GmSessionSettingsDialog({
 	onOpenChange: (open: boolean) => void;
 }) {
 	const settings = usePlayStore((state) => state.settings);
+	const diceSkin = settings.diceSkin ?? SessionSettingsDefaults.diceSkin;
 
 	function update(patch: Partial<SessionSettings>) {
 		sendSessionCommand("session:settings", { ...settings, ...patch });
@@ -65,6 +67,20 @@ function GmSessionSettingsDialog({
 						onCheckedChange={(checked) =>
 							update({ obSeePcState: Boolean(checked) })
 						}
+					/>
+				</div>
+				<div className="bg-md-surface-container flex flex-col gap-3 rounded-lg px-4 py-3">
+					<div className="flex min-w-0 flex-col">
+						<span className="text-foreground text-label-large">
+							{t("diceSkin.sessionLabel")}
+						</span>
+						<span className="text-md-on-surface-variant text-label-small">
+							{t("diceSkin.sessionDescription")}
+						</span>
+					</div>
+					<DiceSkinSelector
+						value={diceSkin}
+						onValueChange={(value) => update({ diceSkin: value })}
 					/>
 				</div>
 			</DialogContent>

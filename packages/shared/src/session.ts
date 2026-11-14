@@ -39,21 +39,34 @@ export type SeatRole = z.infer<typeof SeatRole>;
 export const MessageChannel = z.enum(["ooc", "roleplay"]);
 export type MessageChannel = z.infer<typeof MessageChannel>;
 
+export const DiceSkin = z.enum(["olive", "bone"]);
+export type DiceSkin = z.infer<typeof DiceSkin>;
+
+export const DICE_SKINS = ["olive", "bone"] as const;
+
+export const DiceSkinLabel: Record<DiceSkin, string> = {
+	olive: "雾湖石",
+	bone: "骨白",
+};
+
 export const SessionSettings = z.object({
 	sharePcSheets: z.boolean(),
 	obSeePcState: z.boolean(),
+	diceSkin: DiceSkin.default("olive"),
 });
-export type SessionSettings = z.infer<typeof SessionSettings>;
+export type SessionSettings = z.output<typeof SessionSettings>;
 
 export const SessionSettingsDefaults: SessionSettings = {
 	sharePcSheets: true,
 	obSeePcState: true,
+	diceSkin: "olive",
 };
 
 export const CreateSessionRequest = z.object({
 	moduleId: z.string().min(1),
 	characterIds: z.array(z.string()),
 	name: z.string().trim().max(60).optional(),
+	diceSkin: DiceSkin.optional(),
 });
 export type CreateSessionRequest = z.infer<typeof CreateSessionRequest>;
 

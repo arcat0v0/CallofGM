@@ -33,6 +33,8 @@ describe("GM stage and speaker labels", () => {
 		const view = render(
 			<ChatMessageCard
 				message={{
+					id: "card-1",
+					sortKey: 1,
 					speakerName: "礼帽男子",
 					speakerRoleLabel: "NPC",
 					expressionLabel: "tip_hat_smile",

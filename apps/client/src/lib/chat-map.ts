@@ -6,10 +6,58 @@ import {
 	SessionPhaseLabel,
 	type SnapshotCharacter,
 } from "@cogm/shared";
-import type { ChatMessage } from "@/features/chat/types";
+import type {
+	ChatCheckOutcome,
+	ChatMessage,
+	ChatRollView,
+} from "@/features/chat/types";
 import { t } from "@/i18n";
 import { expressionLabel, formatClock, initialsOf } from "@/lib/format";
 import { getRuleComponent } from "@/rules/registry";
+
+function diceRollView(result: Record<string, unknown>): ChatRollView {
+	const expression =
+		typeof result.expression === "string"
+			? result.expression
+			: t("message.diceFallback");
+	const total =
+		typeof result.total === "number" && Number.isFinite(result.total)
+			? result.total
+			: 0;
+	const dice = Array.isArray(result.rolls)
+		? result.rolls.filter(
+				(value): value is number =>
+					typeof value === "number" && Number.isFinite(value),
+			)
+		: [];
+	const modifierMatch = /([+-]\d+)$/.exec(expression);
+	const modifier = modifierMatch
+		? Number.parseInt(modifierMatch[1] ?? "0", 10)
+		: undefined;
+	const comment =
+		typeof result.comment === "string" && result.comment
+			? result.comment
+			: undefined;
+	return {
+		expression,
+		total,
+		dice,
+		...(modifier !== undefined && Number.isFinite(modifier)
+			? { modifier }
+			: {}),
+		...(comment ? { comment } : {}),
+	};
+}
+
+function stampOutcome(
+	outcome: string,
+	success: boolean | null,
+): ChatCheckOutcome {
+	if (outcome === "critical" || outcome === "fumble") {
+		return outcome;
+	}
+	return success === false ? "failure" : "success";
+}
 
 export function obSpeakerLabel(playerId: string | null | undefined): string {
 	return playerId
@@ -113,6 +161,7 @@ export function mapActivityEvent(
 	eventId: number,
 	occurredAt?: number,
 	characters: SnapshotCharacter[] = [],
+	viewer: { isGm?: boolean } = {},
 ): ChatMessage | null {
 	if (!isRecord(payload)) {
 		return null;
@@ -144,6 +193,8 @@ export function mapActivityEvent(
 	});
 	if (type === "dice:rolled") {
 		const result = isRecord(payload.result) ? payload.result : {};
+		const hidden = payload.hidden === true;
+		const gmVisible = payload.gmVisible === true || viewer.isGm === true;
 		const name =
 			typeof payload.characterName === "string" && payload.characterName
 				? payload.characterName
@@ -160,7 +211,8 @@ export function mapActivityEvent(
 		const detail = typeof result.detail === "string" ? result.detail : "";
 		const comment =
 			typeof result.comment === "string" ? ` · ${result.comment}` : "";
-		const hidden = payload.hidden === true ? t("message.diceHidden") : "";
+		const hiddenSuffix = hidden ? t("message.diceHidden") : "";
+		const roll = diceRollView(result);
 		return {
 			id: `dice-${eventId}`,
 			sortKey: eventId,
@@ -173,14 +225,21 @@ export function mapActivityEvent(
 			avatarBg: "bg-default",
 			avatarFg: "text-foreground",
 			time,
-			body: `${expression} = ${String(total)}${detail ? `（${detail}）` : ""}${comment}${hidden}`,
+			body: hidden
+				? `${name}${hiddenSuffix}`
+				: `${expression} = ${String(total)}${detail ? `（${detail}）` : ""}${comment}`,
 			tone: "ooc",
 			isSystem: true,
-			hidden: payload.hidden === true,
+			hidden,
+			...(hidden && !gmVisible
+				? {}
+				: { roll, gmVisible: !hidden || gmVisible }),
 		};
 	}
 	if (type === "check:resolved") {
 		const result = isRecord(payload.result) ? payload.result : {};
+		const hidden = payload.hidden === true;
+		const gmVisible = payload.gmVisible === true || viewer.isGm === true;
 		const name =
 			typeof payload.characterName === "string"
 				? payload.characterName
@@ -189,13 +248,27 @@ export function mapActivityEvent(
 			typeof payload.skillKey === "string" ? payload.skillKey : "";
 		const rule = getRuleComponent(characterOf(payload.characterId)?.ruleId);
 		const skill = skillKey ? rule.skillLabel(skillKey) : t("chat.role.check");
-		const hidden = payload.hidden === true ? t("message.diceHidden") : "";
+		const hiddenSuffix = hidden ? t("message.diceHidden") : "";
+		const success = typeof result.success === "boolean" ? result.success : null;
+		const outcome = typeof result.outcome === "string" ? result.outcome : "";
+		const stamp = stampOutcome(outcome, success);
+		const label = outcome
+			? rule.outcomeLabel(outcome)
+			: success === true
+				? t("message.outcome.success")
+				: t("message.outcome.failure");
 		if (skillKey === "san") {
 			const roll = result.roll;
 			const loss = result.loss;
 			const after = result.sanAfter;
+			const before = result.sanBefore;
+			const rollValue = typeof roll === "number" ? roll : 0;
+			const afterValue = typeof after === "number" ? after : 0;
+			const lossValue = typeof loss === "number" ? loss : 0;
+			const beforeValue =
+				typeof before === "number" ? before : afterValue + lossValue;
 			const ok =
-				result.success === true
+				success === true
 					? t("message.outcome.success")
 					: t("message.outcome.failure");
 			return {
@@ -210,30 +283,38 @@ export function mapActivityEvent(
 				avatarBg: "bg-default",
 				avatarFg: "text-foreground",
 				time,
-				body:
-					t("message.sanCheck", {
-						roll: String(roll),
-						outcome: ok,
-						loss: String(loss),
-						after: String(after),
-					}) + hidden,
+				body: hidden
+					? `${name} · ${skill}${hiddenSuffix}`
+					: t("message.sanCheck", {
+							roll: String(rollValue),
+							outcome: ok,
+							loss: String(lossValue),
+							after: String(afterValue),
+						}),
 				tone: "ooc",
 				isSystem: true,
-				hidden: payload.hidden === true,
-				outcome:
-					typeof result.success === "boolean"
-						? result.success
-							? "success"
-							: "failure"
-						: undefined,
+				hidden,
+				gmVisible: !hidden || gmVisible,
+				outcome: success === null ? undefined : success ? "success" : "failure",
+				...(hidden && !gmVisible
+					? {}
+					: {
+							check: {
+								skill,
+								roll: rollValue,
+								target: beforeValue,
+								difficulty: "regular",
+								outcome: stamp,
+								label,
+								san: {
+									before: beforeValue,
+									after: afterValue,
+									loss: lossValue,
+								},
+							},
+						}),
 			};
 		}
-		const outcome = typeof result.outcome === "string" ? result.outcome : "";
-		const label = outcome
-			? rule.outcomeLabel(outcome)
-			: result.success === true
-				? t("message.outcome.success")
-				: t("message.outcome.failure");
 		const roll = result.roll;
 		const target = result.targetValue;
 		const difficulty = rule.parseDifficulty(result.difficulty) ?? "regular";
@@ -247,6 +328,9 @@ export function mapActivityEvent(
 							threshold: rule.difficultyThreshold(target, difficulty) ?? target,
 						})
 				: null;
+		const targetValue = typeof target === "number" ? target : 0;
+		const threshold =
+			rule.difficultyThreshold(targetValue, difficulty) ?? targetValue;
 		return {
 			id: `check-${eventId}`,
 			sortKey: eventId,
@@ -259,26 +343,39 @@ export function mapActivityEvent(
 			avatarBg: "bg-default",
 			avatarFg: "text-foreground",
 			time,
-			body: `${skill} ${String(roll)}/${String(target)} · ${label}${context ? `（${context}）` : ""}${hidden}`,
+			body: hidden
+				? `${name} · ${skill}${hiddenSuffix}`
+				: `${skill} ${String(roll)}/${String(target)} · ${label}${context ? `（${context}）` : ""}`,
 			tone: "ooc",
 			isSystem: true,
-			hidden: payload.hidden === true,
-			outcome:
-				typeof result.success === "boolean"
-					? result.success
-						? "success"
-						: "failure"
-					: undefined,
+			hidden,
+			gmVisible: !hidden || gmVisible,
+			outcome: success === null ? undefined : success ? "success" : "failure",
+			...(hidden && !gmVisible
+				? {}
+				: {
+						check: {
+							skill,
+							roll: typeof roll === "number" ? roll : 0,
+							target: threshold,
+							difficulty: rule.difficultyLabel(difficulty),
+							outcome: stamp,
+							label,
+						},
+					}),
 		};
 	}
 	if (type === "session:phase-changed") {
 		const phase = SessionPhase.safeParse(payload.phase);
 		return phase.success
-			? systemMessage(
-					t("history.event.phase"),
-					SessionPhaseLabel[phase.data],
-					true,
-				)
+			? {
+					...systemMessage(
+						t("history.event.phase"),
+						SessionPhaseLabel[phase.data],
+						true,
+					),
+					phase: { label: SessionPhaseLabel[phase.data] },
+				}
 			: null;
 	}
 	if (type === "scene:changed") {
@@ -338,6 +435,7 @@ export function mapActivityEvent(
 export function mapHistoryItem(
 	item: HistoryItem,
 	characters: SnapshotCharacter[],
+	viewer: { isGm?: boolean } = {},
 ): ChatMessage | null {
 	if (item.kind === "chat") {
 		return {
@@ -355,5 +453,6 @@ export function mapHistoryItem(
 		item.eventId,
 		item.occurredAt,
 		characters,
+		viewer,
 	);
 }

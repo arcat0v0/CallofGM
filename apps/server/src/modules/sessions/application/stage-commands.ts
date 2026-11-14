@@ -487,6 +487,7 @@ export class UpdateSessionSettingsHandler implements CommandHandler {
 			.set({
 				sharePcSheets: settings.sharePcSheets ? 1 : 0,
 				obSeePcState: settings.obSeePcState ? 1 : 0,
+				diceSkin: settings.diceSkin,
 			})
 			.where(eq(sessions.id, ctx.sessionId));
 

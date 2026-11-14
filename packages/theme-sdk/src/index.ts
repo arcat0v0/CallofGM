@@ -24,6 +24,7 @@ export type PlayViewport = "desktop" | "landscape" | "portrait";
 
 export type ChatMessageView = {
   id: string;
+  sortKey?: number;
   speakerName: string;
   speakerRoleLabel: string;
   expressionLabel?: string | null;
@@ -38,12 +39,51 @@ export type ChatMessageView = {
   continued: boolean;
   showRoleBadge: boolean;
   hidden?: boolean;
+  gmVisible?: boolean;
   outcome?: "success" | "failure";
+  activityType?: string;
+  roll?: ChatRollView;
+  check?: ChatCheckView;
+  phase?: ChatPhaseView;
   pending?: boolean;
   rejected?: boolean;
   rejectionReason?: string | null;
   eventId?: number;
   anchorable?: boolean;
+};
+
+export type ChatRollView = {
+  expression: string;
+  total: number;
+  dice: number[];
+  modifier?: number;
+  comment?: string;
+};
+
+export type ChatCheckOutcome =
+  | "success"
+  | "failure"
+  | "critical"
+  | "fumble";
+
+export type ChatCheckSanView = {
+  before: number;
+  after: number;
+  loss: number;
+};
+
+export type ChatCheckView = {
+  skill: string;
+  roll: number;
+  target: number;
+  difficulty: string;
+  outcome: ChatCheckOutcome;
+  label: string;
+  san?: ChatCheckSanView;
+};
+
+export type ChatPhaseView = {
+  label: string;
 };
 
 export type JoinSeatView = {

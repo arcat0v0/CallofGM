@@ -42,7 +42,7 @@ const SNAPSHOT = {
 			phase: "free_discussion",
 			currentSceneId: null,
 			lastEventId: 3,
-			settings: { sharePcSheets: true, obSeePcState: true },
+			settings: { sharePcSheets: true, obSeePcState: true, diceSkin: "olive" },
 		},
 		currentScene: null,
 		viewer: { isGm: false, seatRole: "ob" },

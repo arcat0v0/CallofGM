@@ -15,7 +15,10 @@ export type DiceAnimationRequest = (DiceRollAnimation | CheckAnimation) & {
 	id: string;
 	label: string;
 	hidden?: boolean;
+	skin?: DiceSkin;
 };
+
+export type DiceSkin = "olive" | "bone";
 
 export type DiceAnimationDie = {
 	asset: string;
@@ -41,15 +44,23 @@ export type DiceGridLayout = {
 	positions: Array<{ x: number; y: number }>;
 };
 
-export const PRELOAD_DICE_ASSETS = [
-	"/dice/olive/d4.gltf",
-	"/dice/olive/d6.gltf",
-	"/dice/olive/d8.gltf",
-	"/dice/olive/d10.gltf",
-	"/dice/olive/d100-tens.gltf",
-	"/dice/olive/d12.gltf",
-	"/dice/olive/d20.gltf",
+export const DICE_MODEL_NAMES = [
+	"d4",
+	"d6",
+	"d8",
+	"d10",
+	"d100-tens",
+	"d12",
+	"d20",
 ] as const;
+
+export function diceAsset(skin: DiceSkin, name: string): string {
+	return `/dice/${skin}/${name}.gltf`;
+}
+
+export const PRELOAD_DICE_ASSETS = (["olive", "bone"] as const).flatMap((skin) =>
+	DICE_MODEL_NAMES.map((name) => diceAsset(skin, name)),
+);
 
 export const PRELOAD_ORIENTATION_ASSETS = [
 	"/dice/orientations/d4.json",
@@ -86,23 +97,20 @@ function orientationAsset(name: string): string {
 	return `/dice/orientations/${name}.json`;
 }
 
-function oliveAsset(name: string): string {
-	return `/dice/olive/${name}.gltf`;
-}
-
 export function buildDiceAnimationDice(
 	request: DiceAnimationRequest,
 ): DiceAnimationDie[] {
+	const assetFor = (name: string) => diceAsset(request.skin ?? "olive", name);
 	if (request.kind === "check") {
 		const [tens, ones] = d100Digits(request.roll);
 		return [
 			{
-				asset: oliveAsset("d100-tens"),
+				asset: assetFor("d100-tens"),
 				value: percentileTensValue(tens, ones),
 				orientationHint: orientationAsset("d100-tens"),
 			},
 			{
-				asset: oliveAsset("d10"),
+				asset: assetFor("d10"),
 				value: String(ones),
 				orientationHint: orientationAsset("d10"),
 			},
@@ -114,12 +122,12 @@ export function buildDiceAnimationDice(
 			const [tens, ones] = d100Digits(roll);
 			return [
 				{
-					asset: oliveAsset("d100-tens"),
+					asset: assetFor("d100-tens"),
 					value: percentileTensValue(tens, ones),
 					orientationHint: orientationAsset("d100-tens"),
 				},
 				{
-					asset: oliveAsset("d10"),
+					asset: assetFor("d10"),
 					value: String(ones),
 					orientationHint: orientationAsset("d10"),
 				},
@@ -128,12 +136,12 @@ export function buildDiceAnimationDice(
 	}
 
 	const assetByFaces: Record<number, string> = {
-		4: oliveAsset("d4"),
-		6: oliveAsset("d6"),
-		8: oliveAsset("d8"),
-		10: oliveAsset("d10"),
-		12: oliveAsset("d12"),
-		20: oliveAsset("d20"),
+		4: assetFor("d4"),
+		6: assetFor("d6"),
+		8: assetFor("d8"),
+		10: assetFor("d10"),
+		12: assetFor("d12"),
+		20: assetFor("d20"),
 	};
 	const asset = assetByFaces[request.faces];
 	if (!asset) return [];

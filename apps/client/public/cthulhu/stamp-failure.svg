@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 64" fill="none" stroke="currentColor" role="img" aria-label="失败印章">
+  <!-- 成品印章：失败。印泥色由调用处 currentColor 给（纸面加深红 #8e1f2a）。 -->
+  <defs>
+    <mask id="ink-wear">
+      <rect x="0" y="0" width="120" height="64" fill="#fff"/>
+      <g stroke="#000" stroke-width="1.4" opacity="0.55">
+        <line x1="22" y1="0" x2="14" y2="64"/>
+        <line x1="60" y1="0" x2="54" y2="64"/>
+        <line x1="100" y1="0" x2="94" y2="64"/>
+      </g>
+      <g fill="#000" opacity="0.5">
+        <circle cx="36" cy="52" r="1.7"/>
+        <circle cx="90" cy="12" r="1.5"/>
+      </g>
+    </mask>
+  </defs>
+  <g mask="url(#ink-wear)">
+    <rect x="2" y="2" width="116" height="60" rx="6" stroke-width="3"/>
+    <rect x="7" y="7" width="106" height="50" rx="4" stroke-width="1"/>
+    <text x="60" y="33" text-anchor="middle" font-family="Georgia, 'Songti SC', 'STSong', serif" font-size="21" font-weight="700" letter-spacing="4" fill="currentColor" stroke="none">失 败</text>
+    <text x="60" y="50" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="8" letter-spacing="3" fill="currentColor" stroke="none">FAILURE</text>
+  </g>
+</svg>

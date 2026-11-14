@@ -44,7 +44,7 @@ describe("play-store draft-loss and command rejection tracking", () => {
 					phase: "free_discussion",
 					currentSceneId: null,
 					lastEventId: 0,
-					settings: { sharePcSheets: true, obSeePcState: true },
+					settings: { sharePcSheets: true, obSeePcState: true, diceSkin: "olive" },
 				},
 				currentScene: null,
 				characters: [],
@@ -84,7 +84,7 @@ describe("play-store draft-loss and command rejection tracking", () => {
 					phase: "free_discussion",
 					currentSceneId: null,
 					lastEventId: 0,
-					settings: { sharePcSheets: false, obSeePcState: false },
+					settings: { sharePcSheets: false, obSeePcState: false, diceSkin: "olive" },
 				},
 				currentScene: null,
 				characters: [],
@@ -100,6 +100,7 @@ describe("play-store draft-loss and command rejection tracking", () => {
 		expect(usePlayStore.getState().settings).toEqual({
 			sharePcSheets: false,
 			obSeePcState: false,
+			diceSkin: "olive",
 		});
 
 		usePlayStore.getState().applyMessage({
@@ -107,11 +108,16 @@ describe("play-store draft-loss and command rejection tracking", () => {
 			eventId: 1,
 			type: "session:settings-changed",
 			occurredAt: Date.now(),
-			payload: { sharePcSheets: true, obSeePcState: false },
+			payload: {
+				sharePcSheets: true,
+				obSeePcState: false,
+				diceSkin: "olive",
+			},
 		});
 		expect(usePlayStore.getState().settings).toEqual({
 			sharePcSheets: true,
 			obSeePcState: false,
+			diceSkin: "olive",
 		});
 	});
 
@@ -147,7 +153,7 @@ describe("play-store draft-loss and command rejection tracking", () => {
 					phase: "free_discussion",
 					currentSceneId: null,
 					lastEventId: 0,
-					settings: { sharePcSheets: true, obSeePcState: true },
+					settings: { sharePcSheets: true, obSeePcState: true, diceSkin: "olive" },
 				},
 				currentScene: null,
 				characters: [],
@@ -235,7 +241,11 @@ const snapshotPayload = {
 		phase: "free_discussion" as const,
 		currentSceneId: null,
 		lastEventId: 0,
-		settings: { sharePcSheets: true, obSeePcState: true },
+		settings: {
+			sharePcSheets: true,
+			obSeePcState: true,
+			diceSkin: "olive" as const,
+		},
 	},
 	currentScene: null,
 	viewer: { isGm: false, seatRole: null, holderKind: null, holderId: null },
@@ -549,7 +559,7 @@ describe("chat history paging", () => {
 					phase: "free_discussion",
 					currentSceneId: null,
 					lastEventId: 0,
-					settings: { sharePcSheets: true, obSeePcState: true },
+					settings: { sharePcSheets: true, obSeePcState: true, diceSkin: "olive" },
 				},
 				currentScene: null,
 				characters: [],

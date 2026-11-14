@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 64" fill="none" stroke="currentColor" role="img" aria-label="成功印章">
+  <!-- 成品印章：成功。印泥色由调用处 currentColor 给（纸面加深橄榄绿 #4d6420）。
+       文字为 Georgia/serif；如需换语言，改 <text> 或改用 stamp-frame.svg + JSX 文字。 -->
+  <defs>
+    <mask id="ink-wear">
+      <rect x="0" y="0" width="120" height="64" fill="#fff"/>
+      <g stroke="#000" stroke-width="1.4" opacity="0.55">
+        <line x1="18" y1="0" x2="10" y2="64"/>
+        <line x1="46" y1="0" x2="40" y2="64"/>
+        <line x1="88" y1="0" x2="80" y2="64"/>
+      </g>
+      <g fill="#000" opacity="0.5">
+        <circle cx="30" cy="12" r="1.6"/>
+        <circle cx="72" cy="50" r="1.8"/>
+      </g>
+    </mask>
+  </defs>
+  <g mask="url(#ink-wear)">
+    <rect x="2" y="2" width="116" height="60" rx="6" stroke-width="3"/>
+    <rect x="7" y="7" width="106" height="50" rx="4" stroke-width="1"/>
+    <text x="60" y="33" text-anchor="middle" font-family="Georgia, 'Songti SC', 'STSong', serif" font-size="21" font-weight="700" letter-spacing="4" fill="currentColor" stroke="none">成 功</text>
+    <text x="60" y="50" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="8" letter-spacing="3" fill="currentColor" stroke="none">SUCCESS</text>
+  </g>
+</svg>

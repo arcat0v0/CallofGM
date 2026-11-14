@@ -95,8 +95,13 @@ function buildChatMessages(
 		const previous = messages[index - 1];
 		return {
 			id: message.id,
+			sortKey: message.sortKey,
 			eventId: message.eventId,
 			anchorable: message.anchorable,
+			activityType: message.activityType,
+			roll: message.roll,
+			check: message.check,
+			phase: message.phase,
 			speakerName: message.speakerName,
 			speakerRoleLabel: message.speakerRoleLabel,
 			expressionLabel: message.expressionLabel,
@@ -115,6 +120,7 @@ function buildChatMessages(
 				previous.speakerName === message.speakerName,
 			showRoleBadge: true,
 			hidden: message.hidden,
+			gmVisible: message.gmVisible,
 			outcome: message.outcome,
 			pending: message.pending,
 			rejected: message.rejected,
