@@ -38,7 +38,7 @@ const PAPER_SURFACE: React.CSSProperties = {
 function Sheet({ children }: { children: React.ReactNode }) {
 	return (
 		<div
-			className="relative min-w-0 overflow-hidden border border-[var(--paper-edge)] px-4 py-3.5 text-[var(--paper-ink)]"
+			className="relative w-full min-w-0 overflow-hidden border border-[var(--paper-edge)] px-4 py-3.5 text-[var(--paper-ink)]"
 			style={{ ...PAPER_VARS, ...PAPER_SURFACE }}
 		>
 			<img
@@ -308,7 +308,7 @@ function Sealed({
 	return (
 		<div
 			className={cn(
-				"flex min-w-0 items-center gap-3 rounded-md border-[1.5px] border-dashed border-[rgba(214,220,196,.35)] bg-[rgba(214,220,196,.03)] px-3 py-2.5",
+				"flex w-full min-w-0 items-center gap-3 rounded-md border-[1.5px] border-dashed border-[rgba(214,220,196,.35)] bg-[rgba(214,220,196,.03)] px-3 py-2.5",
 				className,
 			)}
 			style={{ ...PAPER_VARS, color: "var(--ink-red)" }}
@@ -350,7 +350,7 @@ function LegacySystemMessage({
 	return (
 		<div
 			className={cn(
-				"bg-md-surface-container-high border border-md-outline-variant/40 flex flex-col gap-2 rounded-lg border-l-2 p-3.5",
+				"bg-md-surface-container-high border border-md-outline-variant/40 flex w-full flex-col gap-2 rounded-lg border-l-2 p-3.5",
 				accent,
 				className,
 			)}
