@@ -8,6 +8,7 @@ import {
 	CharacterImportPreviewResponse,
 	CharacterInviteDto,
 	CharacterPortraitDto,
+	CharacterSheetContextResponse,
 	CharacterSyncDiffDto,
 	CreateCharacterInviteRequest,
 	CreateCharacterRequest,
@@ -49,6 +50,7 @@ import {
 	DeleteCharacterUseCase,
 	DeletePortraitUseCase,
 	GetCharacterHistoryUseCase,
+	GetCharacterSheetContextUseCase,
 	GetCharacterUseCase,
 	GetInviteInfoUseCase,
 	GmEditPermanentFieldUseCase,
@@ -113,6 +115,10 @@ export function createCharactersRoutes(container: Container) {
 	const getCharacter = new GetCharacterUseCase(repo);
 	const listCharacters = new ListCharactersUseCase(repo);
 	const getHistory = new GetCharacterHistoryUseCase(repo);
+	const getSheetContext = new GetCharacterSheetContextUseCase(
+		repo,
+		container.ruleRegistry,
+	);
 	const assignOwner = new AssignCharacterOwnerUseCase(repo, container.clock);
 	const addPortrait = new AddPortraitUseCase(
 		repo,
@@ -269,6 +275,16 @@ export function createCharactersRoutes(container: Container) {
 			const gm = requireGm(actor);
 			return CharacterHistoryResponse.parse(
 				await getHistory.execute({
+					actorUserId: gm.userId,
+					characterId: id,
+					allowAnyOwner: true,
+				}),
+			);
+		})
+		.get("/:id/sheet-context", async ({ params: { id }, actor }) => {
+			const gm = requireGm(actor);
+			return CharacterSheetContextResponse.parse(
+				await getSheetContext.execute({
 					actorUserId: gm.userId,
 					characterId: id,
 					allowAnyOwner: true,
@@ -606,6 +622,15 @@ export function createCharactersRoutes(container: Container) {
 			const user = requireUser(actor);
 			return CharacterHistoryResponse.parse(
 				await getHistory.execute({
+					actorUserId: user.userId,
+					characterId: params.id,
+				}),
+			);
+		})
+		.get("/:id/sheet-context", async ({ actor, params }) => {
+			const user = requireUser(actor);
+			return CharacterSheetContextResponse.parse(
+				await getSheetContext.execute({
 					actorUserId: user.userId,
 					characterId: params.id,
 				}),

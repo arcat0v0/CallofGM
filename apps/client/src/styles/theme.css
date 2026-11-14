@@ -426,6 +426,10 @@
   --color-brand-sumi: #1c1c1c;
   --color-brand-wakatake: #5dac81;
   --color-brand-yamabuki: #ffb11b;
+  --color-dossier-gold: #b49b57;
+  --color-dossier-olive: #2e3324;
+  --color-dossier-bone: #e9dfc6;
+  --container-charsheet: 67.5rem;
 
   /* ── 圆角（MD3 形状阶梯：0/4/8/12/16/20/28/32/48/full）────────────── */
   --radius-xs: 4px;

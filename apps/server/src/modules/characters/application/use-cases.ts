@@ -292,6 +292,54 @@ export class GetCharacterHistoryUseCase {
 	}
 }
 
+export class GetCharacterSheetContextUseCase {
+	constructor(
+		private readonly repo: CharactersRepository,
+		private readonly ruleRegistry: RuleRegistry,
+	) {}
+
+	async execute(input: {
+		actorUserId: string;
+		characterId: string;
+		allowAnyOwner?: boolean;
+	}) {
+		const character = await this.repo.findCharacterById(input.characterId);
+		if (!character || character.deletedAt !== null) {
+			throw new CharacterNotFoundError();
+		}
+		if (!input.allowAnyOwner && character.ownerId !== input.actorUserId) {
+			throw new CharacterNotFoundError();
+		}
+		const [companionRows, phaseRecords, growthRecords] = await Promise.all([
+			this.repo.listCharacterSessionCompanions(character.id),
+			this.repo.listCharacterSessionPhaseRecords(character.id),
+			this.repo.listGrowth(character.id),
+		]);
+		const companions = companionRows.map((row) => {
+			let linkedToMe = false;
+			try {
+				const rule = this.ruleRegistry.get(row.ruleId);
+				if (rule.readPartnerCharacterId) {
+					const parsed = rule.characterSheetSchema.parse(
+						JSON.parse(row.sheetJson),
+					);
+					linkedToMe = rule.readPartnerCharacterId(parsed) === character.id;
+				}
+			} catch {
+				linkedToMe = false;
+			}
+			return {
+				characterId: row.characterId,
+				name: row.name,
+				sessionId: row.sessionId,
+				sessionName: row.sessionName,
+				linkedToMe,
+			};
+		});
+		return { companions, phaseRecords, growthRecords };
+	}
+}
+
 export class AssignCharacterOwnerUseCase {
 	constructor(
 		private readonly repo: CharactersRepository,

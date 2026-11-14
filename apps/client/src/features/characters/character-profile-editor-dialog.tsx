@@ -82,6 +82,10 @@ export function CharacterProfileEditorDialog({
 			toast.error(t("characterCreation.ruleValidationSummary"));
 			return;
 		}
+		const serializedBackground =
+			sheetData === undefined
+				? background
+				: (rule.serializeBackground?.(sheetData, background) ?? background);
 		setSaving(true);
 		try {
 			const next = await api<CharacterDto>(
@@ -90,7 +94,7 @@ export function CharacterProfileEditorDialog({
 					method: "PATCH",
 					body: JSON.stringify({
 						name: name.trim(),
-						background,
+						background: serializedBackground,
 						...(sheetData === undefined ? {} : { sheetData }),
 						expectedVersion: version,
 					}),

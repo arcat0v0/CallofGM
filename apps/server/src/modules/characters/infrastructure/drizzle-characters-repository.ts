@@ -12,8 +12,9 @@ import {
 	mediaAssets,
 	moduleCharacters,
 	modules,
-	sessions as sessionsTable,
 	sessionCharacters,
+	sessionHistoryEvents,
+	sessions as sessionsTable,
 	users,
 } from "@/platform/db/schema";
 import type {
@@ -22,11 +23,16 @@ import type {
 	CharacterInviteRecord,
 	CharacterReviewDetail,
 	CharacterReviewRecord,
+	CharacterSheetContextCompanionRow,
+	CharacterSheetContextPhaseRow,
 	CharactersRepository,
 	CharacterVersionRecord,
 	CursorPageOptions,
 } from "../application/ports";
-import { CharacterNotFoundError, CharacterVersionConflictError } from "../domain/errors";
+import {
+	CharacterNotFoundError,
+	CharacterVersionConflictError,
+} from "../domain/errors";
 
 function paginated<T extends { id: string }>(items: T[], limit: number) {
 	const hasMore = items.length > limit;
@@ -63,9 +69,10 @@ export class DrizzleCharactersRepository implements CharactersRepository {
 		>,
 		expectedVersion?: number,
 	) {
-		const whereClause = expectedVersion !== undefined
-			? and(eq(characters.id, id), eq(characters.version, expectedVersion))
-			: eq(characters.id, id);
+		const whereClause =
+			expectedVersion !== undefined
+				? and(eq(characters.id, id), eq(characters.version, expectedVersion))
+				: eq(characters.id, id);
 		const result = await this.db
 			.update(characters)
 			.set(updates)
@@ -649,6 +656,156 @@ export class DrizzleCharactersRepository implements CharactersRepository {
 			.where(eq(users.id, userId))
 			.limit(1);
 		return rows[0]?.username ?? null;
+	}
+
+	async listCharacterSessionCompanions(
+		characterId: string,
+	): Promise<CharacterSheetContextCompanionRow[]> {
+		const memberships = await this.db
+			.select({
+				sessionId: sessionCharacters.sessionId,
+				sessionName: sessionsTable.name,
+				moduleName: modules.name,
+			})
+			.from(sessionCharacters)
+			.innerJoin(
+				sessionsTable,
+				eq(sessionCharacters.sessionId, sessionsTable.id),
+			)
+			.innerJoin(modules, eq(sessionsTable.moduleId, modules.id))
+			.where(
+				and(
+					eq(sessionCharacters.characterId, characterId),
+					isNull(sessionCharacters.deletedAt),
+					isNull(sessionsTable.deletedAt),
+				),
+			);
+		if (memberships.length === 0) {
+			return [];
+		}
+		const sessionNames = new Map(
+			memberships.map((row) => [
+				row.sessionId,
+				row.sessionName?.trim() || row.moduleName,
+			]),
+		);
+		const sessionIds = memberships.map((row) => row.sessionId);
+		const rows = await this.db
+			.select({
+				characterId: characters.id,
+				name: characters.name,
+				sessionId: sessionCharacters.sessionId,
+				ruleId: characters.ruleId,
+				sheetJson: characters.sheetJson,
+			})
+			.from(sessionCharacters)
+			.innerJoin(characters, eq(sessionCharacters.characterId, characters.id))
+			.where(
+				and(
+					inArray(sessionCharacters.sessionId, sessionIds),
+					eq(sessionCharacters.kind, "pc"),
+					isNull(sessionCharacters.deletedAt),
+					isNull(characters.deletedAt),
+				),
+			)
+			.orderBy(asc(characters.name));
+		const seen = new Set<string>();
+		const result: CharacterSheetContextCompanionRow[] = [];
+		for (const row of rows) {
+			if (row.characterId === characterId) {
+				continue;
+			}
+			const key = `${row.sessionId}:${row.characterId}`;
+			if (seen.has(key)) {
+				continue;
+			}
+			seen.add(key);
+			result.push({
+				characterId: row.characterId,
+				name: row.name,
+				sessionId: row.sessionId,
+				sessionName: sessionNames.get(row.sessionId) ?? "",
+				ruleId: row.ruleId,
+				sheetJson: row.sheetJson,
+			});
+		}
+		return result;
+	}
+
+	async listCharacterSessionPhaseRecords(
+		characterId: string,
+	): Promise<CharacterSheetContextPhaseRow[]> {
+		const memberships = await this.db
+			.select({
+				sessionId: sessionCharacters.sessionId,
+				sessionName: sessionsTable.name,
+				moduleName: modules.name,
+			})
+			.from(sessionCharacters)
+			.innerJoin(
+				sessionsTable,
+				eq(sessionCharacters.sessionId, sessionsTable.id),
+			)
+			.innerJoin(modules, eq(sessionsTable.moduleId, modules.id))
+			.where(
+				and(
+					eq(sessionCharacters.characterId, characterId),
+					isNull(sessionCharacters.deletedAt),
+					isNull(sessionsTable.deletedAt),
+				),
+			);
+		if (memberships.length === 0) {
+			return [];
+		}
+		const sessionNames = new Map(
+			memberships.map((row) => [
+				row.sessionId,
+				row.sessionName?.trim() || row.moduleName,
+			]),
+		);
+		const rows = await this.db
+			.select({
+				eventId: sessionHistoryEvents.eventId,
+				sessionId: sessionHistoryEvents.sessionId,
+				payloadJson: sessionHistoryEvents.payloadJson,
+				occurredAt: sessionHistoryEvents.occurredAt,
+			})
+			.from(sessionHistoryEvents)
+			.where(
+				and(
+					inArray(
+						sessionHistoryEvents.sessionId,
+						memberships.map((row) => row.sessionId),
+					),
+					eq(sessionHistoryEvents.type, "session:phase-changed"),
+					isNull(sessionHistoryEvents.archivedAt),
+				),
+			)
+			.orderBy(desc(sessionHistoryEvents.occurredAt))
+			.limit(40);
+		const result: CharacterSheetContextPhaseRow[] = [];
+		for (const row of rows) {
+			let phase = "";
+			try {
+				const parsed = JSON.parse(row.payloadJson) as { to?: unknown };
+				if (typeof parsed.to === "string") {
+					phase = parsed.to;
+				}
+			} catch {
+				phase = "";
+			}
+			if (!phase) {
+				continue;
+			}
+			result.push({
+				eventId: row.eventId,
+				sessionId: row.sessionId,
+				sessionName: sessionNames.get(row.sessionId) ?? "",
+				phase,
+				occurredAt: row.occurredAt,
+			});
+		}
+		return result;
 	}
 }
 

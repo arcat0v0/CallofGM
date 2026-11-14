@@ -89,6 +89,10 @@ export class Coc7eRuleSystem extends RuleSystem<
 		return result;
 	}
 
+	readPartnerCharacterId(sheet: coc7e.Coc7eCharacterSheet): string | null {
+		return sheet.backgroundProfile.partnerCharacterId ?? null;
+	}
+
 	applyPermanentFieldEdit(
 		sheet: coc7e.Coc7eCharacterSheet,
 		edit: PermanentFieldEditInput,

@@ -9,6 +9,10 @@ const SECTION_KEYS = [
 	"spells",
 	"mythosTomes",
 	"encounters",
+	"experiences",
+	"profile",
+	"backgroundProfile",
+	"skillAllocation",
 	"assets",
 	"age",
 	"era",
@@ -85,8 +89,48 @@ export function mergeCoc7eSheetPatch(base: Sheet, patch: unknown): Sheet {
 		merged.armor = { ...base.armor, ...(raw.armor as Record<string, unknown>) };
 	}
 
+	if (
+		raw.profile &&
+		typeof raw.profile === "object" &&
+		!Array.isArray(raw.profile)
+	) {
+		merged.profile = {
+			...base.profile,
+			...(raw.profile as Record<string, unknown>),
+		};
+	}
+
+	if (
+		raw.backgroundProfile &&
+		typeof raw.backgroundProfile === "object" &&
+		!Array.isArray(raw.backgroundProfile)
+	) {
+		merged.backgroundProfile = {
+			...base.backgroundProfile,
+			...(raw.backgroundProfile as Record<string, unknown>),
+		};
+	}
+
+	if (
+		raw.skillAllocation &&
+		typeof raw.skillAllocation === "object" &&
+		!Array.isArray(raw.skillAllocation)
+	) {
+		merged.skillAllocation = {
+			...base.skillAllocation,
+			...(raw.skillAllocation as Record<string, unknown>),
+		};
+	}
+
 	for (const key of SECTION_KEYS) {
-		if (key === "assets" || key === "occupation" || key === "armor") {
+		if (
+			key === "assets" ||
+			key === "occupation" ||
+			key === "armor" ||
+			key === "profile" ||
+			key === "backgroundProfile" ||
+			key === "skillAllocation"
+		) {
 			continue;
 		}
 		if (raw[key] !== undefined) {

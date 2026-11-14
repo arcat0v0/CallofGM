@@ -33,6 +33,82 @@ export type Coc7eEra = z.infer<typeof Coc7eEra>;
 const longText = z.string().trim().max(4000);
 const money = z.number().finite().min(0).max(1_000_000_000_000_000);
 
+export const Coc7eProfileInfo = z.object({
+	gender: z.string().trim().max(40).default(""),
+	residence: z.string().trim().max(120).default(""),
+	birthplace: z.string().trim().max(120).default(""),
+	appearance: z.string().trim().max(1000).default(""),
+	storiedInvestigator: z.boolean().default(false),
+	experienceBonusPoints: z.number().int().min(0).max(500).default(100),
+});
+export type Coc7eProfileInfo = z.infer<typeof Coc7eProfileInfo>;
+
+export const Coc7eBackgroundFieldKey = z.enum([
+	"ideologyBeliefs",
+	"significantPeople",
+	"meaningfulLocations",
+	"treasuredPossessions",
+	"traits",
+	"injuriesScars",
+	"phobiasManias",
+	"appearanceSummary",
+]);
+export type Coc7eBackgroundFieldKey = z.infer<typeof Coc7eBackgroundFieldKey>;
+
+export const Coc7eBackgroundProfile = z.object({
+	ideologyBeliefs: longText.default(""),
+	significantPeople: longText.default(""),
+	meaningfulLocations: longText.default(""),
+	treasuredPossessions: longText.default(""),
+	traits: longText.default(""),
+	injuriesScars: longText.default(""),
+	phobiasManias: longText.default(""),
+	appearanceSummary: longText.default(""),
+	keyConnection: Coc7eBackgroundFieldKey.nullable().default(null),
+	keyConnectionStory: longText.default(""),
+	partnerCharacterId: z.string().trim().max(120).nullable().default(null),
+	partnerName: z.string().trim().max(100).default(""),
+});
+export type Coc7eBackgroundProfile = z.infer<typeof Coc7eBackgroundProfile>;
+
+export const Coc7eGearSlot = z.enum([
+	"none",
+	"head",
+	"chest",
+	"waist",
+	"hand",
+	"other",
+]);
+export type Coc7eGearSlot = z.infer<typeof Coc7eGearSlot>;
+
+export const Coc7eGearStatus = z.enum(["in_use", "lent", "lost"]);
+export type Coc7eGearStatus = z.infer<typeof Coc7eGearStatus>;
+
+export const Coc7eExperienceEntry = z.object({
+	id: z.string().trim().min(1).max(120),
+	title: z.string().trim().min(1).max(200),
+	sourceType: z.enum(["manual", "record", "session_phase"]).default("manual"),
+	refKind: z
+		.enum(["spell", "tome", "encounter", "phase"])
+		.nullable()
+		.default(null),
+	refId: z.string().trim().max(120).nullable().default(null),
+	refLabel: z.string().trim().max(240).default(""),
+	summary: longText.default(""),
+	changes: z.array(z.string().trim().min(1).max(80)).max(16).default([]),
+	occurredLabel: z.string().trim().max(80).default(""),
+});
+export type Coc7eExperienceEntry = z.infer<typeof Coc7eExperienceEntry>;
+
+export const Coc7eSkillAllocationEntry = z.object({
+	occupation: z.number().int().min(0).max(999).default(0),
+	interest: z.number().int().min(0).max(999).default(0),
+	experience: z.number().int().min(0).max(999).default(0),
+});
+export type Coc7eSkillAllocationEntry = z.infer<
+	typeof Coc7eSkillAllocationEntry
+>;
+
 export const Coc7eOccupation = z.object({
 	presetId: z.string().trim().max(64).nullable().default(null),
 	name: z.string().trim().max(100).default(""),
@@ -88,6 +164,10 @@ export type Coc7eArmor = z.infer<typeof Coc7eArmor>;
 export const Coc7eGearItem = z.object({
 	name: z.string().trim().min(1).max(200),
 	quantity: z.number().int().min(0).max(9999).default(1),
+	slot: Coc7eGearSlot.optional(),
+	status: Coc7eGearStatus.optional(),
+	note: z.string().trim().max(400).optional(),
+	linkedPossession: z.boolean().optional(),
 });
 export type Coc7eGearItem = z.infer<typeof Coc7eGearItem>;
 
@@ -158,11 +238,35 @@ const emptyAssets = {
 	otherAssets: 0,
 	details: [],
 } satisfies Coc7eAssets;
+const emptyProfile = {
+	gender: "",
+	residence: "",
+	birthplace: "",
+	appearance: "",
+	storiedInvestigator: false,
+	experienceBonusPoints: 100,
+} satisfies Coc7eProfileInfo;
+const emptyBackgroundProfile = {
+	ideologyBeliefs: "",
+	significantPeople: "",
+	meaningfulLocations: "",
+	treasuredPossessions: "",
+	traits: "",
+	injuriesScars: "",
+	phobiasManias: "",
+	appearanceSummary: "",
+	keyConnection: null,
+	keyConnectionStory: "",
+	partnerCharacterId: null,
+	partnerName: "",
+} satisfies Coc7eBackgroundProfile;
 
 const Coc7eCharacterSheetV2 = z.object({
 	schemaVersion: z.literal(2).default(2),
 	era: Coc7eEra.default("1920s"),
 	age: z.number().int().min(15).max(90).nullable().default(null),
+	profile: Coc7eProfileInfo.default(emptyProfile),
+	backgroundProfile: Coc7eBackgroundProfile.default(emptyBackgroundProfile),
 	occupation: Coc7eOccupation.default(emptyOccupation),
 	movementModifier: z.number().int().min(-20).max(20).default(0),
 	attributes: Coc7eAttributes,
@@ -170,6 +274,9 @@ const Coc7eCharacterSheetV2 = z.object({
 		z.string().trim().min(1).max(100),
 		z.number().int().min(0).max(999),
 	),
+	skillAllocation: z
+		.record(z.string().trim().min(1).max(100), Coc7eSkillAllocationEntry)
+		.default({}),
 	customSkills: z
 		.record(z.string().trim().min(1).max(100), Coc7eCustomSkill)
 		.default({}),
@@ -179,6 +286,7 @@ const Coc7eCharacterSheetV2 = z.object({
 	spells: z.array(Coc7eSpell).max(100).default([]),
 	mythosTomes: z.array(Coc7eMythosTome).max(100).default([]),
 	encounters: z.array(Coc7eEncounter).max(100).default([]),
+	experiences: z.array(Coc7eExperienceEntry).max(200).default([]),
 	assets: Coc7eAssets.default(emptyAssets),
 });
 export type Coc7eCharacterSheet = z.infer<typeof Coc7eCharacterSheetV2>;
@@ -225,4 +333,12 @@ export function createEmptyCoc7eAssets(): Coc7eAssets {
 
 export function createEmptyCoc7eArmor(): Coc7eArmor {
 	return { ...emptyArmor };
+}
+
+export function createEmptyCoc7eProfile(): Coc7eProfileInfo {
+	return { ...emptyProfile };
+}
+
+export function createEmptyCoc7eBackgroundProfile(): Coc7eBackgroundProfile {
+	return { ...emptyBackgroundProfile };
 }

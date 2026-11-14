@@ -179,6 +179,35 @@ export type GmPermanentFieldEditRequest = z.infer<
 export const CharacterInviteScope = z.enum(["module", "session"]);
 export type CharacterInviteScope = z.infer<typeof CharacterInviteScope>;
 
+export const CharacterCompanionDto = z.object({
+	characterId: z.string(),
+	name: z.string(),
+	sessionId: z.string(),
+	sessionName: z.string(),
+	linkedToMe: z.boolean().default(false),
+});
+export type CharacterCompanionDto = z.infer<typeof CharacterCompanionDto>;
+
+export const CharacterSessionPhaseRecordDto = z.object({
+	eventId: z.number().int(),
+	sessionId: z.string(),
+	sessionName: z.string(),
+	phase: z.string(),
+	occurredAt: z.number().int(),
+});
+export type CharacterSessionPhaseRecordDto = z.infer<
+	typeof CharacterSessionPhaseRecordDto
+>;
+
+export const CharacterSheetContextResponse = z.object({
+	companions: z.array(CharacterCompanionDto),
+	phaseRecords: z.array(CharacterSessionPhaseRecordDto),
+	growthRecords: z.array(CharacterGrowthEntryDto),
+});
+export type CharacterSheetContextResponse = z.infer<
+	typeof CharacterSheetContextResponse
+>;
+
 export const CreateCharacterInviteRequest = z.object({
 	scope: CharacterInviteScope,
 	targetId: z.string().min(1),

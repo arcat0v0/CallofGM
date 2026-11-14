@@ -78,18 +78,16 @@ function setValue(element: HTMLElement, value: string) {
 	fireEvent.input(element);
 }
 
-async function choose(
-	view: ReturnType<typeof render>,
-	triggerName: string,
-	optionName: string,
-) {
-	const trigger = view.getByRole("combobox", { name: triggerName });
-	fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false });
-	fireEvent.click(trigger);
-	const option = await within(view.baseElement).findByRole("option", {
-		name: optionName,
-	});
-	fireEvent.click(option);
+function openTab(view: ReturnType<typeof render>, pattern: RegExp) {
+	fireEvent.click(view.getByRole("tab", { name: pattern }));
+}
+
+function openMagicDetails(view: ReturnType<typeof render>) {
+	const summary = view.getByText(/法术与神话记录/);
+	const details = summary.closest("details");
+	if (details && !details.open) {
+		fireEvent.click(summary);
+	}
 }
 
 describe("CoC 7e character creation editor", () => {
@@ -114,6 +112,7 @@ describe("CoC 7e character creation editor", () => {
 		});
 		try {
 			const editor = renderEditor();
+			openTab(editor.view, /技能/);
 			expect(
 				editor.view.queryByRole("spinbutton", { name: "技能 侦查" }),
 			).toBeNull();
@@ -135,11 +134,12 @@ describe("CoC 7e character creation editor", () => {
 		setValue(editor.view.getByRole("spinbutton", { name: "体质 CON" }), "65");
 		setValue(editor.view.getByRole("spinbutton", { name: "体型 SIZ" }), "70");
 		setValue(editor.view.getByRole("spinbutton", { name: "智力 INT" }), "85");
-		setValue(editor.view.getByRole("spinbutton", { name: "技能 侦查" }), "55");
-		await waitFor(() => expect(editor.latest().skills).toEqual({ 侦查: 55 }));
 		expect(
 			editor.view.getByRole("region", { name: "派生数值" }).textContent,
 		).toContain("13");
+		openTab(editor.view, /技能/);
+		setValue(editor.view.getByRole("spinbutton", { name: "技能 侦查" }), "55");
+		await waitFor(() => expect(editor.latest().skills).toEqual({ 侦查: 55 }));
 		expect(
 			editor.view.getByRole("region", { name: "技能点账本" }).textContent,
 		).toContain("170");
@@ -155,7 +155,9 @@ describe("CoC 7e character creation editor", () => {
 		fireEvent.blur(input);
 		await waitFor(() => expect(editor.valid()).toBe(false));
 		expect(editor.latest().attributes.str).toBe(50);
-		expect(editor.view.getByText("请输入 1–99 的整数")).toBeTruthy();
+		expect(
+			editor.view.getAllByText("请输入 1–99 的整数").length,
+		).toBeGreaterThan(0);
 		setValue(input, "70");
 		await waitFor(() => expect(editor.valid()).toBe(true));
 		expect(editor.latest().attributes.str).toBe(70);
@@ -165,6 +167,7 @@ describe("CoC 7e character creation editor", () => {
 		const initial = emptySheet();
 		initial.skills = { 侦查: 60 };
 		const editor = renderEditor(initial);
+		openTab(editor.view, /职业/);
 		fireEvent.click(editor.view.getByRole("button", { name: "选择职业…" }));
 		fireEvent.change(
 			editor.view.getByRole("searchbox", { name: "搜索职业或本职技能" }),
@@ -184,6 +187,7 @@ describe("CoC 7e character creation editor", () => {
 	test("preserves a modern-only occupation as custom when returning to 1920s", async () => {
 		const editor = renderEditor();
 		fireEvent.click(editor.view.getByRole("radio", { name: "现代" }));
+		openTab(editor.view, /职业/);
 		fireEvent.click(editor.view.getByRole("button", { name: "选择职业…" }));
 		fireEvent.change(
 			editor.view.getByRole("searchbox", { name: "搜索职业或本职技能" }),
@@ -195,13 +199,16 @@ describe("CoC 7e character creation editor", () => {
 		await waitFor(() =>
 			expect(editor.latest().occupation.presetId).toBe("occ-25"),
 		);
+		openTab(editor.view, /身份·属性/);
 		fireEvent.click(editor.view.getByRole("radio", { name: "1920 年代" }));
 		expect(editor.latest().era).toBe("1920s");
 		expect(editor.latest().occupation).toMatchObject({
 			presetId: null,
 			name: "黑客/骇客（现代）",
 		});
+		openTab(editor.view, /职业/);
 		expect(editor.view.getByText(/已保留为自定义职业/)).toBeTruthy();
+		openTab(editor.view, /技能/);
 		expect(
 			editor.view.getByRole("checkbox", { name: "本职 会计" }),
 		).toBeTruthy();
@@ -216,6 +223,7 @@ describe("CoC 7e character creation editor", () => {
 
 	test("accepts free-form art slots like the blank sheet", async () => {
 		const editor = renderEditor();
+		openTab(editor.view, /技能/);
 		expect(editor.view.queryByText("技艺(表演)")).toBeNull();
 		const slotInputs = editor.view.getAllByLabelText(/技艺[①②③]名称/);
 		expect(slotInputs.length).toBe(3);
@@ -235,6 +243,7 @@ describe("CoC 7e character creation editor", () => {
 
 	test("offers free-form language slots like the blank sheet", async () => {
 		const editor = renderEditor();
+		openTab(editor.view, /技能/);
 		const slotInputs = editor.view.getAllByLabelText(/外语[①②③]名称/);
 		expect(slotInputs.length).toBe(3);
 		setValue(slotInputs[0] as HTMLElement, "法语");
@@ -247,30 +256,18 @@ describe("CoC 7e character creation editor", () => {
 
 	test("adds free-form specialties inside skill groups", async () => {
 		const editor = renderEditor();
-		setValue(
-			editor.view.getByLabelText("自定义科学专攻名称"),
-			"结晶学",
-		);
+		openTab(editor.view, /技能/);
+		setValue(editor.view.getByLabelText("自定义科学专攻名称"), "结晶学");
 		fireEvent.click(
 			editor.view.getByRole("button", { name: "添加自定义科学专攻" }),
 		);
-		await waitFor(() =>
-			expect(editor.latest().skills["科学(结晶学)"]).toBe(1),
-		);
-		setValue(
-			editor.view.getByLabelText("自定义格斗专攻名称"),
-			"鞭子",
-		);
+		await waitFor(() => expect(editor.latest().skills["科学(结晶学)"]).toBe(1));
+		setValue(editor.view.getByLabelText("自定义格斗专攻名称"), "鞭子");
 		fireEvent.click(
 			editor.view.getByRole("button", { name: "添加自定义格斗专攻" }),
 		);
-		await waitFor(() =>
-			expect(editor.latest().skills["格斗(鞭子)"]).toBe(0),
-		);
-		setValue(
-			editor.view.getByLabelText("自定义科学专攻名称"),
-			"化学",
-		);
+		await waitFor(() => expect(editor.latest().skills["格斗(鞭子)"]).toBe(0));
+		setValue(editor.view.getByLabelText("自定义科学专攻名称"), "化学");
 		fireEvent.click(
 			editor.view.getByRole("button", { name: "添加自定义科学专攻" }),
 		);
@@ -279,19 +276,17 @@ describe("CoC 7e character creation editor", () => {
 
 	test("shows skill descriptions on hover", async () => {
 		const editor = renderEditor();
+		openTab(editor.view, /技能/);
 		fireEvent.focus(editor.view.getByText("侦查"));
-		const tooltip = await within(editor.view.baseElement).findByRole(
-			"tooltip",
-		);
+		const tooltip = await within(editor.view.baseElement).findByRole("tooltip");
 		expect(tooltip.textContent).toContain("调查的核心技能");
 	});
 
 	test("cancels a custom occupation back to the empty state", () => {
 		const editor = renderEditor();
+		openTab(editor.view, /职业/);
 		fireEvent.click(editor.view.getByRole("button", { name: "自定义职业" }));
-		expect(
-			editor.view.getByRole("textbox", { name: "职业名称" }),
-		).toBeTruthy();
+		expect(editor.view.getByRole("textbox", { name: "职业名称" })).toBeTruthy();
 		expect(
 			editor.view.getAllByText(/自定义职业可以手动勾选本职技能/).length,
 		).toBe(1);
@@ -301,19 +296,17 @@ describe("CoC 7e character creation editor", () => {
 			name: "",
 			skillPointFormula: [],
 		});
-		expect(
-			editor.view.queryByRole("textbox", { name: "职业名称" }),
-		).toBeNull();
-		expect(
-			editor.view.getByRole("button", { name: "选择职业…" }),
-		).toBeTruthy();
+		expect(editor.view.queryByRole("textbox", { name: "职业名称" })).toBeNull();
+		expect(editor.view.getByRole("button", { name: "选择职业…" })).toBeTruthy();
 	});
 
 	test("marks occupational skills read-only once a preset occupation is chosen", async () => {
 		const editor = renderEditor();
+		openTab(editor.view, /技能/);
 		expect(
 			editor.view.getByRole("checkbox", { name: "本职 会计" }),
 		).toBeTruthy();
+		openTab(editor.view, /职业/);
 		fireEvent.click(editor.view.getByRole("button", { name: "选择职业…" }));
 		fireEvent.change(
 			editor.view.getByRole("searchbox", { name: "搜索职业或本职技能" }),
@@ -323,6 +316,7 @@ describe("CoC 7e character creation editor", () => {
 		await waitFor(() =>
 			expect(editor.latest().occupation.presetId).toBe("occ-2"),
 		);
+		openTab(editor.view, /技能/);
 		expect(
 			editor.view.queryByRole("checkbox", { name: "本职 会计" }),
 		).toBeNull();
@@ -332,6 +326,7 @@ describe("CoC 7e character creation editor", () => {
 		const initial = emptySheet();
 		initial.skills = { 图书馆: 45 };
 		const editor = renderEditor(initial);
+		openTab(editor.view, /技能/);
 		setValue(
 			editor.view.getByRole("textbox", { name: "自定义技能名称" }),
 			"语言(法语)",
@@ -359,13 +354,16 @@ describe("CoC 7e character creation editor", () => {
 
 	test("applies asset recommendations only after an explicit action", async () => {
 		const editor = renderEditor();
+		openTab(editor.view, /装备·资产/);
 		setValue(
-			editor.view.getByRole("spinbutton", { name: "技能 信用评级" }),
+			editor.view.getByRole("spinbutton", { name: "信用评级（0–99）" }),
 			"41",
 		);
 		await waitFor(() => expect(editor.latest().skills["信用评级"]).toBe(41));
 		expect(editor.latest().assets.cash).toBe(0);
-		expect(editor.view.getByText(/生活水平：标准/)).toBeTruthy();
+		expect(editor.view.getAllByText(/生活水平：标准/).length).toBeGreaterThan(
+			0,
+		);
 		fireEvent.click(editor.view.getByRole("button", { name: "采用资产建议" }));
 		expect(editor.latest().assets).toMatchObject({
 			cash: 82,
@@ -406,6 +404,8 @@ describe("CoC 7e character creation editor", () => {
 			},
 		];
 		const editor = renderEditor(initial);
+		openTab(editor.view, /装备·资产/);
+		openMagicDetails(editor.view);
 		setValue(
 			editor.view.getByRole("textbox", { name: "武器 1 名称" }),
 			"警用左轮",
@@ -424,6 +424,8 @@ describe("CoC 7e character creation editor", () => {
 
 	test("adds empty records through visible section actions", async () => {
 		const editor = renderEditor();
+		openTab(editor.view, /装备·资产/);
+		openMagicDetails(editor.view);
 		for (const name of [
 			"添加武器",
 			"添加装备",

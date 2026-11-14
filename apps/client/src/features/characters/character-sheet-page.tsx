@@ -1,9 +1,14 @@
-import type { CharacterDetailDto, CharacterDto } from "@cogm/shared";
+import type {
+	CharacterDetailDto,
+	CharacterDto,
+	CharacterSheetContextResponse,
+} from "@cogm/shared";
 import { ArrowLeft, Save, UserRound } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { SheetSection, TextField } from "@/components/shared/creation-form";
 import { EmptyState, ListSkeleton } from "@/components/shared/empty-state";
+import { ImageCropDialog } from "@/components/shared/image-crop-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -111,9 +116,16 @@ function CharacterSheetView({
 	const [fullSheet, setFullSheet] = useState<unknown>(
 		rule.parseSheetJson(character.sheetJson) ?? rule.createEmptySheet(),
 	);
+	const [activeMainTab, setActiveMainTab] = useState(
+		canEditSheet ? "sheet" : "profile",
+	);
 	const [showValidation, setShowValidation] = useState(false);
 	const [sheetValid, setSheetValid] = useState(true);
 	const [saving, setSaving] = useState(false);
+	const [sheetContext, setSheetContext] =
+		useState<CharacterSheetContextResponse | null>(null);
+	const [cropSourceUrl, setCropSourceUrl] = useState<string | null>(null);
+	const [cropFileName, setCropFileName] = useState("portrait.png");
 
 	useEffect(() => {
 		setName(character.name);
@@ -131,7 +143,30 @@ function CharacterSheetView({
 		rule,
 	]);
 
-	const derived = rule.deriveStats(fullSheet);
+	useEffect(() => {
+		let cancelled = false;
+		void api<CharacterSheetContextResponse>(
+			`${basePath}/${encodeURIComponent(character.id)}/sheet-context`,
+		)
+			.then((context) => {
+				if (!cancelled && context && Array.isArray(context.companions)) {
+					setSheetContext(context);
+				}
+			})
+			.catch(() => undefined);
+		return () => {
+			cancelled = true;
+		};
+	}, [basePath, character.id]);
+
+	useEffect(() => {
+		return () => {
+			if (cropSourceUrl) {
+				URL.revokeObjectURL(cropSourceUrl);
+			}
+		};
+	}, [cropSourceUrl]);
+
 	const overview = rule.sheetOverview(fullSheet);
 	const defaultPortrait =
 		character.portraits.find((portrait) => portrait.isDefault === 1) ??
@@ -148,6 +183,10 @@ function CharacterSheetView({
 			toast.error(t("characterCreation.ruleValidationSummary"));
 			return;
 		}
+		const serializedBackground =
+			sheetData === undefined
+				? background
+				: (rule.serializeBackground?.(sheetData, background) ?? background);
 		setSaving(true);
 		try {
 			const next = await api<CharacterDto>(
@@ -156,7 +195,7 @@ function CharacterSheetView({
 					method: "PATCH",
 					body: JSON.stringify({
 						name: name.trim(),
-						background,
+						background: serializedBackground,
 						...(sheetData === undefined ? {} : { sheetData }),
 						expectedVersion: version,
 					}),
@@ -168,6 +207,36 @@ function CharacterSheetView({
 			toast.error(errorText(error, "characterProfile.saveFailed"));
 		} finally {
 			setSaving(false);
+		}
+	}
+
+	async function uploadCroppedPortrait(blob: Blob) {
+		try {
+			const body = new FormData();
+			body.append("file", blob, cropFileName);
+			body.append("purpose", "portrait");
+			body.append("filename", cropFileName);
+			const asset = await api<{ id: string }>("/media/upload", {
+				method: "POST",
+				body,
+			});
+			await api(`${basePath}/${encodeURIComponent(character.id)}/portraits`, {
+				method: "POST",
+				body: JSON.stringify({
+					label: t("expressions.defaultLabel"),
+					portraitAssetId: asset.id,
+					isDefault: true,
+				}),
+			});
+			setCropSourceUrl(null);
+			await refreshPortraits();
+			toast.success(t("characterProfile.saved"));
+		} catch (error) {
+			toast.error(
+				t("characterCreation.portraitUploadFailed", {
+					reason: errorText(error, "error.fallback"),
+				}),
+			);
 		}
 	}
 
@@ -186,7 +255,7 @@ function CharacterSheetView({
 	return (
 		<>
 			<header className="border-separator-secondary/60 bg-background sticky top-0 z-10 border-b">
-				<div className="mx-auto flex w-full max-w-6xl items-center gap-3 px-4 py-3 md:px-6">
+				<div className="mx-auto flex w-full max-w-[1080px] items-center gap-3 px-4 py-3 md:px-6">
 					<Button
 						type="button"
 						variant="ghost"
@@ -249,130 +318,103 @@ function CharacterSheetView({
 				</div>
 			</header>
 
-			<div className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-6 md:px-6 lg:grid-cols-[18rem_minmax(0,1fr)] lg:py-8">
-				<div className="flex flex-col gap-4 lg:sticky lg:top-24 lg:self-start">
-					<SheetSection title={t("characterCreation.derived")}>
-						<div className="grid grid-cols-3 gap-2 lg:grid-cols-1">
-							{(
-								[
-									["HP", derived.hp],
-									["MP", derived.mp],
-									["SAN", derived.san],
-								] as const
-							).map(([label, value]) => (
-								<div
-									key={label}
-									className="flex flex-col gap-0.5 rounded-xl bg-md-surface-container px-3 py-2"
-								>
-									<span className="text-foreground-secondary text-label-small">
-										{label}
-									</span>
-									<span className="text-title-medium-emph text-foreground tabular-nums">
-										{value.current}/{value.max}
-									</span>
-								</div>
-							))}
-						</div>
-						<div className="grid grid-cols-2 gap-2">
-							{(
-								[
-									[t("sheet.mov"), derived.mov],
-									[t("sheet.luck"), derived.luck],
-									[t("sheet.damageBonus"), derived.damageBonus ?? "—"],
-									[t("sheet.build"), derived.build ?? "—"],
-									[t("sheet.majorWound"), derived.majorWound ?? "—"],
-								] as const
-							).map(([label, value]) => (
-								<div
-									key={label}
-									className="flex flex-col gap-0.5 rounded-xl bg-md-surface-container px-3 py-2"
-								>
-									<span className="text-foreground-secondary text-label-small">
-										{label}
-									</span>
-									<span className="text-title-small-emph text-foreground tabular-nums">
-										{value}
-									</span>
-								</div>
-							))}
-						</div>
-					</SheetSection>
-				</div>
-
-				<div className="flex min-w-0 flex-col gap-4">
-					{canEditSheet ? null : (
-						<p
-							role="status"
-							className="rounded-xl bg-md-surface-container px-4 py-3 text-body-medium text-foreground-secondary"
-						>
-							{t("characterProfile.permanentOnly")}
-						</p>
-					)}
-					<Tabs
-						defaultValue={canEditSheet ? "sheet" : "profile"}
-						className="gap-4"
+			<div className="mx-auto flex w-full max-w-[1080px] flex-col gap-5 px-4 py-6 md:px-6 lg:py-8">
+				{canEditSheet ? null : (
+					<p
+						role="status"
+						className="rounded-xl bg-md-surface-container px-4 py-3 text-body-medium text-foreground-secondary"
 					>
-						<TabsList>
-							{canEditSheet ? (
-								<TabsTrigger value="sheet">
-									{t("characterProfile.sheetTab")}
-								</TabsTrigger>
-							) : null}
-							<TabsTrigger value="profile">
-								{t("characterProfile.profileTab")}
-							</TabsTrigger>
-						</TabsList>
+						{t("characterProfile.permanentOnly")}
+					</p>
+				)}
+				<Tabs
+					value={activeMainTab}
+					onValueChange={setActiveMainTab}
+					className="gap-4"
+				>
+					<TabsList>
 						{canEditSheet ? (
-							<TabsContent value="sheet">
-								<SheetFullEditor
-									ruleId={character.ruleId}
-									sheet={fullSheet}
-									onChange={setFullSheet}
-									showValidation={showValidation}
-									onValidityChange={setSheetValid}
-								/>
-							</TabsContent>
+							<TabsTrigger value="sheet">
+								{t("characterProfile.sheetTab")}
+							</TabsTrigger>
 						) : null}
-						<TabsContent value="profile" className="flex flex-col gap-4">
-							<SheetSection title={t("characterProfile.profileTab")}>
-								<div className="grid gap-4 md:grid-cols-2">
-									<TextField
-										label={t("characterProfile.name")}
-										value={name}
-										required
-										showValidation={showValidation}
-										maxLength={100}
-										onChange={setName}
-									/>
-									<div className="flex min-w-0 flex-col gap-1.5">
-										<span className="text-md-on-surface-variant text-label-medium">
-											{t("characterProfile.rule")}
-										</span>
-										<div>
-											<Badge variant="soft" tone="accent">
-												{character.ruleId}
-											</Badge>
-										</div>
-									</div>
-								</div>
-								<TextField
-									label={t("characterProfile.background")}
-									value={background}
-									multiline
-									maxLength={4000}
-									onChange={setBackground}
-								/>
-							</SheetSection>
-							<ExpressionManager
-								characterId={character.id}
-								portraits={character.portraits}
-								basePath={basePath}
-								onChange={() => void refreshPortraits()}
+						<TabsTrigger value="profile">
+							{t("characterProfile.profileTab")}
+						</TabsTrigger>
+					</TabsList>
+					{canEditSheet ? (
+						<TabsContent value="sheet">
+							<SheetFullEditor
+								ruleId={character.ruleId}
+								sheet={fullSheet}
+								onChange={setFullSheet}
+								showValidation={showValidation}
+								onValidityChange={setSheetValid}
+								characterName={name}
+								onCharacterNameChange={setName}
+								background={background}
+								onBackgroundChange={setBackground}
+								portraitPreviewUrl={portraitUrl}
+								onPickPortraitFile={(file) => {
+									setCropFileName(file.name || "portrait.png");
+									setCropSourceUrl(URL.createObjectURL(file));
+								}}
+								onManageExpressions={() => setActiveMainTab("profile")}
+								sheetContext={sheetContext}
 							/>
 						</TabsContent>
-					</Tabs>
-				</div>
+					) : null}
+					<TabsContent value="profile" className="flex flex-col gap-4">
+						<SheetSection title={t("characterProfile.profileTab")}>
+							<div className="grid gap-4 md:grid-cols-2">
+								<TextField
+									label={t("characterProfile.name")}
+									value={name}
+									required
+									showValidation={showValidation}
+									maxLength={100}
+									onChange={setName}
+								/>
+								<div className="flex min-w-0 flex-col gap-1.5">
+									<span className="text-md-on-surface-variant text-label-medium">
+										{t("characterProfile.rule")}
+									</span>
+									<div>
+										<Badge variant="soft" tone="accent">
+											{character.ruleId}
+										</Badge>
+									</div>
+								</div>
+							</div>
+							<TextField
+								label={t("characterProfile.background")}
+								value={background}
+								multiline
+								maxLength={4000}
+								onChange={setBackground}
+							/>
+						</SheetSection>
+						<ExpressionManager
+							characterId={character.id}
+							portraits={character.portraits}
+							basePath={basePath}
+							onChange={() => void refreshPortraits()}
+						/>
+					</TabsContent>
+				</Tabs>
 			</div>
+			<ImageCropDialog
+				open={cropSourceUrl !== null}
+				onOpenChange={(next) => {
+					if (!next) {
+						setCropSourceUrl(null);
+					}
+				}}
+				imageUrl={cropSourceUrl}
+				title={t("characterCreation.portraitCropTitle")}
+				confirmLabel={t("characterCreation.portraitCropConfirm")}
+				onConfirm={(blob) => void uploadCroppedPortrait(blob)}
+			/>
 		</>
 	);
 }

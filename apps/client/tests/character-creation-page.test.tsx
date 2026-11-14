@@ -149,6 +149,25 @@ function submitPage(view: ReturnType<typeof render>, label: string) {
 	fireEvent.click(button);
 }
 
+function openLegacyBackground(view: ReturnType<typeof render>) {
+	fireEvent.click(within(view.container).getByRole("tab", { name: /背景/ }));
+	const summary = within(view.container).getByText(/档案纯文本摘要/);
+	const details = summary.closest("details");
+	if (details && !details.open) {
+		fireEvent.click(summary);
+	}
+	return within(view.container).getByRole("textbox", {
+		name: "背景",
+	}) as HTMLTextAreaElement;
+}
+
+async function confirmSoftWarningsIfShown() {
+	const proceed = await within(document.body).findByRole("button", {
+		name: "仍要提交",
+	});
+	fireEvent.click(proceed);
+}
+
 describe("character creation page", () => {
 	let cleanupHarness: (() => void) | null = null;
 
@@ -196,11 +215,9 @@ describe("character creation page", () => {
 			within(view.container).getByRole("textbox", { name: "姓名" }),
 			"哈维·沃尔特",
 		);
-		setValue(
-			within(view.container).getByRole("textbox", { name: "背景" }),
-			"记者，痴迷古董。",
-		);
+		setValue(openLegacyBackground(view), "记者，痴迷古董。");
 		submitPage(view, "创建人物");
+		await confirmSoftWarningsIfShown();
 		await waitFor(() =>
 			expect(harness.calls.some((call) => call.init.method === "POST")).toBe(
 				true,
@@ -244,6 +261,7 @@ describe("character creation page", () => {
 			"新调查员",
 		);
 		submitPage(view, "提交给主持人");
+		await confirmSoftWarningsIfShown();
 		await waitFor(() =>
 			expect(harness.calls.some((call) => call.init.method === "POST")).toBe(
 				true,
@@ -274,13 +292,14 @@ describe("character creation page", () => {
 			within(view.container).getByRole("textbox", { name: "姓名" }),
 			"未完成的调查员",
 		);
-		setValue(
-			within(view.container).getByRole("textbox", { name: "背景" }),
-			"保留这段描述",
-		);
+		setValue(openLegacyBackground(view), "保留这段描述");
 		submitPage(view, "创建人物");
+		await confirmSoftWarningsIfShown();
 		await waitFor(() =>
 			expect(within(view.container).queryByRole("alert")).toBeTruthy(),
+		);
+		fireEvent.click(
+			within(view.container).getByRole("tab", { name: /身份·属性/ }),
 		);
 		expect(
 			(
@@ -289,13 +308,7 @@ describe("character creation page", () => {
 				}) as HTMLInputElement
 			).value,
 		).toBe("未完成的调查员");
-		expect(
-			(
-				within(view.container).getByRole("textbox", {
-					name: "背景",
-				}) as HTMLTextAreaElement
-			).value,
-		).toBe("保留这段描述");
+		expect(openLegacyBackground(view).value).toBe("保留这段描述");
 		await waitFor(() =>
 			expect(
 				localStorage.getItem(characterCreationDraftKey("pl-1", "independent")),
@@ -325,7 +338,12 @@ describe("character creation page", () => {
 		}) as HTMLInputElement;
 		setValue(strength, "0");
 		submitPage(view, "创建人物");
-		expect(within(view.container).getByText("请输入 1–99 的整数")).toBeTruthy();
+		expect(
+			within(view.container).getAllByText("请输入 1–99 的整数").length,
+		).toBeGreaterThan(0);
+		expect(
+			within(document.body).queryByRole("button", { name: "仍要提交" }),
+		).toBeNull();
 		expect(harness.calls.some((call) => call.init.method === "POST")).toBe(
 			false,
 		);
@@ -345,13 +363,10 @@ describe("character creation page", () => {
 				}) as HTMLInputElement
 			).value,
 		).toBe("恢复的调查员");
-		expect(
-			(
-				within(view.container).getByRole("textbox", {
-					name: "背景",
-				}) as HTMLTextAreaElement
-			).value,
-		).toBe("已有草稿");
+		expect(openLegacyBackground(view).value).toBe("已有草稿");
+		fireEvent.click(
+			within(view.container).getByRole("tab", { name: /身份·属性/ }),
+		);
 		expect(
 			within(view.container).getAllByText(/已恢复草稿/).length,
 		).toBeGreaterThan(0);
@@ -370,6 +385,67 @@ describe("character creation page", () => {
 				}) as HTMLInputElement
 			).value,
 		).toBe("");
+	});
+
+	test("cancels soft-warning submission dialog without posting and serializes structured background when warnings are cleared", async () => {
+		const harness = setup();
+		cleanupHarness = harness.restore;
+		const sheet = createEmptyCharacterSheet();
+		// Spend all 100 interest points (INT 50 -> 100) and set a key connection
+		sheet.skills = { 侦查: 75, 图书馆: 70 };
+		sheet.skillAllocation = {
+			侦查: { occupation: 0, interest: 50, experience: 0 },
+			图书馆: { occupation: 0, interest: 50, experience: 0 },
+		};
+		sheet.backgroundProfile.ideologyBeliefs = "真理高于一切";
+		sheet.backgroundProfile.keyConnection = "ideologyBeliefs";
+		localStorage.setItem(
+			characterCreationDraftKey("pl-1", "independent"),
+			JSON.stringify({
+				version: 1,
+				name: "卡尔·斯坦",
+				background: "",
+				ruleId: "coc7e",
+				sheet,
+			}),
+		);
+		const view = render(
+			<Harness mode="independent" onDone={() => undefined} />,
+		);
+		// No warnings -> submits directly without confirmation dialog
+		submitPage(view, "创建人物");
+		expect(
+			within(document.body).queryByRole("button", { name: "仍要提交" }),
+		).toBeNull();
+		await waitFor(() =>
+			expect(harness.calls.some((call) => call.init.method === "POST")).toBe(
+				true,
+			),
+		);
+		const call = harness.calls.find((entry) => entry.init.method === "POST");
+		const payload = JSON.parse(String(call?.init.body)) as {
+			background: string;
+		};
+		expect(payload.background).toContain(
+			"【思想与信念 ★关键链接】真理高于一切",
+		);
+	});
+
+	test("does not post if user cancels the soft-warning confirmation dialog", async () => {
+		const harness = setup();
+		cleanupHarness = harness.restore;
+		seedDraft("independent", "未确认者");
+		const view = render(
+			<Harness mode="independent" onDone={() => undefined} />,
+		);
+		submitPage(view, "创建人物");
+		const cancelBtn = await within(document.body).findByRole("button", {
+			name: "取消",
+		});
+		fireEvent.click(cancelBtn);
+		expect(harness.calls.some((call) => call.init.method === "POST")).toBe(
+			false,
+		);
 	});
 });
 

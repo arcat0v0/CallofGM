@@ -115,6 +115,7 @@ describe("character profile editor full-sheet preservation", () => {
 			}) as HTMLInputElement;
 			setNativeValue(strength, "65");
 			fireEvent.input(strength);
+			fireEvent.click(view.getByRole("tab", { name: /技能/ }));
 			const skill = view.getByRole("spinbutton", {
 				name: "技能 侦查",
 			}) as HTMLInputElement;
