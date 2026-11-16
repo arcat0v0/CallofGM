@@ -77,14 +77,15 @@ export function Coc7eCreationTabsBar({
 						) : (
 							<span
 								aria-hidden="true"
+								data-slot="tab-issue-badge"
 								className={cn(
-									"inline-flex shrink-0 items-center rounded-full px-1.5 py-0.5 font-mono text-label-small",
+									"inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-1.5 py-0.5 font-mono text-label-small",
 									hasBlocker
 										? "bg-danger-soft text-danger-soft-foreground"
 										: "bg-warning-soft text-warning-soft-foreground",
 								)}
 							>
-								⚠{count}
+								⚠<span>{count}</span>
 							</span>
 						)}
 					</button>
