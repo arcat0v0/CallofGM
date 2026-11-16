@@ -137,7 +137,7 @@ describe("Character sheet context and v2 sheet fields", () => {
 		expect(resA.status).toBe(200);
 		const charA = (await resA.json()) as { id: string; version: number };
 
-		// Create Char B (owned by ctx-b) that links partnerCharacterId -> charA.id
+		// Create Char B (owned by ctx-b) that links partner -> charA.id
 		const resB = await api("/api/v1/pl/characters", {
 			method: "POST",
 			token: plBToken,
@@ -149,8 +149,14 @@ describe("Character sheet context and v2 sheet fields", () => {
 					attributes: attrs,
 					skills: {},
 					backgroundProfile: {
-						partnerCharacterId: charA.id,
-						partnerName: "亚瑟·侦探",
+						partners: [
+							{
+								id: "partner-1",
+								characterId: charA.id,
+								name: "亚瑟·侦探",
+								note: "",
+							},
+						],
 					},
 				},
 			}),

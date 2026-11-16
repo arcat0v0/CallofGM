@@ -243,7 +243,20 @@ describe("CoC 7e v2 split ledger, rolling, background serialization and public p
 			backgroundProfile: {
 				ideologyBeliefs: "科学可以解释一切",
 				keyConnection: "ideologyBeliefs",
-				partnerName: "亚瑟",
+				partners: [
+					{
+						id: "p1",
+						characterId: null,
+						name: "亚瑟",
+						note: "大学同学",
+					},
+					{
+						id: "p2",
+						characterId: "pc-2",
+						name: "安妮",
+						note: "",
+					},
+				],
 				keyConnectionStory: "大学实验室事故后立下的誓言",
 			},
 		});
@@ -254,8 +267,21 @@ describe("CoC 7e v2 split ledger, rolling, background serialization and public p
 		);
 		expect(text).toContain("性别：女 · 住地：阿卡姆 · 故乡：波士顿");
 		expect(text).toContain("【思想与信念 ★关键链接】科学可以解释一切");
-		expect(text).toContain("【调查员伙伴】亚瑟");
+		expect(text).toContain("【调查员伙伴】亚瑟（大学同学）");
+		expect(text).toContain("【调查员伙伴】安妮");
 		expect(text).toContain("【关键链接小传】大学实验室事故后立下的誓言");
+
+		const legacy = normalizeCoc7eSheet({
+			attributes,
+			skills: {},
+			backgroundProfile: {
+				partnerCharacterId: "pc-2",
+				partnerName: "亚瑟",
+			},
+		});
+		expect(
+			serializeCoc7eBackground(legacy.profile, legacy.backgroundProfile, ""),
+		).toContain("【调查员伙伴】亚瑟");
 	});
 
 	it("redacts backgroundProfile and experiences in public projection", () => {

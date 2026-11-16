@@ -446,8 +446,27 @@ export function serializeCoc7eBackground(
 			backgroundProfile.keyConnection === field.key ? " ★关键链接" : "";
 		lines.push(`【${field.label}${star}】${raw}`);
 	}
-	if (backgroundProfile.partnerName.trim()) {
-		lines.push(`【调查员伙伴】${backgroundProfile.partnerName.trim()}`);
+	const partners =
+		backgroundProfile.partners.length > 0
+			? backgroundProfile.partners
+			: backgroundProfile.partnerName.trim()
+				? [
+						{
+							id: "legacy",
+							characterId: backgroundProfile.partnerCharacterId,
+							name: backgroundProfile.partnerName,
+							note: "",
+						},
+					]
+				: [];
+	for (const partner of partners) {
+		const name = partner.name.trim();
+		if (!name) {
+			continue;
+		}
+		lines.push(
+			`【调查员伙伴】${name}${partner.note.trim() ? `（${partner.note.trim()}）` : ""}`,
+		);
 	}
 	if (backgroundProfile.keyConnectionStory.trim()) {
 		lines.push(

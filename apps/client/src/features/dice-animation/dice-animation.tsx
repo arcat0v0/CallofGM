@@ -231,6 +231,9 @@ function DiceAnimationStage({
 		}
 		renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 		renderer.setClearAlpha(0);
+		renderer.domElement.style.display = "block";
+		renderer.domElement.style.width = "100%";
+		renderer.domElement.style.height = "100%";
 		host.replaceChildren(renderer.domElement);
 
 		const group = new Group();

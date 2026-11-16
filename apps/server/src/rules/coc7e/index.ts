@@ -89,8 +89,15 @@ export class Coc7eRuleSystem extends RuleSystem<
 		return result;
 	}
 
-	readPartnerCharacterId(sheet: coc7e.Coc7eCharacterSheet): string | null {
-		return sheet.backgroundProfile.partnerCharacterId ?? null;
+	readPartnerCharacterIds(sheet: coc7e.Coc7eCharacterSheet): string[] {
+		const profile = sheet.backgroundProfile;
+		const ids = profile.partners
+			.map((partner) => partner.characterId)
+			.filter((id): id is string => Boolean(id));
+		if (ids.length === 0 && profile.partnerCharacterId) {
+			ids.push(profile.partnerCharacterId);
+		}
+		return ids;
 	}
 
 	applyPermanentFieldEdit(

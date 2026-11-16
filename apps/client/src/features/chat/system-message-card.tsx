@@ -21,6 +21,9 @@ const PAPER_VARS = {
 	"--ink-red": "#8e1f2a",
 	"--ink-gold": "#8a6414",
 	"--paper-line": "rgba(43,38,32,.16)",
+	"--phase-ink": "#f1e6cb",
+	"--phase-ink-2": "#cbbd9b",
+	"--phase-olive": "#c7df8c",
 } as React.CSSProperties;
 
 const PAPER_SURFACE: React.CSSProperties = {
@@ -34,6 +37,20 @@ const PAPER_SURFACE: React.CSSProperties = {
 	boxShadow:
 		"0 10px 28px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,250,235,.35)",
 };
+
+function ornamentMask(src: string): React.CSSProperties {
+	const maskImage = `url("${src}")`;
+	return {
+		maskImage,
+		WebkitMaskImage: maskImage,
+		maskRepeat: "no-repeat",
+		WebkitMaskRepeat: "no-repeat",
+		maskPosition: "center",
+		WebkitMaskPosition: "center",
+		maskSize: "100% 100%",
+		WebkitMaskSize: "100% 100%",
+	};
+}
 
 function Sheet({ children }: { children: React.ReactNode }) {
 	return (
@@ -61,36 +78,39 @@ function PhaseDivider({
 }) {
 	return (
 		<div
-			className={cn("flex w-full flex-col items-center gap-2 py-3", className)}
-			style={{ ...PAPER_VARS, color: "var(--ink-olive)" }}
+			className={cn(
+				"flex w-full flex-col items-center gap-2 rounded-xl border border-[#c9b98f]/35 bg-[#15130f]/78 px-3 py-4 shadow-[0_8px_24px_rgba(0,0,0,.35)] backdrop-blur-sm",
+				className,
+			)}
+			style={{ ...PAPER_VARS, color: "var(--phase-olive)" }}
 		>
-			<img
-				src="/cthulhu/sigil.svg"
-				alt=""
+			<span
 				aria-hidden="true"
-				className="size-11 opacity-55"
+				data-phase-ornament="sigil"
+				className="block size-11 bg-[var(--phase-olive)] opacity-90"
+				style={ornamentMask("/cthulhu/sigil.svg")}
 			/>
-			<div className="flex w-full items-center gap-2 text-[var(--paper-ink-3)]">
-				<img
-					src="/cthulhu/divider-ornament.svg"
-					alt=""
+			<div className="flex w-full items-center gap-2 text-[var(--phase-ink-2)]">
+				<span
 					aria-hidden="true"
-					className="h-3 min-w-0 flex-1"
+					data-phase-ornament="divider"
+					className="block h-3 min-w-0 flex-1 bg-[var(--phase-ink-2)] opacity-90"
+					style={ornamentMask("/cthulhu/divider-ornament.svg")}
 				/>
-				<span className="shrink-0 font-mono text-label-small tracking-[0.18em] text-[var(--paper-ink-2)]">
+				<span className="shrink-0 rounded-full border border-[#c9b98f]/45 bg-[#211d15]/90 px-2.5 py-1 font-mono text-label-small font-semibold tracking-[0.14em] text-[var(--phase-ink)] shadow-[0_1px_0_rgba(255,255,255,.08)]">
 					{t("chat.phaseRecord")}
 				</span>
-				<img
-					src="/cthulhu/divider-ornament.svg"
-					alt=""
+				<span
 					aria-hidden="true"
-					className="h-3 min-w-0 flex-1"
+					data-phase-ornament="divider"
+					className="block h-3 min-w-0 flex-1 bg-[var(--phase-ink-2)] opacity-90"
+					style={ornamentMask("/cthulhu/divider-ornament.svg")}
 				/>
 			</div>
-			<h2 className="text-center font-serif text-headline-small-emph tracking-[0.22em] text-[var(--ink-olive)]">
+			<h2 className="text-center font-serif text-headline-small-emph tracking-[0.22em] text-[var(--phase-olive)] drop-shadow-[0_1px_6px_rgba(0,0,0,.65)]">
 				{message.phase?.label ?? message.body}
 			</h2>
-			<p className="font-mono text-label-small text-[var(--paper-ink-3)]">
+			<p className="font-mono text-label-small text-[var(--phase-ink-2)]">
 				{message.time}
 			</p>
 		</div>

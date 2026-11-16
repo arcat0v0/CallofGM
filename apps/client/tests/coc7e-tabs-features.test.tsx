@@ -173,7 +173,7 @@ describe("CoC 7e v2 7-tab features", () => {
 		expect(view.getByRole("tab", { name: "装备·资产，无提醒" })).toBeTruthy();
 	});
 
-	test("supports 8-grid background, exclusive key connection, and mutual session partner selection", async () => {
+	test("supports 8-grid background, exclusive key connection, and multiple partner cards", async () => {
 		let latest = emptySheet();
 		const sheetContext: CharacterSheetContextResponse = {
 			companions: [
@@ -221,7 +221,7 @@ describe("CoC 7e v2 7-tab features", () => {
 			expect(latest.backgroundProfile.keyConnection).toBe("significantPeople"),
 		);
 
-		// Select companion from session
+		fireEvent.click(view.getByRole("button", { name: "添加一位伙伴" }));
 		const partnerTrigger = view.getByRole("combobox", {
 			name: "从同团成员选择",
 		});
@@ -233,10 +233,34 @@ describe("CoC 7e v2 7-tab features", () => {
 			}),
 		);
 		await waitFor(() => {
-			expect(latest.backgroundProfile.partnerCharacterId).toBe("pc-2");
-			expect(latest.backgroundProfile.partnerName).toBe("安妮·博士");
+			expect(latest.backgroundProfile.partners[0]).toMatchObject({
+				characterId: "pc-2",
+				name: "安妮·博士",
+			});
 		});
 		expect(view.getByText(/同团互为伙伴 · 阿卡姆迷雾/)).toBeTruthy();
+
+		setValue(
+			view.getByRole("textbox", { name: "关系小注" }),
+			"一起调查密大失踪案",
+		);
+		fireEvent.click(view.getByRole("button", { name: "添加一位伙伴" }));
+		const nameFields = view.getAllByRole("textbox", { name: "伙伴姓名" });
+		const secondName = nameFields[1];
+		if (secondName) {
+			setValue(secondName, "手写的线人");
+		}
+		await waitFor(() => {
+			expect(latest.backgroundProfile.partners).toHaveLength(2);
+			expect(latest.backgroundProfile.partners[0]?.note).toBe(
+				"一起调查密大失踪案",
+			);
+			expect(latest.backgroundProfile.partners[1]?.name).toBe("手写的线人");
+		});
+		fireEvent.click(view.getByRole("button", { name: "移除第 2 位伙伴" }));
+		await waitFor(() =>
+			expect(latest.backgroundProfile.partners).toHaveLength(1),
+		);
 
 		setValue(
 			view.getByRole("textbox", { name: "关键链接小传" }),

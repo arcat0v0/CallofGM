@@ -150,5 +150,5 @@ export abstract class RuleSystem<TSheet, TSessionState> {
 	): TSheet;
 
 	/** 读取规则卡中记录的调查员伙伴角色 ID（可选，供同团双向关联展示） */
-	readPartnerCharacterId?(sheet: TSheet): string | null;
+	readPartnerCharacterIds?(sheet: TSheet): string[];
 }

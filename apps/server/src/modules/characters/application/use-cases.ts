@@ -325,11 +325,13 @@ export class GetCharacterSheetContextUseCase {
 			let linkedToMe = false;
 			try {
 				const rule = this.ruleRegistry.get(row.ruleId);
-				if (rule.readPartnerCharacterId) {
+				if (rule.readPartnerCharacterIds) {
 					const parsed = rule.characterSheetSchema.parse(
 						JSON.parse(row.sheetJson),
 					);
-					linkedToMe = rule.readPartnerCharacterId(parsed) === character.id;
+					linkedToMe = rule
+						.readPartnerCharacterIds(parsed)
+						.includes(character.id);
 				}
 			} catch {
 				linkedToMe = false;

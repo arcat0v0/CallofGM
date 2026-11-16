@@ -1,6 +1,6 @@
 import type { CharacterSheetContextResponse } from "@cogm/shared";
 import { coc7e } from "@cogm/shared";
-import { AlertTriangle, Star, Users } from "lucide-react";
+import { AlertTriangle, Plus, Star, Trash2, Users } from "lucide-react";
 import {
 	SelectField,
 	SheetSection,
@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 
 type Sheet = coc7e.Coc7eCharacterSheet;
 type BgKey = coc7e.Coc7eBackgroundFieldKey;
+type Partner = coc7e.Coc7eBackgroundPartner;
 
 export function Coc7eBackgroundTab({
 	sheet,
@@ -31,9 +32,19 @@ export function Coc7eBackgroundTab({
 }) {
 	const bg = sheet.backgroundProfile;
 	const companions = sheetContext?.companions ?? [];
-	const selectedCompanion = companions.find(
-		(item) => item.characterId === bg.partnerCharacterId,
-	);
+	const partners: Partner[] =
+		bg.partners.length > 0
+			? bg.partners
+			: bg.partnerName.trim()
+				? [
+						{
+							id: "legacy",
+							characterId: bg.partnerCharacterId,
+							name: bg.partnerName,
+							note: "",
+						},
+					]
+				: [];
 
 	function updateBg(patch: Partial<Sheet["backgroundProfile"]>) {
 		const nextBg = { ...bg, ...patch };
@@ -47,6 +58,42 @@ export function Coc7eBackgroundTab({
 				coc7e.serializeCoc7eBackground(nextProfile, nextBg, background ?? ""),
 			);
 		}
+	}
+
+	function updatePartners(next: Partner[]) {
+		const first = next[0];
+		updateBg({
+			partners: next,
+			partnerCharacterId: first?.characterId ?? null,
+			partnerName: first?.name ?? "",
+		});
+	}
+
+	function addPartner() {
+		if (partners.length >= 20) {
+			return;
+		}
+		updatePartners([
+			...partners,
+			{
+				id: crypto.randomUUID(),
+				characterId: null,
+				name: "",
+				note: "",
+			},
+		]);
+	}
+
+	function updatePartner(index: number, patch: Partial<Partner>) {
+		updatePartners(
+			partners.map((partner, itemIndex) =>
+				itemIndex === index ? { ...partner, ...patch } : partner,
+			),
+		);
+	}
+
+	function removePartner(index: number) {
+		updatePartners(partners.filter((_, itemIndex) => itemIndex !== index));
 	}
 
 	function fieldValue(key: BgKey): string {
@@ -143,62 +190,119 @@ export function Coc7eBackgroundTab({
 							{t("characterCreation.partnerTitle")}
 						</h3>
 					</div>
-					{selectedCompanion ? (
-						<Badge
-							variant="soft"
-							tone={selectedCompanion.linkedToMe ? "accent" : "default"}
-							size="sm"
-						>
-							{selectedCompanion.linkedToMe
-								? t("characterCreation.partnerMutualBadge", {
-										session: selectedCompanion.sessionName,
-									})
-								: t("characterCreation.partnerSessionBadge", {
-										session: selectedCompanion.sessionName,
-									})}
-						</Badge>
-					) : null}
+					{companions
+						.filter((item) =>
+							partners.some(
+								(partner) => partner.characterId === item.characterId,
+							),
+						)
+						.map((item) => (
+							<Badge
+								key={item.characterId}
+								variant="soft"
+								tone={item.linkedToMe ? "accent" : "default"}
+								size="sm"
+							>
+								{item.linkedToMe
+									? t("characterCreation.partnerMutualBadge", {
+											session: item.sessionName,
+										})
+									: t("characterCreation.partnerSessionBadge", {
+											session: item.sessionName,
+										})}
+							</Badge>
+						))}
 				</div>
 				<p className="text-body-small text-foreground-secondary">
 					{t("characterCreation.partnerHint")}
 				</p>
-				<div className="grid gap-3 md:grid-cols-2">
-					{companions.length > 0 ? (
-						<SelectField
-							label={t("characterCreation.partnerFromSession")}
-							value={bg.partnerCharacterId ?? "__manual__"}
-							options={[
-								{
-									value: "__manual__",
-									label: t("characterCreation.partnerCustomOption"),
-								},
-								...companions.map((item) => ({
-									value: item.characterId,
-									label: `${item.name}（${item.sessionName}）`,
-								})),
-							]}
-							onChange={(value) => {
-								if (value === "__manual__") {
-									updateBg({ partnerCharacterId: null });
-									return;
-								}
-								const picked = companions.find(
-									(item) => item.characterId === value,
-								);
-								updateBg({
-									partnerCharacterId: value,
-									partnerName: picked?.name ?? bg.partnerName,
-								});
-							}}
-						/>
+				<div className="flex flex-col gap-3">
+					{partners.length === 0 ? (
+						<p className="border-md-outline-variant/40 bg-md-surface-container rounded-xl border border-dashed px-3.5 py-2.5 text-body-small text-foreground-tertiary">
+							{t("characterCreation.partnerEmpty")}
+						</p>
 					) : null}
-					<TextField
-						label={t("characterCreation.partnerManualName")}
-						value={bg.partnerName}
-						maxLength={100}
-						placeholder={t("characterCreation.partnerManualPlaceholder")}
-						onChange={(partnerName) => updateBg({ partnerName })}
-					/>
+					{partners.map((partner, index) => (
+						<div
+							key={partner.id}
+							className="border-md-outline-variant/40 bg-md-surface-container flex flex-col gap-3 rounded-xl border p-3"
+						>
+							<div className="flex items-center justify-between gap-2">
+								<span className="font-serif text-title-small-emph text-foreground">
+									{t("characterCreation.partnerCardTitle", {
+										index: index + 1,
+									})}
+								</span>
+								<Button
+									type="button"
+									variant="ghost"
+									size="icon-sm"
+									aria-label={t("characterCreation.partnerRemove", {
+										index: index + 1,
+									})}
+									onClick={() => removePartner(index)}
+								>
+									<Trash2 className="size-4" />
+								</Button>
+							</div>
+							<div className="grid gap-3 md:grid-cols-2">
+								{companions.length > 0 ? (
+									<SelectField
+										label={t("characterCreation.partnerFromSession")}
+										value={partner.characterId ?? "__manual__"}
+										options={[
+											{
+												value: "__manual__",
+												label: t("characterCreation.partnerCustomOption"),
+											},
+											...companions.map((item) => ({
+												value: item.characterId,
+												label: `${item.name}（${item.sessionName}）`,
+											})),
+										]}
+										onChange={(value) => {
+											if (value === "__manual__") {
+												updatePartner(index, { characterId: null });
+												return;
+											}
+											const picked = companions.find(
+												(item) => item.characterId === value,
+											);
+											updatePartner(index, {
+												characterId: value,
+												name: picked?.name ?? partner.name,
+											});
+										}}
+									/>
+								) : null}
+								<TextField
+									label={t("characterCreation.partnerManualName")}
+									value={partner.name}
+									maxLength={100}
+									placeholder={t("characterCreation.partnerManualPlaceholder")}
+									onChange={(name) => updatePartner(index, { name })}
+								/>
+							</div>
+							<TextField
+								label={t("characterCreation.partnerNote")}
+								value={partner.note}
+								maxLength={200}
+								placeholder={t("characterCreation.partnerNotePlaceholder")}
+								onChange={(note) => updatePartner(index, { note })}
+							/>
+						</div>
+					))}
+					<Button
+						type="button"
+						variant="outline"
+						size="sm"
+						className="self-start"
+						disabled={partners.length >= 20}
+						onClick={addPartner}
+					>
+						<Plus className="size-4" />
+						{t("characterCreation.partnerAdd")}
+					</Button>
 				</div>
 			</div>
 

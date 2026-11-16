@@ -55,6 +55,14 @@ export const Coc7eBackgroundFieldKey = z.enum([
 ]);
 export type Coc7eBackgroundFieldKey = z.infer<typeof Coc7eBackgroundFieldKey>;
 
+export const Coc7eBackgroundPartner = z.object({
+	id: z.string().trim().min(1).max(120),
+	characterId: z.string().trim().max(120).nullable().default(null),
+	name: z.string().trim().max(100).default(""),
+	note: z.string().trim().max(200).default(""),
+});
+export type Coc7eBackgroundPartner = z.infer<typeof Coc7eBackgroundPartner>;
+
 export const Coc7eBackgroundProfile = z.object({
 	ideologyBeliefs: longText.default(""),
 	significantPeople: longText.default(""),
@@ -68,6 +76,7 @@ export const Coc7eBackgroundProfile = z.object({
 	keyConnectionStory: longText.default(""),
 	partnerCharacterId: z.string().trim().max(120).nullable().default(null),
 	partnerName: z.string().trim().max(100).default(""),
+	partners: z.array(Coc7eBackgroundPartner).max(20).default([]),
 });
 export type Coc7eBackgroundProfile = z.infer<typeof Coc7eBackgroundProfile>;
 
@@ -259,6 +268,7 @@ const emptyBackgroundProfile = {
 	keyConnectionStory: "",
 	partnerCharacterId: null,
 	partnerName: "",
+	partners: [],
 } satisfies Coc7eBackgroundProfile;
 
 const Coc7eCharacterSheetV2 = z.object({
@@ -340,5 +350,5 @@ export function createEmptyCoc7eProfile(): Coc7eProfileInfo {
 }
 
 export function createEmptyCoc7eBackgroundProfile(): Coc7eBackgroundProfile {
-	return { ...emptyBackgroundProfile };
+	return { ...emptyBackgroundProfile, partners: [] };
 }
