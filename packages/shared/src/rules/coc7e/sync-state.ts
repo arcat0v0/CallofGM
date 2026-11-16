@@ -17,5 +17,6 @@ export function recalculateCoc7eStateOnSync(
 		mp: Math.max(0, derived.maxMp - mpLost),
 		maxSan: derived.maxSan,
 		san: Math.min(state.san, derived.maxSan),
+		luck: Math.min(99, Math.max(0, state.luck)),
 	};
 }

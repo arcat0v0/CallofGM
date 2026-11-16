@@ -43,7 +43,10 @@ function CheckPanel({ onClose }: { onClose: () => void }) {
 		characters[0] ??
 		null;
 	const rule = getRuleComponent(selected?.ruleId);
-	const skills = skillKeysFor(selected ?? undefined);
+	const skills = [
+		"luck",
+		...skillKeysFor(selected ?? undefined).filter((key) => key !== "luck"),
+	];
 	const resolvedSkill = skills.includes(skillKey)
 		? skillKey
 		: (skills[0] ?? "");
@@ -57,7 +60,9 @@ function CheckPanel({ onClose }: { onClose: () => void }) {
 				selected.name,
 				type === "san"
 					? t("gm.workbench.sanCheck")
-					: rule.skillLabel(resolvedSkill),
+					: resolvedSkill === "luck"
+						? t("gm.workbench.destinyCheck")
+						: rule.skillLabel(resolvedSkill),
 				...(type === "skill" ? [rule.difficultyLabel(difficulty)] : []),
 				...(hidden ? [t("gm.workbench.hiddenShort")] : []),
 			].join(" · ")
@@ -217,7 +222,9 @@ function CheckPanel({ onClose }: { onClose: () => void }) {
 						>
 							{skills.map((key) => (
 								<SelectItem key={key} value={key}>
-									{rule.skillLabel(key)}
+									{key === "luck"
+										? t("gm.workbench.destinyCheck")
+										: rule.skillLabel(key)}
 								</SelectItem>
 							))}
 						</GmSelectField>

@@ -275,7 +275,13 @@ export function mapActivityEvent(
 				: { roll, gmVisible: !hidden || gmVisible }),
 		};
 	}
-	if (type === "check:resolved") {
+	if (type === "check:resolved" || type === "check:amended") {
+		const amendedFrom =
+			type === "check:amended" &&
+			typeof payload.amendsEventId === "number"
+				? payload.amendsEventId
+				: null;
+		const checkEventId = amendedFrom ?? eventId;
 		const result = isRecord(payload.result) ? payload.result : {};
 		const hidden = payload.hidden === true;
 		const gmVisible = payload.gmVisible === true || viewer.isGm === true;
@@ -286,7 +292,12 @@ export function mapActivityEvent(
 		const skillKey =
 			typeof payload.skillKey === "string" ? payload.skillKey : "";
 		const rule = getRuleComponent(characterOf(payload.characterId)?.ruleId);
-		const skill = skillKey ? rule.skillLabel(skillKey) : t("chat.role.check");
+		const skill =
+			skillKey === "luck"
+				? t("chat.destinyCheck")
+				: skillKey
+					? rule.skillLabel(skillKey)
+					: t("chat.role.check");
 		const hiddenSuffix = hidden ? t("message.diceHidden") : "";
 		const success = typeof result.success === "boolean" ? result.success : null;
 		const outcome = typeof result.outcome === "string" ? result.outcome : "";
@@ -311,11 +322,15 @@ export function mapActivityEvent(
 					? t("message.outcome.success")
 					: t("message.outcome.failure");
 			return {
-				id: `check-${eventId}`,
-				sortKey: eventId,
+				id: `check-${checkEventId}`,
+				sortKey: checkEventId,
 				eventId,
 				anchorable: true,
 				activityType: type,
+				characterId:
+					typeof payload.characterId === "string"
+						? payload.characterId
+						: undefined,
 				speakerName: name,
 				speakerRoleLabel: t("chat.role.san"),
 				avatarInitials: initialsOf(name),
@@ -370,12 +385,24 @@ export function mapActivityEvent(
 		const targetValue = typeof target === "number" ? target : 0;
 		const threshold =
 			rule.difficultyThreshold(targetValue, difficulty) ?? targetValue;
+		const luckSpent =
+			typeof result.luckSpent === "number" ? result.luckSpent : undefined;
+		const originalRoll =
+			typeof result.originalRoll === "number" ? result.originalRoll : undefined;
+		const luckBefore =
+			typeof result.luckBefore === "number" ? result.luckBefore : undefined;
+		const luckAfter =
+			typeof result.luckAfter === "number" ? result.luckAfter : undefined;
 		return {
-			id: `check-${eventId}`,
-			sortKey: eventId,
+			id: `check-${checkEventId}`,
+			sortKey: checkEventId,
 			eventId,
 			anchorable: true,
 			activityType: type,
+			characterId:
+				typeof payload.characterId === "string"
+					? payload.characterId
+					: undefined,
 			speakerName: name,
 			speakerRoleLabel: t("chat.role.check"),
 			avatarInitials: initialsOf(name),
@@ -395,14 +422,64 @@ export function mapActivityEvent(
 				: {
 						check: {
 							skill,
+							skillKey,
+							characterId:
+								typeof payload.characterId === "string"
+									? payload.characterId
+									: undefined,
+							baseTarget: targetValue,
+							skillNote:
+								skillKey === "luck"
+									? t("chat.luckCheckValue", {
+											roll: String(roll ?? 0),
+											target: String(targetValue),
+										})
+									: undefined,
 							roll: typeof roll === "number" ? roll : 0,
 							target: threshold,
 							difficulty: rule.difficultyLabel(difficulty),
+							difficultyKey: difficulty as
+								| "regular"
+								| "hard"
+								| "extreme",
+							outcomeKey: outcome,
 							outcome: stamp,
 							label,
+							luckSpent,
+							originalRoll,
+							luckBefore,
+							luckAfter,
+							pushed: result.pushed === true,
 						},
 					}),
 		};
+	}
+	if (type === "luck:recovered") {
+		const name =
+			typeof payload.characterName === "string" && payload.characterName
+				? payload.characterName
+				: characterNameOf(payload.characterId);
+		const roll = typeof payload.roll === "number" ? payload.roll : 0;
+		const before =
+			typeof payload.luckBefore === "number" ? payload.luckBefore : 0;
+		const after =
+			typeof payload.luckAfter === "number" ? payload.luckAfter : before;
+		const gain = typeof payload.gain === "number" ? payload.gain : 0;
+		return systemMessage(
+			name,
+			gain > 0
+				? t("message.luckRecovered", {
+						roll: String(roll),
+						before: String(before),
+						gain: String(gain),
+						after: String(after),
+					})
+				: t("message.luckRecoveryNoGain", {
+						roll: String(roll),
+						before: String(before),
+					}),
+			true,
+		);
 	}
 	if (type === "session:phase-changed") {
 		const phase = SessionPhase.safeParse(payload.phase);

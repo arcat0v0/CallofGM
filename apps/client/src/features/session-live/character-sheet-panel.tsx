@@ -96,7 +96,7 @@ export function CharacterSheetPanel({
 		);
 	});
 
-	function perform(skillKey: string) {
+	function perform(skillKey: string, label = rule.skillLabel(skillKey)) {
 		if (!target?.characterId) {
 			return;
 		}
@@ -111,7 +111,7 @@ export function CharacterSheetPanel({
 			toast.error(t("chat.notConnected"));
 			return;
 		}
-		toast.success(t("check.submitted", { skill: rule.skillLabel(skillKey) }));
+		toast.success(t("check.submitted", { skill: label }));
 	}
 
 	return (
@@ -186,6 +186,51 @@ export function CharacterSheetPanel({
 								</div>
 							</div>
 						) : null}
+						<Button
+							type="button"
+							variant="tertiary"
+							className="bg-md-surface-container flex h-auto w-full items-stretch justify-between gap-4 px-4 py-3 text-left"
+							disabled={!canPerform}
+							onClick={() => perform("luck", t("sheet.destinyCheck"))}
+						>
+							<span className="flex flex-col gap-0.5">
+								<span className="text-foreground-secondary text-label-small tracking-[0.14em]">
+									{t("sheet.destiny")}
+								</span>
+								<span className="text-title-large-emph text-foreground font-serif tabular-nums">
+									{canPerform ? (state?.luck ?? derived.luck) : derived.luck}
+								</span>
+								<span className="text-foreground-tertiary text-label-small">
+									{canPerform
+										? t("sheet.currentLuck")
+										: t("sheet.initialLuck")}
+								</span>
+							</span>
+							<span className="grid grid-cols-2 gap-2 self-center text-right">
+								<span className="flex flex-col">
+									<span className="text-foreground-tertiary text-label-small">
+										{t("sheet.halfValue")}
+									</span>
+									<span className="text-foreground text-title-medium-emph tabular-nums">
+										{Math.floor(
+											(canPerform ? (state?.luck ?? derived.luck) : derived.luck) /
+												2,
+										)}
+									</span>
+								</span>
+								<span className="flex flex-col">
+									<span className="text-foreground-tertiary text-label-small">
+										{t("sheet.fifthValue")}
+									</span>
+									<span className="text-foreground text-title-medium-emph tabular-nums">
+										{Math.floor(
+											(canPerform ? (state?.luck ?? derived.luck) : derived.luck) /
+												5,
+										)}
+									</span>
+								</span>
+							</span>
+						</Button>
 						<Tabs defaultValue="stats" className="gap-3">
 							<TabsList className="w-full">
 								<TabsTrigger value="stats">{t("sheet.statsTab")}</TabsTrigger>

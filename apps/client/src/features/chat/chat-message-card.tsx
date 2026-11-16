@@ -16,6 +16,7 @@ function ChatMessageCard({
 	continued = false,
 	showRoleBadge = true,
 	variant = "bubble",
+	allowLuckSpend = false,
 	className,
 }: {
 	message: ChatMessageCardData;
@@ -23,10 +24,17 @@ function ChatMessageCard({
 	continued?: boolean;
 	showRoleBadge?: boolean;
 	variant?: "bubble" | "flat";
+	allowLuckSpend?: boolean;
 	className?: string;
 }) {
 	if (message.isSystem) {
-		return <SystemMessageCard message={message} className={className} />;
+		return (
+			<SystemMessageCard
+				message={message}
+				allowLuckSpend={allowLuckSpend}
+				className={className}
+			/>
+		);
 	}
 
 	if (variant === "flat") {

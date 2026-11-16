@@ -20,12 +20,23 @@ export type ChatCheckSanView = {
 
 export type ChatCheckView = {
 	skill: string;
+	skillKey?: string;
+	characterId?: string;
+	baseTarget?: number;
+	skillNote?: string;
 	roll: number;
 	target: number;
 	difficulty: string;
+	difficultyKey?: "regular" | "hard" | "extreme";
+	outcomeKey?: string;
 	outcome: ChatCheckOutcome;
 	label: string;
 	san?: ChatCheckSanView;
+	luckSpent?: number;
+	originalRoll?: number;
+	luckBefore?: number;
+	luckAfter?: number;
+	pushed?: boolean;
 };
 
 export type ChatPhaseView = {
@@ -36,6 +47,7 @@ type ChatMessage = {
 	id: string;
 	sortKey: number;
 	eventId?: number;
+	characterId?: string;
 	anchorable?: boolean;
 	activityType?: string;
 	sealedActivityType?: string;

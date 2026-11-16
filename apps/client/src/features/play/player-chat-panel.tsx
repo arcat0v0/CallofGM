@@ -90,6 +90,10 @@ function PlayerChatPanel({
 					variant,
 					message: {
 						id: message.id,
+						sortKey: message.sortKey,
+						eventId: message.eventId,
+						characterId: message.characterId,
+						anchorable: message.anchorable,
 						speakerName: message.speakerName,
 						speakerRoleLabel: message.speakerRoleLabel,
 						expressionLabel: message.expressionLabel,

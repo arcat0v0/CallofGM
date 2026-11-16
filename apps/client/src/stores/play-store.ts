@@ -282,7 +282,20 @@ function appendMessage(
 	messages: ChatMessage[],
 	next: ChatMessage | null,
 ): ChatMessage[] {
-	if (!next || messages.some((message) => message.id === next.id)) {
+	if (!next) {
+		return messages;
+	}
+	const index = messages.findIndex((message) => message.id === next.id);
+	if (index !== -1) {
+		const current = messages[index];
+		if (
+			next.eventId !== undefined &&
+			(current?.eventId ?? 0) < next.eventId
+		) {
+			return messages.map((message, itemIndex) =>
+				itemIndex === index ? next : message,
+			);
+		}
 		return messages;
 	}
 	return [...messages, next];
@@ -317,7 +330,12 @@ function mergeMessages(
 		byId.set(message.id, message);
 	}
 	for (const message of incoming) {
-		if (!byId.has(message.id)) {
+		const existing = byId.get(message.id);
+		if (
+			!existing ||
+			(message.eventId !== undefined &&
+				(existing.eventId ?? 0) < message.eventId)
+		) {
 			byId.set(message.id, message);
 		}
 	}
@@ -413,6 +431,7 @@ function applyEvent(
 		}
 		case "dice:rolled":
 		case "dice:sealed":
+		case "check:amended":
 		case "check:resolved": {
 			if (
 				type === "dice:sealed" &&
@@ -581,6 +600,16 @@ function applyEvent(
 			return state.viewer.isGm
 				? withActivityMessage(state, type, payload, eventId, occurredAt, patch)
 				: patch;
+		}
+		case "luck:recovered": {
+			return withActivityMessage(
+				state,
+				type,
+				payload,
+				eventId,
+				occurredAt,
+				{},
+			);
 		}
 		case "state:public-changed": {
 			return characterStatePatch(state, payload);

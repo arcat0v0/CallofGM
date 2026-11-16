@@ -1,5 +1,5 @@
 import type { SnapshotCharacter } from "@cogm/shared";
-import { Check } from "lucide-react";
+import { Check, Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -66,6 +66,7 @@ function GmStateEditor({
 						maxMp: String(next.maxMp),
 						san: String(next.san),
 						maxSan: String(next.maxSan),
+						luck: String(next.luck),
 					}
 				: {},
 		);
@@ -97,6 +98,7 @@ function GmStateEditor({
 			maxMp: clampNumber(values.maxMp ?? "", 0, 99, state?.maxMp ?? 0),
 			san: clampNumber(values.san ?? "", 0, 99, state?.san ?? 0),
 			maxSan: clampNumber(values.maxSan ?? "", 0, 99, state?.maxSan ?? 0),
+			luck: clampNumber(values.luck ?? "", 0, 99, state?.luck ?? 0),
 		});
 	}
 
@@ -106,6 +108,26 @@ function GmStateEditor({
 			return;
 		}
 		send({ [`${stat}Delta`]: amount });
+	}
+
+	function applyLuckDelta() {
+		const amount = Number.parseInt(delta, 10);
+		if (Number.isNaN(amount) || amount === 0) {
+			return;
+		}
+		send({ luckDelta: amount });
+	}
+
+	function recoverLuck() {
+		if (!character) {
+			return;
+		}
+		const sent = sendSessionCommand("luck:recover", {
+			characterId: character.characterId,
+		});
+		if (!sent) {
+			toast.error(t("chat.notConnected"));
+		}
 	}
 
 	function toggleStatus(flag: string, on: boolean) {
@@ -203,6 +225,51 @@ function GmStateEditor({
 										</div>
 									</div>
 								))}
+							</div>
+
+							<div className="bg-md-surface-container-high border-field-border flex flex-col gap-2 rounded-lg border p-3 shadow-[inset_0_1px_0_#ffffff0a]">
+								<div className="flex flex-wrap items-center gap-2">
+									<span className="text-md-on-surface-variant text-label-medium-emph">
+										{t("sheet.destiny")}
+									</span>
+									<Input
+										value={values.luck ?? ""}
+										inputMode="numeric"
+										aria-label={t("gm.workbench.currentLuck")}
+										className="h-8 w-20 rounded-none border-0 bg-transparent px-1 py-0 text-label-large hover:bg-transparent focus-visible:ring-0"
+										onChange={(event) =>
+											setValues((current) => ({
+												...current,
+												luck: event.target.value,
+											}))
+										}
+									/>
+									<span className="text-md-on-surface-variant/60">/ 99</span>
+									<div className="ml-auto flex flex-wrap items-center gap-2">
+										<Button
+											type="button"
+											variant="tertiary"
+											size="sm"
+											className="h-9"
+											onClick={applyLuckDelta}
+										>
+											± {delta} {t("sheet.destiny")}
+										</Button>
+										<Button
+											type="button"
+											variant="tertiary"
+											size="sm"
+											className="h-9"
+											onClick={recoverLuck}
+										>
+											<Sparkles className="size-4" />
+											{t("gm.workbench.recoverLuck")}
+										</Button>
+									</div>
+								</div>
+								<span className="text-md-on-surface-variant text-label-small">
+									{t("gm.workbench.recoverLuckHint")}
+								</span>
 							</div>
 
 							<div className="flex flex-col gap-2">

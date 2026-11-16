@@ -25,3 +25,33 @@ export class InvalidSanLossExpressionError extends AppError {
 		super("INVALID_SAN_LOSS_EXPRESSION", message, 400);
 	}
 }
+
+export class LuckSpendNotAllowedError extends AppError {
+	constructor(message = "Luck cannot be spent on this check") {
+		super("LUCK_SPEND_NOT_ALLOWED", message, 400);
+	}
+}
+
+export class LuckSpendNotLatestError extends AppError {
+	constructor(message = "Only the most recent check can be amended") {
+		super("LUCK_SPEND_NOT_LATEST", message, 409);
+	}
+}
+
+export class LuckSpendAlreadyUsedError extends AppError {
+	constructor(message = "Luck has already been spent on this check") {
+		super("LUCK_SPEND_ALREADY_USED", message, 409);
+	}
+}
+
+export class LuckSpendInsufficientError extends AppError {
+	constructor(message = "Not enough current luck") {
+		super("LUCK_SPEND_INSUFFICIENT", message, 400);
+	}
+}
+
+export class LuckSpendInvalidPointsError extends AppError {
+	constructor(message = "Luck points do not match an available tier") {
+		super("LUCK_SPEND_INVALID_POINTS", message, 400);
+	}
+}

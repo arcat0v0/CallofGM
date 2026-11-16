@@ -292,6 +292,76 @@ describe("play-store draft-loss and command rejection tracking", () => {
 	});
 });
 
+describe("play-store luck amendment replacement", () => {
+	beforeEach(() => {
+		usePlayStore.getState().reset();
+	});
+
+	test("check:amended replaces the original check card in place", () => {
+		usePlayStore.getState().applyMessage({
+			protocolVersion: 1,
+			eventId: 9,
+			type: "check:resolved",
+			occurredAt: 1_700_000_000_009,
+			payload: {
+				characterId: "c1",
+				characterName: "陈默",
+				skillKey: "侦查",
+				hidden: false,
+				result: {
+					roll: 63,
+					targetValue: 60,
+					difficulty: "regular",
+					outcome: "failure",
+					success: false,
+				},
+			},
+		});
+		expect(usePlayStore.getState().messages).toHaveLength(1);
+
+		usePlayStore.getState().applyMessage({
+			protocolVersion: 1,
+			eventId: 12,
+			type: "check:amended",
+			occurredAt: 1_700_000_000_012,
+			payload: {
+				amendsEventId: 9,
+				characterId: "c1",
+				characterName: "陈默",
+				skillKey: "侦查",
+				hidden: false,
+				result: {
+					roll: 30,
+					originalRoll: 63,
+					targetValue: 60,
+					difficulty: "regular",
+					outcome: "hard_success",
+					success: true,
+					luckSpent: 33,
+					luckBefore: 50,
+					luckAfter: 17,
+				},
+			},
+		});
+
+		const messages = usePlayStore.getState().messages;
+		expect(messages).toHaveLength(1);
+		expect(messages[0]).toMatchObject({
+			id: "check-9",
+			sortKey: 9,
+			eventId: 12,
+			characterId: "c1",
+		});
+		expect(messages[0]?.check).toMatchObject({
+			roll: 30,
+			originalRoll: 63,
+			luckSpent: 33,
+			luckAfter: 17,
+			label: "困难成功",
+		});
+	});
+});
+
 const snapshotPayload = {
 	session: {
 		id: "s1",

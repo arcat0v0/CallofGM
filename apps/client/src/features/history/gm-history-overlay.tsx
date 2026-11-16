@@ -101,6 +101,12 @@ function matchesEventType(
 	if (filter === "dialogue") {
 		return message.activityType === undefined;
 	}
+	if (filter === "check") {
+		return (
+			message.activityType === "check:resolved" ||
+			message.activityType === "check:amended"
+		);
+	}
 	const option = EVENT_TYPE_OPTIONS.find((item) => item.value === filter);
 	return (
 		option?.activityType !== undefined &&

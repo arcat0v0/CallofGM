@@ -1,9 +1,10 @@
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import type { DbClient } from "@/platform/db/client";
 import {
 	characters,
 	checkRequests,
 	sessionCharacters,
+	sessionHistoryEvents,
 } from "@/platform/db/schema";
 import type { GameplayRepository } from "../application/ports";
 
@@ -72,5 +73,28 @@ export class DrizzleGameplayRepository implements GameplayRepository {
 			.where(and(eq(checkRequests.id, id), eq(checkRequests.status, "pending")))
 			.returning({ id: checkRequests.id });
 		return updated.length > 0;
+	}
+
+	async findRecentCheckEvents(sessionId: string, limit: number) {
+		return this.db
+			.select({
+				eventId: sessionHistoryEvents.eventId,
+				type: sessionHistoryEvents.type,
+				payloadJson: sessionHistoryEvents.payloadJson,
+				occurredAt: sessionHistoryEvents.occurredAt,
+			})
+			.from(sessionHistoryEvents)
+			.where(
+				and(
+					eq(sessionHistoryEvents.sessionId, sessionId),
+					inArray(sessionHistoryEvents.type, [
+						"check:resolved",
+						"check:amended",
+					]),
+					isNull(sessionHistoryEvents.archivedAt),
+				),
+			)
+			.orderBy(desc(sessionHistoryEvents.eventId))
+			.limit(limit);
 	}
 }

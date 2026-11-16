@@ -59,6 +59,19 @@ export interface StateMutationResult<TSessionState> {
 	hints: string[];
 }
 
+export interface LuckSpendResult<TSessionState> {
+	state: TSessionState;
+	result: unknown;
+}
+
+export interface LuckRecoveryResult<TSessionState> {
+	state: TSessionState;
+	roll: number;
+	before: number;
+	after: number;
+	gain: number;
+}
+
 export interface PermanentFieldEditInput {
 	field: string;
 	value: number;
@@ -110,6 +123,22 @@ export abstract class RuleSystem<TSheet, TSessionState> {
 		state: TSessionState,
 		edit: Record<string, unknown>,
 	): StateMutationResult<TSessionState>;
+
+	/** 当前幸运值（无幸运概念的规则应抛出 RULE_ACTION_UNSUPPORTED） */
+	abstract getLuckCurrent(state: TSessionState): number;
+
+	/** 花费幸运修正一条检定结果；不可花费时抛出对应错误 */
+	abstract spendLuckOnCheck(
+		state: TSessionState,
+		checkResult: unknown,
+		points: number,
+	): LuckSpendResult<TSessionState>;
+
+	/** 幸运恢复检定；结果由通用业务层广播 */
+	abstract recoverLuck(
+		state: TSessionState,
+		random: RandomSource,
+	): LuckRecoveryResult<TSessionState>;
 
 	/** SAN 自动扣减（理智检定入口） */
 	abstract applySanLoss(

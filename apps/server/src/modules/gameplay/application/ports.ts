@@ -27,6 +27,13 @@ export interface CheckRequestRecord {
 	createdAt: number;
 }
 
+export interface HistoryEventRecord {
+	eventId: number;
+	type: string;
+	payloadJson: string;
+	occurredAt: number;
+}
+
 export interface GameplayRepository {
 	findCharacter(characterId: string): Promise<CharacterSummary | null>;
 	findSessionCharacter(
@@ -57,4 +64,9 @@ export interface GameplayRepository {
 		id: string,
 		resolvedCheckResultJson: string,
 	): Promise<boolean>;
+	/** 最近的检定/修正事件，按 eventId 倒序；用于校验幸运只能改最新一条 */
+	findRecentCheckEvents(
+		sessionId: string,
+		limit: number,
+	): Promise<HistoryEventRecord[]>;
 }

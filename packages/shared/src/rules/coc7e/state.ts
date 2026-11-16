@@ -29,6 +29,7 @@ export const CharacterSessionState = z.object({
 	maxMp: z.number().int().min(0).max(99),
 	san: z.number().int().min(0).max(99),
 	maxSan: z.number().int().min(0).max(99),
+	luck: z.number().int().min(0).max(99).default(50),
 	statuses: z.array(CharacterStatusFlag),
 	tags: z.array(z.string()),
 	growthMarks: z.array(z.string()),
@@ -67,9 +68,11 @@ export const Coc7eStateEditInput = z.object({
 	maxMp: z.number().int().min(0).max(99).optional(),
 	san: z.number().int().min(0).optional(),
 	maxSan: z.number().int().min(0).max(99).optional(),
+	luck: z.number().int().min(0).max(99).optional(),
 	hpDelta: z.number().int().optional(),
 	mpDelta: z.number().int().optional(),
 	sanDelta: z.number().int().optional(),
+	luckDelta: z.number().int().optional(),
 	addStatuses: z.array(z.string().max(32)).optional(),
 	removeStatuses: z.array(z.string().max(32)).optional(),
 	addTags: z.array(z.string().max(64)).optional(),
@@ -84,5 +87,5 @@ export function coc7eStateSummary(state: unknown): string | null {
 		return null;
 	}
 	const value = parsed.data;
-	return `HP ${value.hp}/${value.maxHp} · MP ${value.mp}/${value.maxMp} · SAN ${value.san}/${value.maxSan}`;
+	return `HP ${value.hp}/${value.maxHp} · MP ${value.mp}/${value.maxMp} · SAN ${value.san}/${value.maxSan} · 天命 ${value.luck}`;
 }

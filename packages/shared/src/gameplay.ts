@@ -50,6 +50,22 @@ export const PerformSanCheckCommand = z.object({
 });
 export type PerformSanCheckCommand = z.infer<typeof PerformSanCheckCommand>;
 
+export const SpendLuckCommand = z.object({
+	characterId: z.string().min(1),
+	eventId: z.number().int().min(1),
+	points: z.number().int().min(1).max(99),
+	ruleId: z.string().min(1).max(32).optional(),
+});
+export type SpendLuckCommand = z.infer<typeof SpendLuckCommand>;
+
+export const PerformLuckRecoveryCommand = z.object({
+	characterId: z.string().min(1),
+	ruleId: z.string().min(1).max(32).optional(),
+});
+export type PerformLuckRecoveryCommand = z.infer<
+	typeof PerformLuckRecoveryCommand
+>;
+
 export const EditCharacterStateCommand = z
 	.object({
 		characterId: z.string().min(1),
@@ -59,9 +75,11 @@ export const EditCharacterStateCommand = z
 		maxMp: z.number().int().min(0).optional(),
 		san: z.number().int().min(0).optional(),
 		maxSan: z.number().int().min(0).optional(),
+		luck: z.number().int().min(0).optional(),
 		hpDelta: z.number().int().optional(),
 		mpDelta: z.number().int().optional(),
 		sanDelta: z.number().int().optional(),
+		luckDelta: z.number().int().optional(),
 		addStatuses: z.array(z.string().max(32)).optional(),
 		removeStatuses: z.array(z.string().max(32)).optional(),
 		addTags: z.array(z.string().max(64)).optional(),
@@ -132,6 +150,28 @@ export const CheckResolvedEvent = z.object({
 	result: z.unknown(),
 });
 export type CheckResolvedEvent = z.infer<typeof CheckResolvedEvent>;
+
+/** Event payload: check:amended。对同一条检定事件的修正结果，客户端按 amendsEventId 原地替换。 */
+export const CheckAmendedEvent = z.object({
+	amendsEventId: z.number().int().min(1),
+	characterId: z.string(),
+	characterName: z.string().nullable(),
+	skillKey: z.string(),
+	hidden: z.boolean(),
+	result: z.unknown(),
+});
+export type CheckAmendedEvent = z.infer<typeof CheckAmendedEvent>;
+
+/** Event payload: luck:recovered。GM 手动发起的幸运恢复检定结果。 */
+export const LuckRecoveredEvent = z.object({
+	characterId: z.string(),
+	characterName: z.string().nullable(),
+	roll: z.number().int().min(1).max(100),
+	luckBefore: z.number().int().min(0).max(99),
+	luckAfter: z.number().int().min(0).max(99),
+	gain: z.number().int().min(0).max(10),
+});
+export type LuckRecoveredEvent = z.infer<typeof LuckRecoveredEvent>;
 
 /** Event payload: state:changed。state 为规则专属团内状态 JSON */
 export const CharacterStateChangedEvent = z.object({

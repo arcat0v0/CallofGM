@@ -57,6 +57,7 @@ export class SessionHistoryPager {
 			Math.max(input.limit ?? DEFAULT_LIMIT, 1),
 			MAX_LIMIT,
 		);
+		const amendedCheckIds = await this.loadAmendedCheckIds(input.sessionId);
 		const collected: LiveCandidate[] = [];
 		let scanCursor = input.beforeEventId ?? null;
 		let exhausted = false;
@@ -74,6 +75,13 @@ export class SessionHistoryPager {
 				if (
 					candidate.kind === "activity" &&
 					!this.isVisible(candidate.row, input)
+				) {
+					continue;
+				}
+				if (
+					candidate.kind === "activity" &&
+					candidate.row.type === "check:resolved" &&
+					amendedCheckIds.has(candidate.eventId)
 				) {
 					continue;
 				}
@@ -125,6 +133,10 @@ export class SessionHistoryPager {
 			Math.max(input.limit ?? ARCHIVE_DEFAULT_LIMIT, 1),
 			ARCHIVE_MAX_LIMIT,
 		);
+		const amendedCheckIds = await this.loadAmendedCheckIds(
+			input.sessionId,
+			input.rewindId,
+		);
 		const collected: ArchiveCandidate[] = [];
 		let scanCursor = input.beforeEventId ?? null;
 		let exhausted = false;
@@ -143,7 +155,19 @@ export class SessionHistoryPager {
 			}
 			scanned += batch.length;
 			scanCursor = batch[batch.length - 1]!.eventId;
-			collected.push(...batch.slice(0, limit + 1 - collected.length));
+			for (const candidate of batch) {
+				if (
+					candidate.kind === "activity" &&
+					candidate.row.type === "check:resolved" &&
+					amendedCheckIds.has(candidate.eventId)
+				) {
+					continue;
+				}
+				collected.push(candidate);
+				if (collected.length >= limit + 1) {
+					break;
+				}
+			}
 		}
 
 		const pageDescending = collected.slice(0, limit);
@@ -377,5 +401,45 @@ export class SessionHistoryPager {
 				payload: JSON.parse(candidate.row.payloadJson),
 			};
 		});
+	}
+
+	private async loadAmendedCheckIds(
+		sessionId: string,
+		archivedByRewindId?: string,
+	): Promise<Set<number>> {
+		const conditions = [
+			eq(sessionHistoryEvents.sessionId, sessionId),
+			eq(sessionHistoryEvents.type, "check:amended"),
+		];
+		if (archivedByRewindId) {
+			conditions.push(
+				eq(sessionHistoryEvents.archivedByRewindId, archivedByRewindId),
+			);
+		} else {
+			conditions.push(isNull(sessionHistoryEvents.archivedAt));
+		}
+		const rows = await this.db
+			.select({ payloadJson: sessionHistoryEvents.payloadJson })
+			.from(sessionHistoryEvents)
+			.where(and(...conditions));
+		const ids = new Set<number>();
+		for (const row of rows) {
+			try {
+				const payload: unknown = JSON.parse(row.payloadJson);
+				if (
+					payload &&
+					typeof payload === "object" &&
+					typeof (payload as { amendsEventId?: unknown }).amendsEventId ===
+						"number"
+				) {
+					ids.add(
+						(payload as { amendsEventId: number }).amendsEventId,
+					);
+				}
+			} catch {
+				continue;
+			}
+		}
+		return ids;
 	}
 }

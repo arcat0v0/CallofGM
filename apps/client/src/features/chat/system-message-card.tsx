@@ -3,8 +3,14 @@ import type {
 	ChatMessage,
 	ChatRollView,
 } from "@/features/chat/types";
+import { useState } from "react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 import { t } from "@/i18n";
+import { sendSessionCommand } from "@/lib/session-socket";
 import { cn } from "@/lib/utils";
+import { getRuleComponent } from "@/rules/registry";
+import { usePlayStore } from "@/stores/play-store";
 
 type SystemMessageView = Omit<ChatMessage, "sortKey"> & {
 	sortKey?: number;
@@ -209,13 +215,89 @@ function outcomeStyle(outcome: ChatCheckView["outcome"]) {
 function CheckVerdict({
 	message,
 	check,
+	allowLuckSpend = false,
 	className,
 }: {
 	message: SystemMessageView;
 	check: ChatCheckView;
+	allowLuckSpend?: boolean;
 	className?: string;
 }) {
 	const tone = outcomeStyle(check.outcome);
+	const characters = usePlayStore((state) => state.characters);
+	const viewer = usePlayStore((state) => state.viewer);
+	const messages = usePlayStore((state) => state.messages);
+	const [pendingPoints, setPendingPoints] = useState<number | null>(null);
+	const claimed = characters.find(
+		(character) =>
+			character.claim?.holderKind === viewer.holderKind &&
+			character.claim?.holderId === viewer.holderId &&
+			character.claim.role === "pc",
+	);
+	const isOwn = Boolean(
+		check.characterId && claimed?.characterId === check.characterId,
+	);
+	let latestSortKey: number | null = null;
+	for (const item of messages) {
+		if (item.check?.characterId !== check.characterId) {
+			continue;
+		}
+		latestSortKey =
+			latestSortKey === null ? item.sortKey : Math.max(latestSortKey, item.sortKey);
+	}
+	const isLatest =
+		isOwn &&
+		message.sortKey !== undefined &&
+		latestSortKey === message.sortKey;
+	const rule = getRuleComponent(claimed?.ruleId);
+	const characterState = rule.parseState(claimed?.state);
+	const luck =
+		characterState?.luck ??
+		(claimed?.sheet ? rule.deriveStats(claimed.sheet)?.luck : null) ??
+		0;
+	const canSpendLuck =
+		allowLuckSpend &&
+		isOwn &&
+		isLatest &&
+		message.eventId !== undefined &&
+		check.skillKey !== "luck" &&
+		check.skillKey !== "san" &&
+		check.outcomeKey !== "fumble" &&
+		check.outcomeKey !== "critical" &&
+		check.luckSpent === undefined &&
+		check.pushed !== true;
+	const options =
+		canSpendLuck && check.skillKey && check.outcomeKey
+			? rule.luckSpendOptions(
+					{
+						skillKey: check.skillKey,
+						targetValue: check.baseTarget ?? check.target,
+						difficulty: check.difficultyKey ?? "regular",
+						roll: check.originalRoll ?? check.roll,
+						outcome: check.outcomeKey,
+						luckSpent: check.luckSpent,
+						pushed: check.pushed,
+					},
+					luck,
+				)
+			: [];
+
+	function spend(points: number) {
+		if (!check.characterId || message.eventId === undefined) {
+			return;
+		}
+		const sent = sendSessionCommand("check:spend-luck", {
+			characterId: check.characterId,
+			eventId: message.eventId,
+			points,
+		});
+		if (!sent) {
+			toast.error(t("chat.notConnected"));
+			return;
+		}
+		setPendingPoints(points);
+		window.setTimeout(() => setPendingPoints(null), 2000);
+	}
 	const threshold = Math.max(
 		1,
 		Math.min(100, Number.isFinite(check.target) ? check.target : 0),
@@ -250,9 +332,16 @@ function CheckVerdict({
 							{check.skill}
 						</span>
 						<span className="truncate font-mono text-label-small text-[var(--paper-ink-2)]">
-							{message.speakerName} · {check.difficulty}
+							{message.speakerName} ·{" "}
+							{check.skillNote ? `${check.skillNote} · ` : ""}
+							{check.difficulty}
 						</span>
 					</div>
+					{check.luckSpent !== undefined ? (
+						<span className="-rotate-3 border border-[var(--ink-red)] px-2 py-0.5 font-mono text-label-small text-[var(--ink-red)]">
+							{t("chat.luckStamp", { n: check.luckSpent })}
+						</span>
+					) : null}
 					<img
 						src={`/cthulhu/${tone.stamp}.svg`}
 						alt={check.label}
@@ -273,6 +362,11 @@ function CheckVerdict({
 					<span className="ml-2 border border-[var(--paper-line)] px-1.5 py-0.5 font-mono text-label-small text-[var(--paper-ink-2)]">
 						{check.label}
 					</span>
+					{check.originalRoll !== undefined && check.luckSpent !== undefined ? (
+						<span className="ml-1 font-mono text-label-small text-[var(--paper-ink-2)]">
+							{t("chat.originalRoll", { roll: check.originalRoll })}
+						</span>
+					) : null}
 				</div>
 				<div className="relative h-7 min-w-0 overflow-hidden">
 					<div
@@ -311,6 +405,34 @@ function CheckVerdict({
 						>
 							{t("chat.sanLoss", { n: check.san.loss })}
 						</span>
+					</div>
+				) : null}
+				{options.length > 0 ? (
+					<div className="flex flex-col gap-2 border-t border-[var(--paper-line)] pt-2">
+						<div className="flex flex-wrap items-baseline justify-between gap-1 font-mono text-label-small text-[var(--paper-ink-2)]">
+							<span>{t("chat.spendLuck")}</span>
+							<span>{t("chat.currentLuck", { luck })}</span>
+						</div>
+						<div className="flex flex-wrap gap-1.5">
+							{options.map((option) => (
+								<Button
+									key={option.points}
+									type="button"
+									variant="tertiary"
+									size="sm"
+									className="h-auto min-h-11 flex-col items-start gap-0 px-3 py-1.5 text-left"
+									disabled={pendingPoints !== null}
+									onClick={() => spend(option.points)}
+								>
+									<span className="font-mono text-label-small">
+										−{option.points} · {option.label}
+									</span>
+									<span className="font-mono text-label-small opacity-70">
+										{t("chat.luckAfter", { luck: luck - option.points })}
+									</span>
+								</Button>
+							))}
+						</div>
 					</div>
 				) : null}
 			</div>
@@ -392,9 +514,11 @@ function LegacySystemMessage({
 
 function SystemMessageCard({
 	message,
+	allowLuckSpend = false,
 	className,
 }: {
 	message: SystemMessageView;
+	allowLuckSpend?: boolean;
 	className?: string;
 }) {
 	if (message.hidden && !message.gmVisible)
@@ -410,6 +534,7 @@ function SystemMessageCard({
 			<CheckVerdict
 				message={message}
 				check={message.check}
+				allowLuckSpend={allowLuckSpend}
 				className={className}
 			/>
 		);

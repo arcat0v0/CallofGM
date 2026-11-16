@@ -1,13 +1,17 @@
 import {
+	type CheckAmendedEvent,
 	type CheckRequestDto,
 	CreateCheckRequestCommand,
 	canPlayerInitiateDiceRoll,
 	type DiceSealedEvent,
 	EditCharacterStateCommand,
+	type LuckRecoveredEvent,
 	PerformCheckCommand,
+	PerformLuckRecoveryCommand,
 	PerformSanCheckCommand,
 	RespondCheckRequestCommand,
 	RollDiceCommand,
+	SpendLuckCommand,
 	type RuleId,
 	type SessionPhase,
 } from "@cogm/shared";
@@ -40,6 +44,11 @@ import {
 	CheckRequestAlreadyResolvedError,
 	CheckRequestNotFoundError,
 	InvalidSanLossExpressionError,
+	LuckSpendAlreadyUsedError,
+	LuckSpendInsufficientError,
+	LuckSpendInvalidPointsError,
+	LuckSpendNotAllowedError,
+	LuckSpendNotLatestError,
 	SkillNotFoundError,
 } from "../domain/errors";
 import type { GameplayRepository } from "./ports";
@@ -727,6 +736,239 @@ export class RespondCheckRequestHandler implements CommandHandler {
 	}
 }
 
+/** 玩家花费自己的幸运，修正最近一次自己的检定结果。 */
+export class SpendLuckHandler implements CommandHandler {
+	readonly type = "check:spend-luck" as const;
+
+	constructor(
+		private readonly ruleRegistry: RuleRegistry,
+		private readonly repoFactory: (tx: DbClient) => GameplayRepository,
+	) {}
+
+	async execute(
+		ctx: CommandHandlerContext,
+		payload: unknown,
+	): Promise<CommandHandlerResult> {
+		const parsed = SpendLuckCommand.safeParse(payload);
+		if (!parsed.success) {
+			throw validationFailed(parsed.error);
+		}
+		const input = parsed.data;
+
+		const isGm = ctx.actor.type === "user" && ctx.actor.role === "gm";
+		if (isGm) {
+			throw new ForbiddenError("The GM cannot spend a player's luck");
+		}
+		if (
+			ctx.seat?.role !== "pc" ||
+			ctx.seat.characterId !== input.characterId
+		) {
+			throw new ForbiddenError(
+				"Players can only spend luck on their own character's checks",
+			);
+		}
+
+		const repo = this.repoFactory(ctx.tx);
+		const { character, sessionCharacter, rule, state } =
+			await loadCharacterContext(
+				ctx,
+				repo,
+				input.characterId,
+				this.ruleRegistry,
+			);
+		if (sessionCharacter.kind !== "pc") {
+			throw new LuckSpendNotAllowedError(
+				"Only player character checks can be amended",
+			);
+		}
+
+		const recent = await repo.findRecentCheckEvents(ctx.sessionId, 200);
+		const entries: Array<{
+			eventId: number;
+			type: string;
+			payload: Record<string, unknown>;
+		}> = [];
+		for (const row of recent) {
+			try {
+				const value: unknown = JSON.parse(row.payloadJson);
+				if (value && typeof value === "object") {
+					entries.push({
+						eventId: row.eventId,
+						type: row.type,
+						payload: value as Record<string, unknown>,
+					});
+				}
+			} catch {
+				continue;
+			}
+		}
+
+		const latest = entries.find(
+			(entry) =>
+				entry.type === "check:resolved" &&
+				entry.payload.characterId === input.characterId,
+		);
+		if (!latest || latest.eventId !== input.eventId) {
+			throw new LuckSpendNotLatestError();
+		}
+		if (latest.payload.hidden === true) {
+			throw new LuckSpendNotAllowedError(
+				"Hidden checks cannot be amended by players",
+			);
+		}
+		const alreadyAmended = entries.some(
+			(entry) =>
+				entry.type === "check:amended" &&
+				entry.payload.amendsEventId === input.eventId,
+		);
+		if (alreadyAmended) {
+			throw new LuckSpendAlreadyUsedError();
+		}
+
+		const luckCurrent = rule.getLuckCurrent(state);
+		if (input.points > luckCurrent) {
+			throw new LuckSpendInsufficientError();
+		}
+		const mutated = rule.spendLuckOnCheck(
+			state,
+			latest.payload.result,
+			input.points,
+		);
+		const amended = mutated.result as {
+			luckSpent?: number;
+			luckAfter?: number;
+		};
+		if (
+			amended.luckSpent !== input.points ||
+			typeof amended.luckAfter !== "number"
+		) {
+			throw new LuckSpendInvalidPointsError();
+		}
+
+		const amendedPayload: CheckAmendedEvent = {
+			amendsEventId: input.eventId,
+			characterId: input.characterId,
+			characterName: character.name,
+			skillKey:
+				typeof latest.payload.skillKey === "string"
+					? latest.payload.skillKey
+					: "",
+			hidden: false,
+			result: mutated.result,
+		};
+		const events: ProducedEvent[] = [
+			{
+				type: "check:amended",
+				payload: amendedPayload,
+				visibility: checkVisibilityScope(false, sessionCharacter.kind),
+			},
+		];
+		events.push(
+			...(await persistStateAndBuildEvents(
+				ctx,
+				repo,
+				input.characterId,
+				sessionCharacter.kind,
+				mutated.state,
+				[],
+				rule,
+				false,
+				ctx.session.obSeePcState === 1,
+			)),
+		);
+
+		return {
+			events,
+			replyPayload: {
+				ok: true,
+				luckSpent: amended.luckSpent,
+				luckAfter: amended.luckAfter,
+			},
+		};
+	}
+}
+
+/** GM 手动发起幸运恢复检定：团进行中或团后可用。 */
+export class LuckRecoverHandler implements CommandHandler {
+	readonly type = "luck:recover" as const;
+	readonly allowWhenEnded = true;
+
+	constructor(
+		private readonly ruleRegistry: RuleRegistry,
+		private readonly repoFactory: (tx: DbClient) => GameplayRepository,
+	) {}
+
+	async execute(
+		ctx: CommandHandlerContext,
+		payload: unknown,
+	): Promise<CommandHandlerResult> {
+		if (ctx.actor.type !== "user" || ctx.actor.role !== "gm") {
+			throw new ForbiddenError("Only the GM can recover luck");
+		}
+		const parsed = PerformLuckRecoveryCommand.safeParse(payload);
+		if (!parsed.success) {
+			throw validationFailed(parsed.error);
+		}
+		const input = parsed.data;
+
+		const repo = this.repoFactory(ctx.tx);
+		const { character, sessionCharacter, rule, state } =
+			await loadCharacterContext(
+				ctx,
+				repo,
+				input.characterId,
+				this.ruleRegistry,
+			);
+		if (sessionCharacter.kind !== "pc") {
+			throw new AppError(
+				"VALIDATION_FAILED",
+				"Luck recovery only applies to player characters",
+				400,
+			);
+		}
+
+		const recovered = rule.recoverLuck(state, ctx.randomSource);
+		const recoveredPayload: LuckRecoveredEvent = {
+			characterId: input.characterId,
+			characterName: character.name,
+			roll: recovered.roll,
+			luckBefore: recovered.before,
+			luckAfter: recovered.after,
+			gain: recovered.gain,
+		};
+		const events: ProducedEvent[] = [
+			{
+				type: "luck:recovered",
+				payload: recoveredPayload,
+				visibility: checkVisibilityScope(false, sessionCharacter.kind),
+			},
+		];
+		events.push(
+			...(await persistStateAndBuildEvents(
+				ctx,
+				repo,
+				input.characterId,
+				sessionCharacter.kind,
+				recovered.state,
+				[],
+				rule,
+				false,
+				ctx.session.obSeePcState === 1,
+			)),
+		);
+
+		return {
+			events,
+			replyPayload: {
+				ok: true,
+				roll: recovered.roll,
+				gain: recovered.gain,
+				luckAfter: recovered.after,
+			},
+		};
+	}
+}
+
 export class EditCharacterStateHandler implements CommandHandler {
 	readonly type = "state:edit" as const;
 
@@ -788,6 +1030,8 @@ export function createGameplayCommandHandlers(
 		new PerformSanCheckHandler(ruleRegistry, repoFactory),
 		new CreateCheckRequestHandler(ruleRegistry, repoFactory),
 		new RespondCheckRequestHandler(ruleRegistry, repoFactory),
+		new SpendLuckHandler(ruleRegistry, repoFactory),
+		new LuckRecoverHandler(ruleRegistry, repoFactory),
 		new EditCharacterStateHandler(ruleRegistry, repoFactory),
 	];
 }

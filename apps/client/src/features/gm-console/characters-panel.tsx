@@ -5,6 +5,7 @@ import {
 	RefreshCw,
 	Search,
 	SlidersHorizontal,
+	Sparkles,
 	UserRoundCheck,
 	UserRoundMinus,
 	UserRoundPlus,
@@ -148,6 +149,30 @@ function CharactersPanel({ onClose }: { onClose: () => void }) {
 		}
 	}
 
+	function recoverAllLuck() {
+		const pcs = characters.filter((character) => character.kind === "pc");
+		if (pcs.length === 0) {
+			return;
+		}
+		let sent = false;
+		for (const character of pcs) {
+			if (
+				sendSessionCommand("luck:recover", {
+					characterId: character.characterId,
+				})
+			) {
+				sent = true;
+			}
+		}
+		if (!sent) {
+			toast.error(t("chat.notConnected"));
+			return;
+		}
+		toast.success(
+			t("gm.workbench.recoverLuckQueued", { count: pcs.length }),
+		);
+	}
+
 	return (
 		<>
 			<GmPanelShell
@@ -155,9 +180,25 @@ function CharactersPanel({ onClose }: { onClose: () => void }) {
 				subtitle={t("gm.workbench.charactersSubtitle")}
 				onClose={onClose}
 				footer={
-					<span className="text-md-on-surface-variant text-label-medium">
-						{t("gm.workbench.stateScope")}
-					</span>
+					<div className="flex w-full items-center justify-between gap-2">
+						<span className="text-md-on-surface-variant text-label-medium">
+							{t("gm.workbench.stateScope")}
+						</span>
+						<Button
+							type="button"
+							variant="tertiary"
+							size="sm"
+							className="h-9 shrink-0"
+							disabled={
+								characters.filter((character) => character.kind === "pc")
+									.length === 0
+							}
+							onClick={recoverAllLuck}
+						>
+							<Sparkles className="size-4" />
+							{t("gm.workbench.recoverAllLuck")}
+						</Button>
+					</div>
 				}
 			>
 				<div className="flex flex-col gap-2">
@@ -512,6 +553,16 @@ function CharactersPanel({ onClose }: { onClose: () => void }) {
 												<GmValueField
 													label="SAN"
 													value={state ? `${state.san} / ${state.maxSan}` : "—"}
+													actionLabel={t("gm.workbench.editStateFor", {
+														name: character.name,
+													})}
+													onClick={() =>
+														setEditorCharacterId(character.characterId)
+													}
+												/>
+												<GmValueField
+													label={t("sheet.destiny")}
+													value={state ? String(state.luck) : "—"}
 													actionLabel={t("gm.workbench.editStateFor", {
 														name: character.name,
 													})}

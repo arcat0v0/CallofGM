@@ -63,6 +63,7 @@ export type RuleSessionState = {
 	maxMp: number;
 	san: number;
 	maxSan: number;
+	luck: number;
 	statuses: string[];
 	tags: string[];
 	growthMarks: string[];
@@ -110,6 +111,15 @@ export type RuleComponent = {
 	checkOutcome: (check: unknown) => boolean | null;
 	stateSummary: (state: unknown) => string | null;
 	parseState: (state: unknown) => RuleSessionState | null;
+	luckSpendOptions: (
+		check: unknown,
+		luckCurrent: number,
+	) => Array<{
+		points: number;
+		outcome: string;
+		label: string;
+		success: boolean;
+	}>;
 	statusLabels: (statuses: string[]) => string[];
 	statusLabelsOfState: (state: unknown) => string[];
 	stateBars: (state: unknown) => RuleStateBar[];
@@ -318,11 +328,48 @@ const coc7eComponent: RuleComponent = {
 			maxMp: value.maxMp,
 			san: value.san,
 			maxSan: value.maxSan,
+			luck: value.luck,
 			statuses: value.statuses,
 			tags: value.tags,
 			growthMarks: value.growthMarks,
 			hiddenGrowthMarks: value.hiddenGrowthMarks,
 		};
+	},
+	luckSpendOptions: (check, luckCurrent) => {
+		if (!check || typeof check !== "object") {
+			return [];
+		}
+		const value = check as Record<string, unknown>;
+		const difficulty = coc7e.CheckDifficulty.safeParse(value.difficulty);
+		const outcome = coc7e.CheckOutcome.safeParse(value.outcome);
+		if (
+			typeof value.skillKey !== "string" ||
+			typeof value.targetValue !== "number" ||
+			typeof value.roll !== "number" ||
+			!difficulty.success ||
+			!outcome.success ||
+			!Number.isFinite(luckCurrent)
+		) {
+			return [];
+		}
+		return coc7e
+			.luckSpendOptionsFor(
+				{
+					skillKey: value.skillKey,
+					targetValue: value.targetValue,
+					difficulty: difficulty.data,
+					roll: value.roll,
+					outcome: outcome.data,
+					luckSpent:
+						typeof value.luckSpent === "number" ? value.luckSpent : undefined,
+					pushed: value.pushed === true,
+				},
+				luckCurrent,
+			)
+			.map((option) => ({
+				...option,
+				label: coc7e.CheckOutcomeLabel[option.outcome],
+			}));
 	},
 	skillCatalog: coc7e.COC7E_SKILL_CATALOG.map(({ key, base }) => ({
 		key,

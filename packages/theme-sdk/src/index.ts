@@ -25,6 +25,7 @@ export type PlayViewport = "desktop" | "landscape" | "portrait";
 export type ChatMessageView = {
   id: string;
   sortKey?: number;
+  characterId?: string;
   speakerName: string;
   speakerRoleLabel: string;
   expressionLabel?: string | null;
@@ -75,12 +76,23 @@ export type ChatCheckSanView = {
 
 export type ChatCheckView = {
   skill: string;
+  skillKey?: string;
+  characterId?: string;
+  baseTarget?: number;
+  skillNote?: string;
   roll: number;
   target: number;
   difficulty: string;
+  difficultyKey?: "regular" | "hard" | "extreme";
+  outcomeKey?: string;
   outcome: ChatCheckOutcome;
   label: string;
   san?: ChatCheckSanView;
+  luckSpent?: number;
+  originalRoll?: number;
+  luckBefore?: number;
+  luckAfter?: number;
+  pushed?: boolean;
 };
 
 export type ChatPhaseView = {

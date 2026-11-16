@@ -8,6 +8,7 @@ export function PlayChatMessage({ message }: PlayChatMessageCtx) {
 			self={message.self}
 			continued={message.continued}
 			showRoleBadge={message.showRoleBadge}
+			allowLuckSpend
 		/>
 	);
 }

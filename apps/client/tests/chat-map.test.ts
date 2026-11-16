@@ -172,6 +172,92 @@ describe("check result clarity", () => {
 	});
 });
 
+describe("destiny and luck amendment mapping", () => {
+	test("a luck check is titled as a destiny check and keeps the luck value", () => {
+		const event = mapActivityEvent(
+			"check:resolved",
+			{
+				characterId: "c1",
+				characterName: "陈默",
+				skillKey: "luck",
+				hidden: false,
+				result: {
+					roll: 63,
+					targetValue: 50,
+					difficulty: "regular",
+					outcome: "failure",
+					success: false,
+				},
+			},
+			9,
+			1_700_000_000_000,
+		);
+		expect(event?.check?.skill).toBe("天命检定");
+		expect(event?.check?.skillNote).toBe("幸运 63/50");
+		expect(event?.check?.skillKey).toBe("luck");
+	});
+
+	test("an amended check keeps the original message id and position", () => {
+		const event = mapActivityEvent(
+			"check:amended",
+			{
+				amendsEventId: 9,
+				characterId: "c1",
+				characterName: "陈默",
+				skillKey: "侦查",
+				hidden: false,
+				result: {
+					roll: 30,
+					originalRoll: 63,
+					targetValue: 60,
+					difficulty: "regular",
+					outcome: "hard_success",
+					success: true,
+					luckSpent: 33,
+					luckBefore: 50,
+					luckAfter: 17,
+				},
+			},
+			12,
+			1_700_000_000_012,
+		);
+		expect(event?.id).toBe("check-9");
+		expect(event?.sortKey).toBe(9);
+		expect(event?.eventId).toBe(12);
+		expect(event?.check).toMatchObject({
+			skillKey: "侦查",
+			roll: 30,
+			target: 60,
+			originalRoll: 63,
+			luckSpent: 33,
+			luckBefore: 50,
+			luckAfter: 17,
+			outcome: "success",
+			label: "困难成功",
+		});
+	});
+
+	test("luck recovery renders as a system message", () => {
+		const event = mapActivityEvent(
+			"luck:recovered",
+			{
+				characterId: "c1",
+				characterName: "陈默",
+				roll: 78,
+				luckBefore: 42,
+				luckAfter: 49,
+				gain: 7,
+			},
+			15,
+			1_700_000_000_015,
+		);
+		expect(event?.body).toBe(
+			"天命恢复 78/42 超过当前幸运，回复 7 点（42→49）",
+		);
+		expect(event?.isSystem).toBe(true);
+	});
+});
+
 function character(
 	overrides: Partial<SnapshotCharacter> = {},
 ): SnapshotCharacter {
@@ -324,7 +410,7 @@ describe("history activity mapping", () => {
 			[character()],
 		);
 		expect(event?.speakerName).toBe("陈默");
-		expect(event?.body).toBe("HP 8/12 · MP 3/9 · SAN 45/60");
+		expect(event?.body).toBe("HP 8/12 · MP 3/9 · SAN 45/60 · 天命 50");
 
 		const sparse = mapActivityEvent(
 			"state:changed",

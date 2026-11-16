@@ -97,6 +97,7 @@ function buildChatMessages(
 			id: message.id,
 			sortKey: message.sortKey,
 			eventId: message.eventId,
+			characterId: message.characterId,
 			anchorable: message.anchorable,
 			activityType: message.activityType,
 			sealedActivityType: message.sealedActivityType,

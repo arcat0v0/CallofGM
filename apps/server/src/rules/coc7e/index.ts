@@ -4,6 +4,8 @@ import type { RandomSource } from "@/platform/ports";
 import { evaluateLossExpression } from "@/rules/dice-engine";
 import {
 	type CharacterSheetPreview,
+	type LuckRecoveryResult,
+	type LuckSpendResult,
 	type PermanentFieldEditInput,
 	RULE_API_VERSION,
 	type RuleMetadata,
@@ -161,6 +163,7 @@ export class Coc7eRuleSystem extends RuleSystem<
 			maxMp: derived.maxMp,
 			san: derived.initialSan,
 			maxSan: derived.maxSan,
+			luck: sheet.attributes.luck,
 			statuses: [],
 			tags: [],
 			growthMarks: [],
@@ -203,40 +206,8 @@ export class Coc7eRuleSystem extends RuleSystem<
 			selectedValue = Math.max(...rollValues);
 		}
 
-		let outcome: coc7e.CheckOutcome;
-		const isFumble =
-			targetValue >= 50 ? selectedValue === 100 : selectedValue >= 96;
-
-		if (selectedValue === 1) {
-			outcome = "critical";
-		} else if (isFumble) {
-			outcome = "fumble";
-		} else if (selectedValue <= Math.floor(targetValue / 5)) {
-			outcome = "extreme_success";
-		} else if (selectedValue <= Math.floor(targetValue / 2)) {
-			outcome = "hard_success";
-		} else if (selectedValue <= targetValue) {
-			outcome = "regular_success";
-		} else {
-			outcome = "failure";
-		}
-
-		// 判定是否达到 GM 指定的难度等级：常规需常规成功及以上，困难需困难成功及以上，极难需极难成功及以上
-		let success: boolean;
-		switch (outcome) {
-			case "critical":
-			case "extreme_success":
-				success = true;
-				break;
-			case "hard_success":
-				success = difficulty !== "extreme";
-				break;
-			case "regular_success":
-				success = difficulty === "regular";
-				break;
-			default:
-				success = false;
-		}
+		const outcome = coc7e.coc7eSkillOutcome(targetValue, selectedValue);
+		const success = coc7e.coc7eSkillCheckSuccess(outcome, difficulty);
 
 		return {
 			characterId,
@@ -339,6 +310,7 @@ export class Coc7eRuleSystem extends RuleSystem<
 		const hpDelta = readInt("hpDelta") ?? 0;
 		const mpDelta = readInt("mpDelta") ?? 0;
 		const sanDelta = readInt("sanDelta") ?? 0;
+		const luckDelta = readInt("luckDelta") ?? 0;
 
 		const hpBefore = next.hp;
 		const sanBefore = next.san;
@@ -349,6 +321,11 @@ export class Coc7eRuleSystem extends RuleSystem<
 			readInt("san") ?? next.san + sanDelta,
 			0,
 			next.maxSan,
+		);
+		next.luck = this.clamp(
+			readInt("luck") ?? next.luck + luckDelta,
+			0,
+			99,
 		);
 
 		const hpLoss = hpBefore - next.hp;
@@ -386,6 +363,99 @@ export class Coc7eRuleSystem extends RuleSystem<
 
 		const validated = this.sessionStateSchema.parse(next);
 		return { state: validated, hints };
+	}
+
+	getLuckCurrent(state: coc7e.CharacterSessionState): number {
+		return state.luck;
+	}
+
+	spendLuckOnCheck(
+		state: coc7e.CharacterSessionState,
+		checkResult: unknown,
+		points: number,
+	): LuckSpendResult<coc7e.CharacterSessionState> {
+		const parsed = coc7e.SkillCheckResult.safeParse(checkResult);
+		if (!parsed.success) {
+			throw new AppError(
+				"LUCK_SPEND_NOT_ALLOWED",
+				"Only skill or attribute check results can be amended with luck",
+				400,
+			);
+		}
+		const result = parsed.data;
+		if (
+			result.skillKey === "luck" ||
+			result.skillKey === "san" ||
+			result.outcome === "fumble" ||
+			result.pushed === true
+		) {
+			throw new AppError(
+				"LUCK_SPEND_NOT_ALLOWED",
+				"This check cannot be amended with luck",
+				400,
+			);
+		}
+		if (result.luckSpent !== undefined) {
+			throw new AppError(
+				"LUCK_SPEND_ALREADY_USED",
+				"Luck has already been spent on this check",
+				409,
+			);
+		}
+		if (!Number.isInteger(points) || points < 1) {
+			throw new AppError(
+				"LUCK_SPEND_INVALID_POINTS",
+				"Luck points must be a positive integer",
+				400,
+			);
+		}
+		if (points > state.luck) {
+			throw new AppError(
+				"LUCK_SPEND_INSUFFICIENT",
+				"Not enough current luck",
+				400,
+				{ luckCurrent: state.luck, points },
+			);
+		}
+		const amended = coc7e.applyLuckSpend(result, points, state.luck);
+		if (!amended) {
+			throw new AppError(
+				"LUCK_SPEND_INVALID_POINTS",
+				"Luck points do not match an available improvement tier",
+				400,
+			);
+		}
+		const next: coc7e.CharacterSessionState = {
+			...state,
+			luck: state.luck - points,
+			growthMarks: state.growthMarks.filter(
+				(skillKey) => skillKey !== result.skillKey,
+			),
+			hiddenGrowthMarks: state.hiddenGrowthMarks.filter(
+				(skillKey) => skillKey !== result.skillKey,
+			),
+		};
+		return {
+			state: this.sessionStateSchema.parse(next),
+			result: amended,
+		};
+	}
+
+	recoverLuck(
+		state: coc7e.CharacterSessionState,
+		random: RandomSource,
+	): LuckRecoveryResult<coc7e.CharacterSessionState> {
+		const before = state.luck;
+		const roll = random.randomInt(1, 100);
+		const rolledGain = roll > before ? random.randomInt(1, 10) : 0;
+		const after = Math.min(99, before + rolledGain);
+		return {
+			state: this.sessionStateSchema.parse({ ...state, luck: after }),
+			roll,
+			before,
+			after,
+			gain: after - before,
+		};
 	}
 
 	applySanLoss(

@@ -25,6 +25,7 @@ function state(overrides: Partial<CharacterState> = {}): CharacterState {
 		maxMp: 10,
 		san: 52,
 		maxSan: 58,
+		luck: 50,
 		statuses: [],
 		tags: [],
 		growthMarks: [],

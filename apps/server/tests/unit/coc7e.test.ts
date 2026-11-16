@@ -49,6 +49,7 @@ const baseState: coc7e.CharacterSessionState = {
 	maxMp: 12,
 	san: 60,
 	maxSan: 99,
+	luck: 50,
 	statuses: [],
 	tags: [],
 	growthMarks: [],
@@ -585,5 +586,140 @@ describe("CoC 7e getSkillTargetValue", () => {
 	test("人物卡已有技能值优先于目录基础值", () => {
 		expect(rule.getSkillTargetValue(baseSheet, "侦查")).toBe(60);
 		expect(rule.getSkillTargetValue(baseSheet, "聆听")).toBe(20);
+	});
+});
+
+describe("CoC 7e 天命（幸运）", () => {
+	test("开团状态从人物卡初始化当前天命", () => {
+		const state = rule.initializeSessionState(baseSheet);
+		expect(state.luck).toBe(50);
+	});
+
+	test("GM 可直接设置或增减天命，并钳制到 0–99", () => {
+		expect(rule.applyGmStateEdit(baseState, { luck: 98 }).state.luck).toBe(98);
+		expect(rule.applyGmStateEdit(baseState, { luckDelta: -5 }).state.luck).toBe(
+			45,
+		);
+		expect(rule.applyGmStateEdit(baseState, { luckDelta: 500 }).state.luck).toBe(
+			99,
+		);
+		expect(rule.applyGmStateEdit(baseState, { luckDelta: -500 }).state.luck).toBe(
+			0,
+		);
+	});
+
+	test("花费天命改骰：扣点、提升判级并收回成长标记", () => {
+		const failed = check({ tens: [6], units: 3 });
+		expect(failed.outcome).toBe("failure");
+		const spent = rule.spendLuckOnCheck(
+			{ ...baseState, growthMarks: ["侦查"] },
+			failed,
+			33,
+		);
+		expect(spent.state.luck).toBe(17);
+		expect(spent.state.growthMarks).toEqual([]);
+		expect(spent.result).toMatchObject({
+			roll: 30,
+			outcome: "hard_success",
+			success: true,
+			growthEligible: false,
+			luckSpent: 33,
+			originalRoll: 63,
+		});
+	});
+
+	test("花费天命禁用手表", () => {
+		const failed = check({ tens: [6], units: 3 });
+		const fumble = check({ tens: [0], units: 0 });
+		const luckCheck = check(
+			{ tens: [6], units: 3 },
+			{ skillKey: "luck" },
+		);
+		const cases: Array<{
+			state: coc7e.CharacterSessionState;
+			result: coc7e.SkillCheckResult;
+			points: number;
+			code: string;
+		}> = [
+			{
+				state: baseState,
+				result: { ...failed, luckSpent: 3 },
+				points: 3,
+				code: "LUCK_SPEND_ALREADY_USED",
+			},
+			{
+				state: baseState,
+				result: failed,
+				points: 51,
+				code: "LUCK_SPEND_INSUFFICIENT",
+			},
+			{
+				state: baseState,
+				result: failed,
+				points: 32,
+				code: "LUCK_SPEND_INVALID_POINTS",
+			},
+			{
+				state: baseState,
+				result: fumble,
+				points: 1,
+				code: "LUCK_SPEND_NOT_ALLOWED",
+			},
+			{
+				state: baseState,
+				result: luckCheck,
+				points: 1,
+				code: "LUCK_SPEND_NOT_ALLOWED",
+			},
+		];
+		for (const item of cases) {
+			let caught: unknown;
+			try {
+				rule.spendLuckOnCheck(item.state, item.result, item.points);
+			} catch (error) {
+				caught = error;
+			}
+			expect(caught).toBeInstanceOf(AppError);
+			expect((caught as AppError).code).toBe(item.code);
+		}
+	});
+
+	test("天命恢复：超过当前值回复 1d10，未超过不变，上限 99", () => {
+		const gained = rule.recoverLuck(
+			{ ...baseState, luck: 50 },
+			new FakeRandomSource([78, 7]),
+		);
+		expect(gained).toMatchObject({
+			roll: 78,
+			before: 50,
+			after: 57,
+			gain: 7,
+		});
+		expect(gained.state.luck).toBe(57);
+
+		const unchanged = rule.recoverLuck(
+			{ ...baseState, luck: 50 },
+			new FakeRandomSource([30]),
+		);
+		expect(unchanged).toMatchObject({
+			roll: 30,
+			before: 50,
+			after: 50,
+			gain: 0,
+		});
+
+		const capped = rule.recoverLuck(
+			{ ...baseState, luck: 98 },
+			new FakeRandomSource([99, 10]),
+		);
+		expect(capped).toMatchObject({
+			before: 98,
+			after: 99,
+			gain: 1,
+		});
+	});
+
+	test("团内状态摘要包含当前天命", () => {
+		expect(coc7e.coc7eStateSummary(baseState)).toContain("天命 50");
 	});
 });
