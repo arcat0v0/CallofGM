@@ -394,15 +394,19 @@ function DiceAnimationStage({
 
 	return (
 		<div
-			className="pointer-events-none fixed inset-0 z-[60] flex items-center justify-center"
+			className="pointer-events-none fixed inset-0 z-[60] flex flex-col items-center justify-center"
 			aria-hidden="true"
+			data-slot="dice-animation-stage"
 		>
-			<div className="stage-glass shadow-overlay relative flex h-[min(46vh,360px)] w-[min(90vw,640px)] flex-col overflow-hidden rounded-xl">
-				<div ref={hostRef} className="min-h-0 flex-1" role="presentation" />
-				<p className="text-md-on-surface bg-md-surface-container-low/80 py-2 text-center text-label-large-emph">
-					{label}
-				</p>
-			</div>
+			<div className="pointer-events-none absolute inset-x-0 top-0 h-1/3 bg-linear-to-b from-background/55 via-background/10 to-transparent" />
+			<div
+				ref={hostRef}
+				className="pointer-events-none relative h-[min(62vh,560px)] w-[min(88vw,1040px)]"
+				role="presentation"
+			/>
+			<p className="text-foreground drop-shadow-[0_2px_8px_rgba(0,0,0,0.85)] relative -mt-[min(8vh,64px)] text-center font-serif text-headline-medium-emph tabular-nums">
+				{label}
+			</p>
 		</div>
 	);
 }

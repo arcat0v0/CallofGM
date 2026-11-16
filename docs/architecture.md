@@ -42,6 +42,7 @@ CallofGM/
 - 账号角色与资源所有权：登录、会话顶替、所有者过滤、管理员越权隔离
 
 发言与自主掷骰的权限矩阵定义在 `packages/shared` 的 `policy.ts`（`decideChatMessage` / `canPlayerInitiateDiceRoll`）：服务端据此拒绝命令，前端用同一函数只做输入禁用，避免两套规则漂移；席位（PC/OB）由快照的 `viewer.seatRole` 下发，前端不自行推断。
+
 - 踢人、黑名单校验（WS 握手时校验指纹）
 
 ## WebSocket 设计
@@ -91,7 +92,7 @@ CallofGM/
 ## 掷骰与鉴定引擎
 
 - 骰点表达式解析、随机数生成（`crypto.getRandomValues`）与判级全部在服务端，结果分配 eventId 广播进聊天区；客户端只提交意图：普通掷骰传表达式，技能鉴定传 `characterId + skillKey + 难度/奖惩骰`，目标值由服务端从库中人物卡查得。
-- 公开的实时 `dice:rolled` / `check:resolved` 事件触发客户端舞台上的 3D 骰子动画。客户端使用 `apps/client/public/dice/` 的自包含 glTF 模型与 `orientations/` 四元数表，先翻滚再 slerp 到服务端结果对应朝向；快照、历史分页与暗骰事件不触发动画。动画层通过主 WS 连接的 `onLiveEvent` 观察实时 `SessionEvent`，不新增第二条连接、不改变在线计数或命令连接，不生成结果，也不把物理模拟结果当作服务端判定。
+- 公开的实时 `dice:rolled` / `check:resolved` 事件触发客户端舞台上的 3D 骰子动画。客户端使用 `apps/client/public/dice/` 的自包含 glTF 模型与 `orientations/` 四元数表，先翻滚再 slerp 到服务端结果对应朝向；渲染层是覆盖游玩视图/GM 控制台的全屏透明 WebGL 叠层，不套用浮岛卡片或小窗，避免裁切骰子。快照、历史分页与暗骰事件不触发动画。动画层通过主 WS 连接的 `onLiveEvent` 观察实时 `SessionEvent`，不新增第二条连接、不改变在线计数或命令连接，不生成结果，也不把物理模拟结果当作服务端判定。
 - 判级规则（大成功/极难/困难/常规/失败/大失败、奖励惩罚骰取十位、难度阈值）由 CoC 7e 规则模块实现为纯函数（见"规则系统抽象"），类型定义在 `packages/shared` 的 `rules/coc7e/`，用 `bun test` 全覆盖。
 - **暗骰**复用秘密情报的定向推送机制：结果事件进事件日志但可见范围 = 仅 GM，断线补发按同一套过滤；玩家响应暗骰鉴定请求时仅收到"已掷出"回执。
 - **鉴定请求**：GM 创建请求（目标 PC、skillKey、难度、奖惩骰、是否暗骰）→ 定向推送目标玩家 → 玩家确认后服务端校验存在待响应请求再掷骰。待响应请求随快照下发，重连不丢。
@@ -187,17 +188,17 @@ BgmState = { trackId, playing, volume, loop, seekOffset, startedAt(服务器时�
 
 ## 前端路由（TanStack Router）
 
-| 路径 | 视图 |
-|---|---|
-| `/` | 入口：输入/选择团号或链接；已登录按角色进入对应工作台 |
-| `/login` | 统一登录（admin / gm / pl），成功后按角色跳转 |
-| `/admin` | admin 控制台：账号、主题包、实例设置 |
-| `/pl` | PL 工作台：我的人物、参与的团、提交记录、回收站、账号设置 |
-| `/submit/$token` | PL 通过 GM 提交链接建卡或选择已有任务 |
-| `/join/$sessionId` | 玩家进团：选 PC 或 OB 位（标题优先显示团名，未命名时回退模组名）；未登录 PC 先跳登录 |
-| `/play/$sessionId` | 玩家沉浸视图 |
-| `/gm` | GM 后台：模组/人物/团/模板/审核待办/回收站 |
-| `/gm/session/$sessionId` | GM 控制台：控场、切场景/立绘/音乐、发放情报、演绎队列放行、历史与回溯、在线管理 |
+| 路径                     | 视图                                                                                 |
+| ------------------------ | ------------------------------------------------------------------------------------ |
+| `/`                      | 入口：输入/选择团号或链接；已登录按角色进入对应工作台                                |
+| `/login`                 | 统一登录（admin / gm / pl），成功后按角色跳转                                        |
+| `/admin`                 | admin 控制台：账号、主题包、实例设置                                                 |
+| `/pl`                    | PL 工作台：我的人物、参与的团、提交记录、回收站、账号设置                            |
+| `/submit/$token`         | PL 通过 GM 提交链接建卡或选择已有任务                                                |
+| `/join/$sessionId`       | 玩家进团：选 PC 或 OB 位（标题优先显示团名，未命名时回退模组名）；未登录 PC 先跳登录 |
+| `/play/$sessionId`       | 玩家沉浸视图                                                                         |
+| `/gm`                    | GM 后台：模组/人物/团/模板/审核待办/回收站                                           |
+| `/gm/session/$sessionId` | GM 控制台：控场、切场景/立绘/音乐、发放情报、演绎队列放行、历史与回溯、在线管理      |
 
 选 TanStack Router 而非 React Router：路由参数与 search params 全类型安全，`$sessionId` 这类参数不会出现手写字符串取参的运行时错误，与 Eden Treaty / Drizzle / zod 的端到端类型安全路线一致。路由树按角色挂守卫：`/admin/*` 仅 admin，`/gm/*` 仅 gm，`/pl/*` 仅 pl；未登录访问重定向到 `/login`，已登录但角色不符时重定向到当前角色自己的工作台，不继承其他角色权限。
 

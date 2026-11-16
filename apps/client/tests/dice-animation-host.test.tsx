@@ -55,5 +55,8 @@ describe("DiceAnimationHost", () => {
 		expect(overlay).not.toBeNull();
 		expect(overlay?.className).toContain("fixed");
 		expect(overlay?.className).toContain("z-[60]");
+		expect(overlay?.getAttribute("data-slot")).toBe("dice-animation-stage");
+		expect(overlay?.querySelector(".stage-glass")).toBeNull();
+		expect(overlay?.textContent).toContain("结果 14");
 	});
 });

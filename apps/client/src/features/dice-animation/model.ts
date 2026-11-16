@@ -58,8 +58,8 @@ export function diceAsset(skin: DiceSkin, name: string): string {
 	return `/dice/${skin}/${name}.gltf`;
 }
 
-export const PRELOAD_DICE_ASSETS = (["olive", "bone"] as const).flatMap((skin) =>
-	DICE_MODEL_NAMES.map((name) => diceAsset(skin, name)),
+export const PRELOAD_DICE_ASSETS = (["olive", "bone"] as const).flatMap(
+	(skin) => DICE_MODEL_NAMES.map((name) => diceAsset(skin, name)),
 );
 
 export const PRELOAD_ORIENTATION_ASSETS = [
@@ -200,7 +200,7 @@ export function computeDiceGridLayout(
 		return {
 			cols: 1,
 			rows: 1,
-			dieWorldSize: Math.min(Math.min(usableWidth, usableHeight) * 0.62, 1.85),
+			dieWorldSize: Math.min(Math.min(usableWidth, usableHeight) * 0.52, 1.58),
 			usableWidth,
 			usableHeight,
 			positions: [{ x: 0, y: 0 }],
@@ -227,8 +227,8 @@ export function computeDiceGridLayout(
 		}
 	}
 
-	const gapFactor = 1.34;
-	const dieWorldSize = Math.min(bestCell / gapFactor, 1.65);
+	const gapFactor = 1.5;
+	const dieWorldSize = Math.min(bestCell / gapFactor, 1.28);
 	const spacing = dieWorldSize * gapFactor;
 	const positions: Array<{ x: number; y: number }> = [];
 
