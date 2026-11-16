@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { CharacterBackgroundSummary } from "@/features/characters/character-background-summary";
 import type { PortraitBasePath } from "@/features/characters/expression-manager";
 import { ExpressionManager } from "@/features/characters/expression-manager";
 import { SheetFullEditor } from "@/features/characters/sheet-full-editor";
@@ -46,11 +47,15 @@ export function CharacterProfileEditorDialog({
 	const [sheetValid, setSheetValid] = useState(true);
 	const characterRef = useRef(character);
 	const rule = getRuleComponent(character.ruleId);
-	const canEditSheet = scope === "pl" || character.ownerKind === "gm";
+	const canEditCharacter = scope === "pl" || character.ownerKind === "gm";
 	const initialSheet = rule.parseSheetJson(character.sheetJson);
 	const [fullSheet, setFullSheet] = useState<unknown>(
 		initialSheet ?? rule.createEmptySheet(),
 	);
+	const backgroundIsDerived = rule.backgroundSource === "sheet";
+	const backgroundSummary = backgroundIsDerived
+		? (rule.serializeBackground?.(fullSheet, background) ?? background)
+		: background;
 
 	useEffect(() => {
 		setName(character.name);
@@ -73,11 +78,13 @@ export function CharacterProfileEditorDialog({
 	}, [character]);
 
 	async function save() {
-		if (saving) {
+		if (saving || !canEditCharacter) {
 			return;
 		}
-		const sheetData = canEditSheet ? rule.parseSheet(fullSheet) : undefined;
-		if (canEditSheet && (!sheetData || !sheetValid)) {
+		const sheetData = canEditCharacter
+			? rule.parseSheet(fullSheet)
+			: undefined;
+		if (canEditCharacter && (!sheetData || !sheetValid)) {
 			setShowValidation(true);
 			toast.error(t("characterCreation.ruleValidationSummary"));
 			return;
@@ -144,11 +151,11 @@ export function CharacterProfileEditorDialog({
 					</DialogDescription>
 				</DialogHeader>
 				<Tabs
-					defaultValue={canEditSheet ? "sheet" : "profile"}
+					defaultValue={canEditCharacter ? "sheet" : "profile"}
 					className="min-h-0 flex-1 gap-0"
 				>
 					<TabsList className="mx-6 mt-4 shrink-0">
-						{canEditSheet ? (
+						{canEditCharacter ? (
 							<TabsTrigger value="sheet">
 								{t("characterProfile.sheetTab")}
 							</TabsTrigger>
@@ -169,6 +176,7 @@ export function CharacterProfileEditorDialog({
 								<Input
 									value={name}
 									maxLength={100}
+									readOnly={!canEditCharacter}
 									onChange={(event) => setName(event.target.value)}
 								/>
 							</div>
@@ -181,31 +189,37 @@ export function CharacterProfileEditorDialog({
 								</Badge>
 							</div>
 						</div>
-						<div className="flex flex-col gap-1.5">
-							<span className="text-md-on-surface-variant text-label-medium">
-								{t("characterProfile.background")}
-							</span>
-							<Textarea
-								value={background}
-								maxLength={4000}
-								rows={4}
-								onChange={(event) => setBackground(event.target.value)}
+						{backgroundIsDerived ? (
+							<CharacterBackgroundSummary background={backgroundSummary} />
+						) : (
+							<div className="flex flex-col gap-1.5">
+								<span className="text-md-on-surface-variant text-label-medium">
+									{t("characterProfile.background")}
+								</span>
+								<Textarea
+									value={background}
+									maxLength={4000}
+									rows={4}
+									onChange={(event) => setBackground(event.target.value)}
+								/>
+							</div>
+						)}
+						{canEditCharacter ? (
+							<ExpressionManager
+								characterId={character.id}
+								portraits={character.portraits}
+								basePath={basePath}
+								onChange={() => void refreshPortraits()}
 							/>
-						</div>
-						<ExpressionManager
-							characterId={character.id}
-							portraits={character.portraits}
-							basePath={basePath}
-							onChange={() => void refreshPortraits()}
-						/>
-						{canEditSheet ? null : (
+						) : null}
+						{canEditCharacter ? null : (
 							<p className="text-foreground-secondary text-body-medium">
 								{t("characterProfile.permanentOnly")}
 							</p>
 						)}
 						<Separator />
 					</TabsContent>
-					{canEditSheet ? (
+					{canEditCharacter ? (
 						<TabsContent
 							value="sheet"
 							className="min-h-0 flex-1 overflow-y-auto px-6 py-5"
@@ -224,14 +238,16 @@ export function CharacterProfileEditorDialog({
 					<Button type="button" variant="tertiary" onClick={onClose}>
 						{t("common.close")}
 					</Button>
-					<Button
-						type="button"
-						variant="primary"
-						disabled={saving || !name.trim()}
-						onClick={() => void save()}
-					>
-						{t("common.save")}
-					</Button>
+						{canEditCharacter ? (
+							<Button
+								type="button"
+								variant="primary"
+								disabled={saving || !name.trim()}
+								onClick={() => void save()}
+							>
+								{t("common.save")}
+							</Button>
+						) : null}
 				</DialogFooter>
 			</DialogContent>
 		</Dialog>

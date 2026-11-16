@@ -8,10 +8,10 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { SheetSection, TextField } from "@/components/shared/creation-form";
 import { EmptyState, ListSkeleton } from "@/components/shared/empty-state";
-import { ImageCropDialog } from "@/components/shared/image-crop-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CharacterBackgroundSummary } from "@/features/characters/character-background-summary";
 import type { PortraitBasePath } from "@/features/characters/expression-manager";
 import { ExpressionManager } from "@/features/characters/expression-manager";
 import { SheetFullEditor } from "@/features/characters/sheet-full-editor";
@@ -109,7 +109,7 @@ function CharacterSheetView({
 	onBack: () => void;
 }) {
 	const rule = getRuleComponent(character.ruleId);
-	const canEditSheet = scope === "pl" || character.ownerKind === "gm";
+	const canEditCharacter = scope === "pl" || character.ownerKind === "gm";
 	const [name, setName] = useState(character.name);
 	const [background, setBackground] = useState(character.background);
 	const [version, setVersion] = useState(character.version);
@@ -117,15 +117,13 @@ function CharacterSheetView({
 		rule.parseSheetJson(character.sheetJson) ?? rule.createEmptySheet(),
 	);
 	const [activeMainTab, setActiveMainTab] = useState(
-		canEditSheet ? "sheet" : "profile",
+		canEditCharacter ? "sheet" : "profile",
 	);
 	const [showValidation, setShowValidation] = useState(false);
 	const [sheetValid, setSheetValid] = useState(true);
 	const [saving, setSaving] = useState(false);
 	const [sheetContext, setSheetContext] =
 		useState<CharacterSheetContextResponse | null>(null);
-	const [cropSourceUrl, setCropSourceUrl] = useState<string | null>(null);
-	const [cropFileName, setCropFileName] = useState("portrait.png");
 
 	useEffect(() => {
 		setName(character.name);
@@ -159,26 +157,24 @@ function CharacterSheetView({
 		};
 	}, [basePath, character.id]);
 
-	useEffect(() => {
-		return () => {
-			if (cropSourceUrl) {
-				URL.revokeObjectURL(cropSourceUrl);
-			}
-		};
-	}, [cropSourceUrl]);
-
 	const overview = rule.sheetOverview(fullSheet);
 	const defaultPortrait =
 		character.portraits.find((portrait) => portrait.isDefault === 1) ??
 		character.portraits[0];
 	const portraitUrl = mediaUrl(defaultPortrait?.portraitAssetId);
+	const backgroundIsDerived = rule.backgroundSource === "sheet";
+	const backgroundSummary = backgroundIsDerived
+		? (rule.serializeBackground?.(fullSheet, background) ?? background)
+		: background;
 
 	async function save() {
-		if (saving) {
+		if (saving || !canEditCharacter) {
 			return;
 		}
-		const sheetData = canEditSheet ? rule.parseSheet(fullSheet) : undefined;
-		if (canEditSheet && (!sheetData || !sheetValid)) {
+		const sheetData = canEditCharacter
+			? rule.parseSheet(fullSheet)
+			: undefined;
+		if (canEditCharacter && (!sheetData || !sheetValid)) {
 			setShowValidation(true);
 			toast.error(t("characterCreation.ruleValidationSummary"));
 			return;
@@ -207,36 +203,6 @@ function CharacterSheetView({
 			toast.error(errorText(error, "characterProfile.saveFailed"));
 		} finally {
 			setSaving(false);
-		}
-	}
-
-	async function uploadCroppedPortrait(blob: Blob) {
-		try {
-			const body = new FormData();
-			body.append("file", blob, cropFileName);
-			body.append("purpose", "portrait");
-			body.append("filename", cropFileName);
-			const asset = await api<{ id: string }>("/media/upload", {
-				method: "POST",
-				body,
-			});
-			await api(`${basePath}/${encodeURIComponent(character.id)}/portraits`, {
-				method: "POST",
-				body: JSON.stringify({
-					label: t("expressions.defaultLabel"),
-					portraitAssetId: asset.id,
-					isDefault: true,
-				}),
-			});
-			setCropSourceUrl(null);
-			await refreshPortraits();
-			toast.success(t("characterProfile.saved"));
-		} catch (error) {
-			toast.error(
-				t("characterCreation.portraitUploadFailed", {
-					reason: errorText(error, "error.fallback"),
-				}),
-			);
 		}
 	}
 
@@ -305,21 +271,23 @@ function CharacterSheetView({
 							</span>
 						</div>
 					</div>
-					<Button
-						type="button"
-						variant="primary"
-						className="shrink-0"
-						disabled={saving || !name.trim()}
-						onClick={() => void save()}
-					>
-						<Save />
-						{t("common.save")}
-					</Button>
+					{canEditCharacter ? (
+						<Button
+							type="button"
+							variant="primary"
+							className="shrink-0"
+							disabled={saving || !name.trim()}
+							onClick={() => void save()}
+						>
+							<Save />
+							{t("common.save")}
+						</Button>
+					) : null}
 				</div>
 			</header>
 
 			<div className="mx-auto flex w-full max-w-[1080px] flex-col gap-5 px-4 py-6 md:px-6 lg:py-8">
-				{canEditSheet ? null : (
+				{canEditCharacter ? null : (
 					<p
 						role="status"
 						className="rounded-xl bg-md-surface-container px-4 py-3 text-body-medium text-foreground-secondary"
@@ -332,17 +300,24 @@ function CharacterSheetView({
 					onValueChange={setActiveMainTab}
 					className="gap-4"
 				>
-					<TabsList>
-						{canEditSheet ? (
-							<TabsTrigger value="sheet">
-								{t("characterProfile.sheetTab")}
+					<div className="flex flex-col gap-2">
+						<TabsList>
+							{canEditCharacter ? (
+								<TabsTrigger value="sheet">
+									{t("characterProfile.sheetTab")}
+								</TabsTrigger>
+							) : null}
+							<TabsTrigger value="profile">
+								{t("characterProfile.profileTab")}
 							</TabsTrigger>
+						</TabsList>
+						{activeMainTab === "sheet" ? (
+							<p className="text-body-small text-foreground-tertiary">
+								{t("characterProfile.sheetHint")}
+							</p>
 						) : null}
-						<TabsTrigger value="profile">
-							{t("characterProfile.profileTab")}
-						</TabsTrigger>
-					</TabsList>
-					{canEditSheet ? (
+					</div>
+					{canEditCharacter ? (
 						<TabsContent value="sheet">
 							<SheetFullEditor
 								ruleId={character.ruleId}
@@ -350,31 +325,39 @@ function CharacterSheetView({
 								onChange={setFullSheet}
 								showValidation={showValidation}
 								onValidityChange={setSheetValid}
-								characterName={name}
-								onCharacterNameChange={setName}
-								background={background}
-								onBackgroundChange={setBackground}
-								portraitPreviewUrl={portraitUrl}
-								onPickPortraitFile={(file) => {
-									setCropFileName(file.name || "portrait.png");
-									setCropSourceUrl(URL.createObjectURL(file));
-								}}
-								onManageExpressions={() => setActiveMainTab("profile")}
 								sheetContext={sheetContext}
 							/>
 						</TabsContent>
 					) : null}
 					<TabsContent value="profile" className="flex flex-col gap-4">
-						<SheetSection title={t("characterProfile.profileTab")}>
+						<SheetSection
+							title={t("characterProfile.profileTab")}
+							description={
+								canEditCharacter
+									? t("characterProfile.profileSectionHint")
+									: t("characterProfile.profileReadOnlyHint")
+							}
+						>
 							<div className="grid gap-4 md:grid-cols-2">
-								<TextField
-									label={t("characterProfile.name")}
-									value={name}
-									required
-									showValidation={showValidation}
-									maxLength={100}
-									onChange={setName}
-								/>
+								{canEditCharacter ? (
+									<TextField
+										label={t("characterProfile.name")}
+										value={name}
+										required
+										showValidation={showValidation}
+										maxLength={100}
+										onChange={setName}
+									/>
+								) : (
+									<div className="flex min-w-0 flex-col gap-1.5">
+										<span className="text-md-on-surface-variant text-label-medium">
+											{t("characterProfile.name")}
+										</span>
+										<p className="text-body-large text-foreground">
+											{name}
+										</p>
+									</div>
+								)}
 								<div className="flex min-w-0 flex-col gap-1.5">
 									<span className="text-md-on-surface-variant text-label-medium">
 										{t("characterProfile.rule")}
@@ -386,35 +369,29 @@ function CharacterSheetView({
 									</div>
 								</div>
 							</div>
-							<TextField
-								label={t("characterProfile.background")}
-								value={background}
-								multiline
-								maxLength={4000}
-								onChange={setBackground}
-							/>
+							{backgroundIsDerived ? (
+								<CharacterBackgroundSummary background={backgroundSummary} />
+							) : (
+								<TextField
+									label={t("characterProfile.background")}
+									value={background}
+									multiline
+									maxLength={4000}
+									onChange={setBackground}
+								/>
+							)}
 						</SheetSection>
-						<ExpressionManager
-							characterId={character.id}
-							portraits={character.portraits}
-							basePath={basePath}
-							onChange={() => void refreshPortraits()}
-						/>
+						{canEditCharacter ? (
+							<ExpressionManager
+								characterId={character.id}
+								portraits={character.portraits}
+								basePath={basePath}
+								onChange={() => void refreshPortraits()}
+							/>
+						) : null}
 					</TabsContent>
 				</Tabs>
 			</div>
-			<ImageCropDialog
-				open={cropSourceUrl !== null}
-				onOpenChange={(next) => {
-					if (!next) {
-						setCropSourceUrl(null);
-					}
-				}}
-				imageUrl={cropSourceUrl}
-				title={t("characterCreation.portraitCropTitle")}
-				confirmLabel={t("characterCreation.portraitCropConfirm")}
-				onConfirm={(blob) => void uploadCroppedPortrait(blob)}
-			/>
 		</>
 	);
 }

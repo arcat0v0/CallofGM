@@ -173,6 +173,7 @@ BgmState = { trackId, playing, volume, loop, seekOffset, startedAt(服务器时�
 ## 人物版本、提交与团内快照
 
 - `characters` 保存当前姓名、背景、`sheet_json`、`owner_id`、`kind`、`rule_id`、`sheet_version`、`profile_version`、`version` 与来源字段；`character_versions` 保存追加式完整快照。
+- 客户端规则组件声明背景来自人物卡时（CoC 7e：`backgroundSource=sheet`），顶层 `background` 是保存时由规则卡派生的展示摘要；服务端仍按请求字段独立存储，不反向推导，客户端不得为该规则提供第二套背景编辑入口。
 - 审核记录绑定 `sheet_version`；规则数值/技能/终生字段变化提升 `sheet_version` 并使旧审核过期，资料/立绘变化只提升 `profile_version`。
 - 提交链接 `character_invites`：目标为模组或团，token 哈希存储，默认 7 天，可撤销；PL 登录后提交新建人物或已有同规则人物，生成 `character_reviews`。审核通过只建立模组关联或团内 PC 席位，不自动认领。
 - `session_characters` 保存入团快照（姓名、背景、`sheet_json`、`base_sheet_version`、`base_profile_version`），检定与状态初始化读取团内快照而非主卡。主卡变化不自动同步；GM 通过差异预览与显式同步更新所选字段，不覆盖团内状态/成长。

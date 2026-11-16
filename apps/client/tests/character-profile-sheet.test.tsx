@@ -161,6 +161,33 @@ describe("character profile editor full-sheet preservation", () => {
 			});
 		}
 	});
+
+	test("keeps name and background summary in the profile tab", async () => {
+		const view = render(
+			<CharacterProfileEditorDialog
+				scope="pl"
+				character={detail()}
+				open
+				onClose={() => undefined}
+				onSaved={() => undefined}
+			/>,
+		);
+		const profileTab = view.getByRole("tab", { name: "资料与立绘" });
+		fireEvent.mouseDown(profileTab, { button: 0 });
+		await waitFor(() =>
+			expect(profileTab.getAttribute("aria-selected")).toBe("true"),
+		);
+		expect(view.getByDisplayValue("旧调查员")).toBeTruthy();
+		expect(view.getByText("背景摘要")).toBeTruthy();
+		expect(view.getByText("旧背景")).toBeTruthy();
+
+		const sheetTab = view.getByRole("tab", { name: "完整人物卡" });
+		fireEvent.mouseDown(sheetTab, { button: 0 });
+		await waitFor(() =>
+			expect(sheetTab.getAttribute("aria-selected")).toBe("true"),
+		);
+		expect(view.queryByDisplayValue("旧调查员")).toBeNull();
+	});
 });
 
 function setNativeValue(element: HTMLInputElement, value: string) {

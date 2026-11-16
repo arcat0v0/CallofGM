@@ -156,6 +156,8 @@ export const zhCN: Record<string, string> = {
 	"characterCreation.identitySection": "姓名与背景",
 	"characterCreation.identitySectionHint":
 		"姓名会显示给队友；背景属于你的角色，之后仍可修改。",
+	"characterCreation.identitySheetHint":
+		"这里维护规则时代、年龄与调查员基础资料；姓名和立绘在人物资料页修改。",
 	"characterCreation.name": "姓名",
 	"characterCreation.background": "背景",
 	"characterCreation.ruleRequired": "请选择规则系统",
@@ -1389,15 +1391,27 @@ export const zhCN: Record<string, string> = {
 	"gm.module.emptyHandouts": "还没有情报",
 	"gm.module.emptyHandoutsHint": "创建线索、地图或手记，在团内发放",
 
-	"characterProfile.openToolbar": "资料与表情",
-	"characterProfile.editTitle": "资料与完整数值",
-	"characterProfile.description": "编辑完整人物卡，并管理表情立绘",
-	"characterProfile.sheetTab": "完整数值",
-	"characterProfile.profileTab": "资料与表情",
+	"characterProfile.editTitle": "资料与完整人物卡",
+	"characterProfile.description":
+		"姓名与立绘面向队友展示；规则数值和背景细节收在完整人物卡中。",
+	"characterProfile.sheetTab": "完整人物卡",
+	"characterProfile.profileTab": "资料与立绘",
 	"characterProfile.permanentOnly":
-		"该人物属于玩家。主持人只能通过「永久修正」修改终生属性并留下审计，完整数值请由玩家本人编辑。",
+		"该人物属于玩家。主持人只能通过「永久修正」修改终生属性并留下审计，完整人物卡请由玩家本人编辑。",
 	"characterProfile.name": "姓名",
 	"characterProfile.background": "背景",
+	"characterProfile.backgroundSummary": "背景摘要",
+	"characterProfile.backgroundAutoSynced": "自动同步",
+	"characterProfile.backgroundDerivedHint":
+		"背景摘要由「完整人物卡 → 背景」自动生成；要修改内容请到人物卡中编辑。",
+	"characterProfile.backgroundEmpty":
+		"尚未填写背景。可在「完整人物卡 → 背景」中补充调查员经历、信念与重要关系。",
+	"characterProfile.profileSectionHint":
+		"维护对外展示的姓名和立绘；背景摘要由规则人物卡生成，不需要重复填写。",
+	"characterProfile.profileReadOnlyHint":
+		"该人物的资料由玩家维护；主持人可在这里查看姓名、背景摘要与立绘。",
+	"characterProfile.sheetHint":
+		"在这里维护规则数值与背景细节；姓名和立绘请回「资料与立绘」修改。",
 	"characterProfile.rule": "规则",
 	"characterProfile.saved": "已保存",
 	"characterProfile.saveFailed": "保存失败",
@@ -1407,7 +1421,7 @@ export const zhCN: Record<string, string> = {
 	"gm.characters.create": "新建",
 	"gm.characters.import": "导入",
 	"gm.characters.importExcel": "导入 Excel",
-	"gm.characters.editSheet": "编辑数值",
+	"gm.characters.editSheet": "编辑人物",
 	"gm.characters.actionsAria": "{name} 的人物操作",
 	"gm.characters.searchPlaceholder": "搜索人物…",
 	"gm.characters.filterAll": "全部 {count}",

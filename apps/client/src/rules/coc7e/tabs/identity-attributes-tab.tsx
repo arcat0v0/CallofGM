@@ -60,6 +60,15 @@ export function Coc7eIdentityAttributesTab({
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const derived = coc7e.deriveCoc7eSheetStats(sheet);
 	const ageGuidance = coc7e.coc7eAgeCreationGuidance(sheet.age);
+	const showPortraitPanel = Boolean(
+		portraitPreviewUrl ||
+			portraitPending ||
+			onPickPortraitFile ||
+			onManageExpressions,
+	);
+	const showIdentityHeader = Boolean(
+		onCharacterNameChange || identityHeaderSlot,
+	);
 
 	function updateProfile(patch: Partial<Sheet["profile"]>) {
 		const nextProfile = { ...sheet.profile, ...patch };
@@ -74,97 +83,111 @@ export function Coc7eIdentityAttributesTab({
 		<div className="flex flex-col gap-6">
 			<SheetSection
 				title={t("characterCreation.tabIdentity")}
-				description={t("characterCreation.identitySectionHint")}
+				description={
+					onCharacterNameChange
+						? t("characterCreation.identitySectionHint")
+						: t("characterCreation.identitySheetHint")
+				}
 			>
-				<div className="grid gap-5 md:grid-cols-[10rem_minmax(0,1fr)]">
-					<div className="flex flex-col items-center gap-2.5">
-						<div className="border-md-outline-variant/50 bg-md-surface-container relative size-36 overflow-hidden rounded-t-full rounded-b-xl border">
-							{portraitPreviewUrl ? (
-								<img
-									src={portraitPreviewUrl}
-									alt={characterName || t("characterCreation.portrait")}
-									className="size-full object-cover"
-								/>
-							) : (
-								<div className="text-foreground-tertiary flex size-full flex-col items-center justify-center gap-1.5">
-									<UserRound className="size-8" />
-									<span className="font-mono text-label-small">
-										{t("characterCreation.portrait")}
-									</span>
+				<div
+					className={
+						showPortraitPanel
+							? "grid gap-5 md:grid-cols-[10rem_minmax(0,1fr)]"
+							: "flex flex-col gap-5"
+					}
+				>
+					{showPortraitPanel ? (
+						<div className="flex flex-col items-center gap-2.5">
+							<div className="border-md-outline-variant/50 bg-md-surface-container relative size-36 overflow-hidden rounded-t-full rounded-b-xl border">
+								{portraitPreviewUrl ? (
+									<img
+										src={portraitPreviewUrl}
+										alt={characterName || t("characterCreation.portrait")}
+										className="size-full object-cover"
+									/>
+								) : (
+									<div className="text-foreground-tertiary flex size-full flex-col items-center justify-center gap-1.5">
+										<UserRound className="size-8" />
+										<span className="font-mono text-label-small">
+											{t("characterCreation.portrait")}
+										</span>
+									</div>
+								)}
+							</div>
+							{onPickPortraitFile ? (
+								<>
+									<input
+										ref={fileInputRef}
+										type="file"
+										accept="image/png,image/jpeg,image/webp"
+										className="hidden"
+										onChange={(event) => {
+											const file = event.currentTarget.files?.[0];
+											event.currentTarget.value = "";
+											if (file) {
+												onPickPortraitFile(file);
+											}
+										}}
+									/>
+									<Button
+										type="button"
+										variant="outline"
+										size="sm"
+										className="w-full"
+										onClick={() => fileInputRef.current?.click()}
+									>
+										<ImagePlus className="size-4" />
+										{portraitPreviewUrl
+											? t("characterCreation.portraitChange")
+											: t("characterCreation.portraitUpload")}
+									</Button>
+								</>
+							) : null}
+							{portraitPending && onClearPendingPortrait ? (
+								<div className="flex flex-col items-center gap-1 text-center">
+									<Badge variant="soft" tone="accent" size="sm">
+										{t("characterCreation.portraitPendingHint")}
+									</Badge>
+									<Button
+										type="button"
+										variant="ghost"
+										size="sm"
+										onClick={onClearPendingPortrait}
+									>
+										<Trash2 className="size-3.5" />
+										{t("characterCreation.portraitRemove")}
+									</Button>
 								</div>
-							)}
-						</div>
-						{onPickPortraitFile ? (
-							<>
-								<input
-									ref={fileInputRef}
-									type="file"
-									accept="image/png,image/jpeg,image/webp"
-									className="hidden"
-									onChange={(event) => {
-										const file = event.currentTarget.files?.[0];
-										event.currentTarget.value = "";
-										if (file) {
-											onPickPortraitFile(file);
-										}
-									}}
-								/>
-								<Button
-									type="button"
-									variant="outline"
-									size="sm"
-									className="w-full"
-									onClick={() => fileInputRef.current?.click()}
-								>
-									<ImagePlus className="size-4" />
-									{portraitPreviewUrl
-										? t("characterCreation.portraitChange")
-										: t("characterCreation.portraitUpload")}
-								</Button>
-							</>
-						) : null}
-						{portraitPending && onClearPendingPortrait ? (
-							<div className="flex flex-col items-center gap-1 text-center">
-								<Badge variant="soft" tone="accent" size="sm">
-									{t("characterCreation.portraitPendingHint")}
-								</Badge>
+							) : null}
+							{onManageExpressions ? (
 								<Button
 									type="button"
 									variant="ghost"
 									size="sm"
-									onClick={onClearPendingPortrait}
+									onClick={onManageExpressions}
 								>
-									<Trash2 className="size-3.5" />
-									{t("characterCreation.portraitRemove")}
+									{t("characterCreation.portraitManageExpressions")}
 								</Button>
-							</div>
-						) : null}
-						{onManageExpressions ? (
-							<Button
-								type="button"
-								variant="ghost"
-								size="sm"
-								onClick={onManageExpressions}
-							>
-								{t("characterCreation.portraitManageExpressions")}
-							</Button>
-						) : null}
-					</div>
+							) : null}
+						</div>
+					) : null}
 
 					<div className="flex min-w-0 flex-col gap-4">
-						<div className="grid gap-4 sm:grid-cols-2">
-							{onCharacterNameChange ? (
-								<TextField
-									label={t("characterCreation.name")}
-									value={characterName ?? ""}
-									required
-									showValidation={showValidation}
-									maxLength={100}
-									onChange={onCharacterNameChange}
-								/>
-							) : null}
-							{identityHeaderSlot}
-						</div>
+						{showIdentityHeader ? (
+							<div className="grid gap-4 sm:grid-cols-2">
+								{onCharacterNameChange ? (
+									<TextField
+										label={t("characterCreation.name")}
+										value={characterName ?? ""}
+										required
+										showValidation={showValidation}
+										maxLength={100}
+										onChange={onCharacterNameChange}
+									/>
+								) : null}
+								{identityHeaderSlot}
+							</div>
+						) : null}
 						<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
 							<div className="flex flex-col gap-1.5 sm:col-span-2">
 								<Label>{t("characterCreation.era")}</Label>
