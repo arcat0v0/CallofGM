@@ -12,6 +12,7 @@ import { captureRuntimeSnapshot } from "./runtime-snapshot";
 const TIMELINE_EVENT_TYPES = new Set([
 	"dice:rolled",
 	"check:resolved",
+	"dice:sealed",
 	"state:changed",
 	"session:phase-changed",
 	"scene:changed",

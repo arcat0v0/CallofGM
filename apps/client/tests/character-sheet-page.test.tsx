@@ -168,4 +168,90 @@ describe("character sheet page", () => {
 			restore();
 		}
 	});
+
+	test("loads sheet-context phase records, claims one into experiences, and persists via PATCH", async () => {
+		const calls: Array<{ url: string; method: string; body: string }> = [];
+		const originalFetch = globalThis.fetch;
+		const char = detail();
+		Object.defineProperty(globalThis, "fetch", {
+			configurable: true,
+			writable: true,
+			value: (async (url: string | URL, init?: RequestInit) => {
+				const target = String(url);
+				const method = String(init?.method ?? "GET");
+				calls.push({ url: target, method, body: String(init?.body ?? "") });
+				if (target.includes("/sheet-context")) {
+					return new Response(
+						JSON.stringify({
+							companions: [],
+							phaseRecords: [
+								{
+									sessionId: "sess-1",
+									sessionName: "雾中山庄",
+									eventId: 42,
+									phase: "performance_time",
+									occurredAt: 1_700_000_000_000,
+								},
+							],
+							growthRecords: [],
+						}),
+						{
+							status: 200,
+							headers: { "content-type": "application/json" },
+						},
+					);
+				}
+				return new Response(JSON.stringify(char), {
+					status: 200,
+					headers: { "content-type": "application/json" },
+				});
+			}) as typeof fetch,
+		});
+		try {
+			const view = render(
+				<CharacterSheetPage
+					scope="pl"
+					characterId="char-sheet"
+					onBack={() => undefined}
+				/>,
+			);
+			await view.findByRole("spinbutton", { name: "力量 STR" });
+			await waitFor(() =>
+				expect(calls.some((call) => call.url.includes("/sheet-context"))).toBe(
+					true,
+				),
+			);
+			fireEvent.click(view.getByRole("tab", { name: /经历/ }));
+			fireEvent.click(view.getByRole("button", { name: "认领团阶段记录" }));
+			expect(await view.findByText("雾中山庄 · 演绎时间")).toBeTruthy();
+			fireEvent.click(view.getByRole("button", { name: "认领" }));
+			expect(view.getByRole("button", { name: "已认领" })).toBeTruthy();
+			fireEvent.click(view.getByRole("button", { name: "保存" }));
+			await waitFor(() =>
+				expect(calls.some((call) => call.method === "PATCH")).toBe(true),
+			);
+			const patch = calls.find((call) => call.method === "PATCH");
+			const body = JSON.parse(patch?.body ?? "{}") as {
+				sheetData: {
+					experiences: Array<{
+						sourceType: string;
+						refId: string;
+						refLabel: string;
+					}>;
+				};
+			};
+			expect(body.sheetData.experiences).toHaveLength(1);
+			expect(body.sheetData.experiences[0]).toMatchObject({
+				sourceType: "session_phase",
+				refId: "sess-1:42",
+				refLabel: "雾中山庄 · 演绎时间",
+			});
+		} finally {
+			Object.defineProperty(globalThis, "fetch", {
+				configurable: true,
+				writable: true,
+				value: originalFetch,
+			});
+		}
+	});
 });

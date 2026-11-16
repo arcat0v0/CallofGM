@@ -32,11 +32,13 @@ function DiceTray({
 	className,
 	gm = false,
 	disabled = false,
+	onSubmitted,
 }: {
 	characterId?: string | null;
 	className?: string;
 	gm?: boolean;
 	disabled?: boolean;
+	onSubmitted?: () => void;
 }) {
 	const characters = usePlayStore((state) => state.characters);
 	const [tab, setTab] = useState<"roll" | "check">("roll");
@@ -72,7 +74,12 @@ function DiceTray({
 			...(comment.trim() ? { comment: comment.trim() } : {}),
 			...(gm && hidden ? { hidden: true } : {}),
 		});
-		if (!sent) showCommandError(t("chat.notConnected"));
+		if (!sent) {
+			toast.error(t("chat.notConnected"));
+			return;
+		}
+		onSubmitted?.();
+
 	}
 
 	function check() {
@@ -88,7 +95,12 @@ function DiceTray({
 			penaltyDice,
 			...(gm && hidden ? { hidden: true } : {}),
 		});
-		if (!sent) showCommandError(t("chat.notConnected"));
+		if (!sent) {
+			toast.error(t("chat.notConnected"));
+			return;
+		}
+		onSubmitted?.();
+
 	}
 
 	return (

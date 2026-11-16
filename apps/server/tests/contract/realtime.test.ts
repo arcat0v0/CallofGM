@@ -562,7 +562,9 @@ describe("Realtime contract tests", () => {
 
 		expect(recoveredMessages.length).toBe(2);
 		expect(recoveredMessages[0].type).toBe("event:missed:1");
+		expect(recoveredMessages[0].replayed).toBe(true);
 		expect(recoveredMessages[1].type).toBe("event:missed:2");
+		expect(recoveredMessages[1].replayed).toBe(true);
 
 		await closeWs(reconnectedWs);
 		await closeWs(gmWs);

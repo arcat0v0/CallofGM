@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="2.5" role="img" aria-label="密教印记">
+  <!-- 原创几何印记：双圆环 + 五芒星 + 中心圆点。颜色由调用处 currentColor 决定。 -->
+  <circle cx="50" cy="50" r="44"/>
+  <circle cx="50" cy="50" r="30"/>
+  <path d="M50 14 L59 42 L88 42 L64 59 L73 87 L50 70 L27 87 L36 59 L12 42 L41 42 Z"/>
+  <circle cx="50" cy="50" r="6" fill="currentColor" stroke="none"/>
+</svg>

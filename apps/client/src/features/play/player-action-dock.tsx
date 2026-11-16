@@ -136,7 +136,11 @@ function PlayerActionDock({ variant }: { variant: PlayViewport }) {
 	const showLabel = variant === "desktop";
 
 	const diceTray = (
-		<DiceTray characterId={claimed?.characterId} disabled={diceDisabled} />
+		<DiceTray
+			characterId={claimed?.characterId}
+			disabled={diceDisabled}
+			onSubmitted={() => setDiceOpen(false)}
+		/>
 	);
 	const pendingChecksNotice =
 		pendingCount > 0 ? (

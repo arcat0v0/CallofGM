@@ -70,6 +70,7 @@ function GmChatPanel({
 	);
 	const [draft, setDraft] = useState("");
 	const [searchOpen, setSearchOpen] = useState(false);
+	const [diceOpen, setDiceOpen] = useState(false);
 	const [query, setQuery] = useState("");
 	const messages = usePlayStore((state) => state.messages);
 	const characters = usePlayStore((state) => state.characters);
@@ -406,7 +407,7 @@ function GmChatPanel({
 
 				<div className="flex items-center justify-between gap-2">
 					<div className="flex items-center gap-1">
-						<Popover>
+						<Popover open={diceOpen} onOpenChange={setDiceOpen}>
 							<PopoverTrigger asChild>
 								<Button
 									type="button"
@@ -424,7 +425,12 @@ function GmChatPanel({
 								side="top"
 								className="bg-md-surface-container-high w-80"
 							>
-								<DiceTray gm characterId={firstPcId} disabled={ended} />
+								<DiceTray
+									gm
+									characterId={firstPcId}
+									disabled={ended}
+									onSubmitted={() => setDiceOpen(false)}
+								/>
 							</PopoverContent>
 						</Popover>
 						<Button

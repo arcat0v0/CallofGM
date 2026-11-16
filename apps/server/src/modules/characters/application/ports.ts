@@ -146,6 +146,23 @@ export interface CharacterSyncPreview {
 	staleReview: boolean;
 }
 
+export interface CharacterSheetContextCompanionRow {
+	characterId: string;
+	name: string;
+	sessionId: string;
+	sessionName: string;
+	ruleId: string;
+	sheetJson: string;
+}
+
+export interface CharacterSheetContextPhaseRow {
+	eventId: number;
+	sessionId: string;
+	sessionName: string;
+	phase: string;
+	occurredAt: number;
+}
+
 export interface CharactersRepository {
 	findCharacterById(id: string): Promise<CharacterRecord | null>;
 	saveCharacter(
@@ -334,4 +351,10 @@ export interface CharactersRepository {
 	): Promise<void>;
 
 	findUserDisplayName(userId: string): Promise<string | null>;
+	listCharacterSessionCompanions(
+		characterId: string,
+	): Promise<CharacterSheetContextCompanionRow[]>;
+	listCharacterSessionPhaseRecords(
+		characterId: string,
+	): Promise<CharacterSheetContextPhaseRow[]>;
 }

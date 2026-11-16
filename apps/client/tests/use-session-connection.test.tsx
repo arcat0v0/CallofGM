@@ -42,7 +42,7 @@ const SNAPSHOT = {
 			phase: "free_discussion",
 			currentSceneId: null,
 			lastEventId: 3,
-			settings: { sharePcSheets: true, obSeePcState: true },
+			settings: { sharePcSheets: true, obSeePcState: true, diceSkin: "olive" },
 		},
 		currentScene: null,
 		viewer: { isGm: false, seatRole: "ob" },
@@ -59,6 +59,18 @@ let retry: (() => void) | null = null;
 
 function Harness() {
 	retry = useSessionConnection("session-1", { ensurePlayer: false }).retry;
+	return null;
+}
+
+function ObservedHarness({
+	onLiveEvent,
+}: {
+	onLiveEvent: (eventId: number) => void;
+}) {
+	useSessionConnection("session-1", {
+		ensurePlayer: false,
+		onLiveEvent: (event) => onLiveEvent(event.eventId),
+	});
 	return null;
 }
 
@@ -139,5 +151,57 @@ describe("useSessionConnection retry", () => {
 		);
 		expect(usePlayStore.getState().status).toBe("ended");
 		await waitFor(() => expect(connections.length).toBe(2), { timeout: 3000 });
+	});
+
+	test("skips onLiveEvent for replayed reconnect events while forwarding live events", async () => {
+		const observed: number[] = [];
+		render(<ObservedHarness onLiveEvent={(id) => observed.push(id)} />);
+		await waitFor(() => expect(connections.length).toBe(1));
+
+		act(() => {
+			connections[0]?.onMessage({
+				protocolVersion: 1,
+				eventId: 4,
+				type: "dice:rolled",
+				occurredAt: 1,
+				payload: {},
+				replayed: true,
+			});
+			connections[0]?.onMessage({
+				protocolVersion: 1,
+				eventId: 5,
+				type: "dice:rolled",
+				occurredAt: 2,
+				payload: {},
+			});
+		});
+
+		expect(observed).toEqual([5]);
+	});
+
+	test("skips onLiveEvent for late events at or below the current watermark", async () => {
+		const observed: number[] = [];
+		render(<ObservedHarness onLiveEvent={(id) => observed.push(id)} />);
+		await waitFor(() => expect(connections.length).toBe(1));
+
+		act(() => {
+			usePlayStore.setState({ lastEventId: 10 });
+			connections[0]?.onMessage({
+				protocolVersion: 1,
+				eventId: 10,
+				type: "dice:rolled",
+				occurredAt: 1,
+				payload: {},
+			});
+			connections[0]?.onMessage({
+				protocolVersion: 1,
+				eventId: 11,
+				type: "dice:rolled",
+				occurredAt: 2,
+				payload: {},
+			});
+		});
+
+		expect(observed).toEqual([11]);
 	});
 });

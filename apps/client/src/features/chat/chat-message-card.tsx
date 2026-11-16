@@ -2,25 +2,12 @@ import { Ban, Clock3, Smile } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { SystemMessageCard } from "@/features/chat/system-message-card";
+import type { ChatMessage } from "@/features/chat/types";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 
-type ChatMessageCardData = {
-	speakerName: string;
-	speakerRoleLabel: string;
-	expressionLabel?: string | null;
-	avatarInitials: string;
-	avatarBg: string;
-	avatarFg: string;
-	time: string;
-	body: string;
-	tone?: "ic" | "ooc";
-	isSystem?: boolean;
-	hidden?: boolean;
-	outcome?: "success" | "failure";
-	pending?: boolean;
-	rejected?: boolean;
-	rejectionReason?: string | null;
+type ChatMessageCardData = Omit<ChatMessage, "sortKey"> & {
+	sortKey?: number;
 };
 
 function ChatMessageCard({
@@ -39,7 +26,7 @@ function ChatMessageCard({
 	className?: string;
 }) {
 	if (message.isSystem) {
-		return <SystemMessageCard message={message} />;
+		return <SystemMessageCard message={message} className={className} />;
 	}
 
 	if (variant === "flat") {

@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="火漆印">
+  <!-- 火漆印（暗骰用）：边缘微不规则的蜡封圆盘，中央四角星镂空（mask 抠出，透出底色）。
+       颜色 currentColor（调用处给红，如 #8e1f2a 纸面红或 #6e1420 深红）。 -->
+  <defs>
+    <mask id="star-cut">
+      <rect x="0" y="0" width="64" height="64" fill="#fff"/>
+      <!-- 四角星：镂空部分 -->
+      <path fill="#000" d="M32 16 L36.5 27.5 L48 32 L36.5 36.5 L32 48 L27.5 36.5 L16 32 L27.5 27.5 Z"/>
+      <circle cx="32" cy="32" r="2.2" fill="#000"/>
+    </mask>
+    <radialGradient id="wax-shade" cx="35%" cy="30%" r="80%">
+      <stop offset="0%" stop-color="#fff" stop-opacity="0.28"/>
+      <stop offset="55%" stop-color="#fff" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#000" stop-opacity="0.32"/>
+    </radialGradient>
+  </defs>
+  <g mask="url(#star-cut)">
+    <path fill="currentColor" d="M32 3 C40 2 47 5 52 10 C58 15 61 22 61 30 C62 38 59 46 53 52 C47 58 39 62 31 61 C23 60 15 56 10 50 C5 44 2 36 3 28 C4 20 8 12 14 8 C19 4 25 4 32 3 Z"/>
+    <path fill="url(#wax-shade)" d="M32 3 C40 2 47 5 52 10 C58 15 61 22 61 30 C62 38 59 46 53 52 C47 58 39 62 31 61 C23 60 15 56 10 50 C5 44 2 36 3 28 C4 20 8 12 14 8 C19 4 25 4 32 3 Z"/>
+    <circle cx="32" cy="32" r="24" fill="none" stroke="#fff" stroke-opacity="0.22" stroke-width="1.5"/>
+  </g>
+</svg>

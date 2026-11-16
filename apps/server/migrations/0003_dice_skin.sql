@@ -1,0 +1,1 @@
+ALTER TABLE `sessions` ADD `dice_skin` text DEFAULT 'olive' NOT NULL;

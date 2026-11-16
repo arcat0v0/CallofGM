@@ -1,11 +1,5 @@
 import { Smile } from "lucide-react";
-import {
-	Fragment,
-	type ReactNode,
-	useCallback,
-	useLayoutEffect,
-	useRef,
-} from "react";
+import { type ReactNode, useCallback, useLayoutEffect, useRef } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -133,7 +127,9 @@ function MessageList({
 
 				if (renderMessage) {
 					return (
-						<Fragment key={message.id}>{renderMessage(message, meta)}</Fragment>
+						<div key={message.id} className="w-full shrink-0">
+							{renderMessage(message, meta)}
+						</div>
 					);
 				}
 
@@ -141,7 +137,7 @@ function MessageList({
 					return (
 						<div
 							key={message.id}
-							className="animate-in fade-in slide-in-from-bottom-2 duration-350 ease-expressive-fast-spatial flex flex-col items-center gap-0.5 text-center"
+							className="animate-in fade-in slide-in-from-bottom-2 duration-350 ease-expressive-fast-spatial flex w-full shrink-0 flex-col items-center gap-0.5 text-center"
 						>
 							<span className="text-label-medium text-md-on-surface-variant font-sans">
 								{message.speakerName} · {message.body}
@@ -156,7 +152,7 @@ function MessageList({
 					<div
 						key={message.id}
 						className={cn(
-							"animate-in fade-in slide-in-from-bottom-2 duration-350 ease-expressive-fast-spatial flex w-full gap-2.5",
+							"animate-in fade-in slide-in-from-bottom-2 duration-350 ease-expressive-fast-spatial flex w-full shrink-0 gap-2.5",
 							self && "flex-row-reverse",
 							continued && "-mt-2",
 						)}

@@ -1,4 +1,8 @@
-import { type ServerMessage, SessionCloseCode } from "@cogm/shared";
+import {
+	type ServerMessage,
+	SessionCloseCode,
+	type SessionEvent,
+} from "@cogm/shared";
 import { useCallback, useEffect, useRef } from "react";
 import { usePlayStore } from "@/stores/play-store";
 import { ensurePlayer } from "./identity";
@@ -9,7 +13,10 @@ const SESSION_ENDED_REASON = "session ended";
 
 export function useSessionConnection(
 	sessionId: string,
-	options?: { ensurePlayer?: boolean },
+	options?: {
+		ensurePlayer?: boolean;
+		onLiveEvent?: (message: SessionEvent) => void;
+	},
 ): { retry: () => void } {
 	const applyMessage = usePlayStore((state) => state.applyMessage);
 	const reset = usePlayStore((state) => state.reset);
@@ -55,6 +62,13 @@ export function useSessionConnection(
 		}
 
 		function handleMessage(message: ServerMessage): void {
+			if ("eventId" in message) {
+				const event = message as SessionEvent;
+				const watermark = usePlayStore.getState().lastEventId;
+				if (!event.replayed && event.eventId > watermark) {
+					options?.onLiveEvent?.(event);
+				}
+			}
 			if ("type" in message && message.type === "session:refresh") {
 				void refreshSnapshot();
 				return;
@@ -72,7 +86,8 @@ export function useSessionConnection(
 			const settingsAfter = usePlayStore.getState().settings;
 			if (
 				settingsAfter.sharePcSheets !== settingsBefore.sharePcSheets ||
-				settingsAfter.obSeePcState !== settingsBefore.obSeePcState
+				settingsAfter.obSeePcState !== settingsBefore.obSeePcState ||
+				settingsAfter.diceSkin !== settingsBefore.diceSkin
 			) {
 				void refreshSnapshot();
 			}
@@ -81,6 +96,8 @@ export function useSessionConnection(
 		async function open(lastEventId?: number): Promise<void> {
 			const generation = ++attemptGeneration;
 			const isCurrent = () => !cancelled && generation === attemptGeneration;
+			socket?.close();
+			socket = null;
 			try {
 				if (options?.ensurePlayer !== false) {
 					await ensurePlayer();
@@ -169,6 +186,7 @@ export function useSessionConnection(
 	}, [
 		sessionId,
 		options?.ensurePlayer,
+		options?.onLiveEvent,
 		applyMessage,
 		reset,
 		setConnected,

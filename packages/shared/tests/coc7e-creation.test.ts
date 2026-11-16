@@ -3,7 +3,12 @@ import {
 	coc7eAgeCreationGuidance,
 	coc7eSkillBaseValue,
 	deriveCoc7eCreationLedger,
+	deriveCoc7eSplitLedger,
 	normalizeCoc7eSheet,
+	projectPublicCoc7eSheet,
+	rollAllCoc7eAttributes,
+	rollCoc7eAttribute,
+	serializeCoc7eBackground,
 } from "../src/rules/coc7e";
 
 const attributes = {
@@ -161,5 +166,124 @@ describe("CoC 7e creation age guidance", () => {
 
 	it("returns no guidance when age has not been entered", () => {
 		expect(coc7eAgeCreationGuidance(null)).toBeNull();
+	});
+});
+
+describe("CoC 7e v2 split ledger, rolling, background serialization and public projection", () => {
+	it("computes split ledger with storied investigator experience column", () => {
+		const sheet = normalizeCoc7eSheet({
+			attributes,
+			profile: {
+				storiedInvestigator: true,
+				experienceBonusPoints: 100,
+			},
+			occupation: {
+				presetId: null,
+				name: "私家侦探",
+				skillPointFormula: [{ attribute: "edu", multiplier: 4 }],
+				creditMin: 20,
+				creditMax: 70,
+				skillKeys: ["侦查"],
+			},
+			skills: {
+				侦查: 55,
+				图书馆: 40,
+			},
+			skillAllocation: {
+				侦查: { occupation: 15, interest: 5, experience: 10 },
+				图书馆: { occupation: 0, interest: 10, experience: 10 },
+			},
+		});
+		const ledger = deriveCoc7eSplitLedger(sheet);
+		expect(ledger.occupation).toEqual({
+			budget: 320,
+			spent: 15,
+			remaining: 305,
+		});
+		expect(ledger.interest).toEqual({
+			budget: 140,
+			spent: 15,
+			remaining: 125,
+		});
+		expect(ledger.experience).toEqual({
+			budget: 100,
+			spent: 20,
+			remaining: 80,
+		});
+	});
+
+	it("rolls attributes using 3d6*5 and (2d6+6)*5 formulas", () => {
+		expect(rollCoc7eAttribute("str", () => 1)).toBe(15);
+		expect(rollCoc7eAttribute("str", (sides) => sides)).toBe(90);
+		expect(rollCoc7eAttribute("siz", () => 1)).toBe(40);
+		expect(rollCoc7eAttribute("edu", (sides) => sides)).toBe(90);
+		const all = rollAllCoc7eAttributes(() => 3);
+		expect(all.str).toBe(45);
+		expect(all.siz).toBe(60);
+	});
+
+	it("serializes structured background with key connection star or falls back to plain text", () => {
+		const emptySheet = normalizeCoc7eSheet({ attributes, skills: {} });
+		expect(
+			serializeCoc7eBackground(
+				emptySheet.profile,
+				emptySheet.backgroundProfile,
+				"原始纯文本",
+			),
+		).toBe("原始纯文本");
+
+		const filled = normalizeCoc7eSheet({
+			attributes,
+			skills: {},
+			profile: {
+				gender: "女",
+				residence: "阿卡姆",
+				birthplace: "波士顿",
+			},
+			backgroundProfile: {
+				ideologyBeliefs: "科学可以解释一切",
+				keyConnection: "ideologyBeliefs",
+				partnerName: "亚瑟",
+				keyConnectionStory: "大学实验室事故后立下的誓言",
+			},
+		});
+		const text = serializeCoc7eBackground(
+			filled.profile,
+			filled.backgroundProfile,
+			"",
+		);
+		expect(text).toContain("性别：女 · 住地：阿卡姆 · 故乡：波士顿");
+		expect(text).toContain("【思想与信念 ★关键链接】科学可以解释一切");
+		expect(text).toContain("【调查员伙伴】亚瑟");
+		expect(text).toContain("【关键链接小传】大学实验室事故后立下的誓言");
+	});
+
+	it("redacts backgroundProfile and experiences in public projection", () => {
+		const projected = projectPublicCoc7eSheet({
+			attributes,
+			skills: { 侦查: 60 },
+			backgroundProfile: {
+				ideologyBeliefs: "秘密信仰",
+				keyConnection: "ideologyBeliefs",
+				partnerName: "同伴",
+			},
+			experiences: [
+				{
+					id: "exp-1",
+					title: "秘密档案",
+					sourceType: "manual",
+					refKind: null,
+					refId: null,
+					refLabel: "",
+					summary: "不该公开",
+					changes: [],
+					occurredLabel: "",
+				},
+			],
+		});
+		expect(projected.skills["侦查"]).toBe(60);
+		expect(projected.backgroundProfile.ideologyBeliefs).toBe("");
+		expect(projected.backgroundProfile.keyConnection).toBeNull();
+		expect(projected.experiences).toEqual([]);
 	});
 });

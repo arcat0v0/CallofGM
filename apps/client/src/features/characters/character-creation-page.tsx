@@ -1,9 +1,16 @@
 import type { CharacterInviteInfoResponse, RuleMetadata } from "@cogm/shared";
-import { ArrowLeft, CheckCircle2, RotateCcw, Save, Trash2 } from "lucide-react";
+import {
+	AlertTriangle,
+	ArrowLeft,
+	CheckCircle2,
+	RotateCcw,
+	Save,
+	Trash2,
+} from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
-import { SheetSection, TextField } from "@/components/shared/creation-form";
+import { ImageCropDialog } from "@/components/shared/image-crop-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -80,6 +87,8 @@ export function CharacterCreationPageView({
 	);
 	const [showValidation, setShowValidation] = useState(false);
 	const [ruleValid, setRuleValid] = useState(true);
+	const [warningCount, setWarningCount] = useState(0);
+	const [warningConfirmOpen, setWarningConfirmOpen] = useState(false);
 	const [pending, setPending] = useState(false);
 	const [draftSaved, setDraftSaved] = useState(Boolean(initial.draft));
 	const [draftFailed, setDraftFailed] = useState(false);
@@ -87,6 +96,14 @@ export function CharacterCreationPageView({
 	const [clearOpen, setClearOpen] = useState(false);
 	const [leaveOpen, setLeaveOpen] = useState(false);
 	const [done, setDone] = useState(false);
+	const [cropSourceUrl, setCropSourceUrl] = useState<string | null>(null);
+	const [cropFileName, setCropFileName] = useState("portrait.png");
+	const [pendingPortraitBlob, setPendingPortraitBlob] = useState<Blob | null>(
+		null,
+	);
+	const [pendingPortraitUrl, setPendingPortraitUrl] = useState<string | null>(
+		null,
+	);
 	const [invite, setInvite] = useState<CharacterInviteInfoResponse | null>(
 		inviteRuleId && inviteToken
 			? {
@@ -139,6 +156,22 @@ export function CharacterCreationPageView({
 	}, [mode, inviteToken, inviteRuleId]);
 
 	useEffect(() => {
+		return () => {
+			if (cropSourceUrl) {
+				URL.revokeObjectURL(cropSourceUrl);
+			}
+		};
+	}, [cropSourceUrl]);
+
+	useEffect(() => {
+		return () => {
+			if (pendingPortraitUrl) {
+				URL.revokeObjectURL(pendingPortraitUrl);
+			}
+		};
+	}, [pendingPortraitUrl]);
+
+	useEffect(() => {
 		if (!dirty.current) {
 			return;
 		}
@@ -189,7 +222,47 @@ export function CharacterCreationPageView({
 	const ruleError = ruleId.trim() === "";
 	const valid = !nameError && !ruleError && ruleValid;
 
-	async function submit() {
+	function pickPortraitFile(file: File) {
+		setCropFileName(file.name || "portrait.png");
+		setCropSourceUrl(URL.createObjectURL(file));
+	}
+
+	function clearPendingPortrait() {
+		setPendingPortraitBlob(null);
+		setPendingPortraitUrl(null);
+	}
+
+	async function uploadPendingPortrait(characterId: string) {
+		if (!pendingPortraitBlob) {
+			return;
+		}
+		try {
+			const body = new FormData();
+			body.append("file", pendingPortraitBlob, cropFileName);
+			body.append("purpose", "portrait");
+			body.append("filename", cropFileName);
+			const asset = await api<{ id: string }>("/media/upload", {
+				method: "POST",
+				body,
+			});
+			await api(`/pl/characters/${encodeURIComponent(characterId)}/portraits`, {
+				method: "POST",
+				body: JSON.stringify({
+					label: t("expressions.defaultLabel"),
+					portraitAssetId: asset.id,
+					isDefault: true,
+				}),
+			});
+		} catch (error) {
+			toast.error(
+				t("characterCreation.portraitUploadFailed", {
+					reason: errorText(error, "error.fallback"),
+				}),
+			);
+		}
+	}
+
+	async function submit(bypassWarnings = false) {
 		if (pending || done) {
 			return;
 		}
@@ -203,6 +276,13 @@ export function CharacterCreationPageView({
 			setErrorMessage(t("characterCreation.ruleValidationSummary"));
 			return;
 		}
+		if (!bypassWarnings && warningCount > 0) {
+			setWarningConfirmOpen(true);
+			return;
+		}
+		setWarningConfirmOpen(false);
+		const serializedBackground =
+			rule.serializeBackground?.(parsed, background) ?? background;
 		setPending(true);
 		setErrorMessage("");
 		try {
@@ -211,27 +291,33 @@ export function CharacterCreationPageView({
 					method: "POST",
 					body: JSON.stringify({
 						name: name.trim(),
-						background,
+						background: serializedBackground,
 						ruleId,
 						sheetData: parsed,
 					}),
 				});
+				if (result?.id) {
+					await uploadPendingPortrait(result.id);
+				}
 				clearCharacterCreationDraft(accountId, context);
 				toast.success(t("characterCreation.created"));
 				onDone({ mode, characterId: result?.id ?? null });
 			} else {
-				await api(
+				const result = await api<{ characterId?: string }>(
 					`/pl/invites/${encodeURIComponent(inviteToken ?? "")}/submissions`,
 					{
 						method: "POST",
 						body: JSON.stringify({
 							mode: "new",
 							name: name.trim(),
-							background,
+							background: serializedBackground,
 							sheetData: parsed,
 						}),
 					},
 				);
+				if (result?.characterId) {
+					await uploadPendingPortrait(result.characterId);
+				}
 				clearCharacterCreationDraft(accountId, context);
 				toast.success(t("characterCreation.submitted"));
 				onDone({ mode, characterId: null });
@@ -261,6 +347,7 @@ export function CharacterCreationPageView({
 				: "",
 		);
 		setSheet(createEmptyCharacterSheet());
+		clearPendingPortrait();
 		setShowValidation(false);
 		setRestoredNotice(false);
 		setDraftSaved(false);
@@ -301,10 +388,52 @@ export function CharacterCreationPageView({
 		);
 	}
 
+	const ruleSelectorSlot =
+		mode === "independent" ? (
+			<div className="flex min-w-0 flex-col gap-1.5">
+				<Label htmlFor="creation-rule">{t("rules.label")}</Label>
+				<Select value={ruleId} onValueChange={updateRuleId}>
+					<SelectTrigger id="creation-rule" aria-label={t("rules.label")}>
+						<SelectValue placeholder={t("characterCreation.ruleRequired")} />
+					</SelectTrigger>
+					<SelectContent position="popper">
+						{rules.map((item) => (
+							<SelectItem key={item.id} value={item.id}>
+								{item.name}
+							</SelectItem>
+						))}
+					</SelectContent>
+				</Select>
+				{showValidation && ruleError ? (
+					<p className="text-body-small text-danger">
+						{t("characterCreation.ruleRequired")}
+					</p>
+				) : null}
+			</div>
+		) : (
+			<div className="flex min-w-0 flex-col gap-1.5">
+				<Label>{t("rules.label")}</Label>
+				<div className="flex h-10 items-center rounded-md border border-field-border bg-field px-3.5">
+					<Badge variant="soft" tone="default" size="sm">
+						{ruleId || invite?.ruleId}
+					</Badge>
+				</div>
+				<p className="text-body-small text-foreground-tertiary">
+					{t("characterCreation.ruleLocked")}
+				</p>
+			</div>
+		);
+
+	const submitLabel = t(
+		mode === "independent"
+			? "characterCreation.create"
+			: "characterCreation.submit",
+	);
+
 	return (
 		<main className="bg-background min-h-dvh">
 			<header className="border-separator-secondary/60 bg-background sticky top-0 z-10 border-b">
-				<div className="mx-auto flex h-16 w-full max-w-6xl items-center gap-3 px-4 md:px-6">
+				<div className="mx-auto flex h-16 w-full max-w-[1080px] items-center gap-3 px-4 md:px-6">
 					<Button
 						type="button"
 						variant="ghost"
@@ -335,39 +464,12 @@ export function CharacterCreationPageView({
 						onClick={() => void submit()}
 					>
 						<Save />
-						{t(
-							mode === "independent"
-								? "characterCreation.create"
-								: "characterCreation.submit",
-						)}
+						{submitLabel}
 					</Button>
 				</div>
 			</header>
 
-			<div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6 md:px-6 md:py-8">
-				<nav
-					aria-label={t("characterCreation.sectionNav")}
-					className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1"
-				>
-					{[
-						["identity", t("characterCreation.navIdentity")],
-						["attributes", t("characterCreation.navAttributes")],
-						["skills", t("characterCreation.navSkills")],
-						["background", t("characterCreation.navBackground")],
-						["combat", t("characterCreation.navCombat")],
-						["assets", t("characterCreation.navAssets")],
-						["magic", t("characterCreation.navMagic")],
-					].map(([id, label]) => (
-						<a
-							key={id}
-							href={`#${id}`}
-							className="bg-md-surface-container text-foreground-secondary hover:bg-md-surface-container-high shrink-0 rounded-full px-3 py-1.5 text-label-medium"
-						>
-							{label}
-						</a>
-					))}
-				</nav>
-
+			<div className="mx-auto flex w-full max-w-[1080px] flex-col gap-5 px-4 py-6 md:px-6 md:py-8">
 				{initial.invalid ? (
 					<p
 						role="status"
@@ -410,125 +512,65 @@ export function CharacterCreationPageView({
 						</Button>
 					</div>
 				) : null}
-
-				<SheetSection
-					id="identity"
-					title={t("characterCreation.identitySection")}
-					description={t("characterCreation.identitySectionHint")}
-				>
-					<div className="grid gap-4 md:grid-cols-2">
-						<TextField
-							label={t("characterCreation.name")}
-							value={name}
-							required
-							showValidation={showValidation}
-							maxLength={100}
-							onChange={updateName}
-						/>
-						{mode === "independent" ? (
-							<div className="flex min-w-0 flex-col gap-1.5">
-								<Label htmlFor="creation-rule">{t("rules.label")}</Label>
-								<Select value={ruleId} onValueChange={updateRuleId}>
-									<SelectTrigger
-										id="creation-rule"
-										aria-label={t("rules.label")}
-									>
-										<SelectValue
-											placeholder={t("characterCreation.ruleRequired")}
-										/>
-									</SelectTrigger>
-									<SelectContent position="popper">
-										{rules.map((item) => (
-											<SelectItem key={item.id} value={item.id}>
-												{item.name}
-											</SelectItem>
-										))}
-									</SelectContent>
-								</Select>
-								{showValidation && ruleError ? (
-									<p className="text-body-small text-danger">
-										{t("characterCreation.ruleRequired")}
-									</p>
-								) : null}
-							</div>
-						) : (
-							<div className="flex min-w-0 flex-col gap-1.5">
-								<Label>{t("rules.label")}</Label>
-								<div className="flex h-10 items-center rounded-md border border-field-border bg-field px-3.5">
-									<Badge variant="soft" tone="default" size="sm">
-										{ruleId || invite?.ruleId}
-									</Badge>
-								</div>
-								<p className="text-body-small text-foreground-tertiary">
-									{t("characterCreation.ruleLocked")}
-								</p>
-							</div>
-						)}
-					</div>
-				</SheetSection>
+				{errorMessage ? (
+					<p
+						role="alert"
+						className="rounded-xl bg-danger-soft px-4 py-3 text-body-medium text-danger-soft-foreground"
+					>
+						{errorMessage}
+					</p>
+				) : null}
 
 				<CreationEditor
 					sheet={sheet}
 					onChange={updateSheet}
 					showValidation={showValidation}
 					onValidityChange={setRuleValid}
-				>
-					<SheetSection
-						id="background"
-						title={t("characterCreation.backgroundTitle")}
-						description={t("characterCreation.creativePromptsBody")}
-					>
-						<TextField
-							label={t("characterCreation.background")}
-							value={background}
-							multiline
-							maxLength={4000}
-							onChange={updateBackground}
-						/>
-						<details className="rounded-xl bg-md-surface-container px-4 py-3">
-							<summary className="cursor-pointer text-label-large-emph text-foreground">
-								{t("characterCreation.creativePrompts")}
-							</summary>
-							<p className="mt-2 text-body-medium text-foreground-secondary">
-								{t("characterCreation.creativePromptsBody")}
-							</p>
-						</details>
-					</SheetSection>
-				</CreationEditor>
-
-				<SheetSection
-					id="check"
-					title={t("characterCreation.reviewTitle")}
-					description={t("characterCreation.reviewDescription")}
-				>
-					{errorMessage ? (
-						<p
-							role="alert"
-							className="rounded-xl bg-danger-soft px-4 py-3 text-body-medium text-danger-soft-foreground"
-						>
-							{errorMessage}
-						</p>
-					) : null}
-					<div className="flex flex-wrap items-center gap-3">
-						<Button
-							type="button"
-							variant="primary"
-							disabled={pending || inviteLoading}
-							onClick={() => void submit()}
-						>
-							<Save />
-							{t(
-								mode === "independent"
-									? "characterCreation.create"
-									: "characterCreation.submit",
-							)}
-						</Button>
-						<Button type="button" variant="tertiary" onClick={leave}>
-							{t("characterCreation.back")}
-						</Button>
-					</div>
-				</SheetSection>
+					onWarningsChange={setWarningCount}
+					characterName={name}
+					onCharacterNameChange={updateName}
+					background={background}
+					onBackgroundChange={updateBackground}
+					portraitPreviewUrl={pendingPortraitUrl}
+					portraitPending={Boolean(pendingPortraitBlob)}
+					onPickPortraitFile={pickPortraitFile}
+					onClearPendingPortrait={clearPendingPortrait}
+					identityHeaderSlot={ruleSelectorSlot}
+					onSubmitAction={() => void submit()}
+					submitLabel={submitLabel}
+					submitPending={pending || inviteLoading}
+				/>
 			</div>
+
+			<ImageCropDialog
+				open={cropSourceUrl !== null}
+				onOpenChange={(next) => {
+					if (!next) {
+						setCropSourceUrl(null);
+					}
+				}}
+				imageUrl={cropSourceUrl}
+				title={t("characterCreation.portraitCropTitle")}
+				confirmLabel={t("characterCreation.portraitCropConfirm")}
+				onConfirm={(blob) => {
+					setPendingPortraitBlob(blob);
+					setPendingPortraitUrl(URL.createObjectURL(blob));
+					setCropSourceUrl(null);
+				}}
+			/>
+
+			<ConfirmDialog
+				open={warningConfirmOpen}
+				onOpenChange={setWarningConfirmOpen}
+				icon={AlertTriangle}
+				variant="warning"
+				title={t("characterCreation.reviewConfirmTitle", {
+					count: warningCount,
+				})}
+				description={t("characterCreation.reviewConfirmBody")}
+				confirmLabel={t("characterCreation.reviewConfirmProceed")}
+				onConfirm={() => void submit(true)}
+			/>
 
 			<ConfirmDialog
 				open={clearOpen}

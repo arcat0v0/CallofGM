@@ -1,4 +1,4 @@
-import type { RuleMetadata } from "@cogm/shared";
+import type { CharacterSheetContextResponse, RuleMetadata } from "@cogm/shared";
 import { coc7e } from "@cogm/shared";
 import type { ReactNode } from "react";
 import { Coc7eCharacterCreationEditor } from "./coc7e/character-creation-editor";
@@ -14,6 +14,21 @@ export type RuleCreationEditorProps = {
 	onChange: (sheet: coc7e.Coc7eCharacterSheet) => void;
 	showValidation: boolean;
 	onValidityChange: (valid: boolean) => void;
+	onWarningsChange?: (count: number) => void;
+	characterName?: string;
+	onCharacterNameChange?: (name: string) => void;
+	background?: string;
+	onBackgroundChange?: (background: string) => void;
+	portraitPreviewUrl?: string | null;
+	portraitPending?: boolean;
+	onPickPortraitFile?: (file: File) => void;
+	onClearPendingPortrait?: () => void;
+	onManageExpressions?: () => void;
+	sheetContext?: CharacterSheetContextResponse | null;
+	onSubmitAction?: () => void;
+	submitLabel?: string;
+	submitPending?: boolean;
+	identityHeaderSlot?: ReactNode;
 	children?: ReactNode;
 };
 
@@ -66,6 +81,7 @@ export type RuleComponent = {
 	metadata: RuleMetadata;
 	createEmptySheet: () => coc7e.Coc7eCharacterSheet;
 	creationEditor: (props: RuleCreationEditorProps) => ReactNode;
+	serializeBackground?: (sheet: unknown, fallbackBackground: string) => string;
 	parseSheet: (value: unknown) => unknown | null;
 	parseSheetJson: (json: string) => unknown | null;
 	skillLabel: (key: string) => string;
@@ -185,6 +201,17 @@ const coc7eComponent: RuleComponent = {
 			luck: 50,
 		}),
 	creationEditor: Coc7eCharacterCreationEditor,
+	serializeBackground: (sheet, fallbackBackground) => {
+		const parsed = coc7e.Coc7eCharacterSheet.safeParse(sheet);
+		if (!parsed.success) {
+			return fallbackBackground;
+		}
+		return coc7e.serializeCoc7eBackground(
+			parsed.data.profile,
+			parsed.data.backgroundProfile,
+			fallbackBackground,
+		);
+	},
 	parseSheet: (value) => {
 		const parsed = coc7e.Coc7eCharacterSheet.safeParse(value);
 		return parsed.success ? parsed.data : null;

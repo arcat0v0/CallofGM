@@ -104,7 +104,9 @@ function matchesEventType(
 	const option = EVENT_TYPE_OPTIONS.find((item) => item.value === filter);
 	return (
 		option?.activityType !== undefined &&
-		message.activityType === option.activityType
+		(message.activityType === option.activityType ||
+			(message.sealedActivityType !== undefined &&
+				message.sealedActivityType === option.activityType))
 	);
 }
 
@@ -224,6 +226,7 @@ function GmHistoryOverlay({
 	const status = usePlayStore((state) => state.status);
 	const messages = usePlayStore((state) => state.messages);
 	const characters = usePlayStore((state) => state.characters);
+	const viewer = usePlayStore((state) => state.viewer);
 	const historyHasMore = usePlayStore((state) => state.historyHasMore);
 	const historyLoading = usePlayStore((state) => state.historyLoading);
 	const loadOlderHistory = usePlayStore((state) => state.loadOlderHistory);
@@ -283,9 +286,9 @@ function GmHistoryOverlay({
 	const archiveMessages = useMemo(
 		() =>
 			archiveItems
-				.map((item) => mapHistoryItem(item, characters))
+				.map((item) => mapHistoryItem(item, characters, viewer))
 				.filter((message): message is ChatMessage => message !== null),
-		[archiveItems, characters],
+		[archiveItems, characters, viewer],
 	);
 
 	const auditMessages = useMemo(

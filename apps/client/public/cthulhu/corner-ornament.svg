@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" stroke="currentColor" role="img" aria-label="羊皮纸边角装饰">
+  <!-- 羊皮纸边角装饰：双线 L 形角 + 菱形点缀，贴在判词页 / 票据页一角。
+       默认左上角；用 transform rotate(90/180/270deg) 贴其余三只角。
+       颜色 currentColor，调用处给低 opacity（如 .35）与墨色。 -->
+  <path d="M2 46 L2 14 Q2 2 14 2 L46 2" stroke-width="1.5"/>
+  <path d="M7 46 L7 16 Q7 7 16 7 L46 7" stroke-width="0.75" opacity="0.7"/>
+  <path d="M14 14 L18 18 L14 22 L10 18 Z" fill="currentColor" stroke="none"/>
+  <circle cx="26" cy="26" r="1.4" fill="currentColor" stroke="none" opacity="0.7"/>
+</svg>

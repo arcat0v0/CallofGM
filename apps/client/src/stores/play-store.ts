@@ -3,6 +3,7 @@ import {
 	type CatalogHandoutDto,
 	type ChatMessageDto,
 	type CheckRequestDto,
+	DiceSealedEvent,
 	type GrantedHandoutDto,
 	type HandoutGrantDetailDto,
 	HandoutGrantOverviewDto,
@@ -26,6 +27,7 @@ import {
 	type ServerMessage,
 	type SessionPhase,
 	type SessionSettings,
+	SessionSettingsChangedEvent,
 	SessionSettingsDefaults,
 	type SessionSnapshotPayload,
 	type SessionStatus,
@@ -351,9 +353,10 @@ function clearPendingCommand(
 function mapHistoryItems(
 	items: HistoryPage["items"],
 	characters: SnapshotCharacter[],
+	viewer: { isGm?: boolean } = {},
 ): ChatMessage[] {
 	return items
-		.map((item) => mapHistoryItem(item, characters))
+		.map((item) => mapHistoryItem(item, characters, viewer))
 		.filter((message): message is ChatMessage => message !== null);
 }
 
@@ -372,6 +375,7 @@ function withActivityMessage(
 		eventId ?? Date.now(),
 		occurredAt,
 		characters,
+		{ isGm: state.viewer.isGm },
 	);
 	return message
 		? { ...patch, messages: appendMessage(state.messages, message) }
@@ -408,7 +412,14 @@ function applyEvent(
 			};
 		}
 		case "dice:rolled":
+		case "dice:sealed":
 		case "check:resolved": {
+			if (
+				type === "dice:sealed" &&
+				!DiceSealedEvent.safeParse(payload).success
+			) {
+				return {};
+			}
 			const activityPayload = resolveActivityPayload(
 				type,
 				payload,
@@ -419,6 +430,8 @@ function applyEvent(
 				activityPayload,
 				eventId ?? Date.now(),
 				occurredAt,
+				state.characters,
+				{ isGm: state.viewer.isGm },
 			);
 			const patch: Partial<PlayState> = {
 				messages: appendMessage(state.messages, next),
@@ -450,17 +463,12 @@ function applyEvent(
 			return {};
 		}
 		case "session:settings-changed": {
-			if (
-				typeof payload.sharePcSheets !== "boolean" ||
-				typeof payload.obSeePcState !== "boolean"
-			) {
+			const parsed = SessionSettingsChangedEvent.safeParse(payload);
+			if (!parsed.success) {
 				return {};
 			}
 			return {
-				settings: {
-					sharePcSheets: payload.sharePcSheets,
-					obSeePcState: payload.obSeePcState,
-				},
+				settings: parsed.data,
 			};
 		}
 		case "session:phase-changed": {
@@ -653,7 +661,9 @@ export const usePlayStore = create<PlayState>((set, get) => ({
 		const merged = mergeMessages(
 			[],
 			[
-				...mapHistoryItems(payload.recentHistory, payload.characters),
+				...mapHistoryItems(payload.recentHistory, payload.characters, {
+					isGm: payload.viewer.isGm,
+				}),
 				...ownPending,
 				...ownRejected,
 			],
@@ -668,7 +678,10 @@ export const usePlayStore = create<PlayState>((set, get) => ({
 			status: payload.session.status,
 			phase: payload.session.phase,
 			lastEventId: watermark,
-			settings: payload.session.settings,
+			settings: {
+				...SessionSettingsDefaults,
+				...payload.session.settings,
+			},
 			portraitLayout: payload.session.portraitLayout ?? "auto",
 			portraitScale: payload.session.portraitScale ?? "md",
 			viewer: {
@@ -760,7 +773,9 @@ export const usePlayStore = create<PlayState>((set, get) => ({
 					return {
 						messages: mergeMessages(
 							state.messages,
-							mapHistoryItems(page.items, state.characters),
+							mapHistoryItems(page.items, state.characters, {
+								isGm: state.viewer.isGm,
+							}),
 						),
 						historyBeforeEventId: page.beforeEventId,
 						historyHasMore: page.hasMore,
