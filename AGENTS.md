@@ -1,5 +1,9 @@
 # CoGM（主持人的呼唤）— Agent 协作准则
 
+> **AOCI-CODE 已临时停用（本仓库）**
+>
+> 不调用 `aoci_*` 或 `mcporter call aoci`，不加载 `aoci_overview`，不执行 `aoci_maintain`。下方 AOCI 段落仅作为历史资料保留；已生成的索引文件不删除，但本仓库当前不使用。
+
 网页跑团工具（v1 适配 CoC 7e），参考 CCFolia，沉浸式场景 + 立绘 + 对话。全栈 TypeScript，运行时 Bun。
 
 ## 必读文档
@@ -33,8 +37,8 @@
 - 阿里云 ESA 云函数不是后端宿主；ESA 仅可作为前端静态托管或回源加速层，不纳入本发版流程。
 - 完整流程、回滚、热修复与数据库迁移注意事项见 `docs/release.md`。
 
-<!-- aoci:begin -->
-## AOCI Repository Cognition
+<!-- aoci-disabled:begin -->
+## AOCI Repository Cognition（已临时停用，历史资料）
 
 AOCI maintains a stable, versioned, incrementally updatable repository-level cognition layer so models can reuse their understanding of this system across tasks.
 
@@ -135,4 +139,6 @@ This managed block defines only repository integration, cognition use, and task-
 Initialization, complete-index generation, Header generation, Entries generation, database-structure indexing, Curation, human review, and failure recovery must follow only the instructions, commands, and safety stops returned by the current AOCI Guide or tool at the corresponding stage.
 
 Do not preload, guess, or reconstruct these specialized workflows. The relevant Guide, tool descriptions, model Prompt, and CLI help provide platform invocation, request format, batch limits, approval rules, index-format details, and recovery steps as needed.
-<!-- aoci:end -->
+<!-- aoci-disabled:end -->
+
+> AOCI 历史资料到此结束；当前已停用，不执行以上任何 AOCI 调用或维护要求。

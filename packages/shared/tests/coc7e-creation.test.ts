@@ -284,6 +284,23 @@ describe("CoC 7e v2 split ledger, rolling, background serialization and public p
 		).toContain("【调查员伙伴】亚瑟");
 	});
 
+	it("drops previously serialized text instead of reusing it as the background fallback", () => {
+		const emptySheet = normalizeCoc7eSheet({ attributes, skills: {} });
+		const serialize = (fallback: string) =>
+			serializeCoc7eBackground(
+				emptySheet.profile,
+				emptySheet.backgroundProfile,
+				fallback,
+			);
+
+		expect(serialize("【调查员伙伴】1")).toBe("");
+		expect(serialize("【思想与信念】旧信念")).toBe("");
+		expect(serialize("【思想与信念】第一行\n第二行\n【调查员伙伴】1")).toBe("");
+		expect(serialize("性别：女 · 住地：阿卡姆")).toBe("");
+		expect(serialize("旧背景\n【调查员伙伴】1")).toBe("旧背景");
+		expect(serialize("旧背景\n另一行")).toBe("旧背景\n另一行");
+	});
+
 	it("redacts backgroundProfile and experiences in public projection", () => {
 		const projected = projectPublicCoc7eSheet({
 			attributes,

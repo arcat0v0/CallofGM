@@ -419,6 +419,42 @@ export const COC7E_BACKGROUND_FIELD_META: ReadonlyArray<{
 	{ key: "appearanceSummary", label: "形象描述" },
 ];
 
+const COC7E_BACKGROUND_SECTION_HEADERS = new Set([
+	...COC7E_BACKGROUND_FIELD_META.map((field) => field.label),
+	"调查员伙伴",
+	"关键链接小传",
+]);
+
+const COC7E_BACKGROUND_IDENTITY_PREFIXES = ["性别：", "住地：", "故乡："];
+
+function isCoc7eBackgroundHeaderLine(line: string): boolean {
+	if (
+		COC7E_BACKGROUND_IDENTITY_PREFIXES.some((prefix) => line.startsWith(prefix))
+	) {
+		return true;
+	}
+	if (!line.startsWith("【")) {
+		return false;
+	}
+	const closing = line.indexOf("】");
+	if (closing < 0) {
+		return false;
+	}
+	const label = line.slice(1, closing).replace(/ ★关键链接$/, "").trim();
+	return COC7E_BACKGROUND_SECTION_HEADERS.has(label);
+}
+
+function stripSerializedBackground(fallback: string): string {
+	const lines = fallback.split("\n");
+	const firstHeader = lines.findIndex((line) =>
+		isCoc7eBackgroundHeaderLine(line.trim()),
+	);
+	if (firstHeader < 0) {
+		return fallback;
+	}
+	return lines.slice(0, firstHeader).join("\n").trim();
+}
+
 export function serializeCoc7eBackground(
 	profile: Coc7eProfileInfo,
 	backgroundProfile: Coc7eBackgroundProfile,
@@ -474,7 +510,7 @@ export function serializeCoc7eBackground(
 		);
 	}
 	if (lines.length === 0) {
-		return fallbackBackground.slice(0, 4000);
+		return stripSerializedBackground(fallbackBackground).slice(0, 4000);
 	}
 	return lines.join("\n").slice(0, 4000);
 }
