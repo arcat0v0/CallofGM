@@ -75,11 +75,10 @@ function DiceTray({
 			...(gm && hidden ? { hidden: true } : {}),
 		});
 		if (!sent) {
-			toast.error(t("chat.notConnected"));
+			showCommandError(t("chat.notConnected"));
 			return;
 		}
 		onSubmitted?.();
-
 	}
 
 	function check() {
@@ -96,11 +95,10 @@ function DiceTray({
 			...(gm && hidden ? { hidden: true } : {}),
 		});
 		if (!sent) {
-			toast.error(t("chat.notConnected"));
+			showCommandError(t("chat.notConnected"));
 			return;
 		}
 		onSubmitted?.();
-
 	}
 
 	return (
