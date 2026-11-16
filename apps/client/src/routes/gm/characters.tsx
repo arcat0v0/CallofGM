@@ -5,7 +5,6 @@ import {
 	PencilLine,
 	Plus,
 	Search,
-	Settings2,
 	Trash2,
 	UserRound,
 } from "lucide-react";
@@ -269,20 +268,6 @@ function GmCharactersPage() {
 										>
 											<PencilLine className="size-4" />
 											{t("gm.characters.editSheet")}
-										</Button>
-										<span
-											className="bg-md-outline-variant/60 mx-1 h-5 w-px"
-											aria-hidden
-										/>
-										<Button
-											type="button"
-											variant="ghost"
-											size="sm"
-											className="text-md-on-surface hover:bg-md-on-surface/10 h-9 gap-2 rounded-full px-3.5 text-label-medium"
-											onClick={() => void openSheet(selected.id)}
-										>
-											<Settings2 className="size-4" />
-											{t("characterProfile.openToolbar")}
 										</Button>
 									</div>
 									<DropdownMenu>

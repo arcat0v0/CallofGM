@@ -139,6 +139,52 @@ describe("character sheet page", () => {
 			expect(payload.expectedVersion).toBe(4);
 			expect(payload.sheetData.attributes.str).toBe(65);
 			expect(payload.sheetData.skills.侦查).toBe(55);
+			expect(view.queryByRole("textbox", { name: "姓名" })).toBeNull();
+		} finally {
+			restore();
+		}
+	});
+
+	test("profile tab keeps name editable and derives background from the sheet", async () => {
+		const char = detail({
+			background: "旧的纯文本背景",
+			sheetJson: JSON.stringify(
+				coc7e.normalizeCoc7eSheet({
+					attributes,
+					skills: { 侦查: 55 },
+					backgroundProfile: {
+						ideologyBeliefs: "真理高于一切",
+						keyConnection: "ideologyBeliefs",
+					},
+				}),
+			),
+		});
+		const { restore } = mockFetch(() => char);
+		try {
+			const view = render(
+				<CharacterSheetPage
+					scope="pl"
+					characterId="char-sheet"
+					onBack={() => undefined}
+				/>,
+			);
+			await view.findByRole("spinbutton", { name: "力量 STR" });
+			fireEvent.mouseDown(
+				view.getByRole("tab", { name: "资料与立绘" }),
+				{ button: 0 },
+			);
+			await waitFor(() =>
+				expect(
+					view
+						.getByRole("tab", { name: "资料与立绘" })
+						.getAttribute("aria-selected"),
+				).toBe("true"),
+			);
+			expect(await view.findByRole("textbox", { name: "姓名" })).toBeTruthy();
+			expect(view.queryByRole("textbox", { name: "背景" })).toBeNull();
+			expect(view.getByText("背景摘要")).toBeTruthy();
+			expect(view.getByText("【思想与信念 ★关键链接】真理高于一切")).toBeTruthy();
+			expect(view.queryByText("旧的纯文本背景")).toBeNull();
 		} finally {
 			restore();
 		}
@@ -155,9 +201,11 @@ describe("character sheet page", () => {
 				/>,
 			);
 			await view.findByText(
-				"该人物属于玩家。主持人只能通过「永久修正」修改终生属性并留下审计，完整数值请由玩家本人编辑。",
+				"该人物属于玩家。主持人只能通过「永久修正」修改终生属性并留下审计，完整人物卡请由玩家本人编辑。",
 			);
-			expect(view.queryByRole("button", { name: "完整数值" })).toBeNull();
+			expect(view.queryByRole("button", { name: "完整人物卡" })).toBeNull();
+			expect(view.queryByRole("button", { name: "保存" })).toBeNull();
+			expect(view.queryByText("表情立绘")).toBeNull();
 			expect(
 				calls.some(
 					(call) =>

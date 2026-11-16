@@ -69,6 +69,8 @@ export type RuleSessionState = {
 	hiddenGrowthMarks: string[];
 };
 
+export type RuleBackgroundSource = "profile" | "sheet";
+
 export type RuleStateBar = {
 	key: string;
 	label: string;
@@ -81,6 +83,7 @@ export type RuleComponent = {
 	metadata: RuleMetadata;
 	createEmptySheet: () => coc7e.Coc7eCharacterSheet;
 	creationEditor: (props: RuleCreationEditorProps) => ReactNode;
+	backgroundSource: RuleBackgroundSource;
 	serializeBackground?: (sheet: unknown, fallbackBackground: string) => string;
 	parseSheet: (value: unknown) => unknown | null;
 	parseSheetJson: (json: string) => unknown | null;
@@ -201,6 +204,7 @@ const coc7eComponent: RuleComponent = {
 			luck: 50,
 		}),
 	creationEditor: Coc7eCharacterCreationEditor,
+	backgroundSource: "sheet",
 	serializeBackground: (sheet, fallbackBackground) => {
 		const parsed = coc7e.Coc7eCharacterSheet.safeParse(sheet);
 		if (!parsed.success) {
