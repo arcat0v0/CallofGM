@@ -4,6 +4,7 @@ import { coc7e } from "@cogm/shared";
 import { fireEvent, render, waitFor, within } from "@testing-library/react";
 import { useState } from "react";
 import { Coc7eCharacterCreationEditor } from "../src/rules/coc7e/character-creation-editor";
+import { Coc7eBackgroundTab } from "../src/rules/coc7e/tabs/background-tab";
 
 type Sheet = ReturnType<typeof coc7e.normalizeCoc7eSheet>;
 
@@ -44,6 +45,24 @@ function Harness({
 				setSheet(next);
 			}}
 		/>
+	);
+}
+
+function BackgroundHarness() {
+	const [sheet, setSheet] = useState(emptySheet());
+	const [background, setBackground] = useState("");
+	return (
+		<div>
+			<Coc7eBackgroundTab
+				sheet={sheet}
+				onChange={(patch) =>
+					setSheet((current) => ({ ...current, ...patch }))
+				}
+				background={background}
+				onBackgroundChange={setBackground}
+			/>
+			<output data-testid="background-value">{background}</output>
+		</div>
 	);
 }
 
@@ -270,6 +289,22 @@ describe("CoC 7e v2 7-tab features", () => {
 			expect(latest.backgroundProfile.keyConnectionStory).toBe(
 				"导师十年前失踪于密大图书馆。",
 			),
+		);
+	});
+
+	test("clears the auto-synced background when the last partner is emptied", async () => {
+		const view = render(<BackgroundHarness />);
+		fireEvent.click(view.getByRole("button", { name: "添加一位伙伴" }));
+		const nameField = view.getByRole("textbox", { name: "伙伴姓名" });
+		setValue(nameField, "1");
+		await waitFor(() =>
+			expect(view.getByTestId("background-value").textContent).toBe(
+				"【调查员伙伴】1",
+			),
+		);
+		setValue(nameField, "");
+		await waitFor(() =>
+			expect(view.getByTestId("background-value").textContent).toBe(""),
 		);
 	});
 
