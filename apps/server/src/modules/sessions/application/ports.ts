@@ -39,6 +39,7 @@ export interface SessionRecord {
 	sharePcSheets: number;
 	obSeePcState: number;
 	diceSkin: string;
+	ruleSettingsJson: string;
 	portraitLayout: string;
 	portraitScale: string;
 	growthConfirmedAt: number | null;

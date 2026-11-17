@@ -109,6 +109,29 @@ describe("CoC 7e evaluateSkillCheck 判级边界", () => {
 		expect(check({ tens: [9], units: 5 }, lowTarget).outcome).toBe("failure");
 	});
 
+	test("规则书口径按难度后的所需成功率判定大失败", () => {
+		const result = check(
+			{ tens: [9], units: 6 },
+			{ difficulty: "hard" },
+		);
+		expect(result.outcome).toBe("fumble");
+	});
+
+	test("团设置可切换大成功/大失败判定口径", () => {
+		const flat5 = check(
+			{ tens: [0], units: 5 },
+			{ ruleSettings: { coc7e: { criticalVariant: "flat5" } } },
+		);
+		expect(flat5.outcome).toBe("critical");
+		expect(flat5.criticalVariant).toBe("flat5");
+
+		const doubles = check(
+			{ tens: [3], units: 3 },
+			{ ruleSettings: { coc7e: { criticalVariant: "doubles" } } },
+		);
+		expect(doubles.outcome).toBe("critical");
+	});
+
 	test("奖励骰取较小值", () => {
 		// 1 奖励骰：两个十位 3 和 5，个位 4 → min(34, 54) = 34；目标 60 为常规成功
 		const result = check({ tens: [3, 5], units: 4 }, { bonusDice: 1 });
@@ -682,6 +705,23 @@ describe("CoC 7e 天命（幸运）", () => {
 			expect(caught).toBeInstanceOf(AppError);
 			expect((caught as AppError).code).toBe(item.code);
 		}
+	});
+
+	test("团设置关闭花费天命后拒绝改骰", () => {
+		const failed = check({ tens: [6], units: 3 });
+		let caught: unknown;
+		try {
+			rule.spendLuckOnCheck(
+				baseState,
+				failed,
+				3,
+				{ coc7e: { allowLuckSpend: false } },
+			);
+		} catch (error) {
+			caught = error;
+		}
+		expect(caught).toBeInstanceOf(AppError);
+		expect((caught as AppError).code).toBe("LUCK_SPEND_DISABLED");
 	});
 
 	test("天命恢复：超过当前值回复 1d10，未超过不变，上限 99", () => {

@@ -487,7 +487,7 @@ function applyEvent(
 				return {};
 			}
 			return {
-				settings: parsed.data,
+				settings: { ...state.settings, ...parsed.data },
 			};
 		}
 		case "session:phase-changed": {

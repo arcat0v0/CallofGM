@@ -42,6 +42,8 @@ export interface SkillCheckInput {
 	difficulty: "regular" | "hard" | "extreme";
 	bonusDice: number;
 	penaltyDice: number;
+	/** 团级规则设置（按规则 id 分命名空间，由规则实现自行解析） */
+	ruleSettings?: unknown;
 }
 
 export interface SanCheckInput {
@@ -103,6 +105,10 @@ export abstract class RuleSystem<TSheet, TSessionState> {
 		state: TSessionState,
 		fields: readonly string[],
 	): unknown;
+
+	/** 校验并补全团级规则设置；返回值写回 settings.ruleSettings */
+	parseSessionRuleSettings?(settings: unknown): Record<string, unknown>;
+
 	abstract evaluateSkillCheck(
 		input: SkillCheckInput,
 		random: RandomSource,
@@ -132,6 +138,7 @@ export abstract class RuleSystem<TSheet, TSessionState> {
 		state: TSessionState,
 		checkResult: unknown,
 		points: number,
+		ruleSettings?: unknown,
 	): LuckSpendResult<TSessionState>;
 
 	/** 幸运恢复检定；结果由通用业务层广播 */

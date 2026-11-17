@@ -7,6 +7,7 @@ import type {
 	SessionSnapshotPayload,
 	SnapshotCharacter,
 } from "@cogm/shared";
+import { parseSessionRuleSettingsJson } from "@cogm/shared";
 import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 import { buildHandoutGrantOverview } from "@/modules/handouts";
 import type { ActorContext } from "@/modules/identity";
@@ -246,6 +247,9 @@ export class BuildSessionSnapshotUseCase {
 					sharePcSheets: session.sharePcSheets === 1,
 					obSeePcState: session.obSeePcState === 1,
 					diceSkin: session.diceSkin === "bone" ? "bone" : "olive",
+					ruleSettings: parseSessionRuleSettingsJson(
+						session.ruleSettingsJson,
+					),
 				},
 				portraitLayout:
 					session.portraitLayout as SessionSnapshotPayload["session"]["portraitLayout"],

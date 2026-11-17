@@ -49,10 +49,27 @@ export const DiceSkinLabel: Record<DiceSkin, string> = {
 	bone: "骨白",
 };
 
+export const SessionRuleSettings = z.record(z.string(), z.unknown());
+export type SessionRuleSettings = z.infer<typeof SessionRuleSettings>;
+
+export function parseSessionRuleSettingsJson(
+	value: string | null | undefined,
+): SessionRuleSettings {
+	if (!value) {
+		return {};
+	}
+	try {
+		return SessionRuleSettings.parse(JSON.parse(value));
+	} catch {
+		return {};
+	}
+}
+
 export const SessionSettings = z.object({
 	sharePcSheets: z.boolean(),
 	obSeePcState: z.boolean(),
 	diceSkin: DiceSkin.default("olive"),
+	ruleSettings: SessionRuleSettings.optional(),
 });
 export type SessionSettings = z.output<typeof SessionSettings>;
 
@@ -60,6 +77,7 @@ export const SessionSettingsDefaults: SessionSettings = {
 	sharePcSheets: true,
 	obSeePcState: true,
 	diceSkin: "olive",
+	ruleSettings: {},
 };
 
 export const CreateSessionRequest = z.object({
@@ -67,6 +85,7 @@ export const CreateSessionRequest = z.object({
 	characterIds: z.array(z.string()),
 	name: z.string().trim().max(60).optional(),
 	diceSkin: DiceSkin.optional(),
+	ruleSettings: SessionRuleSettings.optional(),
 });
 export type CreateSessionRequest = z.infer<typeof CreateSessionRequest>;
 
@@ -75,7 +94,12 @@ export const RenameSessionRequest = z.object({
 });
 export type RenameSessionRequest = z.infer<typeof RenameSessionRequest>;
 
-export const UpdateSessionSettingsCommand = SessionSettings;
+export const UpdateSessionSettingsCommand = z.object({
+	sharePcSheets: z.boolean().optional(),
+	obSeePcState: z.boolean().optional(),
+	diceSkin: DiceSkin.optional(),
+	ruleSettings: SessionRuleSettings.optional(),
+});
 export type UpdateSessionSettingsCommand = z.infer<
 	typeof UpdateSessionSettingsCommand
 >;

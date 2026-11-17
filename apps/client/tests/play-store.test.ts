@@ -162,6 +162,7 @@ describe("play-store draft-loss and command rejection tracking", () => {
 			sharePcSheets: false,
 			obSeePcState: false,
 			diceSkin: "olive",
+			ruleSettings: {},
 		});
 
 		usePlayStore.getState().applyMessage({
@@ -179,6 +180,7 @@ describe("play-store draft-loss and command rejection tracking", () => {
 			sharePcSheets: true,
 			obSeePcState: false,
 			diceSkin: "olive",
+			ruleSettings: {},
 		});
 	});
 

@@ -1,0 +1,1 @@
+ALTER TABLE `sessions` ADD `rule_settings_json` text DEFAULT '{}' NOT NULL;

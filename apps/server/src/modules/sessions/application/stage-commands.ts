@@ -1,7 +1,10 @@
 import {
 	type BgmState,
+	parseSessionRuleSettingsJson,
 	PlaySeCommand,
 	SetExpressionCommand,
+	SessionSettings,
+	type RuleId,
 	SwitchSceneCommand,
 	UpdateBgmCommand,
 	UpdateNpcStateVisibilityCommand,
@@ -469,6 +472,8 @@ export class UpdateSessionSettingsHandler implements CommandHandler {
 	readonly type = "session:settings" as const;
 	readonly allowedStatuses = ["waiting", "preparing", "active"] as const;
 
+	constructor(private readonly ruleRegistry: RuleRegistry) {}
+
 	async execute(
 		ctx: CommandHandlerContext,
 		payload: unknown,
@@ -480,7 +485,35 @@ export class UpdateSessionSettingsHandler implements CommandHandler {
 		if (!parsed.success) {
 			throw new AppError("VALIDATION_FAILED", parsed.error.message, 400);
 		}
-		const settings = parsed.data;
+		const current = {
+			sharePcSheets: ctx.session.sharePcSheets === 1,
+			obSeePcState: ctx.session.obSeePcState === 1,
+			diceSkin: ctx.session.diceSkin === "bone" ? "bone" : "olive",
+			ruleSettings: parseSessionRuleSettingsJson(
+				ctx.session.ruleSettingsJson,
+			),
+		} as const;
+		let ruleSettings =
+			parsed.data.ruleSettings ?? current.ruleSettings;
+		const rule = this.ruleRegistry.get(ctx.session.ruleId as RuleId);
+		if (rule.parseSessionRuleSettings) {
+			try {
+				ruleSettings = rule.parseSessionRuleSettings(ruleSettings);
+			} catch (error) {
+				throw new AppError(
+					"VALIDATION_FAILED",
+					error instanceof Error
+						? error.message
+						: "Invalid rule settings",
+					400,
+				);
+			}
+		}
+		const settings = SessionSettings.parse({
+			...current,
+			...parsed.data,
+			ruleSettings,
+		});
 
 		await ctx.tx
 			.update(sessions)
@@ -488,6 +521,7 @@ export class UpdateSessionSettingsHandler implements CommandHandler {
 				sharePcSheets: settings.sharePcSheets ? 1 : 0,
 				obSeePcState: settings.obSeePcState ? 1 : 0,
 				diceSkin: settings.diceSkin,
+				ruleSettingsJson: JSON.stringify(settings.ruleSettings ?? {}),
 			})
 			.where(eq(sessions.id, ctx.sessionId));
 
@@ -604,7 +638,7 @@ export function createStageCommandHandlers(
 		new UpdateStageLayoutHandler(),
 		new UpdateBgmHandler(),
 		new PlaySeHandler(),
-		new UpdateSessionSettingsHandler(),
+		new UpdateSessionSettingsHandler(ruleRegistry),
 		new UpdateNpcStateVisibilityHandler(ruleRegistry),
 	];
 }

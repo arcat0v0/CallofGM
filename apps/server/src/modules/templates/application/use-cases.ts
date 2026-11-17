@@ -456,6 +456,7 @@ export class InstantiateTemplateUseCase {
 				sharePcSheets: settings.sharePcSheets ? 1 : 0,
 				obSeePcState: settings.obSeePcState ? 1 : 0,
 				diceSkin: settings.diceSkin,
+				ruleSettingsJson: JSON.stringify(settings.ruleSettings ?? {}),
 				portraitLayout: "auto",
 				portraitScale: "md",
 				growthConfirmedAt: null,

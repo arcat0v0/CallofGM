@@ -16,6 +16,7 @@ function result(
 		outcome: "failure",
 		success: false,
 		growthEligible: false,
+		criticalVariant: "rulebook",
 		...overrides,
 	};
 }

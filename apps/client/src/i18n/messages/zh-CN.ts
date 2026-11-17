@@ -1167,6 +1167,7 @@ export const zhCN: Record<string, string> = {
 	"error.INVALID_SAN_LOSS_EXPRESSION":
 		"理智损失格式应为「成功/失败」，如 1/1d6",
 	"error.LUCK_SPEND_NOT_ALLOWED": "这次检定不能花费天命",
+	"error.LUCK_SPEND_DISABLED": "本团未开启花费天命改骰",
 	"error.LUCK_SPEND_NOT_LATEST": "只能修改最近一次检定",
 	"error.LUCK_SPEND_ALREADY_USED": "这次检定已经花费过天命",
 	"error.LUCK_SPEND_INSUFFICIENT": "当前天命不足",
@@ -1587,13 +1588,19 @@ export const zhCN: Record<string, string> = {
 	"gm.console.noPortrait": "无立绘",
 	"gm.console.defaultSkill": "侦查",
 	"gm.console.rangeHint": "写入与上限范围 0–99 · 当前值超过上限时按上限钳制",
-	"gm.console.settingsTitle": "团设置 · 可见性",
+	"gm.console.settingsTitle": "团设置",
 	"gm.console.sharePcSheets": "公开队友人物卡",
 	"gm.console.sharePcSheetsDescription":
 		"开启后玩家与 OB 都能查看全部 PC 人物卡；NPC 仅 GM 可见",
 	"gm.console.obSeePcState": "OB 可见 PC 数值",
 	"gm.console.obSeePcStateDescription":
 		"关闭后观战位看不到任何 PC 的 HP / MP / SAN",
+	"gm.console.criticalVariant": "大成功 / 大失败判定",
+	"gm.console.criticalVariantDescription":
+		"选择本团采用的判定口径；默认规则书标准。",
+	"gm.console.luckSpend": "允许花费天命改骰",
+	"gm.console.luckSpendDescription":
+		"关闭后玩家不能花费天命修正检定；服务端会拒绝改骰。",
 	"gm.console.noRecipient": "请先选择情报接收的 PC",
 	"gm.console.secretRecipients": "秘密接收：{names}",
 	"gm.console.noRecipients": "未选择接收 PC · 「秘密」与「追加」已禁用",

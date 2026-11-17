@@ -3,6 +3,7 @@ export * from "./creation";
 export * from "./derive";
 export * from "./occupations";
 export * from "./projection";
+export * from "./settings";
 export * from "./sheet";
 export * from "./skills";
 export * from "./spells";

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { Coc7eCriticalVariant } from "./settings";
 
 export const CheckDifficulty = z.enum(["regular", "hard", "extreme"]);
 export type CheckDifficulty = z.infer<typeof CheckDifficulty>;
@@ -31,12 +32,13 @@ export const CheckOutcomeLabel: Record<CheckOutcome, string> = {
 export function coc7eSkillOutcome(
 	targetValue: number,
 	roll: number,
+	variant: Coc7eCriticalVariant = "rulebook",
+	requiredSuccess: number = targetValue,
 ): CheckOutcome {
-	if (roll === 1) {
+	if (isCoc7eCritical(variant, targetValue, roll, requiredSuccess)) {
 		return "critical";
 	}
-	const isFumble = targetValue >= 50 ? roll === 100 : roll >= 96;
-	if (isFumble) {
+	if (isCoc7eFumble(variant, targetValue, roll, requiredSuccess)) {
 		return "fumble";
 	}
 	if (roll <= Math.floor(targetValue / 5)) {
@@ -49,6 +51,49 @@ export function coc7eSkillOutcome(
 		return "regular_success";
 	}
 	return "failure";
+}
+
+function isDoubleRoll(roll: number): boolean {
+	return roll >= 11 && roll <= 99 && roll % 11 === 0;
+}
+
+function isCoc7eCritical(
+	variant: Coc7eCriticalVariant,
+	targetValue: number,
+	roll: number,
+	requiredSuccess: number,
+): boolean {
+	switch (variant) {
+		case "rulebook":
+		case "simple":
+			return roll === 1;
+		case "flat5":
+			return roll <= 5;
+		case "target5":
+			return roll <= 5 && roll <= targetValue;
+		case "doubles":
+			return roll === 1 || (isDoubleRoll(roll) && roll <= requiredSuccess);
+	}
+}
+
+function isCoc7eFumble(
+	variant: Coc7eCriticalVariant,
+	targetValue: number,
+	roll: number,
+	requiredSuccess: number,
+): boolean {
+	switch (variant) {
+		case "rulebook":
+			return requiredSuccess >= 50 ? roll === 100 : roll >= 96;
+		case "simple":
+			return roll === 100;
+		case "flat5":
+			return roll >= 96;
+		case "target5":
+			return roll === 100 || (roll >= 96 && roll > targetValue);
+		case "doubles":
+			return roll === 100 || (isDoubleRoll(roll) && roll > requiredSuccess);
+	}
 }
 
 export function coc7eSkillCheckSuccess(
@@ -105,6 +150,8 @@ export const SkillCheckResult = z.object({
 	luckAfter: z.number().int().min(0).max(99).optional(),
 	/** 孤注一掷结果；v1 无入口，预留给服务端禁用手表 */
 	pushed: z.boolean().optional(),
+	/** 本次检定采用的大成功/大失败判定口径 */
+	criticalVariant: Coc7eCriticalVariant.default("rulebook"),
 });
 export type SkillCheckResult = z.infer<typeof SkillCheckResult>;
 
@@ -210,10 +257,7 @@ export function applyLuckSpend(
 	}
 	const originalRoll = result.originalRoll ?? result.roll;
 	const roll = originalRoll - points;
-	const outcome: CheckOutcome =
-		roll === 1
-			? "extreme_success"
-			: coc7eSkillOutcome(result.targetValue, roll);
+	const outcome = nonCriticalOutcome(result.targetValue, roll);
 	const success = coc7eSkillCheckSuccess(outcome, result.difficulty);
 	return {
 		...result,
@@ -226,6 +270,23 @@ export function applyLuckSpend(
 		luckBefore: luckCurrent,
 		luckAfter: luckCurrent - points,
 	};
+}
+
+/** 花费天命改骰只能提升成功档位，不能把结果改成大成功或大失败。 */
+function nonCriticalOutcome(
+	targetValue: number,
+	roll: number,
+): CheckOutcome {
+	if (roll <= Math.floor(targetValue / 5)) {
+		return "extreme_success";
+	}
+	if (roll <= Math.floor(targetValue / 2)) {
+		return "hard_success";
+	}
+	if (roll <= targetValue) {
+		return "regular_success";
+	}
+	return "failure";
 }
 
 export const SanCheckResult = z.object({

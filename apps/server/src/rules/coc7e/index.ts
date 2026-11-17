@@ -142,6 +142,17 @@ export class Coc7eRuleSystem extends RuleSystem<
 		});
 	}
 
+	parseSessionRuleSettings(settings: unknown): Record<string, unknown> {
+		const record =
+			settings &&
+			typeof settings === "object" &&
+			!Array.isArray(settings)
+				? { ...(settings as Record<string, unknown>) }
+				: {};
+		record[this.id] = coc7e.parseCoc7eSessionRules(record[this.id]);
+		return record;
+	}
+
 	async parseCharacterSheet(
 		input: ArrayBuffer,
 		options?: import("@/rules/rule-system").CharacterSheetParseOptions,
@@ -182,7 +193,9 @@ export class Coc7eRuleSystem extends RuleSystem<
 			difficulty,
 			bonusDice,
 			penaltyDice,
+			ruleSettings,
 		} = input;
+		const rules = this.sessionRules(ruleSettings);
 		const unitsDigit = random.randomInt(0, 9);
 		const netBonus = Math.max(0, bonusDice - penaltyDice);
 		const netPenalty = Math.max(0, penaltyDice - bonusDice);
@@ -206,7 +219,16 @@ export class Coc7eRuleSystem extends RuleSystem<
 			selectedValue = Math.max(...rollValues);
 		}
 
-		const outcome = coc7e.coc7eSkillOutcome(targetValue, selectedValue);
+		const requiredSuccess = coc7e.coc7eDifficultyThreshold(
+			targetValue,
+			difficulty,
+		);
+		const outcome = coc7e.coc7eSkillOutcome(
+			targetValue,
+			selectedValue,
+			rules.criticalVariant,
+			requiredSuccess,
+		);
 		const success = coc7e.coc7eSkillCheckSuccess(outcome, difficulty);
 
 		return {
@@ -226,7 +248,16 @@ export class Coc7eRuleSystem extends RuleSystem<
 					outcome === "extreme_success" ||
 					outcome === "hard_success" ||
 					outcome === "regular_success"),
+			criticalVariant: rules.criticalVariant,
 		};
+	}
+
+	private sessionRules(ruleSettings: unknown): coc7e.Coc7eSessionRules {
+		const record =
+			ruleSettings && typeof ruleSettings === "object"
+				? (ruleSettings as Record<string, unknown>)
+				: {};
+		return coc7e.parseCoc7eSessionRules(record[this.id]);
 	}
 
 	evaluateSanCheck(
@@ -373,7 +404,16 @@ export class Coc7eRuleSystem extends RuleSystem<
 		state: coc7e.CharacterSessionState,
 		checkResult: unknown,
 		points: number,
+		ruleSettings?: unknown,
 	): LuckSpendResult<coc7e.CharacterSessionState> {
+		const rules = this.sessionRules(ruleSettings);
+		if (!rules.allowLuckSpend) {
+			throw new AppError(
+				"LUCK_SPEND_DISABLED",
+				"Luck spending is disabled for this session",
+				400,
+			);
+		}
 		const parsed = coc7e.SkillCheckResult.safeParse(checkResult);
 		if (!parsed.success) {
 			throw new AppError(

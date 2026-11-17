@@ -87,7 +87,9 @@ export function useSessionConnection(
 			if (
 				settingsAfter.sharePcSheets !== settingsBefore.sharePcSheets ||
 				settingsAfter.obSeePcState !== settingsBefore.obSeePcState ||
-				settingsAfter.diceSkin !== settingsBefore.diceSkin
+				settingsAfter.diceSkin !== settingsBefore.diceSkin ||
+				JSON.stringify(settingsAfter.ruleSettings) !==
+					JSON.stringify(settingsBefore.ruleSettings)
 			) {
 				void refreshSnapshot();
 			}

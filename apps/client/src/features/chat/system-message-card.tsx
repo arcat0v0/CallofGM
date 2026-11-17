@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { toast } from "sonner";
+import { coc7e } from "@cogm/shared";
 import { Button } from "@/components/ui/button";
 import type {
 	ChatCheckView,
@@ -183,6 +184,10 @@ function CheckVerdict({
 	const characters = usePlayStore((state) => state.characters);
 	const viewer = usePlayStore((state) => state.viewer);
 	const messages = usePlayStore((state) => state.messages);
+	const settings = usePlayStore((state) => state.settings);
+	const sessionRules = coc7e.parseCoc7eSessionRules(
+		settings.ruleSettings?.coc7e,
+	);
 	const [pendingPoints, setPendingPoints] = useState<number | null>(null);
 	const claimed = characters.find(
 		(character) =>
@@ -213,6 +218,7 @@ function CheckVerdict({
 		0;
 	const canSpendLuck =
 		allowLuckSpend &&
+		sessionRules.allowLuckSpend &&
 		isOwn &&
 		isLatest &&
 		message.eventId !== undefined &&

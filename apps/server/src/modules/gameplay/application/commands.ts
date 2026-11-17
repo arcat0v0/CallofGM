@@ -9,6 +9,7 @@ import {
 	PerformCheckCommand,
 	PerformLuckRecoveryCommand,
 	PerformSanCheckCommand,
+	parseSessionRuleSettingsJson,
 	RespondCheckRequestCommand,
 	RollDiceCommand,
 	SpendLuckCommand,
@@ -408,6 +409,9 @@ export class PerformCheckHandler implements CommandHandler {
 				difficulty: input.difficulty,
 				bonusDice: input.bonusDice,
 				penaltyDice: input.penaltyDice,
+				ruleSettings: parseSessionRuleSettingsJson(
+					ctx.session.ruleSettingsJson,
+				),
 			},
 			ctx.randomSource,
 		);
@@ -678,6 +682,9 @@ export class RespondCheckRequestHandler implements CommandHandler {
 				difficulty: request.difficulty as "regular" | "hard" | "extreme",
 				bonusDice: request.bonusDice,
 				penaltyDice: request.penaltyDice,
+				ruleSettings: parseSessionRuleSettingsJson(
+					ctx.session.ruleSettingsJson,
+				),
 			},
 			ctx.randomSource,
 		);
@@ -833,6 +840,7 @@ export class SpendLuckHandler implements CommandHandler {
 			state,
 			latest.payload.result,
 			input.points,
+			parseSessionRuleSettingsJson(ctx.session.ruleSettingsJson),
 		);
 		const amended = mutated.result as {
 			luckSpent?: number;

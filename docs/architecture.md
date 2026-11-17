@@ -128,6 +128,7 @@ BgmState = { trackId, playing, volume, loop, seekOffset, startedAt(服务器时�
 - 已读状态存于 `handout_reads`（`grantId × playerId` 唯一）：玩家发送 `handout:read` 命令后落库，快照与 REST 返回的 `GrantedHandoutDto` 携带 `read` 字段；自动弹窗只显示未读条目，重连/重进不再重复提示。
 - GM 端的发放回执：快照仅对 GM 下发 `handoutGrants`（每笔发放的接收人、当前认领与已读状态，公开发放附受众与已读人数）；`handout:grant` / `handout:append` / `handout:read` 提交后通过定向消息 `handout:grants` 向 GM 推送最新回执，玩家连接不接收该字段。
 - 团名与人卡可见性：`sessions.name`（可空，界面回退模组名）与 `sessions.share_pc_sheets` / `sessions.ob_see_pc_state`（默认开启）。GM 通过 `session:settings` 命令切换可见性并广播 `session:settings-changed`，客户端收到后重新拉取全量快照，使已连接的玩家立即按新规则生效。
+- 团级规则设置：`sessions.rule_settings_json` 保存按规则 id 分命名空间的 JSON；通用业务层只透传，CoC 7e 的 `coc7e` 子树由 `packages/shared/src/rules/coc7e/settings.ts` 校验并消费（当前包含 `allowLuckSpend` 与 `criticalVariant`）。
 
 ## 历史时间线与回溯
 

@@ -149,4 +149,17 @@ describe("luck spend ticket UI", () => {
 		expect(second.queryByText("花费天命")).toBeNull();
 		expect(second.getByText("花费 33 点天命")).toBeTruthy();
 	});
+
+	test("stays hidden when the session disables luck spending", () => {
+		usePlayStore.setState({
+			settings: {
+				...usePlayStore.getState().settings,
+				ruleSettings: { coc7e: { allowLuckSpend: false } },
+			},
+		});
+		const view = render(
+			<SystemMessageCard message={checkMessage()} allowLuckSpend />,
+		);
+		expect(view.queryByText("花费天命")).toBeNull();
+	});
 });

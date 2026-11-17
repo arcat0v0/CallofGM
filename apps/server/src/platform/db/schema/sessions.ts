@@ -29,6 +29,7 @@ export const sessions = sqliteTable(
 		sharePcSheets: integer("share_pc_sheets").notNull().default(1),
 		obSeePcState: integer("ob_see_pc_state").notNull().default(1),
 		diceSkin: text("dice_skin").notNull().default("olive"),
+		ruleSettingsJson: text("rule_settings_json").notNull().default("{}"),
 		portraitLayout: text("portrait_layout").notNull().default("auto"),
 		portraitScale: text("portrait_scale").notNull().default("md"),
 		growthConfirmedAt: integer("growth_confirmed_at"),

@@ -120,6 +120,7 @@ export class CreateSessionUseCase {
 		characterIds: string[];
 		name?: string;
 		diceSkin?: "olive" | "bone";
+		ruleSettings?: Record<string, unknown>;
 		status?: "waiting" | "preparing";
 	}) {
 		const moduleRecord = await this.repo.findModuleById(input.moduleId);
@@ -174,6 +175,7 @@ export class CreateSessionUseCase {
 			sharePcSheets: 1,
 			obSeePcState: 1,
 			diceSkin: input.diceSkin ?? "olive",
+			ruleSettingsJson: JSON.stringify(input.ruleSettings ?? {}),
 			portraitLayout: "auto",
 			portraitScale: "md",
 			growthConfirmedAt: null,
