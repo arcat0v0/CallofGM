@@ -9,11 +9,14 @@ export type CheckAnimation = {
 	kind: "check";
 	roll: number;
 	outcome: string;
+	tensCandidates?: number[];
 };
 
 export type DiceAnimationRequest = (DiceRollAnimation | CheckAnimation) & {
 	id: string;
+	eventId: number;
 	label: string;
+	caption?: string;
 	hidden?: boolean;
 	skin?: DiceSkin;
 };
@@ -26,6 +29,7 @@ export type DiceAnimationDie = {
 	orientationHint?: string;
 };
 
+export const DICE_RESULT_HOLD_MS = 1600;
 export const DICE_TUMBLE_MS = 750;
 export const DICE_SETTLE_MS = 450;
 export const DICE_HOLD_MS = 1400;
@@ -102,6 +106,22 @@ export function buildDiceAnimationDice(
 ): DiceAnimationDie[] {
 	const assetFor = (name: string) => diceAsset(request.skin ?? "olive", name);
 	if (request.kind === "check") {
+		const candidates = request.tensCandidates;
+		if (candidates && candidates.length > 1) {
+			const units = request.roll % 10;
+			return [
+				...candidates.map((digit) => ({
+					asset: assetFor("d100-tens"),
+					value: digit === 0 ? "00" : String(digit * 10),
+					orientationHint: orientationAsset("d100-tens"),
+				})),
+				{
+					asset: assetFor("d10"),
+					value: String(units),
+					orientationHint: orientationAsset("d10"),
+				},
+			];
+		}
 		const [tens, ones] = d100Digits(request.roll);
 		return [
 			{

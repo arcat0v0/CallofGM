@@ -1,47 +1,20 @@
+import { useState } from "react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 import type {
 	ChatCheckView,
 	ChatMessage,
 	ChatRollView,
 } from "@/features/chat/types";
-import { useState } from "react";
-import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
 import { t } from "@/i18n";
 import { sendSessionCommand } from "@/lib/session-socket";
 import { cn } from "@/lib/utils";
 import { getRuleComponent } from "@/rules/registry";
 import { usePlayStore } from "@/stores/play-store";
+import { PAPER_VARS, PaperSheet as Sheet } from "./paper-sheet";
 
 type SystemMessageView = Omit<ChatMessage, "sortKey"> & {
 	sortKey?: number;
-};
-
-const PAPER_VARS = {
-	"--paper": "#e9dfc6",
-	"--paper-2": "#dfd2b2",
-	"--paper-edge": "#c9b98f",
-	"--paper-ink": "#2b2620",
-	"--paper-ink-2": "#5c5344",
-	"--paper-ink-3": "#8a7d63",
-	"--ink-olive": "#4d6420",
-	"--ink-red": "#8e1f2a",
-	"--ink-gold": "#8a6414",
-	"--paper-line": "rgba(43,38,32,.16)",
-	"--phase-ink": "#f1e6cb",
-	"--phase-ink-2": "#cbbd9b",
-	"--phase-olive": "#c7df8c",
-} as React.CSSProperties;
-
-const PAPER_SURFACE: React.CSSProperties = {
-	backgroundImage: [
-		"radial-gradient(120px 60px at 88% 12%, rgba(120,90,40,.14), transparent 70%)",
-		"radial-gradient(90px 90px at 8% 88%, rgba(120,90,40,.10), transparent 70%)",
-		"repeating-linear-gradient(0deg, transparent 0 26px, rgba(43,38,32,.045) 26px 27px)",
-		"linear-gradient(155deg, var(--paper), var(--paper-2))",
-	].join(","),
-	borderRadius: "3px 14px 4px 12px / 12px 3px 14px 4px",
-	boxShadow:
-		"0 10px 28px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,250,235,.35)",
 };
 
 function ornamentMask(src: string): React.CSSProperties {
@@ -56,23 +29,6 @@ function ornamentMask(src: string): React.CSSProperties {
 		maskSize: "100% 100%",
 		WebkitMaskSize: "100% 100%",
 	};
-}
-
-function Sheet({ children }: { children: React.ReactNode }) {
-	return (
-		<div
-			className="relative w-full min-w-0 overflow-hidden border border-[var(--paper-edge)] px-4 py-3.5 text-[var(--paper-ink)]"
-			style={{ ...PAPER_VARS, ...PAPER_SURFACE }}
-		>
-			<img
-				src="/cthulhu/corner-ornament.svg"
-				alt=""
-				aria-hidden="true"
-				className="pointer-events-none absolute left-1 top-1 size-8 opacity-30"
-			/>
-			{children}
-		</div>
-	);
 }
 
 function PhaseDivider({
@@ -243,12 +199,12 @@ function CheckVerdict({
 			continue;
 		}
 		latestSortKey =
-			latestSortKey === null ? item.sortKey : Math.max(latestSortKey, item.sortKey);
+			latestSortKey === null
+				? item.sortKey
+				: Math.max(latestSortKey, item.sortKey);
 	}
 	const isLatest =
-		isOwn &&
-		message.sortKey !== undefined &&
-		latestSortKey === message.sortKey;
+		isOwn && message.sortKey !== undefined && latestSortKey === message.sortKey;
 	const rule = getRuleComponent(claimed?.ruleId);
 	const characterState = rule.parseState(claimed?.state);
 	const luck =
@@ -368,6 +324,26 @@ function CheckVerdict({
 						</span>
 					) : null}
 				</div>
+				{check.diceModifier ? (
+					<div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 font-mono text-label-small text-[var(--paper-ink-2)]">
+						<span className="border border-[var(--paper-line)] px-1.5 py-0.5">
+							{t(
+								check.diceModifier.kind === "bonus"
+									? "chat.diceBonusLine"
+									: "chat.dicePenaltyLine",
+								{ count: check.diceModifier.count },
+							)}
+						</span>
+						<span>
+							{t("chat.diceCandidates", {
+								candidates: check.diceModifier.candidates.join(" / "),
+							})}
+						</span>
+						<span>
+							{t("chat.diceKept", { picked: check.diceModifier.picked })}
+						</span>
+					</div>
+				) : null}
 				<div className="relative h-7 min-w-0 overflow-hidden">
 					<div
 						className="absolute inset-x-0 bottom-0 h-6 border-b-[1.5px] border-[rgba(43,38,32,.4)]"

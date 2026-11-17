@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { type ReactNode, useEffect, useLayoutEffect, useRef } from "react";
 import {
 	AmbientLight,
 	Box3,
@@ -12,7 +12,9 @@ import {
 	WebGLRenderer,
 } from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { PaperSheet } from "@/features/chat/paper-sheet";
 import { t } from "@/i18n";
+import { cn } from "@/lib/utils";
 import {
 	buildDiceAnimationDice,
 	computeDiceGridLayout,
@@ -20,6 +22,7 @@ import {
 	DICE_CAMERA_DISTANCE,
 	DICE_CAMERA_FOV_DEG,
 	DICE_REDUCED_MOTION_DURATION_MS,
+	DICE_RESULT_HOLD_MS,
 	DICE_SETTLE_MS,
 	DICE_TUMBLE_MS,
 	type DiceAnimationDie,
@@ -38,6 +41,9 @@ type CachedModelTemplate = {
 
 type DiceAnimationLayerProps = {
 	request: DiceAnimationRequest | null;
+	settled?: boolean;
+	result?: ReactNode;
+	onSettle?: () => void;
 	onComplete?: (id: string) => void;
 };
 
@@ -184,12 +190,23 @@ function targetQuaternion(
 
 function DiceAnimationStage({
 	request,
+	settled = false,
+	result,
+	onSettle,
 	onComplete,
 }: {
 	request: DiceAnimationRequest;
+	settled?: boolean;
+	result?: ReactNode;
+	onSettle?: () => void;
 	onComplete?: (id: string) => void;
 }) {
 	const hostRef = useRef<HTMLDivElement>(null);
+	const cardRef = useRef<HTMLDivElement>(null);
+	const diceRef = useRef<HTMLDivElement>(null);
+	const resultRef = useRef<HTMLDivElement>(null);
+	const onSettleRef = useRef(onSettle);
+	onSettleRef.current = onSettle;
 	const onCompleteRef = useRef(onComplete);
 	onCompleteRef.current = onComplete;
 
@@ -250,7 +267,7 @@ function DiceAnimationStage({
 		function finish() {
 			if (disposed || completed) return;
 			completed = true;
-			onCompleteRef.current?.(animationId);
+			onSettleRef.current?.();
 		}
 
 		function layoutDice(width: number, height: number) {
@@ -395,31 +412,86 @@ function DiceAnimationStage({
 
 	const label = request.label || t("dice.animationRolling");
 
+	useEffect(() => {
+		cardRef.current?.scrollIntoView({ block: "nearest" });
+	}, []);
+
+	useLayoutEffect(() => {
+		if (!settled) return;
+		const root = cardRef.current;
+		const dice = diceRef.current;
+		if (!root || !dice) return;
+		root.style.height = `${dice.offsetHeight}px`;
+		root.style.overflow = "hidden";
+		const frame = requestAnimationFrame(() => {
+			root.style.height = `${resultRef.current?.offsetHeight ?? 0}px`;
+		});
+		return () => cancelAnimationFrame(frame);
+	}, [settled]);
+
+	useEffect(() => {
+		if (!settled) return;
+		const timer = setTimeout(
+			() => onCompleteRef.current?.(request.id),
+			DICE_RESULT_HOLD_MS,
+		);
+		return () => clearTimeout(timer);
+	}, [settled, request.id]);
+
 	return (
 		<div
-			className="pointer-events-none fixed inset-0 z-[60] flex flex-col items-center justify-center"
-			aria-hidden="true"
+			ref={cardRef}
+			className="relative w-full shrink-0 transition-[height] duration-300 ease-expressive-fast-spatial"
 			data-slot="dice-animation-stage"
 		>
-			<div className="pointer-events-none absolute inset-x-0 top-0 h-1/3 bg-linear-to-b from-background/55 via-background/10 to-transparent" />
-			<div
-				ref={hostRef}
-				className="pointer-events-none relative h-[min(62vh,560px)] w-[min(88vw,1040px)]"
-				role="presentation"
-			/>
-			<p className="text-foreground drop-shadow-[0_2px_8px_rgba(0,0,0,0.85)] relative -mt-[min(8vh,64px)] text-center font-serif text-headline-medium-emph tabular-nums">
-				{label}
-			</p>
+			<PaperSheet
+				ref={diceRef}
+				aria-hidden="true"
+				className={cn(
+					"pointer-events-none flex flex-col items-center gap-1 transition-all duration-300",
+					settled
+						? "absolute inset-x-0 top-0 scale-95 opacity-0"
+						: "animate-in opacity-100 duration-350 fade-in slide-in-from-bottom-2",
+				)}
+			>
+				<div
+					ref={hostRef}
+					className="pointer-events-none relative h-36 w-full"
+					role="presentation"
+				/>
+				<p className="text-center font-serif text-title-large-emph tabular-nums">
+					{label}
+				</p>
+				{request.caption ? (
+					<p className="text-center font-mono text-label-small text-[var(--paper-ink-2)]">
+						{request.caption}
+					</p>
+				) : null}
+			</PaperSheet>
+			{settled && result ? (
+				<div ref={resultRef} className="animate-in duration-300 fade-in">
+					{result}
+				</div>
+			) : null}
 		</div>
 	);
 }
 
-function DiceAnimationLayer({ request, onComplete }: DiceAnimationLayerProps) {
+function DiceAnimationLayer({
+	request,
+	settled,
+	result,
+	onSettle,
+	onComplete,
+}: DiceAnimationLayerProps) {
 	if (!request) return null;
 	return (
 		<DiceAnimationStage
 			key={request.id}
 			request={request}
+			settled={settled}
+			result={result}
+			onSettle={onSettle}
 			onComplete={onComplete}
 		/>
 	);

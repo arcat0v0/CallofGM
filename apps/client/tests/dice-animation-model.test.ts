@@ -17,6 +17,7 @@ describe("dice animation model", () => {
 	test("uses the 00 face for a d100 result of 100", () => {
 		const dice = buildDiceAnimationDice({
 			id: "roll-100",
+			eventId: 100,
 			kind: "roll",
 			faces: 100,
 			total: 100,
@@ -30,6 +31,7 @@ describe("dice animation model", () => {
 		for (const roll of [1, 5, 9]) {
 			const dice = buildDiceAnimationDice({
 				id: `roll-${roll}`,
+				eventId: roll,
 				kind: "roll",
 				faces: 100,
 				total: roll,
@@ -43,6 +45,7 @@ describe("dice animation model", () => {
 	test("splits d100 rolls individually even with modifiers or multiple dice", () => {
 		const modified = buildDiceAnimationDice({
 			id: "roll-mod",
+			eventId: 101,
 			kind: "roll",
 			faces: 100,
 			total: 55,
@@ -53,6 +56,7 @@ describe("dice animation model", () => {
 
 		const multi = buildDiceAnimationDice({
 			id: "roll-multi",
+			eventId: 102,
 			kind: "roll",
 			faces: 100,
 			total: 41,
@@ -86,6 +90,7 @@ describe("dice animation model", () => {
 	test("uses a single olive die for common direct rolls", () => {
 		const dice = buildDiceAnimationDice({
 			id: "roll-1",
+			eventId: 103,
 			kind: "roll",
 			faces: 6,
 			total: 5,
@@ -105,6 +110,7 @@ describe("dice animation model", () => {
 		for (const faces of [4, 8, 12]) {
 			const dice = buildDiceAnimationDice({
 				id: `roll-${faces}`,
+				eventId: faces,
 				kind: "roll",
 				faces,
 				total: 3,
@@ -124,12 +130,26 @@ describe("dice animation model", () => {
 	test("uses the authoritative check roll for the percentile pair", () => {
 		const dice = buildDiceAnimationDice({
 			id: "check-1",
+			eventId: 104,
 			kind: "check",
 			roll: 72,
 			outcome: "failure",
 			label: "侦查 72",
 		});
 		expect(dice.map((die) => die.value)).toEqual(["70", "2"]);
+	});
+
+	test("shows every tens candidate die plus one units die for bonus dice", () => {
+		const dice = buildDiceAnimationDice({
+			id: "check-2",
+			eventId: 105,
+			kind: "check",
+			roll: 34,
+			outcome: "regular_success",
+			tensCandidates: [3, 7],
+			label: "结果 34",
+		});
+		expect(dice.map((die) => die.value)).toEqual(["30", "70", "4"]);
 	});
 
 	test("parses only supported single dice expressions", () => {

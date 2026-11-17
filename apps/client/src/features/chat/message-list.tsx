@@ -3,6 +3,8 @@ import { type ReactNode, useCallback, useLayoutEffect, useRef } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { DiceAnimationHost } from "@/features/dice-animation/dice-animation-host";
+import { useDiceEventStore } from "@/features/dice-animation/dice-event-store";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 import type { ChatMessage } from "./types";
@@ -40,6 +42,11 @@ function MessageList({
 	renderMessage?: (message: ChatMessage, meta: MessageMeta) => ReactNode;
 	stickToBottom?: boolean;
 }) {
+	const activeDiceId = useDiceEventStore((state) => state.activeId);
+	const animated =
+		activeDiceId === null
+			? undefined
+			: messages.find((message) => message.eventId === activeDiceId);
 	const containerRef = useRef<HTMLDivElement | null>(null);
 	const anchor = useRef<{
 		firstId: string | undefined;
@@ -115,6 +122,7 @@ function MessageList({
 				</div>
 			) : null}
 			{messages.map((message, index) => {
+				if (animated && message.id === animated.id) return null;
 				const system = isSystemMessage(message);
 				const self = Boolean(selfName) && message.speakerName === selfName;
 				const previous = messages[index - 1];
@@ -222,6 +230,17 @@ function MessageList({
 					</div>
 				);
 			})}
+			<DiceAnimationHost
+				result={
+					animated && renderMessage
+						? renderMessage(animated, {
+								self: Boolean(selfName) && animated.speakerName === selfName,
+								continued: false,
+								isSystem: isSystemMessage(animated),
+							})
+						: undefined
+				}
+			/>
 		</div>
 	);
 }

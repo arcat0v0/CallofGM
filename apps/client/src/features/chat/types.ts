@@ -37,6 +37,12 @@ export type ChatCheckView = {
 	luckBefore?: number;
 	luckAfter?: number;
 	pushed?: boolean;
+	diceModifier?: {
+		kind: "bonus" | "penalty";
+		count: number;
+		candidates: number[];
+		picked: number;
+	};
 };
 
 export type ChatPhaseView = {

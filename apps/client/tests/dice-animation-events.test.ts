@@ -48,6 +48,30 @@ describe("dice animation event mapping", () => {
 		});
 	});
 
+	test("describes bonus dice candidates in the check animation", () => {
+		const animation = diceAnimationFromMessage({
+			protocolVersion: 1,
+			eventId: 14,
+			type: "check:resolved",
+			occurredAt: 1,
+			payload: {
+				hidden: false,
+				result: {
+					roll: 34,
+					outcome: "regular_success",
+					bonusDice: 1,
+					penaltyDice: 0,
+					tensCandidates: [3, 7],
+				},
+			},
+		} satisfies SessionEvent);
+		expect(animation).toMatchObject({
+			kind: "check",
+			tensCandidates: [3, 7],
+			caption: "奖励骰 · 候选 34 / 74 · 取 34",
+		});
+	});
+
 	test("never animates hidden results or non-dice live events", () => {
 		expect(
 			diceAnimationFromMessage({

@@ -1,5 +1,6 @@
 import type { SessionEvent } from "@cogm/shared";
 import { t } from "@/i18n";
+import { checkDiceModifier, parseTensCandidates } from "@/lib/check-dice";
 import {
 	type DiceAnimationRequest,
 	type DiceSkin,
@@ -44,6 +45,7 @@ export function diceAnimationFromMessage(
 		if (rolls.length === 0) return null;
 		return {
 			id: `dice-${eventId}`,
+			eventId: message.eventId,
 			kind: "roll",
 			faces,
 			total,
@@ -65,12 +67,31 @@ export function diceAnimationFromMessage(
 			result && typeof result.outcome === "string"
 				? result.outcome
 				: String(result?.success ?? "unknown");
+		const modifier = result ? checkDiceModifier(result) : null;
+		const tensCandidates = result
+			? parseTensCandidates(result.tensCandidates)
+			: [];
 		return {
 			id: `check-${eventId}`,
+			eventId: message.eventId,
 			kind: "check",
 			roll,
 			outcome,
+			...(modifier ? { tensCandidates } : {}),
 			label: t("dice.animationResult", { total: roll }),
+			...(modifier
+				? {
+						caption: t(
+							modifier.kind === "bonus"
+								? "dice.animationBonus"
+								: "dice.animationPenalty",
+							{
+								candidates: modifier.candidates.join(" / "),
+								picked: modifier.picked,
+							},
+						),
+					}
+				: {}),
 			skin,
 		};
 	}

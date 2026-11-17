@@ -14,6 +14,7 @@ import type {
 	ChatRollView,
 } from "@/features/chat/types";
 import { t } from "@/i18n";
+import { checkDiceModifier } from "@/lib/check-dice";
 import { expressionLabel, formatClock, initialsOf } from "@/lib/format";
 import { getRuleComponent } from "@/rules/registry";
 
@@ -450,6 +451,7 @@ export function mapActivityEvent(
 							luckBefore,
 							luckAfter,
 							pushed: result.pushed === true,
+							diceModifier: checkDiceModifier(result) ?? undefined,
 						},
 					}),
 		};

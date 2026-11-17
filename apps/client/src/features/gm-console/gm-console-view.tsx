@@ -1,12 +1,7 @@
-import type {
-	CatalogHandoutDto,
-	SceneDto,
-	SessionEvent,
-	TrackDto,
-} from "@cogm/shared";
+import type { CatalogHandoutDto, SceneDto, TrackDto } from "@cogm/shared";
 import { useParams } from "@tanstack/react-router";
-import { useCallback, useEffect, useState } from "react";
-import { DiceAnimationHost } from "@/features/dice-animation/dice-animation-host";
+import { useEffect, useState } from "react";
+import { useDiceEventStore } from "@/features/dice-animation/dice-event-store";
 import { GmHistoryOverlay } from "@/features/history/gm-history-overlay";
 import { ConnectionBanner } from "@/features/play/connection-banner";
 import { SessionTerminalOverlay } from "@/features/play/session-terminal-overlay";
@@ -29,10 +24,7 @@ import { GmTopBar } from "./gm-top-bar";
 function GmConsoleView() {
 	useI18nVersion();
 	const { sessionId } = useParams({ from: "/gm/session/$sessionId" });
-	const [lastMessage, setLastMessage] = useState<SessionEvent | null>(null);
-	const observeMessage = useCallback((message: SessionEvent) => {
-		setLastMessage(message);
-	}, []);
+	const observeMessage = useDiceEventStore((state) => state.observe);
 	const { retry } = useSessionConnection(sessionId, {
 		ensurePlayer: false,
 		onLiveEvent: observeMessage,
@@ -116,7 +108,6 @@ function GmConsoleView() {
 	return (
 		<GmThemeScope>
 			<GmToolProvider>
-				<DiceAnimationHost message={lastMessage} />
 				<div className="bg-background relative h-dvh w-full overflow-hidden">
 					<ThemeSlot
 						name="gm-console.layout"
