@@ -265,7 +265,7 @@ export function applyLuckSpend(
 	luckCurrent: number,
 	variant: Coc7eCriticalVariant = result.criticalVariant ?? "rulebook",
 ): SkillCheckResult | null {
-	const options = luckSpendOptions(result, luckCurrent);
+	const options = luckSpendOptions(result, luckCurrent, variant);
 	if (!options.some((option) => option.points === points)) {
 		return null;
 	}

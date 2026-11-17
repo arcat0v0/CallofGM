@@ -656,6 +656,38 @@ describe("CoC 7e 天命（幸运）", () => {
 		});
 	});
 
+	test("花费天命改骰：旧票据无口径标记时按团设置口径判级，不会花出大失败", () => {
+		const unstamped = {
+			characterId: "c1",
+			skillKey: "侦查",
+			targetValue: 96,
+			difficulty: "regular",
+			bonusDice: 0,
+			penaltyDice: 0,
+			tensCandidates: [9],
+			roll: 97,
+			outcome: "failure",
+			success: false,
+			growthEligible: false,
+		} satisfies coc7e.SkillCheckResult;
+		const ruleSettings = {
+			coc7e: { allowLuckSpend: true, criticalVariant: "wide" },
+		};
+		let caught: unknown;
+		try {
+			rule.spendLuckOnCheck(
+				{ ...baseState, luck: 99 },
+				unstamped,
+				1,
+				ruleSettings,
+			);
+		} catch (error) {
+			caught = error;
+		}
+		expect(caught).toBeInstanceOf(AppError);
+		expect((caught as AppError).code).toBe("LUCK_SPEND_INVALID_POINTS");
+	});
+
 	test("花费天命禁用手表", () => {
 		const failed = check({ tens: [6], units: 3 });
 		const fumble = check({ tens: [0], units: 0 });
