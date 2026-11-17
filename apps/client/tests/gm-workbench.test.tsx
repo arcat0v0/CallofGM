@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import type { SnapshotCharacter } from "@cogm/shared";
 import { render } from "@testing-library/react";
+import { CheckPanel } from "../src/features/gm-console/check-panel";
 import { GmChatPanel } from "../src/features/gm-console/gm-chat-panel";
 import { CharacterStateCard } from "../src/features/gm-console/gm-panel-stage";
 import { GmToolProvider } from "../src/features/gm-console/gm-tool-context";
@@ -116,5 +117,11 @@ describe("GM workbench B2 composition", () => {
 		for (const label of ["场景", "人物", "情报", "鉴定", "声音"]) {
 			expect(view.getByRole("button", { name: label })).toBeTruthy();
 		}
+	});
+
+	test("check panel keeps luck as a normal attribute instead of a destiny shortcut", () => {
+		const view = render(<CheckPanel onClose={() => undefined} />);
+		expect(view.getByText("鉴定")).toBeTruthy();
+		expect(view.queryByText("天命检定")).toBeNull();
 	});
 });

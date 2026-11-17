@@ -1836,7 +1836,6 @@ export const zhCN: Record<string, string> = {
 	"gm.workbench.checkType": "鉴定类型",
 	"gm.workbench.skillCheck": "技能 / 属性鉴定",
 	"gm.workbench.sanCheck": "理智检定",
-	"gm.workbench.destinyCheck": "天命检定",
 	"gm.workbench.checkTarget": "鉴定对象",
 	"gm.workbench.skillOrAttribute": "技能 / 属性",
 	"gm.workbench.difficulty": "难度",
