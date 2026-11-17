@@ -1,3 +1,5 @@
+import type { TrackSource } from "@cogm/shared";
+
 export interface TemplateRecord {
 	id: string;
 	ownerId: string;
@@ -38,7 +40,12 @@ export interface TemplateTrackRecord {
 	id: string;
 	templateId: string;
 	name: string;
-	audioAssetId: string;
+	source: TrackSource;
+	audioAssetId: string | null;
+	externalId: string | null;
+	artists: string[];
+	album: string | null;
+	sourceUrl: string | null;
 	type: string;
 	duration: number;
 	deletedAt: number | null;
@@ -68,7 +75,12 @@ export interface TemplateSnapshot {
 	scenes: Array<{ name: string; sortOrder: number; bgAssetId: string | null }>;
 	tracks: Array<{
 		name: string;
-		audioAssetId: string;
+		source?: TrackSource;
+		audioAssetId: string | null;
+		externalId?: string | null;
+		artists?: string[];
+		album?: string | null;
+		sourceUrl?: string | null;
 		type: string;
 		duration: number;
 	}>;

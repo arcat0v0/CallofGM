@@ -1,0 +1,240 @@
+import { beforeEach, describe, expect, mock, test } from "bun:test";
+import type { BgmState, SePlayedEvent } from "@cogm/shared";
+import { fireEvent, renderHook } from "@testing-library/react";
+import { currentBgmPosition, useBgmPlayback } from "../src/lib/bgm";
+
+class FakeHowl {
+	static instances: FakeHowl[] = [];
+	readonly options: Record<string, unknown>;
+	readonly fadeCalls: Array<[number, number, number]> = [];
+	readonly unload = mock(() => undefined);
+	readonly play = mock(() => {
+		this.isPlaying = true;
+		return 1;
+	});
+	readonly pause = mock(() => {
+		this.isPlaying = false;
+		return this;
+	});
+	isPlaying = false;
+	private currentVolume: number;
+	private currentSeek = 0;
+	private looping = false;
+	private listeners = new Map<string, () => void>();
+
+	constructor(options: Record<string, unknown>) {
+		this.options = options;
+		this.currentVolume = Number(options.volume ?? 1);
+		this.looping = Boolean(options.loop);
+		FakeHowl.instances.push(this);
+	}
+
+	state() {
+		return "loaded";
+	}
+
+	volume(value?: number) {
+		if (value === undefined) return this.currentVolume;
+		this.currentVolume = value;
+		return this;
+	}
+
+	loop(value?: boolean) {
+		if (value === undefined) return this.looping;
+		this.looping = value;
+		return this;
+	}
+
+	seek(value?: number) {
+		if (value === undefined) return this.currentSeek;
+		this.currentSeek = value;
+		return this;
+	}
+
+	playing() {
+		return this.isPlaying;
+	}
+
+	fade(from: number, to: number, duration: number) {
+		this.fadeCalls.push([from, to, duration]);
+		this.currentVolume = to;
+		return this;
+	}
+
+	once(event: string, listener: () => void) {
+		this.listeners.set(event, listener);
+		return this;
+	}
+
+	finish() {
+		this.listeners.get("end")?.();
+	}
+}
+
+mock.module("howler", () => ({ Howl: FakeHowl }));
+
+function bgm(overrides: Partial<BgmState> = {}): BgmState {
+	return {
+		trackId: "track-a",
+		playing: true,
+		volume: 80,
+		loop: false,
+		seekOffsetMs: 10_000,
+		startedAtMs: Date.now() - 2_000,
+		version: 1,
+		durationMs: 60_000,
+		audioAssetId: "asset-a",
+		...overrides,
+	};
+}
+
+function firstHowl() {
+	const howl = FakeHowl.instances[0];
+	if (!howl) {
+		throw new Error("Expected a Howl instance");
+	}
+	return howl;
+}
+
+beforeEach(() => {
+	FakeHowl.instances.length = 0;
+});
+
+describe("BGM position and Howler synchronization", () => {
+	test("unlocks audio with an explicit WAV format", () => {
+		renderHook(() => useBgmPlayback(null, null));
+		fireEvent.pointerDown(window);
+		const unlock = firstHowl();
+		expect(unlock.options.format).toEqual(["wav"]);
+		expect(unlock.play).toHaveBeenCalledTimes(1);
+		expect(unlock.unload).toHaveBeenCalledTimes(1);
+	});
+
+	test("derives paused, looping and ended positions", () => {
+		const now = Date.now();
+		expect(currentBgmPosition(bgm({ playing: false }), now)).toBe(10_000);
+		expect(
+			currentBgmPosition(
+				bgm({ loop: true, seekOffsetMs: 58_000, startedAtMs: now - 4_000 }),
+				now,
+			),
+		).toBe(2_000);
+		expect(
+			currentBgmPosition(
+				bgm({ seekOffsetMs: 58_000, startedAtMs: now - 4_000 }),
+				now,
+			),
+		).toBe(60_000);
+	});
+
+	test("plays at the authoritative offset and pauses without recreating the asset", () => {
+		const initial = bgm();
+		const hook = renderHook(
+			({ state }) =>
+				useBgmPlayback(state, "/api/v1/media/asset-a", null, undefined, {
+					isGm: true,
+				}),
+			{ initialProps: { state: initial } },
+		);
+		const howl = firstHowl();
+		expect(howl.options.src).toEqual(["/api/v1/media/asset-a"]);
+		expect(howl.seek()).toBeGreaterThanOrEqual(12);
+		expect(howl.play).toHaveBeenCalledTimes(1);
+		hook.rerender({
+			state: bgm({ playing: false, seekOffsetMs: 12_000, version: 2 }),
+		});
+		expect(FakeHowl.instances).toHaveLength(1);
+		expect(howl.pause).toHaveBeenCalledTimes(1);
+		hook.rerender({
+			state: bgm({
+				playing: true,
+				seekOffsetMs: 30_000,
+				startedAtMs: Date.now(),
+				version: 3,
+			}),
+		});
+		expect(howl.seek()).toBeGreaterThanOrEqual(30);
+		expect(howl.play).toHaveBeenCalledTimes(2);
+	});
+
+	test("applies loop, volume transitions and asset replacement cleanup", () => {
+		const hook = renderHook(
+			({ state, asset, transitionMs }) =>
+				useBgmPlayback(state, asset, null, undefined, {
+					isGm: true,
+					transitionMs,
+				}),
+			{
+				initialProps: {
+					state: bgm(),
+					asset: "/api/v1/media/asset-a",
+					transitionMs: 400,
+				},
+			},
+		);
+		const first = firstHowl();
+		hook.rerender({
+			state: bgm({ loop: true, volume: 30, version: 2 }),
+			asset: "/api/v1/media/asset-a",
+			transitionMs: 1_000,
+		});
+		expect(first.loop()).toBe(true);
+		expect(first.fadeCalls.at(-1)).toEqual([0.8, 0.3, 1_000]);
+		hook.rerender({
+			state: bgm({ trackId: "track-b", version: 3 }),
+			asset: "/api/v1/media/asset-b",
+			transitionMs: 400,
+		});
+		expect(first.unload).toHaveBeenCalledTimes(1);
+		expect(FakeHowl.instances).toHaveLength(2);
+		hook.unmount();
+		expect(FakeHowl.instances[1]?.unload).toHaveBeenCalledTimes(1);
+	});
+
+	test("uses same-origin platform streams and retries a failed load", () => {
+		const onPlaybackStatus = mock(() => undefined);
+		const source = "/api/v1/music/tracks/track-a/stream";
+		const hook = renderHook(
+			({ retryRevision }) =>
+				useBgmPlayback(bgm(), source, null, undefined, {
+					isGm: true,
+					retryRevision,
+					onPlaybackStatus,
+				}),
+			{ initialProps: { retryRevision: 0 } },
+		);
+		const first = firstHowl();
+		expect(first.options.src).toEqual([source]);
+		const onLoadError = first.options.onloaderror as
+			| ((id: number, error: unknown) => void)
+			| undefined;
+		onLoadError?.(1, "failed");
+		expect(onPlaybackStatus).toHaveBeenCalledWith("error");
+		hook.rerender({ retryRevision: 1 });
+		expect(first.unload).toHaveBeenCalledTimes(1);
+		expect(FakeHowl.instances).toHaveLength(2);
+		expect(FakeHowl.instances[1]?.options.src).toEqual([source]);
+	});
+
+	test("plays a one-shot SE, updates its local volume and unloads on end", () => {
+		const cue: SePlayedEvent = {
+			trackId: "se-door",
+			volume: 80,
+			audioAssetId: "asset-door",
+		};
+		const played = mock(() => undefined);
+		const hook = renderHook(
+			({ localVolume }) =>
+				useBgmPlayback(null, null, cue, played, { localVolume, isGm: false }),
+			{ initialProps: { localVolume: 100 } },
+		);
+		const se = firstHowl();
+		expect(se.play).toHaveBeenCalledTimes(1);
+		expect(se.volume()).toBe(0.8);
+		expect(played).toHaveBeenCalledTimes(1);
+		hook.rerender({ localVolume: 50 });
+		expect(se.volume()).toBe(0.4);
+		se.finish();
+		expect(se.unload).toHaveBeenCalledTimes(1);
+	});
+});

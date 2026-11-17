@@ -1,4 +1,5 @@
 import { type Env, parseEnv } from "@/config/env";
+import { type MusicService, OfficialMusicService } from "@/modules/music";
 import {
 	BuildSessionSnapshotUseCase,
 	type CommandHandler,
@@ -41,6 +42,7 @@ export class Container {
 	readonly httpLimits: HttpLimits;
 	readonly themeRegistry: ThemeRegistry;
 
+	readonly musicService: MusicService;
 	readonly connectionRegistry: ConnectionRegistry;
 	readonly eventRingBuffer: EventRingBuffer;
 	readonly presenceService: PresenceService;
@@ -56,6 +58,7 @@ export class Container {
 			idGenerator?: IdGenerator;
 			randomSource?: RandomSource;
 			httpLimits?: HttpLimits;
+			musicService?: MusicService;
 		} = {},
 	) {
 		this.env = parseEnv();
@@ -72,6 +75,7 @@ export class Container {
 		);
 		this.httpLimits = overrides.httpLimits ?? new HttpLimits();
 
+		this.musicService = overrides.musicService ?? new OfficialMusicService();
 		this.ruleRegistry = new RuleRegistry();
 		this.ruleRegistry.register(new Coc7eRuleSystem());
 		this.themeRegistry = new ThemeRegistry(this.env.THEMES_DIR, this.clock);

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { HandoutDto } from "./handouts";
+import { MusicProvider, TrackSource } from "./music";
 import { RuleId } from "./rules/rule-id";
 import { ThemeId } from "./themes";
 
@@ -32,12 +33,29 @@ export const UpdateSceneRequest = z.object({
 });
 export type UpdateSceneRequest = z.infer<typeof UpdateSceneRequest>;
 
-export const CreateTrackRequest = z.object({
+export const CreateUploadTrackRequest = z.object({
+	source: z.literal("upload").optional().default("upload"),
 	name: z.string().min(1),
 	audioAssetId: z.string().min(1),
 	type: z.enum(["bgm", "se"]),
 	duration: z.number().int().min(0),
 });
+export type CreateUploadTrackRequest = z.infer<typeof CreateUploadTrackRequest>;
+
+export const CreateExternalTrackRequest = z.object({
+	source: MusicProvider,
+	reference: z.string().trim().min(1).max(2048),
+	name: z.string().trim().min(1).max(200).optional(),
+	type: z.enum(["bgm", "se"]),
+});
+export type CreateExternalTrackRequest = z.infer<
+	typeof CreateExternalTrackRequest
+>;
+
+export const CreateTrackRequest = z.union([
+	CreateUploadTrackRequest,
+	CreateExternalTrackRequest,
+]);
 export type CreateTrackRequest = z.infer<typeof CreateTrackRequest>;
 
 export const UpdateTrackRequest = z.object({
@@ -95,7 +113,12 @@ export const TrackDto = z.object({
 	id: z.string(),
 	moduleId: z.string(),
 	name: z.string(),
-	audioAssetId: z.string(),
+	source: TrackSource,
+	audioAssetId: z.string().nullable(),
+	externalId: z.string().nullable(),
+	artists: z.array(z.string()),
+	album: z.string().nullable(),
+	sourceUrl: z.string().url().nullable(),
 	type: z.enum(["bgm", "se"]),
 	duration: z.number().int(),
 	audioSize: z.number().int().nullable(),

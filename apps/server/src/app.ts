@@ -9,6 +9,7 @@ import { createCatalogRoutes } from "./modules/catalog";
 import { createCharactersRoutes } from "./modules/characters";
 import { createIdentityRoutes } from "./modules/identity";
 import { createMediaRoutes } from "./modules/media";
+import { createMusicRoutes } from "./modules/music";
 import { createRealtimeRoutes } from "./modules/realtime";
 import { createRulesRoutes } from "./modules/rules";
 import { createSessionsRoutes } from "./modules/sessions";
@@ -154,6 +155,7 @@ export function createApp(
 		})
 		.use(createIdentityRoutes(container))
 		.use(createMediaRoutes(container))
+		.use(createMusicRoutes(container))
 		.use(createCatalogRoutes(container))
 		.use(createCharactersRoutes(container))
 		.use(createSessionsRoutes(container))

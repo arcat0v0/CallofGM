@@ -1,3 +1,5 @@
+import type { TrackSource } from "@cogm/shared";
+
 export interface CatalogModule {
 	id: string;
 	ownerId: string;
@@ -26,7 +28,12 @@ export interface CatalogTrack {
 	id: string;
 	moduleId: string;
 	name: string;
-	audioAssetId: string;
+	source: TrackSource;
+	audioAssetId: string | null;
+	externalId: string | null;
+	artists: string[];
+	album: string | null;
+	sourceUrl: string | null;
 	type: "bgm" | "se";
 	duration: number;
 	audioSize: number | null;

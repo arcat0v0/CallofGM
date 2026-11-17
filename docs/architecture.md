@@ -120,6 +120,18 @@ BgmState = { trackId, playing, volume, loop, seekOffset, startedAt(服务器时�
 - **SE 音效**为一次性广播（fire-and-forget），不进快照。
 - 玩家本地可静音/调本地音量，不影响他人；进团点击作为浏览器音频解锁手势。
 
+### 曲目来源与平台接口
+
+- `tracks.source` 为 `upload | netease | qq`。上传曲目引用 `audio_asset_id`；平台曲目的该字段为 NULL，并保存 `external_id`、`artists_json`、`album`、`source_url`。临时 CDN URL、vkey、Cookie 与账号凭据不入库。`template_tracks` 和模板 JSON 快照保存同一来源信息，实例化生成新曲目行。
+- 搜索：`GET /api/v1/gm/music/search?provider=netease|qq&query=<关键词>&limit=1..20`，返回 `{ items: MusicTrackDto[] }`。搜索结果的 `availability` 为 `unknown`，不把关键词命中当作可播保证。
+- 解析：`POST /api/v1/gm/music/resolve`，body 为 `{ provider, reference }`；`reference` 只接受平台歌曲 ID 或严格白名单的官方歌曲页。服务端读取官方元数据并实际读取首字节，成功后返回 `availability=available`。
+- 添加：沿用 `POST /api/v1/gm/modules/:id/tracks`。上传 body 保持 `{ source?: "upload", name, audioAssetId, type, duration }`；平台 body 为 `{ source: "netease" | "qq", reference, type, name? }`，名称、艺术家、专辑、时长和 canonical `sourceUrl` 以服务端解析结果为准，显式 `name` 可覆盖曲名。添加前同样验证真实音频首字节。
+- `TrackDto` 增加 `source`、`externalId`、`artists`、`album`、`sourceUrl`，`audioAssetId` 对平台曲目为 null。BGM 快照/事件与 SE 事件增加内部 `playbackUrl`：上传曲目为 `/api/v1/media/:assetId`，平台曲目为 `/api/v1/music/tracks/:trackId/stream`。客户端不接触临时官方直链。
+- 平台流接口仅允许曲目所属模组的 GM 或在该模组团内持有效席位的玩家/OB 读取，其他 GM 的资源统一 404。接口接受单个 `Range: bytes=start-end`（也支持开放尾部/后缀范围），转发官方 200/206、Content-Length、Content-Range 与 Accept-Ranges；多重 Range 返回 416。
+- 代理只从代码内官方端点构造目标：网易云 `music.163.com` 与 `*.music.126.net`，QQ 音乐 `*.stream.qqmusic.qq.com` / `aqqmusic.tc.qq.com`。每次重定向重新校验 hostname，禁止凭据、端口、非 HTTPS 与非白名单目标；官方返回的 HTTP CDN 地址仅升级 HTTPS 后读取。没有任意 URL 代理入口。
+- 请求/流空闲超时 10 秒，最多 5 次目标校验（含初始地址），音频上限 64 MiB，Content-Length、Content-Range 总大小与实际流字节均受限，Content-Type 必须为 `audio/*`。QQ 匿名 vkey 返回合法响应但空 `purl` 时，最多重试 3 次且每次使用新的匿名 guid；仍为空、上游 401/403/404/451、网易云 404 跳转映射为 `MUSIC_UNAVAILABLE`；超时、上游故障、非法响应与超限分别返回稳定错误，不假播放。
+- 官方公开接口本身没有稳定性或永久版权保证；搜索、添加与每次播放都可能遇到平台变更。默认确定性测试使用受控 Provider，真实只读网络测试独立为 `bun run --cwd apps/server test:music:network`，不使用任何生产凭据。
+
 ## 情报发放
 
 - 情报条目存于模组（标题、正文、可选图片），发放记录存于团：`{ handoutId, sessionId, visibility: 'all' | pcIds[] , grantedAt }`。

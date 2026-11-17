@@ -1,7 +1,17 @@
 import { describe, expect, test } from "bun:test";
+import { ApiError } from "../src/lib/api";
 import { errorCopy } from "../src/lib/error-copy";
 
 describe("errorCopy", () => {
+	test("maps MUSIC_UNAVAILABLE to Chinese instead of the English server message", () => {
+		const error = new ApiError(
+			422,
+			"MUSIC_UNAVAILABLE",
+			"This song is not publicly playable without login, purchase, VIP or regional rights",
+		);
+		expect(error.message).toBe("这首歌曲当前不可公开播放，请选择其他曲目");
+		expect(error.message).not.toContain("publicly playable");
+	});
 	test("maps stable server error codes to Chinese copy", () => {
 		expect(errorCopy({ code: "SESSION_PHASE_FORBIDS_ACTION" })).toBe(
 			"当前阶段或席位不允许该操作",

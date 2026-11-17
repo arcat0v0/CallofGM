@@ -6,6 +6,7 @@ import {
 	TemplateDetailDto,
 	TemplateDto,
 } from "@cogm/shared";
+import { tracks } from "@/platform/db/schema";
 import {
 	listenTestApp,
 	loginToken,
@@ -308,6 +309,70 @@ describe("Module templates and quick start", () => {
 			token: ctx.gmToken,
 		});
 		expect(afterRestore.status).toBe(200);
+	});
+
+	test("平台曲目在模板当前内容、历史版本和实例化模组间完整复制", async () => {
+		await ctx.container.db.insert(tracks).values({
+			id: "track-template-netease",
+			moduleId: sourceModuleId,
+			name: "公开曲目",
+			source: "netease",
+			externalId: "1913586094",
+			artistsJson: JSON.stringify(["不成风"]),
+			album: "不合群",
+			sourceUrl: "https://music.163.com/song?id=1913586094",
+			audioAssetId: null,
+			type: "bgm",
+			duration: 123456,
+			createdAt: Date.now(),
+		});
+		const template = await createTemplate("平台曲目模板");
+		const detail = TemplateDetailDto.parse(
+			await (
+				await api(`/api/v1/gm/templates/${template.id}`, { token: ctx.gmToken })
+			).json(),
+		);
+		expect(detail.tracks).toEqual([
+			expect.objectContaining({
+				source: "netease",
+				externalId: "1913586094",
+				audioAssetId: null,
+				artists: ["不成风"],
+				album: "不合群",
+			}),
+		]);
+
+		const saved = await api(`/api/v1/gm/templates/${template.id}/versions`, {
+			method: "POST",
+			token: ctx.gmToken,
+			body: JSON.stringify({ note: "平台曲目版本" }),
+		});
+		expect(saved.status).toBe(200);
+		const instantiated = await api(
+			`/api/v1/gm/templates/${template.id}/instantiate`,
+			{
+				method: "POST",
+				token: ctx.gmToken,
+				body: JSON.stringify({ version: 1, quickStart: false }),
+			},
+		);
+		expect(instantiated.status).toBe(200);
+		const { moduleId } = InstantiateTemplateResponse.parse(
+			await instantiated.json(),
+		);
+		const copied = await api(`/api/v1/gm/modules/${moduleId}/tracks?limit=20`, {
+			token: ctx.gmToken,
+		});
+		expect((await copied.json()).items).toEqual([
+			expect.objectContaining({
+				source: "netease",
+				externalId: "1913586094",
+				audioAssetId: null,
+				artists: ["不成风"],
+				album: "不合群",
+				duration: 123456,
+			}),
+		]);
 	});
 
 	test("未注册规则无法建模板", async () => {

@@ -79,9 +79,12 @@ export const templateTracks = sqliteTable(
 			.notNull()
 			.references(() => templates.id),
 		name: text("name").notNull(),
-		audioAssetId: text("audio_asset_id")
-			.notNull()
-			.references(() => mediaAssets.id),
+		source: text("source").notNull().default("upload"),
+		externalId: text("external_id"),
+		artistsJson: text("artists_json").notNull().default("[]"),
+		album: text("album"),
+		sourceUrl: text("source_url"),
+		audioAssetId: text("audio_asset_id").references(() => mediaAssets.id),
 		type: text("type").notNull(),
 		duration: integer("duration").notNull().default(0),
 		deletedAt: integer("deleted_at"),

@@ -12,7 +12,8 @@
     "db:migrate": "bun run src/platform/db/migrate-cli.ts",
     "setup:admin": "bun run scripts/setup-admin.ts",
     "db:check": "drizzle-kit check",
-    "test": "bun test"
+    "test": "bun test",
+    "test:music:network": "bun test ./tests/network/music-official.network.ts"
   },
   "dependencies": {
     "@cogm/shared": "workspace:*",

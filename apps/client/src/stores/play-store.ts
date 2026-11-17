@@ -63,7 +63,7 @@ export type ConnectionTerminal =
 	| "replaced"
 	| "released";
 
-type PlayState = {
+export type PlayState = {
 	sessionId: string | null;
 	moduleId: string | null;
 	moduleName: string | null;
@@ -99,8 +99,13 @@ type PlayState = {
 	catalogScenes: SceneDto[];
 	catalogTracks: TrackDto[];
 	catalogHandouts: CatalogHandoutDto[];
+	catalogStatus: "idle" | "loading" | "ready" | "error";
+	catalogRevision: number;
 	seCue: SePlayedEvent | null;
 	bgmTransitionMs: number;
+	audioPlaybackStatus: "idle" | "loading" | "ready" | "error";
+	audioPlaybackError: string | null;
+	audioRetryRevision: number;
 	muted: boolean;
 	localVolume: number;
 	connected: boolean;
@@ -137,6 +142,9 @@ type PlayState = {
 		tracks?: TrackDto[];
 		handouts?: CatalogHandoutDto[];
 	}) => void;
+	setCatalogStatus: (status: PlayState["catalogStatus"]) => void;
+	addCatalogTrack: (track: TrackDto) => void;
+	reloadCatalog: () => void;
 	setConnected: (connected: boolean) => void;
 	setTerminal: (terminal: ConnectionTerminal | null) => void;
 	setThemeId: (themeId: string | null) => void;
@@ -147,6 +155,8 @@ type PlayState = {
 	setMuted: (muted: boolean) => void;
 	setLocalVolume: (localVolume: number) => void;
 	clearSeCue: () => void;
+	setAudioPlaybackStatus: (status: PlayState["audioPlaybackStatus"]) => void;
+	retryAudioPlayback: () => void;
 	loadOlderHistory: () => void;
 	requestRewindPreview: (anchorEventId: number) => void;
 	clearRewindPreview: () => void;
@@ -194,8 +204,13 @@ const empty = {
 	catalogScenes: [] as SceneDto[],
 	catalogTracks: [] as TrackDto[],
 	catalogHandouts: [] as CatalogHandoutDto[],
+	catalogStatus: "idle" as PlayState["catalogStatus"],
+	catalogRevision: 0,
 	seCue: null as SePlayedEvent | null,
 	bgmTransitionMs: 400,
+	audioPlaybackStatus: "idle" as PlayState["audioPlaybackStatus"],
+	audioPlaybackError: null as string | null,
+	audioRetryRevision: 0,
 	muted: false,
 	localVolume: LOCAL_VOLUME_DEFAULT,
 	connected: false,
@@ -288,10 +303,7 @@ function appendMessage(
 	const index = messages.findIndex((message) => message.id === next.id);
 	if (index !== -1) {
 		const current = messages[index];
-		if (
-			next.eventId !== undefined &&
-			(current?.eventId ?? 0) < next.eventId
-		) {
+		if (next.eventId !== undefined && (current?.eventId ?? 0) < next.eventId) {
 			return messages.map((message, itemIndex) =>
 				itemIndex === index ? next : message,
 			);
@@ -602,14 +614,7 @@ function applyEvent(
 				: patch;
 		}
 		case "luck:recovered": {
-			return withActivityMessage(
-				state,
-				type,
-				payload,
-				eventId,
-				occurredAt,
-				{},
-			);
+			return withActivityMessage(state, type, payload, eventId, occurredAt, {});
 		}
 		case "state:public-changed": {
 			return characterStatePatch(state, payload);
@@ -1143,8 +1148,23 @@ export const usePlayStore = create<PlayState>((set, get) => ({
 			catalogScenes: input.scenes ?? state.catalogScenes,
 			catalogTracks: input.tracks ?? state.catalogTracks,
 			catalogHandouts: input.handouts ?? state.catalogHandouts,
+			catalogStatus: "ready",
 		}));
 	},
+	setCatalogStatus: (catalogStatus) => set({ catalogStatus }),
+	addCatalogTrack: (track) =>
+		set((state) => ({
+			catalogTracks: state.catalogTracks.some((item) => item.id === track.id)
+				? state.catalogTracks.map((item) =>
+						item.id === track.id ? track : item,
+					)
+				: [...state.catalogTracks, track],
+		})),
+	reloadCatalog: () =>
+		set((state) => ({
+			catalogRevision: state.catalogRevision + 1,
+			catalogStatus: "loading",
+		})),
 	setConnected: (connected) => set({ connected }),
 	setTerminal: (terminal) => set({ terminal }),
 	setThemeId: (themeId) => set({ themeId }),
@@ -1172,6 +1192,18 @@ export const usePlayStore = create<PlayState>((set, get) => ({
 		set({ localVolume: next });
 	},
 	clearSeCue: () => set({ seCue: null }),
+	setAudioPlaybackStatus: (audioPlaybackStatus) =>
+		set({
+			audioPlaybackStatus,
+			audioPlaybackError:
+				audioPlaybackStatus === "error" ? t("stage.audioPlaybackFailed") : null,
+		}),
+	retryAudioPlayback: () =>
+		set((state) => ({
+			audioRetryRevision: state.audioRetryRevision + 1,
+			audioPlaybackStatus: "loading",
+			audioPlaybackError: null,
+		})),
 	reset: () =>
 		set({ ...empty, localVolume: readLocalVolume(), muted: readLocalMuted() }),
 }));

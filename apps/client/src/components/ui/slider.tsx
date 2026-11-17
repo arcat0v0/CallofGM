@@ -85,6 +85,9 @@ function Slider({
 					data-slot="slider-thumb"
 					key={id}
 					aria-label={thumbLabels?.[position] ?? props["aria-label"]}
+					aria-valuetext={
+						values.length === 1 ? props["aria-valuetext"] : undefined
+					}
 					className="block shrink-0 outline-none focus-visible:ring-4 focus-visible:ring-focus-ring/50 disabled:pointer-events-none"
 				/>
 			))}

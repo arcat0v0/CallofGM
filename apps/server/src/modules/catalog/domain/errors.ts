@@ -36,6 +36,16 @@ export class MediaAssetInvalidError extends AppError {
 	}
 }
 
+export class TrackSourceUpdateError extends AppError {
+	constructor() {
+		super(
+			"TRACK_SOURCE_UPDATE_INVALID",
+			"An external music track cannot be replaced with an uploaded asset",
+			400,
+		);
+	}
+}
+
 export class ModuleInUseError extends AppError {
 	constructor(
 		message = "Module is referenced by sessions and cannot be deleted",

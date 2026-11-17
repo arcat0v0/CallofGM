@@ -530,6 +530,7 @@ export class BuildSessionSnapshotUseCase {
 				audio: sessionAudioState,
 				duration: tracks.duration,
 				name: tracks.name,
+				source: tracks.source,
 				audioAssetId: tracks.audioAssetId,
 			})
 			.from(sessionAudioState)
@@ -550,7 +551,14 @@ export class BuildSessionSnapshotUseCase {
 			version: audio.version,
 			durationMs: row.duration ?? 0,
 			name: row.name ?? undefined,
+			source: (row.source ?? undefined) as BgmState["source"],
 			audioAssetId: row.audioAssetId ?? null,
+			playbackUrl:
+				audio.trackId && row.source
+					? row.source === "upload"
+						? `/api/v1/media/${row.audioAssetId}`
+						: `/api/v1/music/tracks/${audio.trackId}/stream`
+					: undefined,
 		};
 	}
 

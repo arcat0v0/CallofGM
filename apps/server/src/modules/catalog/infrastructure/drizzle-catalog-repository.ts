@@ -59,7 +59,12 @@ function mapTrackRow(row: {
 		id: row.track.id,
 		moduleId: row.track.moduleId,
 		name: row.track.name,
+		source: row.track.source as CatalogTrack["source"],
 		audioAssetId: row.track.audioAssetId,
+		externalId: row.track.externalId,
+		artists: JSON.parse(row.track.artistsJson) as string[],
+		album: row.track.album,
+		sourceUrl: row.track.sourceUrl,
 		type: row.track.type as "bgm" | "se",
 		duration: row.track.duration,
 		audioSize: row.assetSize,
@@ -377,7 +382,12 @@ export class DrizzleCatalogRepository implements CatalogRepository {
 			id: track.id,
 			moduleId: track.moduleId,
 			name: track.name,
+			source: track.source,
 			audioAssetId: track.audioAssetId,
+			externalId: track.externalId,
+			artistsJson: JSON.stringify(track.artists),
+			album: track.album,
+			sourceUrl: track.sourceUrl,
 			type: track.type,
 			duration: track.duration,
 			createdAt: track.createdAt,
@@ -391,11 +401,15 @@ export class DrizzleCatalogRepository implements CatalogRepository {
 		const {
 			audioSize: _audioSize,
 			audioUploadedAt: _audioUploadedAt,
+			artists,
 			...columns
 		} = updates;
 		const result = await this.db
 			.update(tracks)
-			.set(columns)
+			.set({
+				...columns,
+				...(artists ? { artistsJson: JSON.stringify(artists) } : {}),
+			})
 			.where(eq(tracks.id, id))
 			.returning({ id: tracks.id });
 		if (result.length === 0) {

@@ -176,11 +176,23 @@ export class DrizzleTemplatesRepository implements TemplatesRepository {
 					isNull(templateTracks.deletedAt),
 				),
 			);
-		return rows as TemplateTrackRecord[];
+		return rows.map((row) => ({
+			...row,
+			source: row.source as TemplateTrackRecord["source"],
+			artists: JSON.parse(row.artistsJson) as string[],
+		}));
 	}
 
-	async saveTrack(track: typeof templateTracks.$inferInsert): Promise<void> {
-		await this.db.insert(templateTracks).values(track);
+	async saveTrack(
+		track: Omit<TemplateTrackRecord, "deletedAt"> & {
+			deletedAt?: number | null;
+		},
+	): Promise<void> {
+		const { artists, ...values } = track;
+		await this.db.insert(templateTracks).values({
+			...values,
+			artistsJson: JSON.stringify(artists),
+		});
 	}
 
 	async listHandouts(templateId: string): Promise<TemplateHandoutRecord[]> {

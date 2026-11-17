@@ -48,7 +48,7 @@ import {
 	UpdateSceneUseCase,
 	UpdateTrackUseCase,
 } from "../application/use-cases";
-import { ModuleNotFoundError } from "../domain/errors";
+import { ModuleNotFoundError, TrackNotFoundError } from "../domain/errors";
 import { DrizzleCatalogRepository } from "../infrastructure/drizzle-catalog-repository";
 
 function parsePageQuery(query: unknown) {
@@ -116,6 +116,7 @@ export function createCatalogRoutes(container: Container) {
 		repo,
 		container.idGenerator,
 		container.clock,
+		container.musicService,
 	);
 	const updateTrack = new UpdateTrackUseCase(repo);
 	const deleteTrack = new DeleteTrackUseCase(repo);
@@ -138,6 +139,14 @@ export function createCatalogRoutes(container: Container) {
 			throw new ModuleNotFoundError();
 		}
 		return record;
+	};
+
+	const requireOwnedTrack = async (trackId: string, ownerId: string) => {
+		const track = await repo.findTrackById(trackId);
+		if (!track) {
+			throw new TrackNotFoundError();
+		}
+		await requireOwnedModule(track.moduleId, ownerId);
 	};
 
 	return new Elysia({ prefix: "/api/v1/gm/modules" })
@@ -214,7 +223,8 @@ export function createCatalogRoutes(container: Container) {
 			await deleteScene.execute(params.id);
 			return { success: true };
 		})
-		.post("/:id/tracks", async ({ params, body }) => {
+		.post("/:id/tracks", async ({ params, body, actor }) => {
+			await requireOwnedModule(params.id, requireGm(actor).userId);
 			const parsed = parseBody(CreateTrackRequest, body);
 			return TrackDto.parse(
 				await createTrack.execute({
@@ -223,12 +233,14 @@ export function createCatalogRoutes(container: Container) {
 				}),
 			);
 		})
-		.get("/:id/tracks", async ({ params, query }) => {
+		.get("/:id/tracks", async ({ params, query, actor }) => {
+			await requireOwnedModule(params.id, requireGm(actor).userId);
 			return CursorPageResponse(TrackDto).parse(
 				await listTracks.execute(params.id, parsePageQuery(query)),
 			);
 		})
-		.patch("/tracks/:id", async ({ params, body }) => {
+		.patch("/tracks/:id", async ({ params, body, actor }) => {
+			await requireOwnedTrack(params.id, requireGm(actor).userId);
 			return TrackDto.parse(
 				await updateTrack.execute(
 					params.id,
@@ -236,7 +248,8 @@ export function createCatalogRoutes(container: Container) {
 				),
 			);
 		})
-		.delete("/tracks/:id", async ({ params }) => {
+		.delete("/tracks/:id", async ({ params, actor }) => {
+			await requireOwnedTrack(params.id, requireGm(actor).userId);
 			await deleteTrack.execute(params.id);
 			return { success: true };
 		})

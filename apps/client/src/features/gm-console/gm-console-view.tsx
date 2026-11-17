@@ -36,6 +36,8 @@ function GmConsoleView() {
 	const messages = usePlayStore((state) => state.messages);
 	const moduleId = usePlayStore((state) => state.moduleId);
 	const setCatalog = usePlayStore((state) => state.setCatalog);
+	const catalogRevision = usePlayStore((state) => state.catalogRevision);
+	const setCatalogStatus = usePlayStore((state) => state.setCatalogStatus);
 	const [historyOpen, setHistoryOpen] = useState(false);
 
 	useEffect(() => {
@@ -43,6 +45,7 @@ function GmConsoleView() {
 			return;
 		}
 		let cancelled = false;
+		setCatalogStatus("loading");
 		void (async () => {
 			try {
 				const [scenes, tracks, handouts] = await Promise.all([
@@ -56,18 +59,26 @@ function GmConsoleView() {
 						`/gm/modules/${encodeURIComponent(moduleId)}/handouts`,
 					),
 				]);
-				if (cancelled) {
+				if (
+					cancelled ||
+					usePlayStore.getState().catalogRevision !== catalogRevision
+				) {
 					return;
 				}
 				setCatalog({ scenes, tracks, handouts });
 			} catch {
-				// catalog is optional for console controls
+				if (
+					!cancelled &&
+					usePlayStore.getState().catalogRevision === catalogRevision
+				) {
+					setCatalogStatus("error");
+				}
 			}
 		})();
 		return () => {
 			cancelled = true;
 		};
-	}, [moduleId, setCatalog]);
+	}, [catalogRevision, moduleId, setCatalog, setCatalogStatus]);
 
 	const latest = [...messages]
 		.reverse()

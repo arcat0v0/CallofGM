@@ -14,6 +14,7 @@ import {
 } from "@/modules/identity";
 import { createIdentityRoutes } from "@/modules/identity/transport/routes";
 import { createMediaRoutes } from "@/modules/media";
+import { createMusicRoutes, type MusicService } from "@/modules/music";
 import type { CommandHandler } from "@/modules/realtime";
 import { routes as realtimeRoutes } from "@/modules/realtime";
 import { createRulesRoutes } from "@/modules/rules";
@@ -232,6 +233,7 @@ export interface TestSetupOptions {
 	/** 需要创建 PL 账号的玩家名；每个名字会得到一个账号与其 token */
 	plAccounts?: string[];
 	themesDir?: string;
+	musicService?: MusicService;
 }
 
 /** 脚本化随机源：按队列吐出值，队列空后循环最后一个值（适合长流程测试） */
@@ -379,7 +381,10 @@ export async function setupTestApp(
 		options.themesDir ?? (await mkdtemp(join(tmpdir(), "cogm-themes-")));
 	process.env.THEMES_DIR = themesDir;
 
-	const container = new Container([], { randomSource: options.randomSource });
+	const container = new Container([], {
+		randomSource: options.randomSource,
+		musicService: options.musicService,
+	});
 	await container.startupService.startup();
 	const seeded = await seedAccounts(container.db, gmPassword);
 	(globalThis as { __cogmTestGmUserId?: string }).__cogmTestGmUserId =
@@ -413,6 +418,7 @@ export async function setupTestApp(
 		.use(createSessionsRoutes(container))
 		.use(createCharactersRoutes(container))
 		.use(createMediaRoutes(container))
+		.use(createMusicRoutes(container))
 		.use(createCatalogRoutes(container))
 		.use(createThemeRoutes(container))
 		.use(createUiSettingsRoutes(container))

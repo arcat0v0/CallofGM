@@ -5,21 +5,21 @@ import { usePlayStore } from "@/stores/play-store";
 import { mediaUrl } from "./api";
 import { effectiveVolume } from "./local-volume";
 
-function currentBgmPosition(bgm: BgmState): number {
+export function currentBgmPosition(bgm: BgmState, now = Date.now()): number {
 	let position = bgm.seekOffsetMs;
 	if (bgm.playing) {
-		position += Math.max(0, Date.now() - bgm.startedAtMs);
+		position += Math.max(0, now - bgm.startedAtMs);
 	}
 	const duration = bgm.durationMs ?? 0;
-	if (bgm.loop && duration > 0) {
-		return position % duration;
+	if (duration > 0) {
+		return bgm.loop ? position % duration : Math.min(position, duration);
 	}
 	return position;
 }
 
 export function useBgmPlayback(
 	bgm: BgmState | null,
-	audioAssetId: string | null | undefined,
+	playbackUrl: string | null | undefined,
 	seCue?: SePlayedEvent | null,
 	onSePlayed?: () => void,
 	options?: {
@@ -27,6 +27,8 @@ export function useBgmPlayback(
 		localVolume?: number;
 		isGm?: boolean;
 		transitionMs?: number;
+		retryRevision?: number;
+		onPlaybackStatus?: (status: "idle" | "loading" | "ready" | "error") => void;
 	},
 ): void {
 	const howlRef = useRef<Howl | null>(null);
@@ -36,6 +38,10 @@ export function useBgmPlayback(
 	const localVolume = options?.localVolume ?? 100;
 	const isGm = options?.isGm ?? false;
 	const transitionMs = Math.max(0, options?.transitionMs ?? 400);
+	const retryRevision = options?.retryRevision ?? 0;
+	const onPlaybackStatus = options?.onPlaybackStatus;
+	const seOptionsRef = useRef({ localVolume, muted, isGm });
+	seOptionsRef.current = { localVolume, muted, isGm };
 
 	useEffect(() => {
 		const unlock = () => {
@@ -44,6 +50,7 @@ export function useBgmPlayback(
 					"data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YQAAAAA=",
 				],
 				volume: 0,
+				format: ["wav"],
 			});
 			unlockHowl.play();
 			unlockHowl.unload();
@@ -53,24 +60,31 @@ export function useBgmPlayback(
 	}, []);
 
 	useEffect(() => {
-		const src = audioAssetId ? mediaUrl(audioAssetId) : "";
+		const src = playbackUrl ?? "";
 		if (!src || !bgm) {
 			howlRef.current?.unload();
 			howlRef.current = null;
 			assetRef.current = null;
+			onPlaybackStatus?.("idle");
 			return;
 		}
 
-		if (assetRef.current !== audioAssetId) {
+		const assetKey = `${src}:${retryRevision}`;
+		if (assetRef.current !== assetKey) {
 			howlRef.current?.unload();
+			onPlaybackStatus?.("loading");
 			howlRef.current = new Howl({
 				src: [src],
 				html5: true,
 				xhr: { withCredentials: true },
 				loop: bgm.loop,
 				volume: 0,
+				onload: () => onPlaybackStatus?.("ready"),
+				onplay: () => onPlaybackStatus?.("ready"),
+				onloaderror: () => onPlaybackStatus?.("error"),
+				onplayerror: () => onPlaybackStatus?.("error"),
 			});
-			assetRef.current = audioAssetId ?? null;
+			assetRef.current = assetKey;
 		}
 
 		const howl = howlRef.current;
@@ -100,28 +114,42 @@ export function useBgmPlayback(
 		}
 		if (bgm.playing) {
 			if (!howl.playing()) {
-				howl.play();
+				try {
+					howl.play();
+				} catch {
+					onPlaybackStatus?.("error");
+				}
 			}
 		} else if (howl.playing()) {
 			howl.pause();
 		}
-	}, [audioAssetId, bgm, isGm, localVolume, muted, transitionMs]);
+	}, [
+		bgm,
+		isGm,
+		localVolume,
+		muted,
+		onPlaybackStatus,
+		playbackUrl,
+		retryRevision,
+		transitionMs,
+	]);
 
 	useEffect(() => {
 		if (!seCue) {
 			return;
 		}
-		const src = seCue.audioAssetId ? mediaUrl(seCue.audioAssetId) : "";
+		const src = seCue.playbackUrl ?? mediaUrl(seCue.audioAssetId) ?? "";
 		if (!src) {
 			onSePlayed?.();
 			return;
 		}
 		const broadcastVolume = seCue.volume ?? 100;
+		const seOptions = seOptionsRef.current;
 		const se = new Howl({
 			src: [src],
 			html5: true,
 			xhr: { withCredentials: true },
-			volume: effectiveVolume({ broadcastVolume, localVolume, muted, isGm }),
+			volume: effectiveVolume({ broadcastVolume, ...seOptions }),
 		});
 		seRef.current = { howl: se, broadcastVolume };
 		se.once("end", () => {
@@ -168,14 +196,26 @@ export function usePlayAudio(): void {
 	const localVolume = usePlayStore((state) => state.localVolume);
 	const isGm = usePlayStore((state) => state.viewer.isGm);
 	const transitionMs = usePlayStore((state) => state.bgmTransitionMs);
-	const audioAssetId =
-		bgm?.audioAssetId ??
-		tracks.find((track) => track.id === bgm?.trackId)?.audioAssetId ??
-		null;
-	useBgmPlayback(bgm, audioAssetId, seCue, clearSeCue, {
+	const retryRevision = usePlayStore((state) => state.audioRetryRevision);
+	const setPlaybackStatus = usePlayStore(
+		(state) => state.setAudioPlaybackStatus,
+	);
+	const track = tracks.find((item) => item.id === bgm?.trackId);
+	const externalStream =
+		(bgm?.source && bgm.source !== "upload") ||
+		(track && track.source !== "upload")
+			? `/api/v1/music/tracks/${encodeURIComponent(bgm?.trackId ?? track?.id ?? "")}/stream`
+			: null;
+	const playbackUrl =
+		bgm?.playbackUrl ??
+		externalStream ??
+		mediaUrl(bgm?.audioAssetId ?? track?.audioAssetId);
+	useBgmPlayback(bgm, playbackUrl, seCue, clearSeCue, {
 		muted,
 		localVolume,
 		isGm,
 		transitionMs,
+		retryRevision,
+		onPlaybackStatus: setPlaybackStatus,
 	});
 }

@@ -62,6 +62,7 @@ async function loadAudioState(
 			audio: sessionAudioState,
 			duration: tracks.duration,
 			name: tracks.name,
+			source: tracks.source,
 			audioAssetId: tracks.audioAssetId,
 		})
 		.from(sessionAudioState)
@@ -82,7 +83,14 @@ async function loadAudioState(
 		version: audio.version,
 		durationMs: row.duration ?? 0,
 		name: row.name ?? undefined,
+		source: (row.source ?? undefined) as BgmState["source"],
 		audioAssetId: row.audioAssetId ?? null,
+		playbackUrl:
+			audio.trackId && row.source
+				? row.source === "upload"
+					? `/api/v1/media/${row.audioAssetId}`
+					: `/api/v1/music/tracks/${audio.trackId}/stream`
+				: undefined,
 	};
 }
 
@@ -324,7 +332,12 @@ export class UpdateBgmHandler implements CommandHandler {
 				next.startedAtMs = now;
 				next.durationMs = track.duration;
 				next.name = track.name;
+				next.source = track.source as BgmState["source"];
 				next.audioAssetId = track.audioAssetId;
+				next.playbackUrl =
+					track.source === "upload"
+						? `/api/v1/media/${track.audioAssetId}`
+						: `/api/v1/music/tracks/${track.id}/stream`;
 				break;
 			}
 			case "pause": {
@@ -456,6 +469,11 @@ export class PlaySeHandler implements CommandHandler {
 						trackId: track.id,
 						volume: input.volume ?? 100,
 						audioAssetId: track.audioAssetId,
+						source: track.source as BgmState["source"],
+						playbackUrl:
+							track.source === "upload"
+								? `/api/v1/media/${track.audioAssetId}`
+								: `/api/v1/music/tracks/${track.id}/stream`,
 						name: track.name,
 					},
 				},

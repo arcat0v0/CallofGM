@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { TrackSource } from "./music";
 import { RuleId } from "./rules/rule-id";
 import { SessionSettings } from "./session";
 import { ThemeId } from "./themes";
@@ -68,7 +69,12 @@ export const TemplateTrackDto = z.object({
 	id: z.string(),
 	templateId: z.string(),
 	name: z.string(),
-	audioAssetId: z.string(),
+	source: TrackSource,
+	audioAssetId: z.string().nullable(),
+	externalId: z.string().nullable(),
+	artists: z.array(z.string()),
+	album: z.string().nullable(),
+	sourceUrl: z.string().url().nullable(),
 	type: z.enum(["bgm", "se"]),
 	duration: z.number().int(),
 	createdAt: z.number().int(),

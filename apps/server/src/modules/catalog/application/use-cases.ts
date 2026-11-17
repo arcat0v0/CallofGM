@@ -1,3 +1,5 @@
+import type { CreateTrackRequest } from "@cogm/shared";
+import type { MusicService } from "@/modules/music";
 import type { Clock, IdGenerator } from "@/platform/ports";
 import {
 	HandoutNotFoundError,
@@ -7,6 +9,7 @@ import {
 	ModuleNotFoundError,
 	SceneNotFoundError,
 	TrackNotFoundError,
+	TrackSourceUpdateError,
 } from "../domain/errors";
 import type {
 	CatalogHandout,
@@ -219,27 +222,53 @@ export class CreateTrackUseCase {
 		private readonly repo: CatalogRepository,
 		private readonly idGenerator: IdGenerator,
 		private readonly clock: Clock,
+		private readonly musicService: MusicService,
 	) {}
 
-	async execute(input: {
-		moduleId: string;
-		name: string;
-		audioAssetId: string;
-		type: "bgm" | "se";
-		duration: number;
-	}): Promise<CatalogTrack> {
+	async execute(
+		input: CreateTrackRequest & { moduleId: string },
+	): Promise<CatalogTrack> {
 		const moduleExists = await this.repo.findModuleById(input.moduleId);
 		if (!moduleExists) {
 			throw new ModuleNotFoundError();
 		}
-		await requireAudioAsset(this.repo, input.audioAssetId);
+		if (input.source === "upload") {
+			await requireAudioAsset(this.repo, input.audioAssetId);
+			const track: CatalogTrack = {
+				id: this.idGenerator.nextId(),
+				moduleId: input.moduleId,
+				name: input.name,
+				source: "upload",
+				audioAssetId: input.audioAssetId,
+				externalId: null,
+				artists: [],
+				album: null,
+				sourceUrl: null,
+				type: input.type,
+				duration: input.duration,
+				audioSize: null,
+				audioUploadedAt: null,
+				createdAt: this.clock.nowEpochMs(),
+			};
+			await this.repo.saveTrack(track);
+			return track;
+		}
+		const resolved = await this.musicService.resolve(
+			input.source,
+			input.reference,
+		);
 		const track: CatalogTrack = {
 			id: this.idGenerator.nextId(),
 			moduleId: input.moduleId,
-			name: input.name,
-			audioAssetId: input.audioAssetId,
+			name: input.name ?? resolved.name,
+			source: input.source,
+			audioAssetId: null,
+			externalId: resolved.externalId,
+			artists: resolved.artists,
+			album: resolved.album,
+			sourceUrl: resolved.sourceUrl,
 			type: input.type,
-			duration: input.duration,
+			duration: resolved.durationMs,
 			audioSize: null,
 			audioUploadedAt: null,
 			createdAt: this.clock.nowEpochMs(),
@@ -261,6 +290,9 @@ export class UpdateTrackUseCase {
 			throw new TrackNotFoundError();
 		}
 		if (updates.audioAssetId) {
+			if (track.source !== "upload") {
+				throw new TrackSourceUpdateError();
+			}
 			await requireAudioAsset(this.repo, updates.audioAssetId);
 		}
 		return this.repo.updateTrack(id, updates);

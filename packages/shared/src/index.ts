@@ -10,6 +10,7 @@ export * from "./identity";
 export * from "./login";
 export * from "./media";
 export * from "./moderation";
+export * from "./music";
 export * from "./pagination";
 export * from "./policy";
 export * as coc7e from "./rules/coc7e";
