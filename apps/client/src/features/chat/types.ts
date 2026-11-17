@@ -30,6 +30,7 @@ export type ChatCheckView = {
 	difficultyKey?: "regular" | "hard" | "extreme";
 	outcomeKey?: string;
 	outcome: ChatCheckOutcome;
+	criticalVariant?: string;
 	label: string;
 	san?: ChatCheckSanView;
 	luckSpent?: number;

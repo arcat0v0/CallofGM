@@ -1167,7 +1167,7 @@ export const zhCN: Record<string, string> = {
 	"error.INVALID_SAN_LOSS_EXPRESSION":
 		"理智损失格式应为「成功/失败」，如 1/1d6",
 	"error.LUCK_SPEND_NOT_ALLOWED": "这次检定不能花费天命",
-	"error.LUCK_SPEND_DISABLED": "本团未开启花费天命改骰",
+	"error.LUCK_SPEND_DISABLED": "本团未开启花费幸运改骰",
 	"error.LUCK_SPEND_NOT_LATEST": "只能修改最近一次检定",
 	"error.LUCK_SPEND_ALREADY_USED": "这次检定已经花费过天命",
 	"error.LUCK_SPEND_INSUFFICIENT": "当前天命不足",
@@ -1597,10 +1597,10 @@ export const zhCN: Record<string, string> = {
 		"关闭后观战位看不到任何 PC 的 HP / MP / SAN",
 	"gm.console.criticalVariant": "大成功 / 大失败判定",
 	"gm.console.criticalVariantDescription":
-		"选择本团采用的判定口径；默认规则书标准。",
-	"gm.console.luckSpend": "允许花费天命改骰",
+		"决定什么算大成功、大失败；只影响此后的新检定，已结算的不重算。SAN 检定不受此设置影响。",
+	"gm.console.luckSpend": "允许花费幸运改骰",
 	"gm.console.luckSpendDescription":
-		"关闭后玩家不能花费天命修正检定；服务端会拒绝改骰。",
+		"关闭后，玩家无法花费幸运（天命）改骰；已改过的记录不受影响。",
 	"gm.console.noRecipient": "请先选择情报接收的 PC",
 	"gm.console.secretRecipients": "秘密接收：{names}",
 	"gm.console.noRecipients": "未选择接收 PC · 「秘密」与「追加」已禁用",

@@ -162,4 +162,23 @@ describe("luck spend ticket UI", () => {
 		);
 		expect(view.queryByText("花费天命")).toBeNull();
 	});
+
+	test("uses the check's stamped variant for amended tier labels", () => {
+		const stamped = checkMessage({
+			check: {
+				...checkMessage().check!,
+				baseTarget: 20,
+				target: 20,
+				roll: 30,
+				outcomeKey: "failure",
+				outcome: "failure",
+				criticalVariant: "wide",
+			},
+		});
+		usePlayStore.setState({ messages: [stamped] });
+		const view = render(
+			<SystemMessageCard message={stamped} allowLuckSpend />,
+		);
+		expect(view.getByText("−26 · 大成功")).toBeTruthy();
+	});
 });

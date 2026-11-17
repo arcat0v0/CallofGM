@@ -11,7 +11,7 @@ test("exposes the session rule settings", () => {
 	const view = render(
 		<GmSessionSettingsDialog open onOpenChange={() => undefined} />,
 	);
-	expect(view.getByText("允许花费天命改骰")).toBeTruthy();
+	expect(view.getByText("允许花费幸运改骰")).toBeTruthy();
 	expect(view.getByText("大成功 / 大失败判定")).toBeTruthy();
 	expect(view.getByText("规则书标准")).toBeTruthy();
 });

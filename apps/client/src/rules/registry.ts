@@ -114,6 +114,7 @@ export type RuleComponent = {
 	luckSpendOptions: (
 		check: unknown,
 		luckCurrent: number,
+		variant?: string,
 	) => Array<{
 		points: number;
 		outcome: string;
@@ -335,10 +336,11 @@ const coc7eComponent: RuleComponent = {
 			hiddenGrowthMarks: value.hiddenGrowthMarks,
 		};
 	},
-	luckSpendOptions: (check, luckCurrent) => {
+	luckSpendOptions: (check, luckCurrent, variant) => {
 		if (!check || typeof check !== "object") {
 			return [];
 		}
+		const parsedVariant = coc7e.Coc7eCriticalVariant.safeParse(variant);
 		const value = check as Record<string, unknown>;
 		const difficulty = coc7e.CheckDifficulty.safeParse(value.difficulty);
 		const outcome = coc7e.CheckOutcome.safeParse(value.outcome);
@@ -365,6 +367,7 @@ const coc7eComponent: RuleComponent = {
 					pushed: value.pushed === true,
 				},
 				luckCurrent,
+				parsedVariant.success ? parsedVariant.data : "rulebook",
 			)
 			.map((option) => ({
 				...option,

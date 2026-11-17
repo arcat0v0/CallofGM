@@ -2,6 +2,7 @@ import { SessionSettings, SessionSettingsDefaults } from "@cogm/shared";
 import type { CatalogRepository } from "@/modules/catalog";
 import type { CharactersRepository } from "@/modules/characters";
 import type { SessionsRepository } from "@/modules/sessions";
+import { AppError } from "@/platform/errors/app-error";
 import type { Clock, IdGenerator } from "@/platform/ports";
 import { RuleNotFoundError, type RuleRegistry } from "@/rules/registry";
 import {
@@ -442,6 +443,19 @@ export class InstantiateTemplateUseCase {
 			...SessionSettingsDefaults,
 			...JSON.parse(source.settingsJson),
 		});
+		const rule = this.ruleRegistry.get(template.ruleId);
+		let ruleSettings = settings.ruleSettings ?? {};
+		if (rule.parseSessionRuleSettings) {
+			try {
+				ruleSettings = rule.parseSessionRuleSettings(ruleSettings);
+			} catch (error) {
+				throw new AppError(
+					"VALIDATION_FAILED",
+					error instanceof Error ? error.message : "Invalid rule settings",
+					400,
+				);
+			}
+		}
 		await this.sessions.createSession(
 			{
 				id: sessionId,
@@ -456,7 +470,7 @@ export class InstantiateTemplateUseCase {
 				sharePcSheets: settings.sharePcSheets ? 1 : 0,
 				obSeePcState: settings.obSeePcState ? 1 : 0,
 				diceSkin: settings.diceSkin,
-				ruleSettingsJson: JSON.stringify(settings.ruleSettings ?? {}),
+				ruleSettingsJson: JSON.stringify(ruleSettings),
 				portraitLayout: "auto",
 				portraitScale: "md",
 				growthConfirmedAt: null,

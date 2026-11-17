@@ -3,6 +3,7 @@ import type {
 	CreateSessionResponse,
 	ModuleDto,
 } from "@cogm/shared";
+import { coc7e } from "@cogm/shared";
 import { Link } from "@tanstack/react-router";
 import { Check, Package, X } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -22,6 +23,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { DiceSkinSelector } from "@/features/dice-skin/dice-skin-selector";
 import {
 	Select,
@@ -58,6 +60,9 @@ function CreateSessionDialog({
 	const [status, setStatus] =
 		useState<(typeof statusOptions)[number]>("waiting");
 	const [diceSkin, setDiceSkin] = useState<"olive" | "bone">("olive");
+	const [allowLuckSpend, setAllowLuckSpend] = useState(true);
+	const [criticalVariant, setCriticalVariant] =
+		useState<coc7e.Coc7eCriticalVariant>("rulebook");
 	const [pending, setPending] = useState(false);
 	const statusSegments = statusOptions.map((option) => ({
 		value: option,
@@ -69,6 +74,8 @@ function CreateSessionDialog({
 			return;
 		}
 		setName("");
+		setAllowLuckSpend(true);
+		setCriticalVariant("rulebook");
 		void (async () => {
 			try {
 				const nextModules = await fetchAllPages<ModuleDto>("/gm/modules");
@@ -116,6 +123,9 @@ function CreateSessionDialog({
 					moduleId,
 					name: name.trim() || undefined,
 					diceSkin,
+					ruleSettings: {
+						coc7e: { allowLuckSpend, criticalVariant },
+					},
 					characterIds: [...selectedIds],
 				}),
 			});
@@ -274,6 +284,48 @@ function CreateSessionDialog({
 
 					<FormField label={t("diceSkin.sessionLabel")}>
 						<DiceSkinSelector value={diceSkin} onValueChange={setDiceSkin} />
+					</FormField>
+
+					<FormField label={t("gm.console.criticalVariant")}>
+						<div className="flex flex-col gap-2">
+							<Select
+								value={criticalVariant}
+								onValueChange={(value) =>
+									setCriticalVariant(
+										coc7e.Coc7eCriticalVariant.parse(value),
+									)
+								}
+							>
+								<SelectTrigger aria-label={t("gm.console.criticalVariant")}>
+									<SelectValue />
+								</SelectTrigger>
+								<SelectContent>
+									{coc7e.Coc7eCriticalVariant.options.map((variant) => (
+										<SelectItem key={variant} value={variant}>
+											{coc7e.Coc7eCriticalVariantLabel[variant]}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+							<span className="text-foreground-tertiary text-label-small">
+								{coc7e.Coc7eCriticalVariantDescription[criticalVariant]}
+							</span>
+						</div>
+					</FormField>
+
+					<FormField label={t("gm.console.luckSpend")}>
+						<div className="flex items-center justify-between gap-3">
+							<span className="text-foreground-tertiary text-label-small">
+								{t("gm.console.luckSpendDescription")}
+							</span>
+							<Switch
+								aria-label={t("gm.console.luckSpend")}
+								checked={allowLuckSpend}
+								onCheckedChange={(checked) =>
+									setAllowLuckSpend(Boolean(checked))
+								}
+							/>
+						</div>
 					</FormField>
 				</div>
 

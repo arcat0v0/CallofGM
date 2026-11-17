@@ -109,27 +109,32 @@ describe("CoC 7e evaluateSkillCheck 判级边界", () => {
 		expect(check({ tens: [9], units: 5 }, lowTarget).outcome).toBe("failure");
 	});
 
-	test("规则书口径按难度后的所需成功率判定大失败", () => {
-		const result = check(
-			{ tens: [9], units: 6 },
-			{ difficulty: "hard" },
+	test("规则书口径按技能值判定大失败", () => {
+		expect(check({ tens: [9], units: 6 }).outcome).toBe("failure");
+		expect(check({ tens: [9], units: 6 }, { targetValue: 40 }).outcome).toBe(
+			"fumble",
 		);
-		expect(result.outcome).toBe("fumble");
 	});
 
 	test("团设置可切换大成功/大失败判定口径", () => {
-		const flat5 = check(
+		const wide = check(
 			{ tens: [0], units: 5 },
-			{ ruleSettings: { coc7e: { criticalVariant: "flat5" } } },
+			{ ruleSettings: { coc7e: { criticalVariant: "wide" } } },
 		);
-		expect(flat5.outcome).toBe("critical");
-		expect(flat5.criticalVariant).toBe("flat5");
+		expect(wide.outcome).toBe("critical");
+		expect(wide.criticalVariant).toBe("wide");
 
 		const doubles = check(
 			{ tens: [3], units: 3 },
 			{ ruleSettings: { coc7e: { criticalVariant: "doubles" } } },
 		);
 		expect(doubles.outcome).toBe("critical");
+
+		const strict = check(
+			{ tens: [9], units: 8 },
+			{ ruleSettings: { coc7e: { criticalVariant: "strict" } } },
+		);
+		expect(strict.outcome).toBe("fumble");
 	});
 
 	test("奖励骰取较小值", () => {

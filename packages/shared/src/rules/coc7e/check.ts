@@ -33,12 +33,11 @@ export function coc7eSkillOutcome(
 	targetValue: number,
 	roll: number,
 	variant: Coc7eCriticalVariant = "rulebook",
-	requiredSuccess: number = targetValue,
 ): CheckOutcome {
-	if (isCoc7eCritical(variant, targetValue, roll, requiredSuccess)) {
+	if (isCoc7eCritical(variant, targetValue, roll)) {
 		return "critical";
 	}
-	if (isCoc7eFumble(variant, targetValue, roll, requiredSuccess)) {
+	if (isCoc7eFumble(variant, targetValue, roll)) {
 		return "fumble";
 	}
 	if (roll <= Math.floor(targetValue / 5)) {
@@ -61,18 +60,16 @@ function isCoc7eCritical(
 	variant: Coc7eCriticalVariant,
 	targetValue: number,
 	roll: number,
-	requiredSuccess: number,
 ): boolean {
 	switch (variant) {
 		case "rulebook":
 		case "simple":
+		case "strict":
 			return roll === 1;
-		case "flat5":
+		case "wide":
 			return roll <= 5;
-		case "target5":
-			return roll <= 5 && roll <= targetValue;
 		case "doubles":
-			return roll === 1 || (isDoubleRoll(roll) && roll <= requiredSuccess);
+			return roll === 1 || (isDoubleRoll(roll) && roll <= targetValue);
 	}
 }
 
@@ -80,19 +77,18 @@ function isCoc7eFumble(
 	variant: Coc7eCriticalVariant,
 	targetValue: number,
 	roll: number,
-	requiredSuccess: number,
 ): boolean {
 	switch (variant) {
 		case "rulebook":
-			return requiredSuccess >= 50 ? roll === 100 : roll >= 96;
+			return targetValue >= 50 ? roll === 100 : roll >= 96;
 		case "simple":
 			return roll === 100;
-		case "flat5":
+		case "wide":
 			return roll >= 96;
-		case "target5":
-			return roll === 100 || (roll >= 96 && roll > targetValue);
 		case "doubles":
-			return roll === 100 || (isDoubleRoll(roll) && roll > requiredSuccess);
+			return roll === 100 || (isDoubleRoll(roll) && roll > targetValue);
+		case "strict":
+			return targetValue >= 50 ? roll >= 98 : roll >= 96;
 	}
 }
 
@@ -151,7 +147,7 @@ export const SkillCheckResult = z.object({
 	/** 孤注一掷结果；v1 无入口，预留给服务端禁用手表 */
 	pushed: z.boolean().optional(),
 	/** 本次检定采用的大成功/大失败判定口径 */
-	criticalVariant: Coc7eCriticalVariant.default("rulebook"),
+	criticalVariant: Coc7eCriticalVariant.optional(),
 });
 export type SkillCheckResult = z.infer<typeof SkillCheckResult>;
 
@@ -161,13 +157,18 @@ export interface LuckSpendCheck {
 	difficulty: CheckDifficulty;
 	roll: number;
 	outcome: CheckOutcome;
+	criticalVariant?: Coc7eCriticalVariant;
 	luckSpent?: number;
 	pushed?: boolean;
 }
 
 export interface LuckSpendOption {
 	points: number;
-	outcome: "regular_success" | "hard_success" | "extreme_success";
+	outcome:
+		| "regular_success"
+		| "hard_success"
+		| "extreme_success"
+		| "critical";
 	success: boolean;
 }
 
@@ -188,6 +189,7 @@ const LUCK_OUTCOME_RANK: Record<CheckOutcome, number> = {
 export function luckSpendOptionsFor(
 	check: LuckSpendCheck,
 	luckCurrent: number,
+	variant: Coc7eCriticalVariant = check.criticalVariant ?? "rulebook",
 ): LuckSpendOption[] {
 	if (
 		check.skillKey === "luck" ||
@@ -225,7 +227,17 @@ export function luckSpendOptionsFor(
 		seenPoints.add(points);
 		const nextRoll = check.roll - points;
 		const outcome =
-			nextRoll === 1 ? "extreme_success" : candidate.outcome;
+			nextRoll === 1
+				? "extreme_success"
+				: coc7eSkillOutcome(check.targetValue, nextRoll, variant);
+		if (
+			outcome !== "critical" &&
+			outcome !== "extreme_success" &&
+			outcome !== "hard_success" &&
+			outcome !== "regular_success"
+		) {
+			continue;
+		}
 		if (LUCK_OUTCOME_RANK[outcome] <= currentRank) {
 			continue;
 		}
@@ -241,8 +253,9 @@ export function luckSpendOptionsFor(
 export function luckSpendOptions(
 	result: SkillCheckResult,
 	luckCurrent: number,
+	variant: Coc7eCriticalVariant = result.criticalVariant ?? "rulebook",
 ): LuckSpendOption[] {
-	return luckSpendOptionsFor(result, luckCurrent);
+	return luckSpendOptionsFor(result, luckCurrent, variant);
 }
 
 /** 返回改骰后的检定结果；点数不是可达档位时返回 null。 */
@@ -250,6 +263,7 @@ export function applyLuckSpend(
 	result: SkillCheckResult,
 	points: number,
 	luckCurrent: number,
+	variant: Coc7eCriticalVariant = result.criticalVariant ?? "rulebook",
 ): SkillCheckResult | null {
 	const options = luckSpendOptions(result, luckCurrent);
 	if (!options.some((option) => option.points === points)) {
@@ -257,7 +271,10 @@ export function applyLuckSpend(
 	}
 	const originalRoll = result.originalRoll ?? result.roll;
 	const roll = originalRoll - points;
-	const outcome = nonCriticalOutcome(result.targetValue, roll);
+	const outcome =
+		roll === 1
+			? "extreme_success"
+			: coc7eSkillOutcome(result.targetValue, roll, variant);
 	const success = coc7eSkillCheckSuccess(outcome, result.difficulty);
 	return {
 		...result,
@@ -269,24 +286,8 @@ export function applyLuckSpend(
 		originalRoll,
 		luckBefore: luckCurrent,
 		luckAfter: luckCurrent - points,
+		criticalVariant: variant,
 	};
-}
-
-/** 花费天命改骰只能提升成功档位，不能把结果改成大成功或大失败。 */
-function nonCriticalOutcome(
-	targetValue: number,
-	roll: number,
-): CheckOutcome {
-	if (roll <= Math.floor(targetValue / 5)) {
-		return "extreme_success";
-	}
-	if (roll <= Math.floor(targetValue / 2)) {
-		return "hard_success";
-	}
-	if (roll <= targetValue) {
-		return "regular_success";
-	}
-	return "failure";
 }
 
 export const SanCheckResult = z.object({

@@ -241,6 +241,7 @@ function CheckVerdict({
 						pushed: check.pushed,
 					},
 					luck,
+				check.criticalVariant ?? sessionRules.criticalVariant,
 				)
 			: [];
 

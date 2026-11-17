@@ -6,6 +6,7 @@ import { ModuleNotFoundError } from "@/modules/catalog";
 import { CharacterNotFoundError } from "@/modules/characters";
 import type { SessionEventBus } from "@/modules/realtime";
 import type { TransactionRunner } from "@/platform/db/transaction";
+import { AppError } from "@/platform/errors/app-error";
 import type { Clock, IdGenerator } from "@/platform/ports";
 import type { RuleRegistry } from "@/rules/registry";
 import {
@@ -161,6 +162,19 @@ export class CreateSessionUseCase {
 
 		const sessionId = this.idGenerator.nextId();
 		const now = this.clock.nowEpochMs();
+		const ruleSystem = this.ruleRegistry.get(moduleRecord.ruleId);
+		let ruleSettings = input.ruleSettings ?? {};
+		if (ruleSystem.parseSessionRuleSettings) {
+			try {
+				ruleSettings = ruleSystem.parseSessionRuleSettings(ruleSettings);
+			} catch (error) {
+				throw new AppError(
+					"VALIDATION_FAILED",
+					error instanceof Error ? error.message : "Invalid rule settings",
+					400,
+				);
+			}
+		}
 
 		const session = {
 			id: sessionId,
@@ -175,15 +189,13 @@ export class CreateSessionUseCase {
 			sharePcSheets: 1,
 			obSeePcState: 1,
 			diceSkin: input.diceSkin ?? "olive",
-			ruleSettingsJson: JSON.stringify(input.ruleSettings ?? {}),
+			ruleSettingsJson: JSON.stringify(ruleSettings),
 			portraitLayout: "auto",
 			portraitScale: "md",
 			growthConfirmedAt: null,
 			deletedAt: null,
 			createdAt: now,
 		};
-
-		const ruleSystem = this.ruleRegistry.get(moduleRecord.ruleId);
 
 		const sessionChars = loadedCharacters.map((char) => {
 			const parsedSheet = ruleSystem.characterSheetSchema.parse(

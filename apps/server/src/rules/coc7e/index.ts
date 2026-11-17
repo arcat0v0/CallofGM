@@ -219,15 +219,10 @@ export class Coc7eRuleSystem extends RuleSystem<
 			selectedValue = Math.max(...rollValues);
 		}
 
-		const requiredSuccess = coc7e.coc7eDifficultyThreshold(
-			targetValue,
-			difficulty,
-		);
 		const outcome = coc7e.coc7eSkillOutcome(
 			targetValue,
 			selectedValue,
 			rules.criticalVariant,
-			requiredSuccess,
 		);
 		const success = coc7e.coc7eSkillCheckSuccess(outcome, difficulty);
 
@@ -457,7 +452,12 @@ export class Coc7eRuleSystem extends RuleSystem<
 				{ luckCurrent: state.luck, points },
 			);
 		}
-		const amended = coc7e.applyLuckSpend(result, points, state.luck);
+		const amended = coc7e.applyLuckSpend(
+			result,
+			points,
+			state.luck,
+			result.criticalVariant ?? rules.criticalVariant,
+		);
 		if (!amended) {
 			throw new AppError(
 				"LUCK_SPEND_INVALID_POINTS",

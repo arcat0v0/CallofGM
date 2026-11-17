@@ -445,6 +445,10 @@ export function mapActivityEvent(
 								| "extreme",
 							outcomeKey: outcome,
 							outcome: stamp,
+							criticalVariant:
+								typeof result.criticalVariant === "string"
+									? result.criticalVariant
+									: undefined,
 							label,
 							luckSpent,
 							originalRoll,

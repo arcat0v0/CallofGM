@@ -90,17 +90,17 @@ describe("Session rule settings contract tests", () => {
 				ruleSettings: {
 					coc7e: {
 						allowLuckSpend: false,
-						criticalVariant: "flat5",
+						criticalVariant: "wide",
 					},
 				},
 			},
 			"rules-off",
 			(payload) =>
-				payload.ruleSettings?.coc7e?.criticalVariant === "flat5",
+				payload.ruleSettings?.coc7e?.criticalVariant === "wide",
 		);
 		expect(changed.payload.ruleSettings.coc7e).toMatchObject({
 			allowLuckSpend: false,
-			criticalVariant: "flat5",
+			criticalVariant: "wide",
 		});
 
 		const partial = await updateSettings(
@@ -112,7 +112,7 @@ describe("Session rule settings contract tests", () => {
 		expect(partial.payload.sharePcSheets).toBe(false);
 		expect(partial.payload.ruleSettings.coc7e).toMatchObject({
 			allowLuckSpend: false,
-			criticalVariant: "flat5",
+			criticalVariant: "wide",
 		});
 
 		sendCommand(
@@ -144,6 +144,7 @@ describe("Session rule settings contract tests", () => {
 				m.payload.characterId === "char-pc1" &&
 				m.payload.result.roll === 63,
 		);
+		expect(resolved.payload.result.criticalVariant).toBe("wide");
 
 		sendCommand(
 			pc1,
@@ -164,7 +165,7 @@ describe("Session rule settings contract tests", () => {
 		expect(snapshot.payload.session.settings.ruleSettings.coc7e).toMatchObject(
 			{
 				allowLuckSpend: false,
-				criticalVariant: "flat5",
+				criticalVariant: "wide",
 			},
 		);
 
