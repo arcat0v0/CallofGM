@@ -1,4 +1,9 @@
-import type { MusicProvider, MusicTrackDto, TrackDto } from "@cogm/shared";
+import type {
+	MusicPlaylistDto,
+	MusicProvider,
+	MusicTrackDto,
+	TrackDto,
+} from "@cogm/shared";
 import { api } from "@/lib/api";
 
 export async function searchMusic(
@@ -24,6 +29,18 @@ export function resolveMusic(
 	return api<MusicTrackDto>("/gm/music/resolve", {
 		method: "POST",
 		body: JSON.stringify({ provider, reference }),
+	});
+}
+
+export function resolveMusicPlaylist(
+	provider: MusicProvider,
+	reference: string,
+	offset = 0,
+	limit = 50,
+): Promise<MusicPlaylistDto> {
+	return api<MusicPlaylistDto>("/gm/music/playlists/resolve", {
+		method: "POST",
+		body: JSON.stringify({ provider, reference, offset, limit }),
 	});
 }
 

@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { TrackDto } from "@cogm/shared";
+import { MusicPlaylistDto, TrackDto } from "@cogm/shared";
 import { type MusicService, MusicUnavailableError } from "@/modules/music";
 import {
 	closeWs,
@@ -25,6 +25,32 @@ class ControlledMusicService implements MusicService {
 			throw new MusicUnavailableError();
 		}
 		return this.metadata(provider, reference, "available" as const);
+	}
+
+	async resolvePlaylist(
+		provider: "netease" | "qq",
+		reference: string,
+		offset: number,
+		limit: number,
+	) {
+		const items = Array.from({ length: 3 }, (_, index) =>
+			this.metadata(provider, `${reference}-${index + 1}`, "unknown"),
+		);
+		return {
+			provider,
+			playlistId: provider === "netease" ? "3778678" : "9063620918",
+			name: `${provider} public playlist`,
+			coverUrl: null,
+			description: "Public playlist description",
+			creator: "Public creator",
+			sourceUrl:
+				provider === "netease"
+					? "https://music.163.com/playlist?id=3778678"
+					: "https://y.qq.com/n/ryqq/playlist/9063620918",
+			totalCount: items.length,
+			items: items.slice(offset, offset + limit),
+			nextOffset: offset + limit < items.length ? offset + limit : null,
+		};
 	}
 
 	async openStream(
@@ -123,6 +149,56 @@ describe("external music workflow", () => {
 			body: JSON.stringify({ provider: "qq", reference: "002rROE10ibMXN" }),
 		});
 		expect(resolved.status).toBe(401);
+		const playlist = await api("/api/v1/gm/music/playlists/resolve", {
+			method: "POST",
+			body: JSON.stringify({ provider: "netease", reference: "3778678" }),
+		});
+		expect(playlist.status).toBe(401);
+	});
+
+	test("resolves trusted bounded playlist pages through the real app", async () => {
+		const response = await api("/api/v1/gm/music/playlists/resolve", {
+			method: "POST",
+			token: ctx.gmToken,
+			body: JSON.stringify({
+				provider: "netease",
+				reference: "https://music.163.com/playlist?id=3778678",
+				offset: 1,
+				limit: 2,
+			}),
+		});
+		expect(response.status).toBe(200);
+		const page = MusicPlaylistDto.parse(await response.json());
+		expect(page).toMatchObject({
+			provider: "netease",
+			playlistId: "3778678",
+			name: "netease public playlist",
+			totalCount: 3,
+			nextOffset: null,
+		});
+		expect(page.items).toHaveLength(2);
+		expect(page.items.every((track) => track.availability === "unknown")).toBe(
+			true,
+		);
+
+		const invalidLimit = await api("/api/v1/gm/music/playlists/resolve", {
+			method: "POST",
+			token: ctx.gmToken,
+			body: JSON.stringify({
+				provider: "netease",
+				reference: "3778678",
+				limit: 51,
+			}),
+		});
+		expect(invalidLimit.status).toBe(400);
+
+		const untrusted = await api("/api/v1/gm/music/playlists/resolve", {
+			method: "POST",
+			token: ctx.gmToken,
+			headers: { origin: "https://untrusted.example" },
+			body: JSON.stringify({ provider: "netease", reference: "3778678" }),
+		});
+		expect(untrusted.status).toBe(403);
 	});
 
 	test("searches, resolves and adds provider tracks as module resources", async () => {

@@ -1,9 +1,15 @@
-import type { MusicProvider, MusicTrackDto } from "@cogm/shared";
+import type {
+	MusicPlaylistDto,
+	MusicProvider,
+	MusicTrackDto,
+} from "@cogm/shared";
 import { z } from "zod";
 import { AppError } from "@/platform/errors/app-error";
 import type { MusicService } from "../application/ports";
 import {
 	MusicNotFoundError,
+	MusicPlaylistEmptyError,
+	MusicPlaylistNotFoundError,
 	MusicProviderError,
 	MusicProviderResponseInvalidError,
 	MusicProviderTimeoutError,
@@ -11,7 +17,7 @@ import {
 	MusicStreamTooLargeError,
 	MusicUnavailableError,
 } from "../domain/music-errors";
-import { parseMusicReference } from "./reference";
+import { parseMusicReference, parsePlaylistReference } from "./reference";
 
 const neteaseSearchSong = z.object({
 	id: z.number().int().positive(),
@@ -41,6 +47,40 @@ const qqDetailSong = z.object({
 	album: z
 		.object({ name: z.string().optional(), title: z.string().optional() })
 		.optional(),
+});
+
+const neteasePlaylistResponse = z.object({
+	code: z.number(),
+	playlist: z
+		.object({
+			id: z.number().int().positive(),
+			name: z.string().min(1),
+			coverImgUrl: z.string().url().nullable().optional(),
+			description: z.string().nullable().optional(),
+			creator: z
+				.object({ nickname: z.string().nullable().optional() })
+				.nullable()
+				.optional(),
+			trackCount: z.number().int().min(0),
+			trackIds: z.array(z.object({ id: z.number().int().positive() })),
+		})
+		.nullable(),
+});
+
+const qqPlaylistSong = qqDetailSong.extend({
+	mid: z.string().regex(/^[A-Za-z0-9]{14}$/),
+});
+
+const qqPlaylistData = z.object({
+	dirinfo: z.object({
+		id: z.number().int().positive(),
+		title: z.string().min(1),
+		picurl: z.string().optional(),
+		desc: z.string().optional(),
+		host_nick: z.string().optional(),
+	}),
+	total_song_num: z.number().int().min(0),
+	songlist: z.array(z.unknown()),
 });
 
 export type MusicFetch = (
@@ -169,6 +209,21 @@ export class OfficialMusicService implements MusicService {
 		};
 	}
 
+	async resolvePlaylist(
+		provider: MusicProvider,
+		reference: string,
+		offset: number,
+		limit: number,
+	): Promise<MusicPlaylistDto> {
+		const { playlistId, sourceUrl } = parsePlaylistReference(
+			provider,
+			reference,
+		);
+		return provider === "netease"
+			? this.neteasePlaylist(playlistId, sourceUrl, offset, limit)
+			: this.qqPlaylist(playlistId, sourceUrl, offset, limit);
+	}
+
 	async openStream(
 		provider: MusicProvider,
 		externalId: string,
@@ -242,6 +297,208 @@ export class OfficialMusicService implements MusicService {
 			artists: song.data.singer.map((artist) => artist.name),
 			album: song.data.album?.name || song.data.album?.title || null,
 			durationMs: song.data.interval * 1000,
+		};
+	}
+
+	private async neteasePlaylist(
+		playlistId: string,
+		sourceUrl: string,
+		offset: number,
+		limit: number,
+	): Promise<MusicPlaylistDto> {
+		const url = new URL("https://music.163.com/api/v6/playlist/detail");
+		url.searchParams.set("id", playlistId);
+		url.searchParams.set("n", "0");
+		const body = await this.requestJson(
+			url,
+			{ headers: this.headers("https://music.163.com/") },
+			new MusicPlaylistNotFoundError(),
+		);
+		const parsed = neteasePlaylistResponse.safeParse(body);
+		if (!parsed.success) {
+			throw new MusicProviderResponseInvalidError();
+		}
+		if ([401, 403, 404].includes(parsed.data.code) || !parsed.data.playlist) {
+			throw new MusicPlaylistNotFoundError();
+		}
+		if (parsed.data.code !== 200) {
+			throw new MusicProviderResponseInvalidError();
+		}
+		const playlist = parsed.data.playlist;
+		if (
+			String(playlist.id) !== playlistId ||
+			playlist.trackIds.length !== playlist.trackCount
+		) {
+			throw new MusicProviderResponseInvalidError();
+		}
+		if (playlist.trackCount === 0) {
+			throw new MusicPlaylistEmptyError();
+		}
+		const pageIds = playlist.trackIds.slice(offset, offset + limit);
+		const songs = new Map<number, z.infer<typeof neteaseDetailSong>>();
+		if (pageIds.length > 0) {
+			const ids = pageIds.map((track) => track.id);
+			const detailUrl = new URL("https://music.163.com/api/song/detail/");
+			detailUrl.searchParams.set("id", String(ids[0]));
+			detailUrl.searchParams.set("ids", JSON.stringify(ids));
+			const detailBody = await this.requestJson(
+				detailUrl,
+				{ headers: this.headers("https://music.163.com/") },
+				new MusicProviderResponseInvalidError(),
+			);
+			const details = z
+				.object({ songs: z.array(z.unknown()) })
+				.safeParse(detailBody);
+			if (!details.success || details.data.songs.length !== ids.length) {
+				throw new MusicProviderResponseInvalidError();
+			}
+			for (const candidate of details.data.songs) {
+				const song = neteaseDetailSong.safeParse(candidate);
+				if (!song.success) {
+					throw new MusicProviderResponseInvalidError();
+				}
+				songs.set(song.data.id, song.data);
+			}
+		}
+		const items = pageIds.map(({ id }) => {
+			const song = songs.get(id);
+			if (!song) {
+				throw new MusicProviderResponseInvalidError();
+			}
+			const externalId = String(id);
+			return {
+				provider: "netease" as const,
+				externalId,
+				name: song.name,
+				artists: song.artists.map((artist) => artist.name),
+				album: song.album?.name || null,
+				durationMs: song.dt ?? song.duration,
+				sourceUrl: parseMusicReference("netease", externalId).sourceUrl,
+				availability: "unknown" as const,
+			};
+		});
+		const nextOffset = offset + pageIds.length;
+		return {
+			provider: "netease",
+			playlistId,
+			name: playlist.name,
+			coverUrl: playlist.coverImgUrl ?? null,
+			description: playlist.description ?? null,
+			creator: playlist.creator?.nickname ?? null,
+			sourceUrl,
+			totalCount: playlist.trackCount,
+			items,
+			nextOffset: nextOffset < playlist.trackIds.length ? nextOffset : null,
+		};
+	}
+
+	private async qqPlaylist(
+		playlistId: string,
+		sourceUrl: string,
+		offset: number,
+		limit: number,
+	): Promise<MusicPlaylistDto> {
+		const body = await this.requestJson(
+			"https://u.y.qq.com/cgi-bin/musicu.fcg",
+			{
+				method: "POST",
+				headers: {
+					...this.headers("https://y.qq.com/"),
+					"content-type": "application/json",
+					origin: "https://y.qq.com",
+				},
+				body: JSON.stringify({
+					req_0: {
+						module: "srf_diss_info.DissInfoServer",
+						method: "CgiGetDiss",
+						param: {
+							disstid: Number(playlistId),
+							song_begin: offset,
+							song_num: limit,
+							onlysonglist: 0,
+							userinfo: 1,
+							orderlist: 1,
+							tag: 1,
+						},
+					},
+					comm: {
+						uin: 0,
+						format: "json",
+						ct: 20,
+						cv: 1803,
+						platform: "wk_v17",
+					},
+				}),
+			},
+			new MusicPlaylistNotFoundError(),
+		);
+		const response = z
+			.object({
+				code: z.number(),
+				req_0: z.object({ code: z.number(), data: z.unknown() }),
+			})
+			.safeParse(body);
+		if (!response.success) {
+			throw new MusicProviderResponseInvalidError();
+		}
+		if (
+			[401, 403, 404].includes(response.data.code) ||
+			[401, 403, 404].includes(response.data.req_0.code)
+		) {
+			throw new MusicPlaylistNotFoundError();
+		}
+		if (response.data.code !== 0 || response.data.req_0.code !== 0) {
+			throw new MusicProviderResponseInvalidError();
+		}
+		const missing = z
+			.object({ code: z.literal(-100006) })
+			.safeParse(response.data.req_0.data);
+		if (missing.success) {
+			throw new MusicPlaylistNotFoundError();
+		}
+		const parsed = qqPlaylistData.safeParse(response.data.req_0.data);
+		if (!parsed.success || String(parsed.data.dirinfo.id) !== playlistId) {
+			throw new MusicProviderResponseInvalidError();
+		}
+		const data = parsed.data;
+		if (data.total_song_num === 0) {
+			throw new MusicPlaylistEmptyError();
+		}
+		const expectedCount = Math.max(
+			0,
+			Math.min(limit, data.total_song_num - offset),
+		);
+		if (data.songlist.length !== expectedCount) {
+			throw new MusicProviderResponseInvalidError();
+		}
+		const items = data.songlist.map((candidate) => {
+			const song = qqPlaylistSong.safeParse(candidate);
+			if (!song.success) {
+				throw new MusicProviderResponseInvalidError();
+			}
+			return {
+				provider: "qq" as const,
+				externalId: song.data.mid,
+				name: song.data.name,
+				artists: song.data.singer.map((artist) => artist.name),
+				album: song.data.album?.name || song.data.album?.title || null,
+				durationMs: song.data.interval * 1000,
+				sourceUrl: parseMusicReference("qq", song.data.mid).sourceUrl,
+				availability: "unknown" as const,
+			};
+		});
+		const nextOffset = offset + items.length;
+		return {
+			provider: "qq",
+			playlistId,
+			name: data.dirinfo.title,
+			coverUrl: data.dirinfo.picurl || null,
+			description: data.dirinfo.desc || null,
+			creator: data.dirinfo.host_nick || null,
+			sourceUrl,
+			totalCount: data.total_song_num,
+			items,
+			nextOffset: nextOffset < data.total_song_num ? nextOffset : null,
 		};
 	}
 
@@ -484,12 +741,13 @@ export class OfficialMusicService implements MusicService {
 	private async requestJson(
 		url: string | URL,
 		init: RequestInit,
+		notFoundError?: AppError,
 	): Promise<unknown> {
 		const response = await this.fetchWithTimeout(url, init);
 		if (!response.ok) {
 			await response.body?.cancel();
 			if (response.status === 404) {
-				throw new MusicNotFoundError();
+				throw notFoundError ?? new MusicNotFoundError();
 			}
 			throw new MusicProviderError();
 		}

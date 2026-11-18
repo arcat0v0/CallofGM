@@ -1,5 +1,8 @@
 import type { MusicProvider } from "@cogm/shared";
-import { MusicReferenceInvalidError } from "../domain/music-errors";
+import {
+	MusicPlaylistReferenceInvalidError,
+	MusicReferenceInvalidError,
+} from "../domain/music-errors";
 
 export function parseMusicReference(
 	provider: MusicProvider,
@@ -82,4 +85,92 @@ export function parseMusicReference(
 		};
 	}
 	throw new MusicReferenceInvalidError();
+}
+
+export function parsePlaylistReference(
+	provider: MusicProvider,
+	reference: string,
+): { playlistId: string; sourceUrl: string } {
+	const value = reference.trim();
+	if (provider === "netease" && /^[1-9]\d{0,19}$/.test(value)) {
+		return {
+			playlistId: value,
+			sourceUrl: `https://music.163.com/playlist?id=${value}`,
+		};
+	}
+	if (provider === "qq" && /^[1-9]\d{0,14}$/.test(value)) {
+		return {
+			playlistId: value,
+			sourceUrl: `https://y.qq.com/n/ryqq/playlist/${value}`,
+		};
+	}
+
+	let url: URL;
+	try {
+		url = new URL(value);
+	} catch {
+		throw new MusicPlaylistReferenceInvalidError();
+	}
+	if (
+		(url.protocol !== "https:" && url.protocol !== "http:") ||
+		url.username ||
+		url.password ||
+		url.port
+	) {
+		throw new MusicPlaylistReferenceInvalidError();
+	}
+
+	if (provider === "netease") {
+		if (
+			url.hostname !== "music.163.com" &&
+			url.hostname !== "y.music.163.com"
+		) {
+			throw new MusicPlaylistReferenceInvalidError();
+		}
+		const hashId = url.hash.match(
+			/^#\/playlist\?id=([1-9]\d{0,19})(?:&|$)/,
+		)?.[1];
+		const outchainId = url.pathname.match(
+			/^\/outchain\/1\/([1-9]\d{0,19})\/?$/,
+		)?.[1];
+		const pageId =
+			url.pathname === "/playlist" || url.pathname === "/m/playlist"
+				? url.searchParams.get("id")
+				: null;
+		const playlistId = hashId ?? outchainId ?? pageId;
+		if (!playlistId || !/^[1-9]\d{0,19}$/.test(playlistId)) {
+			throw new MusicPlaylistReferenceInvalidError();
+		}
+		return {
+			playlistId,
+			sourceUrl: `https://music.163.com/playlist?id=${playlistId}`,
+		};
+	}
+
+	if (url.hostname === "y.qq.com") {
+		const playlistId = url.pathname.match(
+			/^\/n\/ryqq(?:_v2)?\/playlist\/([1-9]\d{0,14})\/?$/,
+		)?.[1];
+		if (!playlistId) {
+			throw new MusicPlaylistReferenceInvalidError();
+		}
+		return {
+			playlistId,
+			sourceUrl: `https://y.qq.com/n/ryqq/playlist/${playlistId}`,
+		};
+	}
+	if (
+		url.hostname === "i.y.qq.com" &&
+		url.pathname === "/n2/m/share/details/taoge.html"
+	) {
+		const playlistId = url.searchParams.get("id");
+		if (!playlistId || !/^[1-9]\d{0,14}$/.test(playlistId)) {
+			throw new MusicPlaylistReferenceInvalidError();
+		}
+		return {
+			playlistId,
+			sourceUrl: `https://y.qq.com/n/ryqq/playlist/${playlistId}`,
+		};
+	}
+	throw new MusicPlaylistReferenceInvalidError();
 }

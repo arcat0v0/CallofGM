@@ -106,6 +106,64 @@ describe("official music public network behavior", () => {
 		}
 	}, 30_000);
 
+	test("NetEase public playlist metadata and sequential pages", async () => {
+		const first = await service.resolvePlaylist(
+			"netease",
+			"https://music.163.com/playlist?id=3778678",
+			0,
+			2,
+		);
+		expect(first).toMatchObject({
+			playlistId: "3778678",
+			name: "热歌榜",
+			creator: "网易云音乐",
+			nextOffset: 2,
+		});
+		expect(first.totalCount).toBeGreaterThan(2);
+		expect(first.items).toHaveLength(2);
+		expect(first.items[0]?.name.length).toBeGreaterThan(0);
+		expect(first.items.every((track) => track.availability === "unknown")).toBe(
+			true,
+		);
+		const second = await service.resolvePlaylist(
+			"netease",
+			"3778678",
+			first.nextOffset ?? 0,
+			2,
+		);
+		expect(second.items).toHaveLength(2);
+		expect(second.items[0]?.externalId).not.toBe(first.items[0]?.externalId);
+	}, 30_000);
+
+	test("QQ public playlist metadata and sequential pages", async () => {
+		const first = await service.resolvePlaylist(
+			"qq",
+			"https://y.qq.com/n/ryqq/playlist/9063620918",
+			0,
+			2,
+		);
+		expect(first).toMatchObject({
+			playlistId: "9063620918",
+			name: "江河行龙的新歌推荐",
+			creator: "QQ音乐官方歌单",
+			totalCount: 30,
+			nextOffset: 2,
+		});
+		expect(first.items).toHaveLength(2);
+		expect(first.items[0]?.name.length).toBeGreaterThan(0);
+		expect(first.items.every((track) => track.availability === "unknown")).toBe(
+			true,
+		);
+		const second = await service.resolvePlaylist(
+			"qq",
+			"9063620918",
+			first.nextOffset ?? 0,
+			2,
+		);
+		expect(second.items).toHaveLength(2);
+		expect(second.items[0]?.externalId).not.toBe(first.items[0]?.externalId);
+	}, 30_000);
+
 	test("restricted songs return explicit unavailable errors", async () => {
 		await expect(
 			service.openStream("netease", "347230", "bytes=0-0"),

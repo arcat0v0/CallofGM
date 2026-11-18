@@ -1,7 +1,9 @@
 import {
+	MusicPlaylistDto,
 	MusicSearchQuery,
 	MusicSearchResponse,
 	MusicTrackDto,
+	ResolveMusicPlaylistRequest,
 	ResolveMusicTrackRequest,
 } from "@cogm/shared";
 import { and, eq, isNull } from "drizzle-orm";
@@ -59,6 +61,25 @@ export function createMusicRoutes(container: Container) {
 				),
 			);
 		})
+		.post(
+			"/api/v1/gm/music/playlists/resolve",
+			async ({ actor, body, request }) => {
+				requireGm(actor);
+				assertTrustedOrigin(request, allowedOrigins);
+				const parsed = ResolveMusicPlaylistRequest.safeParse(body);
+				if (!parsed.success) {
+					throw validationFailed(parsed.error);
+				}
+				return MusicPlaylistDto.parse(
+					await container.musicService.resolvePlaylist(
+						parsed.data.provider,
+						parsed.data.reference,
+						parsed.data.offset,
+						parsed.data.limit,
+					),
+				);
+			},
+		)
 		.get(
 			"/api/v1/music/tracks/:id/stream",
 			async ({ actor, params, request }) => {

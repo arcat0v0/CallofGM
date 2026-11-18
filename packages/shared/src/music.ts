@@ -37,6 +37,30 @@ export const MusicSearchResponse = z.object({
 });
 export type MusicSearchResponse = z.infer<typeof MusicSearchResponse>;
 
+export const MusicPlaylistDto = z.object({
+	provider: MusicProvider,
+	playlistId: z.string().min(1).max(64),
+	name: z.string().min(1),
+	coverUrl: z.string().url().nullable(),
+	description: z.string().nullable(),
+	creator: z.string().nullable(),
+	sourceUrl: z.string().url(),
+	totalCount: z.number().int().min(0).nullable(),
+	items: z.array(MusicTrackDto).max(50),
+	nextOffset: z.number().int().min(0).nullable(),
+});
+export type MusicPlaylistDto = z.infer<typeof MusicPlaylistDto>;
+
+export const ResolveMusicPlaylistRequest = z.object({
+	provider: MusicProvider,
+	reference: z.string().trim().min(1).max(2048),
+	offset: z.number().int().min(0).default(0),
+	limit: z.number().int().min(1).max(50).default(50),
+});
+export type ResolveMusicPlaylistRequest = z.infer<
+	typeof ResolveMusicPlaylistRequest
+>;
+
 export const ResolveMusicTrackRequest = z.object({
 	provider: MusicProvider,
 	reference: z.string().trim().min(1).max(2048),

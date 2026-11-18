@@ -1,6 +1,9 @@
 export type { MusicService } from "./application/ports";
 export {
 	MusicNotFoundError,
+	MusicPlaylistEmptyError,
+	MusicPlaylistNotFoundError,
+	MusicPlaylistReferenceInvalidError,
 	MusicProviderError,
 	MusicProviderResponseInvalidError,
 	MusicProviderTimeoutError,
@@ -13,5 +16,8 @@ export {
 	type MusicFetch,
 	OfficialMusicService,
 } from "./infrastructure/official-music-service";
-export { parseMusicReference } from "./infrastructure/reference";
+export {
+	parseMusicReference,
+	parsePlaylistReference,
+} from "./infrastructure/reference";
 export { createMusicRoutes } from "./transport/routes";

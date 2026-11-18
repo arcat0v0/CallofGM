@@ -10,6 +10,32 @@ export class MusicReferenceInvalidError extends AppError {
 	}
 }
 
+export class MusicPlaylistReferenceInvalidError extends AppError {
+	constructor() {
+		super(
+			"MUSIC_PLAYLIST_REFERENCE_INVALID",
+			"Invalid official music playlist reference",
+			400,
+		);
+	}
+}
+
+export class MusicPlaylistNotFoundError extends AppError {
+	constructor() {
+		super(
+			"MUSIC_PLAYLIST_NOT_FOUND",
+			"Music playlist not found or not publicly accessible",
+			404,
+		);
+	}
+}
+
+export class MusicPlaylistEmptyError extends AppError {
+	constructor() {
+		super("MUSIC_PLAYLIST_EMPTY", "Music playlist is empty", 422);
+	}
+}
+
 export class MusicNotFoundError extends AppError {
 	constructor() {
 		super("MUSIC_NOT_FOUND", "Music track not found", 404);

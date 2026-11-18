@@ -2,8 +2,10 @@ import { describe, expect, test } from "bun:test";
 import {
 	BgmState,
 	CreateTrackRequest,
+	MusicPlaylistDto,
 	MusicSearchQuery,
 	MusicTrackDto,
+	ResolveMusicPlaylistRequest,
 	ResolveMusicTrackRequest,
 	SePlayedEvent,
 } from "../src";
@@ -98,5 +100,53 @@ describe("external music protocol", () => {
 				playbackUrl: "/api/v1/music/tracks/track-2/stream",
 			}).source,
 		).toBe("qq");
+	});
+
+	test("validates playlist pages without inventing totals or availability", () => {
+		expect(
+			ResolveMusicPlaylistRequest.parse({
+				provider: "netease",
+				reference: "3778678",
+			}),
+		).toEqual({
+			provider: "netease",
+			reference: "3778678",
+			offset: 0,
+			limit: 50,
+		});
+		const page = MusicPlaylistDto.parse({
+			provider: "qq",
+			playlistId: "9063620918",
+			name: "公开歌单",
+			coverUrl: null,
+			description: null,
+			creator: "QQ音乐官方歌单",
+			sourceUrl: "https://y.qq.com/n/ryqq/playlist/9063620918",
+			totalCount: null,
+			items: [],
+			nextOffset: null,
+		});
+		expect(page.totalCount).toBeNull();
+		expect(
+			ResolveMusicPlaylistRequest.safeParse({
+				provider: "qq",
+				reference: "9063620918",
+				offset: -1,
+			}).success,
+		).toBe(false);
+		expect(
+			ResolveMusicPlaylistRequest.safeParse({
+				provider: "qq",
+				reference: "9063620918",
+				limit: 51,
+			}).success,
+		).toBe(false);
+		expect(
+			ResolveMusicPlaylistRequest.safeParse({
+				provider: "qq",
+				reference: "9063620918",
+				limit: 0,
+			}).success,
+		).toBe(false);
 	});
 });

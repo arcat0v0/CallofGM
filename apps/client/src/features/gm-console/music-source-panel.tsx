@@ -10,6 +10,7 @@ import { t } from "@/i18n";
 import { formatDurationMmSs } from "@/lib/format";
 import { GmSelectField } from "./gm-panel-fields";
 import { addExternalTrack, resolveMusic, searchMusic } from "./music-source";
+import { PlaylistSourcePanel } from "./playlist-source-panel";
 
 function availabilityLabel(availability: MusicTrackDto["availability"]) {
 	if (availability === "available") {
@@ -117,6 +118,8 @@ function MusicSourcePanel({
 	const [loading, setLoading] = useState<"search" | "resolve" | null>(null);
 	const [addingKey, setAddingKey] = useState<string | null>(null);
 	const [error, setError] = useState<string | null>(null);
+	const [playlistBusy, setPlaylistBusy] = useState(false);
+	const sourceBusy = loading !== null || addingKey !== null || playlistBusy;
 
 	function showError(reason: unknown) {
 		setError(
@@ -136,7 +139,7 @@ function MusicSourcePanel({
 
 	async function search() {
 		const trimmed = query.trim();
-		if (!trimmed || loading || addingKey) {
+		if (!trimmed || sourceBusy) {
 			return;
 		}
 		setLoading("search");
@@ -154,7 +157,7 @@ function MusicSourcePanel({
 
 	async function resolve() {
 		const trimmed = reference.trim();
-		if (!trimmed || loading || addingKey) {
+		if (!trimmed || sourceBusy) {
 			return;
 		}
 		setLoading("resolve");
@@ -170,7 +173,7 @@ function MusicSourcePanel({
 	}
 
 	async function add(referenceValue: string, key: string) {
-		if (!moduleId || addingKey || !referenceValue.trim()) {
+		if (!moduleId || sourceBusy || !referenceValue.trim()) {
 			return;
 		}
 		setAddingKey(key);
@@ -207,7 +210,7 @@ function MusicSourcePanel({
 				candidate={candidate}
 				added={isAdded(candidate)}
 				adding={addingKey === key}
-				disabled={!moduleId || addingKey !== null}
+				disabled={!moduleId || sourceBusy}
 				onAdd={() => void add(candidate.externalId, key)}
 			/>
 		);
@@ -226,7 +229,7 @@ function MusicSourcePanel({
 					label={t("gm.workbench.musicProvider")}
 					value={provider}
 					onValueChange={changeProvider}
-					disabled={loading !== null || addingKey !== null}
+					disabled={sourceBusy}
 				>
 					<SelectItem value="netease">
 						{t("gm.workbench.providerNetease")}
@@ -237,19 +240,30 @@ function MusicSourcePanel({
 					label={t("gm.workbench.musicTrackType")}
 					value={type}
 					onValueChange={(value) => setType(value === "se" ? "se" : "bgm")}
-					disabled={loading !== null || addingKey !== null}
+					disabled={sourceBusy}
 				>
 					<SelectItem value="bgm">{t("gm.workbench.typeBgm")}</SelectItem>
 					<SelectItem value="se">{t("gm.workbench.typeSe")}</SelectItem>
 				</GmSelectField>
 			</div>
 			<Tabs defaultValue="search" onValueChange={() => setError(null)}>
-				<TabsList className="h-auto min-h-11 w-full">
-					<TabsTrigger value="search" className="min-h-10">
+				<TabsList className="h-auto min-h-12 w-full">
+					<TabsTrigger
+						value="search"
+						className="min-h-11 px-2 sm:px-4"
+						disabled={playlistBusy}
+					>
 						{t("gm.workbench.musicSearchTab")}
 					</TabsTrigger>
-					<TabsTrigger value="reference" className="min-h-10">
+					<TabsTrigger
+						value="reference"
+						className="min-h-11 px-2 sm:px-4"
+						disabled={playlistBusy}
+					>
 						{t("gm.workbench.musicReferenceTab")}
+					</TabsTrigger>
+					<TabsTrigger value="playlist" className="min-h-11 px-2 sm:px-4">
+						{t("gm.workbench.musicPlaylistTab")}
 					</TabsTrigger>
 				</TabsList>
 				<TabsContent value="search">
@@ -265,14 +279,14 @@ function MusicSourcePanel({
 							onChange={(event) => setQuery(event.target.value)}
 							aria-label={t("gm.workbench.musicQuery")}
 							placeholder={t("gm.workbench.musicQueryPlaceholder")}
-							disabled={loading !== null || addingKey !== null}
+							disabled={sourceBusy}
 						/>
 						<Button
 							type="submit"
 							variant="tonal"
 							size="sm"
 							className="min-h-11 shrink-0 px-3"
-							disabled={!query.trim() || loading !== null || addingKey !== null}
+							disabled={!query.trim() || sourceBusy}
 						>
 							<Search data-icon="inline-start" />
 							{t("gm.workbench.musicSearch")}
@@ -285,16 +299,14 @@ function MusicSourcePanel({
 						onChange={(event) => setReference(event.target.value)}
 						aria-label={t("gm.workbench.musicReference")}
 						placeholder={t("gm.workbench.musicReferencePlaceholder")}
-						disabled={loading !== null || addingKey !== null}
+						disabled={sourceBusy}
 					/>
 					<div className="flex flex-wrap justify-end gap-2">
 						<Button
 							type="button"
 							variant="text"
 							className="min-h-11"
-							disabled={
-								!reference.trim() || loading !== null || addingKey !== null
-							}
+							disabled={!reference.trim() || sourceBusy}
 							onClick={() => void resolve()}
 						>
 							{t("gm.workbench.musicResolve")}
@@ -303,12 +315,7 @@ function MusicSourcePanel({
 							type="button"
 							variant="tonal"
 							className="min-h-11"
-							disabled={
-								!moduleId ||
-								!reference.trim() ||
-								loading !== null ||
-								addingKey !== null
-							}
+							disabled={!moduleId || !reference.trim() || sourceBusy}
 							onClick={() =>
 								void add(reference, `reference:${provider}:${reference}`)
 							}
@@ -318,6 +325,18 @@ function MusicSourcePanel({
 								: t("gm.workbench.musicAddDirect")}
 						</Button>
 					</div>
+				</TabsContent>
+				<TabsContent value="playlist">
+					<PlaylistSourcePanel
+						key={provider}
+						moduleId={moduleId}
+						provider={provider}
+						type={type}
+						tracks={tracks}
+						onAdded={onAdded}
+						disabled={loading !== null || addingKey !== null}
+						onBusyChange={setPlaylistBusy}
+					/>
 				</TabsContent>
 			</Tabs>
 			{error ? (

@@ -7,7 +7,12 @@ import {
 	spyOn,
 	test,
 } from "bun:test";
-import type { BgmState, MusicTrackDto, TrackDto } from "@cogm/shared";
+import type {
+	BgmState,
+	MusicPlaylistDto,
+	MusicTrackDto,
+	TrackDto,
+} from "@cogm/shared";
 import {
 	act,
 	fireEvent,
@@ -20,6 +25,7 @@ import { useBgmPlayback } from "../src/features/gm-console/gm-audio";
 import {
 	addExternalTrack,
 	resolveMusic,
+	resolveMusicPlaylist,
 	searchMusic,
 } from "../src/features/gm-console/music-source";
 import { type PlayState, usePlayStore } from "../src/stores/play-store";
@@ -445,6 +451,46 @@ describe("platform music sources", () => {
 			source: "netease",
 			reference: candidate.externalId,
 			type: "bgm",
+		});
+	});
+
+	test("uses the playlist resolve REST contract and pagination defaults", async () => {
+		const playlist = {
+			provider: "netease",
+			playlistId: "3778678",
+			name: "热歌榜",
+			coverUrl: null,
+			description: null,
+			creator: null,
+			sourceUrl: "https://music.163.com/playlist?id=3778678",
+			totalCount: 200,
+			items: [candidate],
+			nextOffset: 50,
+		} satisfies MusicPlaylistDto;
+		apiImplementation = (path) => {
+			if (path === "/gm/music/playlists/resolve") {
+				return Promise.resolve(playlist);
+			}
+			return Promise.reject(new Error("Unexpected API request"));
+		};
+		await expect(resolveMusicPlaylist("netease", "3778678")).resolves.toEqual(
+			playlist,
+		);
+		await expect(
+			resolveMusicPlaylist("netease", "3778678", 50, 50),
+		).resolves.toEqual(playlist);
+		expect(apiRequests[0]?.path).toBe("/gm/music/playlists/resolve");
+		expect(JSON.parse(String(apiRequests[0]?.init?.body))).toEqual({
+			provider: "netease",
+			reference: "3778678",
+			offset: 0,
+			limit: 50,
+		});
+		expect(JSON.parse(String(apiRequests[1]?.init?.body))).toEqual({
+			provider: "netease",
+			reference: "3778678",
+			offset: 50,
+			limit: 50,
 		});
 	});
 
