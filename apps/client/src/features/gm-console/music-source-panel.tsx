@@ -219,11 +219,8 @@ function MusicSourcePanel({
 	return (
 		<section
 			aria-label={t("gm.workbench.addPlatformTracks")}
-			className="flex flex-col gap-3 rounded-xl bg-md-surface-container-low p-3"
+			className="flex flex-col gap-3 pt-2"
 		>
-			<h4 className="text-md-on-surface text-label-large-emph">
-				{t("gm.workbench.addPlatformTracks")}
-			</h4>
 			<div className="grid grid-cols-2 gap-2">
 				<GmSelectField
 					label={t("gm.workbench.musicProvider")}
@@ -242,8 +239,10 @@ function MusicSourcePanel({
 					onValueChange={(value) => setType(value === "se" ? "se" : "bgm")}
 					disabled={sourceBusy}
 				>
-					<SelectItem value="bgm">{t("gm.workbench.typeBgm")}</SelectItem>
-					<SelectItem value="se">{t("gm.workbench.typeSe")}</SelectItem>
+					<SelectItem value="bgm">
+						{t("gm.workbench.backgroundMusic")}
+					</SelectItem>
+					<SelectItem value="se">{t("gm.workbench.soundEffects")}</SelectItem>
 				</GmSelectField>
 			</div>
 			<Tabs defaultValue="search" onValueChange={() => setError(null)}>
@@ -266,7 +265,7 @@ function MusicSourcePanel({
 						{t("gm.workbench.musicPlaylistTab")}
 					</TabsTrigger>
 				</TabsList>
-				<TabsContent value="search">
+				<TabsContent value="search" className="flex flex-col gap-3">
 					<form
 						className="flex items-center gap-2"
 						onSubmit={(event) => {
@@ -276,7 +275,7 @@ function MusicSourcePanel({
 					>
 						<Input
 							value={query}
-							onChange={(event) => setQuery(event.target.value)}
+							onInput={(event) => setQuery(event.currentTarget.value)}
 							aria-label={t("gm.workbench.musicQuery")}
 							placeholder={t("gm.workbench.musicQueryPlaceholder")}
 							disabled={sourceBusy}
@@ -292,6 +291,14 @@ function MusicSourcePanel({
 							{t("gm.workbench.musicSearch")}
 						</Button>
 					</form>
+					{!loading && searched && results.length === 0 && !error ? (
+						<p className="text-md-on-surface-variant text-body-medium">
+							{t("gm.workbench.musicSearchEmpty")}
+						</p>
+					) : null}
+					<div className="flex flex-col gap-2">
+						{results.map(renderCandidate)}
+					</div>
 				</TabsContent>
 				<TabsContent value="reference" className="flex flex-col gap-2">
 					<Input
@@ -325,6 +332,7 @@ function MusicSourcePanel({
 								: t("gm.workbench.musicAddDirect")}
 						</Button>
 					</div>
+					{resolved ? renderCandidate(resolved) : null}
 				</TabsContent>
 				<TabsContent value="playlist">
 					<PlaylistSourcePanel
@@ -363,13 +371,6 @@ function MusicSourcePanel({
 					{t("gm.workbench.musicVerifyingAdd")}
 				</p>
 			) : null}
-			{resolved ? renderCandidate(resolved) : null}
-			{!loading && searched && results.length === 0 && !error ? (
-				<p className="text-md-on-surface-variant text-body-medium">
-					{t("gm.workbench.musicSearchEmpty")}
-				</p>
-			) : null}
-			<div className="flex flex-col gap-2">{results.map(renderCandidate)}</div>
 		</section>
 	);
 }

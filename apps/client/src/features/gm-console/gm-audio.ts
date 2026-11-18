@@ -1,7 +1,14 @@
+import type { TrackDto } from "@cogm/shared";
 import { useEffect, useState } from "react";
 import { t } from "@/i18n";
 import { sendSessionCommand } from "@/lib/session-socket";
 import { usePlayStore } from "@/stores/play-store";
+
+function trackSourceLabel(source: TrackDto["source"]) {
+	if (source === "netease") return t("gm.workbench.trackSourceNetease");
+	if (source === "qq") return t("gm.workbench.trackSourceQq");
+	return t("gm.workbench.trackSourceUpload");
+}
 
 function useBgmPlayback() {
 	const bgm = usePlayStore((state) => state.bgm);
@@ -182,4 +189,4 @@ function useBgmPlayback() {
 	};
 }
 
-export { useBgmPlayback };
+export { trackSourceLabel, useBgmPlayback };

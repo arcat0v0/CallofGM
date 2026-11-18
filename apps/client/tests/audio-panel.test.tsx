@@ -213,6 +213,7 @@ describe("sound panel hierarchy and states", () => {
 		seed({ bgm: null, catalogTracks: [] });
 		const view = renderPanel();
 		expect(view.getByText("当前播放")).toBeTruthy();
+		expect(view.getByRole("tab", { name: "选择曲目" })).toBeTruthy();
 		expect(view.getByText("还没有正在播放的曲目")).toBeTruthy();
 		expect(view.queryByRole("slider", { name: "播放进度" })).toBeNull();
 		expect(view.queryByRole("button", { name: "暂停" })).toBeNull();
@@ -220,6 +221,7 @@ describe("sound panel hierarchy and states", () => {
 		expect(view.getAllByRole("button", { name: "关闭" })).toHaveLength(1);
 		expect(view.getByText("模组中还没有背景音乐")).toBeTruthy();
 		expect(view.getByText("模组中还没有即兴音效")).toBeTruthy();
+		expect(view.queryByRole("combobox", { name: "淡入淡出时长" })).toBeNull();
 	});
 
 	test("current track, progress and playback state are readable", () => {
@@ -236,12 +238,80 @@ describe("sound panel hierarchy and states", () => {
 	test("loop and fade controls describe their actual behavior without duplication", () => {
 		seed({ bgm: bgm({ loop: false }) });
 		const view = renderPanel();
+		fireEvent.mouseDown(view.getByRole("tab", { name: "播放设置" }), {
+			button: 0,
+			ctrlKey: false,
+		});
 		expect(view.getByRole("switch", { name: "循环当前曲目" })).toBeTruthy();
 		expect(view.getByText("播完自动停止")).toBeTruthy();
 		expect(view.queryByText("单曲播放")).toBeNull();
 		expect(view.getByRole("combobox", { name: "淡入淡出时长" })).toBeTruthy();
 		expect(view.getByRole("button", { name: "淡出至无声" })).toBeTruthy();
 		expect(view.queryByRole("button", { name: "淡入" })).toBeNull();
+	});
+
+	test("library is the default view and platform adding stays collapsed", () => {
+		const view = renderPanel();
+		expect(
+			view.getByRole("tab", { name: "选择曲目" }).getAttribute("aria-selected"),
+		).toBe("true");
+		expect(view.getByRole("slider", { name: "全团音量" })).toBeTruthy();
+		expect(view.queryByRole("switch", { name: "循环当前曲目" })).toBeNull();
+		expect(view.queryByRole("textbox", { name: "搜索歌曲" })).toBeNull();
+		fireEvent.click(view.getByRole("button", { name: "添加平台曲目" }));
+		expect(view.getByRole("textbox", { name: "搜索歌曲" })).toBeTruthy();
+	});
+
+	test("library filters both channels by name and artist, then clears a missing match", () => {
+		seed({ catalogTracks: [...tracks, externalTrack] });
+		const view = renderPanel();
+		const input = view.getByRole("searchbox", { name: "搜索模组曲目" });
+		fireEvent.input(input, { target: { value: "  测试艺术家  " } });
+		expect(view.getByRole("button", { name: "播放曲目：不合群" })).toBeTruthy();
+		expect(
+			view.queryByRole("button", { name: "播放曲目：旧宅回声" }),
+		).toBeNull();
+		fireEvent.input(input, { target: { value: "开门" } });
+		expect(view.getByRole("button", { name: "播放音效：开门声" })).toBeTruthy();
+		expect(view.queryByRole("region", { name: "背景音乐" })).toBeNull();
+		fireEvent.input(input, { target: { value: "不存在" } });
+		expect(view.getByRole("status").textContent).toContain(
+			"没有匹配的曲目或音效",
+		);
+		fireEvent.click(view.getByRole("button", { name: "清除搜索" }));
+		expect(
+			view.getByRole("button", { name: "播放曲目：旧宅回声" }),
+		).toBeTruthy();
+		expect(sent).toHaveLength(0);
+	});
+
+	test("switching workspaces preserves library filtering and expanded import state", () => {
+		const view = renderPanel();
+		fireEvent.input(view.getByRole("searchbox", { name: "搜索模组曲目" }), {
+			target: { value: "旧宅" },
+		});
+		fireEvent.click(view.getByRole("button", { name: "添加平台曲目" }));
+		fireEvent.mouseDown(view.getByRole("tab", { name: "播放设置" }), {
+			button: 0,
+			ctrlKey: false,
+		});
+		expect(view.queryByRole("searchbox", { name: "搜索模组曲目" })).toBeNull();
+		expect(view.getByRole("slider", { name: "全团音量" })).toBeTruthy();
+		fireEvent.mouseDown(view.getByRole("tab", { name: "选择曲目" }), {
+			button: 0,
+			ctrlKey: false,
+		});
+		expect(
+			(
+				view.getByRole("searchbox", {
+					name: "搜索模组曲目",
+				}) as HTMLInputElement
+			).value,
+		).toBe("旧宅");
+		expect(view.getByRole("textbox", { name: "搜索歌曲" })).toBeTruthy();
+		fireEvent.click(view.getByRole("button", { name: "添加平台曲目" }));
+		expect(view.queryByRole("textbox", { name: "搜索歌曲" })).toBeNull();
+		expect(sent).toHaveLength(0);
 	});
 
 	test("track rows select music and sound effects use explicit accessible names", () => {
@@ -361,7 +431,7 @@ describe("BGM command behavior", () => {
 });
 
 describe("platform music sources", () => {
-	test.skip("searches, marks availability unknown, and adds once from the panel [skip: happy-dom does not emit React controlled text onChange]", async () => {
+	test("searches, keeps results in their source tab, and adds once without playback", async () => {
 		const pendingAdd = Promise.withResolvers<TrackDto>();
 		apiImplementation = (path) => {
 			if (path.startsWith("/gm/music/search")) {
@@ -370,6 +440,7 @@ describe("platform music sources", () => {
 			return pendingAdd.promise;
 		};
 		const view = renderPanel();
+		fireEvent.click(view.getByRole("button", { name: "添加平台曲目" }));
 		const input = view.getByRole("textbox", {
 			name: "搜索歌曲",
 		}) as HTMLInputElement;
@@ -399,6 +470,24 @@ describe("platform music sources", () => {
 		expect(searchButton.hasAttribute("disabled")).toBe(false);
 		fireEvent.click(searchButton);
 		expect(await view.findByText("可播性待验证")).toBeTruthy();
+		fireEvent.mouseDown(view.getByRole("tab", { name: "导入歌单" }), {
+			button: 0,
+			ctrlKey: false,
+		});
+		expect(view.queryByText("可播性待验证")).toBeNull();
+		fireEvent.mouseDown(view.getByRole("tab", { name: "单曲链接 / ID" }), {
+			button: 0,
+			ctrlKey: false,
+		});
+		expect(view.queryByRole("button", { name: "添加歌曲：不合群" })).toBeNull();
+		fireEvent.mouseDown(view.getByRole("tab", { name: "搜索歌曲" }), {
+			button: 0,
+			ctrlKey: false,
+		});
+		expect(
+			(view.getByRole("textbox", { name: "搜索歌曲" }) as HTMLInputElement)
+				.value,
+		).toBe("不合群");
 		const addButton = view.getByRole("button", { name: "添加歌曲：不合群" });
 		fireEvent.click(addButton);
 		fireEvent.click(addButton);
@@ -419,6 +508,7 @@ describe("platform music sources", () => {
 			reference: candidate.externalId,
 			type: "bgm",
 		});
+		expect(sent).toHaveLength(0);
 	});
 
 	test("uses the search, resolve and add REST contracts", async () => {
