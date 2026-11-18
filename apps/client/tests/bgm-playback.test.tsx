@@ -3,6 +3,15 @@ import type { BgmState, SePlayedEvent } from "@cogm/shared";
 import { fireEvent, renderHook } from "@testing-library/react";
 import { currentBgmPosition, useBgmPlayback } from "../src/lib/bgm";
 
+const bgmCommands: Array<{ type: string; payload: Record<string, unknown> }> =
+	[];
+mock.module("@/lib/session-socket", () => ({
+	sendSessionCommand: (type: string, payload: Record<string, unknown>) => {
+		bgmCommands.push({ type, payload });
+		return `bgm-command-${bgmCommands.length}`;
+	},
+}));
+
 class FakeHowl {
 	static instances: FakeHowl[] = [];
 	readonly options: Record<string, unknown>;
@@ -78,7 +87,7 @@ function bgm(overrides: Partial<BgmState> = {}): BgmState {
 		trackId: "track-a",
 		playing: true,
 		volume: 80,
-		loop: false,
+		mode: "off",
 		seekOffsetMs: 10_000,
 		startedAtMs: Date.now() - 2_000,
 		version: 1,
@@ -98,6 +107,7 @@ function firstHowl() {
 
 beforeEach(() => {
 	FakeHowl.instances.length = 0;
+	bgmCommands.length = 0;
 });
 
 describe("BGM position and Howler synchronization", () => {
@@ -115,7 +125,7 @@ describe("BGM position and Howler synchronization", () => {
 		expect(currentBgmPosition(bgm({ playing: false }), now)).toBe(10_000);
 		expect(
 			currentBgmPosition(
-				bgm({ loop: true, seekOffsetMs: 58_000, startedAtMs: now - 4_000 }),
+				bgm({ mode: "single", seekOffsetMs: 58_000, startedAtMs: now - 4_000 }),
 				now,
 			),
 		).toBe(2_000);
@@ -128,7 +138,7 @@ describe("BGM position and Howler synchronization", () => {
 	});
 
 	test("plays at the authoritative offset and pauses without recreating the asset", () => {
-		const initial = bgm();
+		const initial = bgm({ audioMimeType: "audio/wav" });
 		const hook = renderHook(
 			({ state }) =>
 				useBgmPlayback(state, "/api/v1/media/asset-a", null, undefined, {
@@ -138,6 +148,7 @@ describe("BGM position and Howler synchronization", () => {
 		);
 		const howl = firstHowl();
 		expect(howl.options.src).toEqual(["/api/v1/media/asset-a"]);
+		expect(howl.options.format).toEqual(["wav"]);
 		expect(howl.seek()).toBeGreaterThanOrEqual(12);
 		expect(howl.play).toHaveBeenCalledTimes(1);
 		hook.rerender({
@@ -174,7 +185,7 @@ describe("BGM position and Howler synchronization", () => {
 		);
 		const first = firstHowl();
 		hook.rerender({
-			state: bgm({ loop: true, volume: 30, version: 2 }),
+			state: bgm({ mode: "single", volume: 30, version: 2 }),
 			asset: "/api/v1/media/asset-a",
 			transitionMs: 1_000,
 		});
@@ -191,6 +202,140 @@ describe("BGM position and Howler synchronization", () => {
 		expect(FakeHowl.instances[1]?.unload).toHaveBeenCalledTimes(1);
 	});
 
+	test("GM reports non-looping endings once using the latest BGM version", () => {
+		const initial = bgm({ mode: "list" });
+		const hook = renderHook(
+			({ state }) =>
+				useBgmPlayback(state, "/api/v1/media/asset-a", null, undefined, {
+					isGm: true,
+				}),
+			{ initialProps: { state: initial } },
+		);
+		const howl = firstHowl();
+		hook.rerender({
+			state: { ...initial, mode: "shuffle", volume: 45, version: 2 },
+		});
+		const ended = howl.options.onend as () => void;
+		ended();
+		ended();
+		expect(bgmCommands).toEqual([
+			{ type: "audio:bgm", payload: { action: "ended", expectedVersion: 2 } },
+		]);
+		hook.rerender({
+			state: { ...initial, mode: "shuffle", volume: 30, version: 3 },
+		});
+		expect(bgmCommands.at(-1)?.payload).toEqual({
+			action: "ended",
+			expectedVersion: 3,
+		});
+		expect(howl.play).toHaveBeenCalledTimes(1);
+	});
+
+	test.each([
+		{ mode: "single" as const, isGm: true },
+		{ mode: "list" as const, isGm: false },
+	])(
+		"does not send endings for single repeat or a player ($mode, $isGm)",
+		({ mode, isGm }) => {
+			renderHook(() =>
+				useBgmPlayback(
+					bgm({ mode }),
+					"/api/v1/media/asset-a",
+					null,
+					undefined,
+					{ isGm },
+				),
+			);
+			(firstHowl().options.onend as () => void)();
+			expect(bgmCommands).toHaveLength(0);
+		},
+	);
+
+	test("ignores a disposed track's end callback", () => {
+		const hook = renderHook(
+			({ state, asset }) =>
+				useBgmPlayback(state, asset, null, undefined, { isGm: true }),
+			{
+				initialProps: {
+					state: bgm({ mode: "list" }),
+					asset: "/api/v1/media/asset-a",
+				},
+			},
+		);
+		const oldEnd = firstHowl().options.onend as () => void;
+		hook.rerender({
+			state: bgm({ trackId: "track-b", mode: "list", version: 2 }),
+			asset: "/api/v1/media/asset-b",
+		});
+		oldEnd();
+		expect(bgmCommands).toHaveLength(0);
+	});
+
+	test("reconnect retries an end report whose acknowledgement was lost", () => {
+		const state = bgm({ mode: "list" });
+		const hook = renderHook(
+			({ connected }) =>
+				useBgmPlayback(state, "/api/v1/media/asset-a", null, undefined, {
+					isGm: true,
+					connected,
+				}),
+			{ initialProps: { connected: true } },
+		);
+		(firstHowl().options.onend as () => void)();
+		expect(bgmCommands).toHaveLength(1);
+		hook.rerender({ connected: false });
+		hook.rerender({ connected: true });
+		expect(bgmCommands).toHaveLength(2);
+		expect(bgmCommands[1]?.payload).toEqual({
+			action: "ended",
+			expectedVersion: state.version,
+		});
+	});
+
+	test("an end while offline is reported only after reconnect", () => {
+		const state = bgm({ mode: "off" });
+		const hook = renderHook(
+			({ connected }) =>
+				useBgmPlayback(state, "/api/v1/media/asset-a", null, undefined, {
+					isGm: true,
+					connected,
+				}),
+			{ initialProps: { connected: false } },
+		);
+		(firstHowl().options.onend as () => void)();
+		expect(bgmCommands).toHaveLength(0);
+		hook.rerender({ connected: true });
+		expect(bgmCommands).toHaveLength(1);
+	});
+
+	test("a completed reconnect snapshot requests the next authoritative state without replaying", () => {
+		renderHook(() =>
+			useBgmPlayback(
+				bgm({ mode: "list", startedAtMs: Date.now() - 90_000 }),
+				"/api/v1/media/asset-a",
+				null,
+				undefined,
+				{ isGm: true },
+			),
+		);
+		expect(firstHowl().play).not.toHaveBeenCalled();
+		expect(bgmCommands).toHaveLength(1);
+	});
+
+	test("paused playback ignores a delayed end callback", () => {
+		const initial = bgm({ mode: "list" });
+		const hook = renderHook(
+			({ state }) =>
+				useBgmPlayback(state, "/api/v1/media/asset-a", null, undefined, {
+					isGm: true,
+				}),
+			{ initialProps: { state: initial } },
+		);
+		hook.rerender({ state: { ...initial, playing: false, version: 2 } });
+		(firstHowl().options.onend as () => void)();
+		expect(bgmCommands).toHaveLength(0);
+	});
+
 	test("uses same-origin platform streams and retries a failed load", () => {
 		const onPlaybackStatus = mock(() => undefined);
 		const source = "/api/v1/music/tracks/track-a/stream";
@@ -205,6 +350,7 @@ describe("BGM position and Howler synchronization", () => {
 		);
 		const first = firstHowl();
 		expect(first.options.src).toEqual([source]);
+		expect(first.options.format).toEqual(["mp3"]);
 		const onLoadError = first.options.onloaderror as
 			| ((id: number, error: unknown) => void)
 			| undefined;
@@ -221,6 +367,7 @@ describe("BGM position and Howler synchronization", () => {
 			trackId: "se-door",
 			volume: 80,
 			audioAssetId: "asset-door",
+			audioMimeType: "audio/ogg",
 		};
 		const played = mock(() => undefined);
 		const hook = renderHook(
@@ -229,6 +376,7 @@ describe("BGM position and Howler synchronization", () => {
 			{ initialProps: { localVolume: 100 } },
 		);
 		const se = firstHowl();
+		expect(se.options.format).toEqual(["ogg"]);
 		expect(se.play).toHaveBeenCalledTimes(1);
 		expect(se.volume()).toBe(0.8);
 		expect(played).toHaveBeenCalledTimes(1);

@@ -39,7 +39,7 @@ function bgm(overrides: Partial<BgmState> = {}): BgmState {
 		trackId: "track-1",
 		playing: true,
 		volume: 64,
-		loop: true,
+		mode: "single",
 		seekOffsetMs: 0,
 		startedAtMs: 0,
 		version: 1,

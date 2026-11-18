@@ -23,6 +23,7 @@ import {
 	handoutGrants,
 	handoutReads,
 	handouts,
+	mediaAssets,
 	modules,
 	scenes,
 	sessionAudioState,
@@ -532,9 +533,11 @@ export class BuildSessionSnapshotUseCase {
 				name: tracks.name,
 				source: tracks.source,
 				audioAssetId: tracks.audioAssetId,
+				audioMimeType: mediaAssets.mimeType,
 			})
 			.from(sessionAudioState)
 			.leftJoin(tracks, eq(sessionAudioState.trackId, tracks.id))
+			.leftJoin(mediaAssets, eq(tracks.audioAssetId, mediaAssets.id))
 			.where(eq(sessionAudioState.sessionId, sessionId));
 		const row = rows[0];
 		if (!row) {
@@ -545,7 +548,7 @@ export class BuildSessionSnapshotUseCase {
 			trackId: audio.trackId ?? null,
 			playing: audio.playing === 1,
 			volume: audio.volume,
-			loop: audio.loop === 1,
+			mode: audio.mode,
 			seekOffsetMs: audio.seekOffsetMs,
 			startedAtMs: audio.startedAtMs,
 			version: audio.version,
@@ -553,6 +556,7 @@ export class BuildSessionSnapshotUseCase {
 			name: row.name ?? undefined,
 			source: (row.source ?? undefined) as BgmState["source"],
 			audioAssetId: row.audioAssetId ?? null,
+			audioMimeType: row.audioMimeType ?? undefined,
 			playbackUrl:
 				audio.trackId && row.source
 					? row.source === "upload"

@@ -37,7 +37,7 @@ function GmToolDock({ voice }: { voice: VoiceController }) {
 			return;
 		}
 		function onKeyDown(event: KeyboardEvent) {
-			if (event.key === "Escape") {
+			if (event.key === "Escape" && !event.defaultPrevented) {
 				closeTool();
 			}
 		}

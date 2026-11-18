@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "331a2729-2f95-442d-af66-cdc2b3da2ef9",
+  "id": "1d1f317b-a084-4262-81ca-d11ddf4f9553",
   "prevId": "14c9e571-3465-4616-9f87-bf804d776494",
   "tables": {
     "handouts": {
@@ -2963,12 +2963,13 @@
           "autoincrement": false,
           "default": 100
         },
-        "loop": {
-          "name": "loop",
-          "type": "integer",
+        "mode": {
+          "name": "mode",
+          "type": "text",
           "primaryKey": false,
           "notNull": true,
-          "autoincrement": false
+          "autoincrement": false,
+          "default": "'single'"
         },
         "seek_offset_ms": {
           "name": "seek_offset_ms",
@@ -3679,13 +3680,6 @@
           "notNull": true,
           "autoincrement": false,
           "default": "'md'"
-        },
-        "voice_limit": {
-          "name": "voice_limit",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
         },
         "growth_confirmed_at": {
           "name": "growth_confirmed_at",

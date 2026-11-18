@@ -209,6 +209,7 @@ describe("Stage control contract tests", () => {
 		);
 		const playEvent = await pc.waitFor((m) => m.type === "audio:bgm");
 		expect(playEvent.payload.bgm.trackId).toBe("track-bgm-1");
+		expect(playEvent.payload.bgm.audioMimeType).toBe("audio/mpeg");
 		expect(playEvent.payload.bgm.playing).toBe(true);
 		expect(playEvent.payload.bgm.version).toBe(1);
 
@@ -251,11 +252,11 @@ describe("Stage control contract tests", () => {
 		sendCommand(
 			gm,
 			"audio:bgm",
-			{ action: "loop", loop: false, expectedVersion: 3 },
+			{ action: "mode", mode: "off", expectedVersion: 3 },
 			"bgm-4",
 		);
 		const loopEvent = await gm.waitFor(
-			(m) => m.type === "audio:bgm" && m.payload.bgm.loop === false,
+			(m) => m.type === "audio:bgm" && m.payload.bgm.mode === "off",
 		);
 		expect(loopEvent.payload.bgm.version).toBe(4);
 
@@ -319,6 +320,7 @@ describe("Stage control contract tests", () => {
 		const snapshot = await pc2.waitFor((m) => m.type === "snapshot");
 		expect(snapshot.payload.currentScene?.id).toBe("scene-2");
 		expect(snapshot.payload.bgm?.trackId).toBe("track-bgm-1");
+		expect(snapshot.payload.bgm?.audioMimeType).toBe("audio/mpeg");
 		expect(snapshot.payload.bgm?.playing).toBe(true);
 		expect(snapshot.payload.bgm?.version).toBe(5);
 
@@ -395,7 +397,8 @@ describe("Stage control contract tests", () => {
 		const continueEvent = await gm.waitFor(
 			(m) => m.type === "audio:bgm" && m.payload.bgm.version === version + 1,
 		);
-		expect(continueEvent.payload.bgm.seekOffsetMs).toBe(5000);
+		expect(continueEvent.payload.bgm.seekOffsetMs).toBeGreaterThanOrEqual(5000);
+		expect(continueEvent.payload.bgm.seekOffsetMs).toBeLessThan(6500);
 		version = continueEvent.payload.bgm.version;
 
 		sendCommand(

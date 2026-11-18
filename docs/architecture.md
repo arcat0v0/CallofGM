@@ -112,11 +112,15 @@ CallofGM/
 服务端为每个团维护权威音频状态：
 
 ```
-BgmState = { trackId, playing, volume, loop, seekOffset, startedAt(服务器时钟) }
+BgmState = { trackId, playing, volume, mode: off|single|list|shuffle, seekOffsetMs, startedAtMs(服务器时钟), version }
 ```
 
 - GM 发出指令（播放/暂停/切歌/音量/淡入淡出/seek）→ 服务端更新状态并广播 → 各客户端 Howler 执行。
-- 中途加入/重连者从快照恢复：播放位置 = `seekOffset + (serverNow - startedAt)`，对 loop 曲目取模时长。
+- 中途加入/重连者从快照恢复：播放位置 = `seekOffsetMs + (serverNow - startedAtMs)`，仅 `single` 模式对曲目时长取模，其余模式限制到曲末。
+- `audio:bgm` 的 `mode` 指令切换模式并固化当前进度；`next` / `previous` 由服务端从当前模组未删除 BGM 中选取，列表排序为 `createdAt ASC, id ASC`。随机模式由服务端 `RandomSource` 选择且多首时排除当前曲目；没有候选则停止。
+- GM `usePlayAudio` 的 Howler `onend` 回报 `ended + expectedVersion`，不依赖声音面板是否打开。服务端拒绝非 GM、陈旧版本、未到曲末与已暂停的回报，已知时长允许 1 秒结束误差；时长未知时信任 GM 播放器的实际结束。`off` 固化停止，`list`/`shuffle` 从头播放所选曲目，事务写库后通过既有事件总线广播。客户端同版本只回报一次，断线恢复可重试；新版本或重连快照停在曲末时补报。GM 离线期间不运行独立切歌调度器。
+- `session_audio_state.mode` 替代旧 `loop` 字段；迁移 `0006_bgm_playback_modes` 先按旧值写入 `single`/`off`，再移除旧列，不保留双轨协议。部署前后端须同时更新；已有团的曲目、音量、进度与版本保留。
+- 上传音频的 BGM 快照、事件与 SE 事件附带媒体实际 `audioMimeType`，客户端据此设置 Howler `format`（WAV/MP3/OGG/FLAC/M4A）；平台音频使用 MP3 格式提示，实际解码由 HTML5 Audio 按响应处理。内部媒体/平台代理 URL 无扩展名，不能仅依赖 Howler 从 URL 推断格式。
 - **SE 音效**为一次性广播（fire-and-forget），不进快照。
 - 玩家本地可静音/调本地音量，不影响他人；进团点击作为浏览器音频解锁手势。
 

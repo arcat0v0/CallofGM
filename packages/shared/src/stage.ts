@@ -32,12 +32,24 @@ export const UpdateStageLayoutCommand = z.object({
 });
 export type UpdateStageLayoutCommand = z.infer<typeof UpdateStageLayoutCommand>;
 
+export const BgmPlaybackMode = z.enum(["off", "single", "list", "shuffle"]);
+export type BgmPlaybackMode = z.infer<typeof BgmPlaybackMode>;
+
 export const UpdateBgmCommand = z.object({
-	action: z.enum(["play", "pause", "seek", "volume", "loop"]),
+	action: z.enum([
+		"play",
+		"pause",
+		"seek",
+		"volume",
+		"mode",
+		"ended",
+		"next",
+		"previous",
+	]),
 	trackId: z.string().min(1).optional(),
 	seekOffsetMs: z.number().int().min(0).optional(),
 	volume: z.number().int().min(0).max(100).optional(),
-	loop: z.boolean().optional(),
+	mode: BgmPlaybackMode.optional(),
 	restart: z.boolean().optional(),
 	/** 客户端应用本次音量/播放状态变化的淡入淡出时长。 */
 	transitionMs: z.number().int().min(0).max(60_000).optional(),
@@ -77,7 +89,8 @@ export const BgmState = z.object({
 	trackId: z.string().nullable(),
 	playing: z.boolean(),
 	volume: z.number().int().min(0).max(100),
-	loop: z.boolean(),
+	mode: BgmPlaybackMode,
+	audioMimeType: z.string().optional(),
 	seekOffsetMs: z.number().int().min(0),
 	startedAtMs: z.number().int(),
 	version: z.number().int().min(0),
@@ -104,6 +117,7 @@ export type BgmUpdatedEvent = z.infer<typeof BgmUpdatedEvent>;
 export const SePlayedEvent = z.object({
 	trackId: z.string(),
 	volume: z.number().int().min(0).max(100),
+	audioMimeType: z.string().optional(),
 	audioAssetId: z.string().nullable().optional(),
 	source: TrackSource.optional(),
 	playbackUrl: z

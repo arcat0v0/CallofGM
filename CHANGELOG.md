@@ -17,7 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 客户端构建通过 Vite 注入版本、提交与构建时间，后端在应用装配时读取根 `package.json` 与构建环境。
 - `bun run release:check` 发版一致性检查，以及根目录 `docker-compose.yml` 手动构建更新入口。
 - 增加基于现有团 WebSocket 的 WebRTC 语音协议与服务端权威控制：独立开启标识、人数与 GM 保留位、重复标签页防护、点对点 SDP/ICE 单播、OB 授权、个别静音、阶段/回溯/席位更新与断线重连。
-- 支持可选 STUN 与 coturn REST 短期 TURN 凭据；默认不依赖外部 ICE 服务，并新增可空持久单团人数上限迁移 `0006_cold_argent`。
+- 支持可选 STUN 与 coturn REST 短期 TURN 凭据；默认不依赖外部 ICE 服务，并新增可空持久单团人数上限迁移 `0007_voice_limit`。
 
 ### Changed
 

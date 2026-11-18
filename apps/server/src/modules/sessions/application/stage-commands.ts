@@ -8,7 +8,7 @@ import {
 	UpdateSessionSettingsCommand,
 	UpdateStageLayoutCommand,
 } from "@cogm/shared";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, asc, eq, isNull } from "drizzle-orm";
 import { ExpressionNotFoundError } from "@/modules/chat";
 import { ForbiddenError } from "@/modules/identity";
 import type {
@@ -20,6 +20,7 @@ import { CharacterNotNpcError } from "@/modules/sessions/domain/errors";
 import type { DbClient } from "@/platform/db/client";
 import {
 	characterPortraits,
+	mediaAssets,
 	scenes,
 	sessionAudioState,
 	sessionCharacters,
@@ -28,6 +29,7 @@ import {
 } from "@/platform/db/schema";
 import { AppError } from "@/platform/errors/app-error";
 import type { RuleRegistry } from "@/rules/registry";
+import { BgmPlayback } from "../domain/bgm-playback";
 
 class SceneNotFoundError extends AppError {
 	constructor(message = "Scene not found in this module") {
@@ -64,9 +66,11 @@ async function loadAudioState(
 			name: tracks.name,
 			source: tracks.source,
 			audioAssetId: tracks.audioAssetId,
+			audioMimeType: mediaAssets.mimeType,
 		})
 		.from(sessionAudioState)
 		.leftJoin(tracks, eq(sessionAudioState.trackId, tracks.id))
+		.leftJoin(mediaAssets, eq(tracks.audioAssetId, mediaAssets.id))
 		.where(eq(sessionAudioState.sessionId, sessionId));
 	const row = rows[0];
 	if (!row) {
@@ -77,7 +81,7 @@ async function loadAudioState(
 		trackId: audio.trackId ?? null,
 		playing: audio.playing === 1,
 		volume: audio.volume,
-		loop: audio.loop === 1,
+		mode: audio.mode,
 		seekOffsetMs: audio.seekOffsetMs,
 		startedAtMs: audio.startedAtMs,
 		version: audio.version,
@@ -85,6 +89,7 @@ async function loadAudioState(
 		name: row.name ?? undefined,
 		source: (row.source ?? undefined) as BgmState["source"],
 		audioAssetId: row.audioAssetId ?? null,
+		audioMimeType: row.audioMimeType ?? undefined,
 		playbackUrl:
 			audio.trackId && row.source
 				? row.source === "upload"
@@ -281,26 +286,14 @@ export class UpdateBgmHandler implements CommandHandler {
 			trackId: null,
 			playing: false,
 			volume: 100,
-			loop: true,
+			mode: "single",
 			seekOffsetMs: 0,
 			startedAtMs: now,
 			version: 0,
 		};
 
-		/** 播放中的实时位置（服务器时钟推导；循环曲目对 duration 取模） */
-		const currentPosition = (): number => {
-			const duration = base.durationMs ?? 0;
-			let position = base.seekOffsetMs;
-			if (base.playing) {
-				position = base.seekOffsetMs + Math.max(0, now - base.startedAtMs);
-			}
-			if (base.loop && duration > 0) {
-				return position % duration;
-			}
-			return position;
-		};
-
-		const next: BgmState = { ...base };
+		const playback = new BgmPlayback(base, now);
+		const next = playback.state;
 		switch (input.action) {
 			case "play": {
 				if (!input.trackId) {
@@ -318,36 +311,23 @@ export class UpdateBgmHandler implements CommandHandler {
 				if (
 					!track ||
 					track.moduleId !== ctx.session.moduleId ||
-					track.type !== "bgm"
+					track.type !== "bgm" ||
+					(track.deletedAt !== null && track.id !== base.trackId)
 				) {
 					throw new TrackNotFoundError("BGM track not found in this module");
 				}
-				// 切歌从 0 起播；同曲默认继续，显式 restart 或 seekOffset 时从头/指定位置起播
-				const isSameTrack = base.trackId === input.trackId;
-				next.trackId = input.trackId;
-				next.playing = true;
-				next.seekOffsetMs = input.restart
-					? (input.seekOffsetMs ?? 0)
-					: (input.seekOffsetMs ?? (isSameTrack ? base.seekOffsetMs : 0));
-				next.startedAtMs = now;
-				next.durationMs = track.duration;
-				next.name = track.name;
-				next.source = track.source as BgmState["source"];
-				next.audioAssetId = track.audioAssetId;
-				next.playbackUrl =
-					track.source === "upload"
-						? `/api/v1/media/${track.audioAssetId}`
-						: `/api/v1/music/tracks/${track.id}/stream`;
+				playback.play(
+					{ ...track, source: track.source as NonNullable<BgmState["source"]> },
+					input.restart,
+					input.seekOffsetMs,
+				);
 				break;
 			}
 			case "pause": {
 				if (!base.playing) {
 					break;
 				}
-				next.playing = false;
-				// 暂停时固化进度
-				next.seekOffsetMs = currentPosition();
-				next.startedAtMs = now;
+				playback.pause();
 				break;
 			}
 			case "seek": {
@@ -373,19 +353,62 @@ export class UpdateBgmHandler implements CommandHandler {
 				next.volume = input.volume;
 				break;
 			}
-			case "loop": {
-				if (input.loop === undefined) {
+			case "mode": {
+				if (input.mode === undefined) {
 					throw new AppError(
 						"VALIDATION_FAILED",
-						"loop is required for loop",
+						"mode is required for mode",
 						400,
 					);
 				}
-				next.loop = input.loop;
+				playback.changeMode(input.mode);
+				break;
+			}
+			case "ended":
+			case "next":
+			case "previous": {
+				if (input.action === "ended") {
+					if (!playback.isDue())
+						throw new AppError(
+							"VALIDATION_FAILED",
+							"Track has not reached its end",
+							400,
+						);
+					if (base.mode === "off") {
+						playback.finish();
+						break;
+					}
+				}
+				const candidates = await ctx.tx
+					.select()
+					.from(tracks)
+					.where(
+						and(
+							eq(tracks.moduleId, ctx.session.moduleId),
+							eq(tracks.type, "bgm"),
+							isNull(tracks.deletedAt),
+						),
+					)
+					.orderBy(asc(tracks.createdAt), asc(tracks.id));
+				playback.step(
+					candidates.map((track) => ({
+						...track,
+						source: track.source as NonNullable<BgmState["source"]>,
+					})),
+					input.action === "previous" ? -1 : 1,
+					ctx.randomSource,
+				);
 				break;
 			}
 		}
 		next.version = currentVersion + 1;
+		if (next.source === "upload" && next.audioAssetId) {
+			const [asset] = await ctx.tx
+				.select({ mimeType: mediaAssets.mimeType })
+				.from(mediaAssets)
+				.where(eq(mediaAssets.id, next.audioAssetId));
+			next.audioMimeType = asset?.mimeType;
+		}
 
 		const existing = await ctx.tx
 			.select({ id: sessionAudioState.id })
@@ -398,7 +421,7 @@ export class UpdateBgmHandler implements CommandHandler {
 					trackId: next.trackId,
 					playing: next.playing ? 1 : 0,
 					volume: next.volume,
-					loop: next.loop ? 1 : 0,
+					mode: next.mode,
 					seekOffsetMs: next.seekOffsetMs,
 					startedAtMs: next.startedAtMs,
 					version: next.version,
@@ -411,7 +434,7 @@ export class UpdateBgmHandler implements CommandHandler {
 				trackId: next.trackId,
 				playing: next.playing ? 1 : 0,
 				volume: next.volume,
-				loop: next.loop ? 1 : 0,
+				mode: next.mode,
 				seekOffsetMs: next.seekOffsetMs,
 				startedAtMs: next.startedAtMs,
 				version: next.version,
@@ -460,6 +483,14 @@ export class PlaySeHandler implements CommandHandler {
 		) {
 			throw new TrackNotFoundError("SE track not found in this module");
 		}
+		const asset = track.audioAssetId
+			? (
+					await ctx.tx
+						.select({ mimeType: mediaAssets.mimeType })
+						.from(mediaAssets)
+						.where(eq(mediaAssets.id, track.audioAssetId))
+				)[0]
+			: undefined;
 
 		return {
 			directToSession: [
@@ -469,6 +500,7 @@ export class PlaySeHandler implements CommandHandler {
 						trackId: track.id,
 						volume: input.volume ?? 100,
 						audioAssetId: track.audioAssetId,
+						audioMimeType: asset?.mimeType,
 						source: track.source as BgmState["source"],
 						playbackUrl:
 							track.source === "upload"
