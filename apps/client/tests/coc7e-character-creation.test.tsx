@@ -40,8 +40,9 @@ function Harness({
 			showValidation={showValidation}
 			onValidityChange={onValidityChange}
 			onChange={(next) => {
-				onChange(next);
-				setSheet(next);
+				const parsed = coc7e.Coc7eCharacterSheet.parse(next);
+				onChange(parsed);
+				setSheet(parsed);
 			}}
 		/>
 	);

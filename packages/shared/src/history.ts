@@ -75,6 +75,7 @@ export const RewindPreview = z.object({
 		.object({ fromName: z.string().nullable(), toName: z.string().nullable() })
 		.nullable(),
 	hasCheckpoint: z.boolean(),
+	ruleStateChanged: z.boolean().optional(),
 });
 export type RewindPreview = z.infer<typeof RewindPreview>;
 

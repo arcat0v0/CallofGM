@@ -80,6 +80,7 @@ export const SessionSnapshotPayload = z.object({
 		holderId: z.string().nullable().optional(),
 	}),
 	characters: z.array(SnapshotCharacter),
+	ruleState: z.unknown().nullable().optional(),
 	bgm: BgmState.nullable(),
 	recentHistory: z.array(HistoryItem),
 	history: HistoryCursor,

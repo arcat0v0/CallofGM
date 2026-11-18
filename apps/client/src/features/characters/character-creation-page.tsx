@@ -82,8 +82,12 @@ export function CharacterCreationPageView({
 			? (inviteRuleId ?? initial.draft?.ruleId ?? "")
 			: (initial.draft?.ruleId ?? ""),
 	);
-	const [sheet, setSheet] = useState(
-		initial.draft?.sheet ?? createEmptyCharacterSheet(),
+	const [sheet, setSheet] = useState<unknown>(() =>
+		initial.draft
+			? initial.draft.sheet
+			: mode === "invite" && inviteRuleId
+				? createEmptyCharacterSheet(inviteRuleId)
+				: null,
 	);
 	const [showValidation, setShowValidation] = useState(false);
 	const [ruleValid, setRuleValid] = useState(true);
@@ -136,8 +140,11 @@ export function CharacterCreationPageView({
 					return;
 				}
 				setInvite(value);
-				setRuleId((current) =>
-					current === value.ruleId ? current : value.ruleId,
+				setRuleId(value.ruleId);
+				setSheet(
+					initial.draft?.ruleId === value.ruleId
+						? initial.draft.sheet
+						: createEmptyCharacterSheet(value.ruleId),
 				);
 			})
 			.catch(() => {
@@ -153,7 +160,7 @@ export function CharacterCreationPageView({
 		return () => {
 			cancelled = true;
 		};
-	}, [mode, inviteToken, inviteRuleId]);
+	}, [mode, inviteToken, inviteRuleId, initial.draft]);
 
 	useEffect(() => {
 		return () => {
@@ -209,6 +216,7 @@ export function CharacterCreationPageView({
 	function updateRuleId(value: string) {
 		markDirty();
 		setRuleId(value);
+		setSheet(createEmptyCharacterSheet(value));
 	}
 
 	function updateSheet(value: typeof sheet) {
@@ -341,12 +349,12 @@ export function CharacterCreationPageView({
 		clearCharacterCreationDraft(accountId, context);
 		setName("");
 		setBackground("");
-		setRuleId(
+		const nextRuleId =
 			mode === "invite"
 				? (inviteRuleId ?? invite?.ruleId ?? initial.draft?.ruleId ?? "")
-				: "",
-		);
-		setSheet(createEmptyCharacterSheet());
+				: "";
+		setRuleId(nextRuleId);
+		setSheet(nextRuleId ? createEmptyCharacterSheet(nextRuleId) : null);
 		clearPendingPortrait();
 		setShowValidation(false);
 		setRestoredNotice(false);
@@ -445,7 +453,12 @@ export function CharacterCreationPageView({
 					</Button>
 					<div className="flex min-w-0 flex-1 flex-col">
 						<h1 className="truncate font-sans text-title-medium-emph text-foreground">
-							{t("characterCreation.pageTitle")}
+							{ruleId
+								? (rule.creationTitle?.() ??
+									t("characterCreation.pageTitleForRule", {
+										rule: rule.metadata.name,
+									}))
+								: t("characterCreation.pageTitleUnselected")}
 						</h1>
 						<p className="text-label-small text-foreground-tertiary">
 							{draftFailed
@@ -521,25 +534,39 @@ export function CharacterCreationPageView({
 					</p>
 				) : null}
 
-				<CreationEditor
-					sheet={sheet}
-					onChange={updateSheet}
-					showValidation={showValidation}
-					onValidityChange={setRuleValid}
-					onWarningsChange={setWarningCount}
-					characterName={name}
-					onCharacterNameChange={updateName}
-					background={background}
-					onBackgroundChange={updateBackground}
-					portraitPreviewUrl={pendingPortraitUrl}
-					portraitPending={Boolean(pendingPortraitBlob)}
-					onPickPortraitFile={pickPortraitFile}
-					onClearPendingPortrait={clearPendingPortrait}
-					identityHeaderSlot={ruleSelectorSlot}
-					onSubmitAction={() => void submit()}
-					submitLabel={submitLabel}
-					submitPending={pending || inviteLoading}
-				/>
+				{ruleId && sheet !== null ? (
+					<CreationEditor
+						sheet={sheet}
+						onChange={updateSheet}
+						showValidation={showValidation}
+						onValidityChange={setRuleValid}
+						onWarningsChange={setWarningCount}
+						characterName={name}
+						onCharacterNameChange={updateName}
+						background={background}
+						onBackgroundChange={updateBackground}
+						portraitPreviewUrl={pendingPortraitUrl}
+						portraitPending={Boolean(pendingPortraitBlob)}
+						onPickPortraitFile={pickPortraitFile}
+						onClearPendingPortrait={clearPendingPortrait}
+						identityHeaderSlot={ruleSelectorSlot}
+						onSubmitAction={() => void submit()}
+						submitLabel={submitLabel}
+						submitPending={pending || inviteLoading}
+					/>
+				) : (
+					<section className="flex flex-col gap-4 rounded-2xl bg-md-surface-container-low p-5 md:p-6">
+						<div className="flex flex-col gap-1.5">
+							<h2 className="font-sans text-title-large-emph text-foreground">
+								{t("characterCreation.chooseRuleTitle")}
+							</h2>
+							<p className="text-body-medium text-foreground-secondary">
+								{t("characterCreation.chooseRuleDescription")}
+							</p>
+						</div>
+						{ruleSelectorSlot}
+					</section>
+				)}
 			</div>
 
 			<ImageCropDialog

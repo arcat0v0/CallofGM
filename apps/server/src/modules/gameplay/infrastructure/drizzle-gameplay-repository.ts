@@ -27,6 +27,7 @@ export class DrizzleGameplayRepository implements GameplayRepository {
 				and(
 					eq(sessionCharacters.sessionId, sessionId),
 					eq(sessionCharacters.characterId, characterId),
+					isNull(sessionCharacters.deletedAt),
 				),
 			);
 		return rows[0] ?? null;

@@ -175,6 +175,9 @@ function ImportCharacterSheetDialog({
 	const skills = (sheet ? rule.skillEntries(sheet) : []).slice(0, 6);
 	const hasErrors = (preview?.preview.errors.length ?? 0) > 0;
 
+	if (!rule.supportsExcelImport) {
+		return null;
+	}
 	return (
 		<Dialog open={open} onOpenChange={handleOpenChange}>
 			<DialogContent className="max-w-160 gap-0 p-0" showCloseButton={false}>

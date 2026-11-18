@@ -18,6 +18,7 @@ export const PerformCheckCommand = z.object({
 	penaltyDice: z.number().int().min(0).max(2).default(0),
 	hidden: z.boolean().optional(),
 	ruleId: z.string().min(1).max(32).optional(),
+	options: z.unknown().optional(),
 });
 export type PerformCheckCommand = z.infer<typeof PerformCheckCommand>;
 
@@ -29,6 +30,7 @@ export const CreateCheckRequestCommand = z.object({
 	penaltyDice: z.number().int().min(0).max(2).default(0),
 	hidden: z.boolean().optional(),
 	ruleId: z.string().min(1).max(32).optional(),
+	options: z.unknown().optional(),
 });
 export type CreateCheckRequestCommand = z.infer<
 	typeof CreateCheckRequestCommand
@@ -65,6 +67,19 @@ export const PerformLuckRecoveryCommand = z.object({
 export type PerformLuckRecoveryCommand = z.infer<
 	typeof PerformLuckRecoveryCommand
 >;
+
+export const RuleActionCommand = z.object({
+	action: z.string().min(1).max(64),
+	characterId: z.string().min(1).max(128).optional(),
+	input: z.unknown().optional(),
+});
+export type RuleActionCommand = z.infer<typeof RuleActionCommand>;
+
+export const RuleStateChangedEvent = z.object({
+	ruleId: z.string(),
+	state: z.unknown().nullable(),
+});
+export type RuleStateChangedEvent = z.infer<typeof RuleStateChangedEvent>;
 
 export const EditCharacterStateCommand = z
 	.object({
@@ -129,6 +144,7 @@ export const CheckRequestDto = z.object({
 	penaltyDice: z.number().int(),
 	hidden: z.boolean(),
 	sanLossExpression: z.string().nullable().optional(),
+	options: z.unknown().optional(),
 	status: z.enum(["pending", "resolved"]),
 	createdAt: z.number().int(),
 });

@@ -25,6 +25,7 @@ export interface RuntimeSnapshotCheckRequest {
 	penaltyDice: number;
 	hidden: number;
 	sanLossExpression: string | null;
+	optionsJson?: string | null;
 	status: string;
 	resolvedCheckResultJson: string | null;
 	createdAt: number;
@@ -48,6 +49,7 @@ export interface RuntimeSnapshotHandoutGrant {
 export interface RuntimeSnapshot {
 	phase: string;
 	currentSceneId: string | null;
+	ruleStateJson?: string | null;
 	characters: RuntimeSnapshotCharacter[];
 	checkRequests: RuntimeSnapshotCheckRequest[];
 	handoutGrants: RuntimeSnapshotHandoutGrant[];
@@ -76,6 +78,7 @@ export async function captureRuntimeSnapshot(
 			.select({
 				phase: sessions.phase,
 				currentSceneId: sessions.currentSceneId,
+				ruleStateJson: sessions.ruleStateJson,
 			})
 			.from(sessions)
 			.where(eq(sessions.id, sessionId)),
@@ -142,6 +145,7 @@ export async function captureRuntimeSnapshot(
 	return {
 		phase: session.phase,
 		currentSceneId: session.currentSceneId ?? null,
+		ruleStateJson: session.ruleStateJson,
 		characters: characterRows.map((row) => ({
 			characterId: row.characterId,
 			kind: row.kind,
@@ -157,6 +161,7 @@ export async function captureRuntimeSnapshot(
 			penaltyDice: row.penaltyDice,
 			hidden: row.hidden,
 			sanLossExpression: row.sanLossExpression ?? null,
+			optionsJson: row.optionsJson,
 			status: row.status,
 			resolvedCheckResultJson: row.resolvedCheckResultJson ?? null,
 			createdAt: row.createdAt,

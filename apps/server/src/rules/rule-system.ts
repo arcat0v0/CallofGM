@@ -1,3 +1,5 @@
+import type { RuleActionCommand } from "@cogm/shared";
+import { AppError } from "@/platform/errors/app-error";
 import type { z } from "zod";
 import type { RandomSource } from "@/platform/ports";
 
@@ -77,11 +79,73 @@ export interface PermanentFieldEditInput {
 	value: number;
 }
 
+export interface RuntimeCharacter<TSheet, TState> {
+	id: string;
+	name: string;
+	kind: "pc" | "npc";
+	sheet: TSheet;
+	state: TState;
+}
+
+export interface RuleRuntime<TSheet, TState> {
+	isGm: boolean;
+	requested: boolean;
+	hidden: boolean;
+	random: RandomSource;
+	ruleState: unknown;
+	findCharacter(id: string): Promise<RuntimeCharacter<TSheet, TState> | null>;
+}
+
+export interface RuleMutation<TState> extends StateMutationResult<TState> {
+	characterId: string;
+}
+
+export interface RuleCheckResult<TState> {
+	result: unknown;
+	mutations?: RuleMutation<TState>[];
+}
+
+export function unsupportedRuleAction(): never {
+	throw new AppError(
+		"RULE_ACTION_UNSUPPORTED",
+		"This rule system does not support this action",
+	);
+}
+
 export abstract class RuleSystem<TSheet, TSessionState> {
 	abstract readonly id: string;
 	abstract readonly metadata: RuleMetadata;
 	abstract readonly characterSheetSchema: z.ZodType<TSheet>;
 	abstract readonly sessionStateSchema: z.ZodType<TSessionState>;
+
+	validateCheckOptions?(
+		character: RuntimeCharacter<TSheet, TSessionState>,
+		skillKey: string,
+		options: unknown,
+		runtime: RuleRuntime<TSheet, TSessionState>,
+	): Promise<unknown>;
+	resolveCheck?(
+		character: RuntimeCharacter<TSheet, TSessionState>,
+		skillKey: string,
+		options: unknown,
+		runtime: RuleRuntime<TSheet, TSessionState>,
+	): Promise<RuleCheckResult<TSessionState>>;
+	applyRuleAction?(
+		command: RuleActionCommand,
+		runtime: RuleRuntime<TSheet, TSessionState>,
+	): Promise<{
+		mutations?: RuleMutation<TSessionState>[];
+		ruleState?: unknown;
+	}>;
+	viewRuleState?(
+		state: unknown,
+		viewer: { isGm: boolean; characterIds: readonly string[] },
+	): unknown;
+	reconcileRuleState?(
+		state: unknown,
+		isEnrolled: (characterId: string) => boolean,
+	): unknown;
+	projectSyncState?(state: TSessionState): Record<string, number>;
 
 	/** 新建人物时的规则空卡 */
 	abstract createEmptySheet(): TSheet;

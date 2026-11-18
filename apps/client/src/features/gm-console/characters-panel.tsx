@@ -168,9 +168,7 @@ function CharactersPanel({ onClose }: { onClose: () => void }) {
 			toast.error(t("chat.notConnected"));
 			return;
 		}
-		toast.success(
-			t("gm.workbench.recoverLuckQueued", { count: pcs.length }),
-		);
+		toast.success(t("gm.workbench.recoverLuckQueued", { count: pcs.length }));
 	}
 
 	return (
@@ -184,20 +182,22 @@ function CharactersPanel({ onClose }: { onClose: () => void }) {
 						<span className="text-md-on-surface-variant text-label-medium">
 							{t("gm.workbench.stateScope")}
 						</span>
-						<Button
-							type="button"
-							variant="tertiary"
-							size="sm"
-							className="h-9 shrink-0"
-							disabled={
-								characters.filter((character) => character.kind === "pc")
-									.length === 0
-							}
-							onClick={recoverAllLuck}
-						>
-							<Sparkles className="size-4" />
-							{t("gm.workbench.recoverAllLuck")}
-						</Button>
+						{getRuleComponent(ruleId).supportsLuck ? (
+							<Button
+								type="button"
+								variant="tertiary"
+								size="sm"
+								className="h-9 shrink-0"
+								disabled={
+									characters.filter((character) => character.kind === "pc")
+										.length === 0
+								}
+								onClick={recoverAllLuck}
+							>
+								<Sparkles className="size-4" />
+								{t("gm.workbench.recoverAllLuck")}
+							</Button>
+						) : null}
 					</div>
 				}
 			>
@@ -530,46 +530,33 @@ function CharactersPanel({ onClose }: { onClose: () => void }) {
 														disabled
 													/>
 												)}
-												<GmValueField
-													label="HP"
-													value={state ? `${state.hp} / ${state.maxHp}` : "—"}
-													actionLabel={t("gm.workbench.editStateFor", {
-														name: character.name,
-													})}
-													onClick={() =>
-														setEditorCharacterId(character.characterId)
-													}
-												/>
-												<GmValueField
-													label="MP"
-													value={state ? `${state.mp} / ${state.maxMp}` : "—"}
-													actionLabel={t("gm.workbench.editStateFor", {
-														name: character.name,
-													})}
-													onClick={() =>
-														setEditorCharacterId(character.characterId)
-													}
-												/>
-												<GmValueField
-													label="SAN"
-													value={state ? `${state.san} / ${state.maxSan}` : "—"}
-													actionLabel={t("gm.workbench.editStateFor", {
-														name: character.name,
-													})}
-													onClick={() =>
-														setEditorCharacterId(character.characterId)
-													}
-												/>
-												<GmValueField
-													label={t("sheet.destiny")}
-													value={state ? String(state.luck) : "—"}
-													actionLabel={t("gm.workbench.editStateFor", {
-														name: character.name,
-													})}
-													onClick={() =>
-														setEditorCharacterId(character.characterId)
-													}
-												/>
+												{getRuleComponent(character.ruleId)
+													.stateBars(character.state)
+													.map((bar) => (
+														<GmValueField
+															key={bar.key}
+															label={bar.label}
+															value={`${bar.current} / ${bar.max}`}
+															actionLabel={t("gm.workbench.editStateFor", {
+																name: character.name,
+															})}
+															onClick={() =>
+																setEditorCharacterId(character.characterId)
+															}
+														/>
+													))}
+												{getRuleComponent(character.ruleId).supportsLuck ? (
+													<GmValueField
+														label={t("sheet.destiny")}
+														value={state ? String(state.luck) : "—"}
+														actionLabel={t("gm.workbench.editStateFor", {
+															name: character.name,
+														})}
+														onClick={() =>
+															setEditorCharacterId(character.characterId)
+														}
+													/>
+												) : null}
 											</div>
 											<div className="flex flex-wrap items-center gap-2">
 												<Button

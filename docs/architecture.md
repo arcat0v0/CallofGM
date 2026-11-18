@@ -71,12 +71,12 @@ CallofGM/
 
 ## 规则系统抽象
 
-本期只注册 CoC 7e，但**所有规则相关逻辑必须通过统一的规则系统接口接入，通用业务代码禁止硬编码任何具体规则的判定**——这是永久原则（同见 `CLAUDE.md` / `AGENTS.md`）。
+已注册 CoC 7e（`coc7e`）与 D&D 第五版 2024（`dnd5r`）。**所有规则相关逻辑必须通过统一的规则系统接口接入，通用业务代码禁止硬编码任何具体规则的判定**（见 `AGENTS.md`）。
 
 - 服务端以面向对象组织：`RuleSystem` 抽象类 + 每种规则一个实现类（`apps/server/src/rules/{ruleId}/`）。职责边界：
   - 不可变元数据：`id`、`name`、实现 `version`、核心兼容 `apiVersion`、`description`、`permanentSheetFields`
   - 人物卡 schema、空卡构造、Excel 解析器与导入器
-  - 技能鉴定判级（输入目标值/难度/奖惩骰 + 注入的 RNG，输出结果等级——RNG 注入以便 `bun test` 断言）
+  - 鉴定选项校验、掷骰判定及结果引起的状态变更。规则使用注入的 `RandomSource` 生成骰点。
   - 规则特有检定（如 CoC 的理智检定）以规则自有动作暴露
   - 团内状态的 schema 定义与从人物卡的初始化推导（HP/MP/SAN 属于 CoC 7e 实现，不属于通用层）
   - 允许扩展项声明：CoC 允许自定义技能（名称/基础值/当前值），不允许自定义属性、公式、成功等级或特殊检定
@@ -85,9 +85,11 @@ CallofGM/
 - `GET /api/v1/rules` 暴露已注册且 `apiVersion` 兼容的元数据；前端选择器只消费该接口，不硬编码规则列表。
 - 客户端维护规则组件注册表 `apps/client/src/rules/{ruleId}/`：建卡组件、人物卡编辑/展示组件、检定面板与团内状态视图按 `ruleId` 取用。业务页面不得直接 import 具体规则；目前 14 处直接 import `coc7e` 的页面需在实施中清理。
 - 通用层只保留规则无关能力：普通骰点表达式、事件广播与可见性、演绎队列、团状态机。
-- `packages/shared` 按规则命名空间组织：通用 schema 在 `src/` 顶层，规则专属 schema 在 `src/rules/{ruleId}/` 下，以 `export * as coc7e` 命名空间导出，避免跨规则命名冲突。`RuleId` 协议为受限字符串，具体合法性由服务端注册表校验。
+- `packages/shared` 按规则命名空间组织：通用 schema 在 `src/` 顶层，规则专属 schema 在 `src/rules/{ruleId}/` 下，以 `coc7e`、`dnd5r` 等命名空间导出。`RuleId` 协议为受限字符串，具体合法性由服务端注册表校验。
 - 快照、日志与 WS 规则相关 payload 携带 `ruleId`，由对应规则模块的 zod schema 校验。
 - 骰点与鉴定入口统一使用 `packages/shared` 定义的结构化 WS command：普通骰点由骰点面板提交表达式，玩家自主鉴定由人物卡提交技能标识，GM 鉴定请求由控制台创建并由目标玩家确认响应。聊天消息只承载文本，不参与规则动作解析。
+- D&D 按 `packages/shared/src/rules/dnd5r/` 定义的人物卡、目录和规则指令运行，服务端实现位于 `apps/server/src/rules/dnd5r/`。普通鉴定沿用 `check:perform` / `check:request` / `check:respond`。可选 `options` 交规则校验，`check_requests.options_json` 保存已校验的请求选项以供重连和回溯。攻击会读取目标团内人物卡，结果省略目标 AC。
+- `rule:action` 封装规则专属动作，由团所属 `RuleSystem` 校验和执行。通用层核验团状态、角色席位和阶段并持久化变更。D&D 用该指令处理遭遇、伤害、治疗、状态、资源和休整。遭遇写入 `sessions.rule_state_json`，以 `rule:state-changed` 广播，在快照携带 `ruleState`。迁移 `0008_rule_runtime` 添加这两个可空 JSON 列。
 
 ## 掷骰与鉴定引擎
 
@@ -95,14 +97,14 @@ CallofGM/
 - 公开的实时 `dice:rolled` / `check:resolved` 事件触发客户端舞台上的 3D 骰子动画。客户端使用 `apps/client/public/dice/` 的自包含 glTF 模型与 `orientations/` 四元数表，先翻滚再 slerp 到服务端结果对应朝向；渲染层是覆盖游玩视图/GM 控制台的全屏透明 WebGL 叠层，不套用浮岛卡片或小窗，避免裁切骰子。快照、历史分页与暗骰事件不触发动画。动画层通过主 WS 连接的 `onLiveEvent` 观察实时 `SessionEvent`，不新增第二条连接、不改变在线计数或命令连接，不生成结果，也不把物理模拟结果当作服务端判定。
 - 判级规则（大成功/极难/困难/常规/失败/大失败、奖励惩罚骰取十位、难度阈值）由 CoC 7e 规则模块实现为纯函数（见"规则系统抽象"），类型定义在 `packages/shared` 的 `rules/coc7e/`，用 `bun test` 全覆盖。
 - **暗骰**复用秘密情报的定向推送机制：结果事件进事件日志但可见范围 = 仅 GM，断线补发按同一套过滤；玩家响应暗骰鉴定请求时仅收到"已掷出"回执。
-- **鉴定请求**：GM 创建请求（目标 PC、skillKey、难度、奖惩骰、是否暗骰）→ 定向推送目标玩家 → 玩家确认后服务端校验存在待响应请求再掷骰。待响应请求随快照下发，重连不丢。
+- **鉴定请求**：GM 创建请求（目标 PC、`skillKey`、规则专属选项、是否暗骰）→ 定向推送目标玩家 → 玩家确认后服务端校验存在待响应请求再掷骰。待响应请求随快照下发，重连不丢。
 - **理智检定**：GM 发起时附损失表达式 `成功/失败`（如 `1/1d6`），服务端判定后自动掷损失、经统一的状态变更入口扣减团内 SAN，检定结果与状态变更作为两个事件先后广播。
 - 阶段权限复用消息裁决逻辑：玩家自主掷骰按"场外发言"规则判允许与否；响应鉴定请求不受阶段限制。
 
 ## 角色团内状态
 
-- 表 `session_character_state`：主键 `(sessionId, characterId)` + `state`（JSON）。`state` 的 schema 由团所属规则模块定义并校验（CoC 7e：`hp/maxHp/mp/maxMp/san/maxSan`、`statuses` 预置标记、`tags` 自定义标签、`growthMarks` 技能名列表）；团创建/PC 进团时由规则模块从人物卡推算初始化。
-- 所有变更（GM 编辑、理智检定扣减、鉴定引擎写成长标记）走服务端统一入口：写库 → 生成 `state:changed` 事件（带 eventId，进事件日志）→ 按可见性广播。伤害/损失越阈（重伤线、HP 归零、单次 SAN ≥ 5）时向 GM 附加提示，不自动挂状态。
+- `session_characters.state_json` 保存「团 × 角色」状态，由规则模块校验并按入团人物卡初始化。CoC 7e 保存 HP、MP、SAN、状态与成长标记。D&D 保存 HP、临时 HP、条件、力竭、死亡豁免、生命骰、法术位和资源。
+- 团内状态经通用入口持久化并生成 `state:changed` 事件，按可见性广播和记录。规则模块计算变更与提示，人物卡同步预览也由规则投影数值。D&D 的 `recalculateStateOnSync` 将当前 HP 限制在新上限内，并按「新上限减去已花费次数，最低为 0」更新生命骰、法术位和仍存在的资源。契约魔法转用更高环阶时仍计入已花费次数。新增资源从满额开始，已移除的资源从团内状态移除。
 - 可见性：PC 状态事件默认广播全员；团级设置「OB 可见 PC 数值」关闭后改为 `pcPlayers` 作用域（GM + PC 席位玩家），OB 连接收不到 `state:changed`，快照中的 PC 状态也为 null。
 - NPC 状态按团内公开配置投影：GM 的 `state:changed` 保留完整状态并附带 `publicState` / `publicStateFields`；存在公开项时非 GM 连接收 `state:public-changed`（`playerOnly`，内容仅为投影）。快照使用同一投影：GM 附带公开视图，玩家与 OB 的 NPC `state` 为投影或 null。公开配置经 `npc:state-visibility` 修改，产生 GM 配置事件与玩家状态事件；玩家投影不进入历史或检查点，公开配置不参与回溯。全量快照包含对请求者可见的全部角色状态。
 - **暗骰作用域贯穿状态变更**：暗骰鉴定成功写入的成长标记记入 `hiddenGrowthMarks`，整次 `state:changed` / `state:hint` 仅发 GM；状态视图由规则模块按观察者裁剪（`viewSessionState`），玩家快照与广播都不含暗骰技能名。非暗骰状态变更保持公开。
@@ -162,21 +164,22 @@ BgmState = { trackId, playing, volume, mode: off|single|list|shuffle, seekOffset
 历史回看、GM 审计与回溯共用持久化时间线，不依赖内存 ring buffer，也不把 `session_outbox` 改造成永久事件溯源——outbox 只保持「数据库已提交但尚未广播」的投递语义。
 
 - `session_history_events`：时间线活动事件，保存 `eventId`、`type`、`payload`、`visibility`、`playerVisible`、`anchorable`、`occurredAt`，`(sessionId, eventId)` 唯一；`archived_at` / `archived_by_rewind_id` 标记被回溯移出活动时间线的条目。
-- `session_runtime_checkpoints`：`(sessionId, eventId)` → 完整可回溯运行态 JSON（阶段、当前场景、人物表情与团内状态、鉴定请求、情报发放及接收者/已读）；建团时写入 `eventId = 0` 的基线检查点。
+- `session_runtime_checkpoints`：`(sessionId, eventId)` → 可回溯运行态 JSON（阶段、当前场景、人物表情与团内状态、鉴定请求、规则运行态、情报发放及接收者/已读）。建团时写入 `eventId = 0` 的基线检查点。
 - `session_rewinds`：回溯/撤销操作记录，含 `action`、锚点与锚点时间、回溯前水位 `headEventIdBefore`、本次产生的 `rewindEventId`、撤销目标 `targetRewindId`、`reason`、归档计数与 `undoneAt`。
 - `session_messages` 增加 `archived_at` / `archived_by_rewind_id`；已驳回/已丢弃发言不进入时间线，只由 GM 审计查询读取。
 
 写入时机：
 
-- 事件总线在分配 `eventId` 后、事务提交前写历史行。进入时间线的类型为 `dice:rolled`、`check:resolved`、`state:changed`、`session:phase-changed`、`scene:changed`、`expression:changed`、`handout:granted`、`session:rewound`；`state:changed` 标记玩家不可见（只进 GM 历史），`session:rewound` 标记不可作锚点。
-- 会改变运行态的事件（`check:requested` / `check:resolved`、`state:changed`、阶段/场景/表情、`handout:granted`、`session:rewound`）在其后写检查点；不产生事件但改变运行态的命令（如 `handout:read`）覆盖当前水位的检查点。
+- 事件总线在分配 `eventId` 后、事务提交前写历史行。常规条目包括掷骰与鉴定、状态变更、规则运行态变更（`rule:state-changed`）、阶段和场景变化、表情、情报和回溯。`state:changed` 仅进入 GM 历史，`session:rewound` 不可作锚点。
+- 影响运行态的事件在事务内写检查点，包括未进入常规时间线的 `check:requested`。不产生事件但改变运行态的命令（如 `handout:read`）覆盖当前水位的检查点。
 - 不做事后回填；历史功能上线前的旧开发数据不保证可读。
 
 回溯与撤销：
 
 - 仅 GM。`history:preview-rewind` 返回预览（将被撤销的条目与状态变化），`history:rewind` 在二次确认后执行；锚点必须是当前活动时间线中的条目。
-- 以锚点之前最近的检查点恢复运行态：团阶段、角色团内状态、场景指针、人物表情、鉴定请求与情报发放/接收者/已读。锚点条目及其之后的时间线内容被标记归档，已呈现消息一并移出活动时间线。
+- 以锚点之前最近的检查点恢复运行态，包括团阶段、角色团内状态、场景指针、人物表情、鉴定请求、规则运行态与情报发放/接收者/已读。锚点条目及其之后的时间线内容被标记归档，已呈现消息一并移出活动时间线。
 - 不恢复 BGM/SE、舞台布局与缩放、席位认领、踢人/黑名单/在线状态、团可见性设置与团内 NPC 编组。
+- `RuleSystem.reconcileRuleState` 按当前团内名单修正规则运行态。NPC 移出时同步写入名单与规则运行态，然后发送 `session:refresh`。回溯与撤销按当前名单修正检查点中的规则运行态，避免已移出的 NPC 回到先攻顺序。
 - 整个待呈现队列清空并通知作者；这些消息不进入时间线。
 - 回溯与撤销均产出公共事件 `session:rewound`（payload 含 `action`、`rewindId`、`anchorEventId`、`anchorOccurredAt` 与归档计数；GM 填写的 `reason` 只写入 `session_rewinds` 供归档查看，不下发玩家），同时清空该团内存 ring buffer，并向所有连接发送 `session:refresh` 强制重建快照；`eventId` 继续单调递增，不回收。
 - `history:undo-rewind` 仅在团结束前可用，按 LIFO 撤销最近一次回溯；恢复旧时间线与运行态，并把回溯后新产生的已呈现内容移入归档。撤销同样产出 `session:rewound`（`action = "undo"`）。
@@ -204,7 +207,7 @@ BgmState = { trackId, playing, volume, mode: off|single|list|shuffle, seekOffset
 - 客户端规则组件声明背景来自人物卡时（CoC 7e：`backgroundSource=sheet`），顶层 `background` 是保存时由规则卡派生的展示摘要；服务端仍按请求字段独立存储，不反向推导，客户端不得为该规则提供第二套背景编辑入口。
 - 审核记录绑定 `sheet_version`；规则数值/技能/终生字段变化提升 `sheet_version` 并使旧审核过期，资料/立绘变化只提升 `profile_version`。
 - 提交链接 `character_invites`：目标为模组或团，token 哈希存储，默认 7 天，可撤销；PL 登录后提交新建人物或已有同规则人物，生成 `character_reviews`。审核通过只建立模组关联或团内 PC 席位，不自动认领。
-- `session_characters` 保存入团快照（姓名、背景、`sheet_json`、`base_sheet_version`、`base_profile_version`），检定与状态初始化读取团内快照而非主卡。主卡变化不自动同步；GM 通过差异预览与显式同步更新所选字段，不覆盖团内状态/成长。
+- `session_characters` 保存入团快照（姓名、背景、`sheet_json`、`base_sheet_version`、`base_profile_version`），检定与状态初始化读取团内快照。主卡变化不会自动同步。GM 通过差异预览与显式同步更新所选字段，规则模块在同步规则卡时按新卡调整团内状态上限。
 - GM 修改规则声明的终生字段、结团成长确认都写入追加式 `character_audits` / `character_growth_entries`；成长确认对主卡技能做增量累加，历史团保持旧快照。
 - 并发更新携带 `expectedVersion`；同字段冲突返回 409 与最新版本，增量成长可累计，禁止整卡静默覆盖。
 

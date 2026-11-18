@@ -14,7 +14,7 @@ import { Coc7eSkillsTab, type SkillCatalogItem } from "./tabs/skills-tab";
 type Sheet = coc7e.Coc7eCharacterSheet;
 
 export function Coc7eCharacterCreationEditor({
-	sheet,
+	sheet: rawSheet,
 	onChange,
 	showValidation,
 	onValidityChange,
@@ -34,6 +34,7 @@ export function Coc7eCharacterCreationEditor({
 	submitPending,
 	identityHeaderSlot,
 }: RuleCreationEditorProps) {
+	const sheet = coc7e.Coc7eCharacterSheet.parse(rawSheet);
 	const [activeTab, setActiveTab] = useState<Coc7eTabId>("identity");
 	const [errors, setErrors] = useState<Record<string, string>>({});
 	const [referenceOpen, setReferenceOpen] = useState(false);

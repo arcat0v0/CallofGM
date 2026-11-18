@@ -205,13 +205,17 @@ function CheckVerdict({
 	}
 	const isLatest =
 		isOwn && message.sortKey !== undefined && latestSortKey === message.sortKey;
-	const rule = getRuleComponent(claimed?.ruleId);
+	const rule = getRuleComponent(
+		characters.find((character) => character.characterId === check.characterId)
+			?.ruleId ?? claimed?.ruleId,
+	);
 	const characterState = rule.parseState(claimed?.state);
 	const luck =
 		characterState?.luck ??
 		(claimed?.sheet ? rule.deriveStats(claimed.sheet)?.luck : null) ??
 		0;
 	const canSpendLuck =
+		rule.supportsLuck &&
 		allowLuckSpend &&
 		isOwn &&
 		isLatest &&
@@ -253,6 +257,52 @@ function CheckVerdict({
 		}
 		setPendingPoints(points);
 		window.setTimeout(() => setPendingPoints(null), 2000);
+	}
+	if (check.d20) {
+		return (
+			<Sheet>
+				<div className="relative z-1 flex min-w-0 flex-col gap-3">
+					<div className="flex items-center justify-between gap-2 border-b border-[var(--paper-line)] pb-1.5 font-mono text-label-small text-[var(--paper-ink-2)]">
+						<span>{t("chat.checkRecord")}</span>
+						{message.eventId !== undefined ? (
+							<span>NO. {String(message.eventId).padStart(3, "0")}</span>
+						) : null}
+					</div>
+					<div className="flex flex-wrap items-center justify-between gap-2">
+						<div>
+							<p className="font-sans text-title-large-emph">{check.skill}</p>
+							<p className="text-label-small text-[var(--paper-ink-2)]">
+								{message.speakerName} · {check.difficulty}
+							</p>
+						</div>
+						<span className="rounded-full border border-[var(--paper-line)] px-2 py-1 text-label-medium">
+							{check.label}
+						</span>
+					</div>
+					<div className="flex items-baseline gap-2">
+						<strong className="font-serif text-check-roll leading-none tabular-nums">
+							{check.d20.total}
+						</strong>
+						<span className="font-mono text-body-medium text-[var(--paper-ink-2)]">
+							{check.d20.rolls.join(" / ")} ·{" "}
+							{check.d20.modifier >= 0 ? "+" : ""}
+							{check.d20.modifier}
+							{check.d20.dc === null ? "" : ` · DC ${check.d20.dc}`}
+						</span>
+					</div>
+					{check.d20.damage ? (
+						<p className="text-body-medium">
+							{t("chat.d20Damage", {
+								total: check.d20.damage.total,
+								type:
+									rule.damageTypeLabel?.(check.d20.damage.type) ??
+									check.d20.damage.type,
+							})}
+						</p>
+					) : null}
+				</div>
+			</Sheet>
+		);
 	}
 	const threshold = Math.max(
 		1,

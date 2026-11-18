@@ -278,8 +278,7 @@ export function mapActivityEvent(
 	}
 	if (type === "check:resolved" || type === "check:amended") {
 		const amendedFrom =
-			type === "check:amended" &&
-			typeof payload.amendsEventId === "number"
+			type === "check:amended" && typeof payload.amendsEventId === "number"
 				? payload.amendsEventId
 				: null;
 		const checkEventId = amendedFrom ?? eventId;
@@ -292,7 +291,11 @@ export function mapActivityEvent(
 				: t("chat.role.character");
 		const skillKey =
 			typeof payload.skillKey === "string" ? payload.skillKey : "";
-		const rule = getRuleComponent(characterOf(payload.characterId)?.ruleId);
+		const rule = getRuleComponent(
+			typeof result.ruleId === "string"
+				? result.ruleId
+				: characterOf(payload.characterId)?.ruleId,
+		);
 		const skill =
 			skillKey === "luck"
 				? t("chat.destinyCheck")
@@ -370,6 +373,59 @@ export function mapActivityEvent(
 						}),
 			};
 		}
+		const d20 = rule.parseD20Check?.(result);
+		if (d20) {
+			const mode = rule.d20ModeLabel?.(d20.mode) ?? d20.mode;
+			const modifier = `${d20.modifier >= 0 ? "+" : ""}${d20.modifier}`;
+			const dc = d20.dc === null ? "" : ` · DC ${d20.dc}`;
+			const damage = d20.damage
+				? ` · ${t("chat.d20Damage", { total: d20.damage.total, type: rule.damageTypeLabel?.(d20.damage.type) ?? d20.damage.type })}`
+				: "";
+			return {
+				id: `check-${checkEventId}`,
+				sortKey: checkEventId,
+				eventId,
+				anchorable: true,
+				activityType: type,
+				characterId:
+					typeof payload.characterId === "string"
+						? payload.characterId
+						: undefined,
+				speakerName: name,
+				speakerRoleLabel: t("chat.role.check"),
+				avatarInitials: initialsOf(name),
+				avatarBg: "bg-default",
+				avatarFg: "text-foreground",
+				time,
+				body: hidden
+					? `${name} · ${skill}${hiddenSuffix}`
+					: `${skill} · ${d20.total} (${d20.rolls.join("/")}${modifier})${dc} · ${label}${damage}`,
+				tone: "ooc",
+				isSystem: true,
+				hidden,
+				gmVisible: !hidden || gmVisible,
+				outcome: success === null ? undefined : success ? "success" : "failure",
+				...(hidden && !gmVisible
+					? {}
+					: {
+							check: {
+								skill,
+								skillKey,
+								characterId:
+									typeof payload.characterId === "string"
+										? payload.characterId
+										: undefined,
+								roll: d20.roll,
+								target: d20.dc ?? 0,
+								difficulty: mode,
+								outcomeKey: outcome,
+								outcome: stamp,
+								label,
+								d20,
+							},
+						}),
+			};
+		}
 		const roll = result.roll;
 		const target = result.targetValue;
 		const difficulty = rule.parseDifficulty(result.difficulty) ?? "regular";
@@ -439,10 +495,7 @@ export function mapActivityEvent(
 							roll: typeof roll === "number" ? roll : 0,
 							target: threshold,
 							difficulty: rule.difficultyLabel(difficulty),
-							difficultyKey: difficulty as
-								| "regular"
-								| "hard"
-								| "extreme",
+							difficultyKey: difficulty as "regular" | "hard" | "extreme",
 							outcomeKey: outcome,
 							outcome: stamp,
 							label,

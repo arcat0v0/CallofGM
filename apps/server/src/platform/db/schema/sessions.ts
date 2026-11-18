@@ -26,6 +26,7 @@ export const sessions = sqliteTable(
 		phase: text("phase").notNull(),
 		currentSceneId: text("current_scene_id").references(() => scenes.id),
 		lastEventId: integer("last_event_id").notNull().default(0),
+		ruleStateJson: text("rule_state_json"),
 		sharePcSheets: integer("share_pc_sheets").notNull().default(1),
 		obSeePcState: integer("ob_see_pc_state").notNull().default(1),
 		diceSkin: text("dice_skin").notNull().default("olive"),

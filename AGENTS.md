@@ -4,7 +4,7 @@
 >
 > 不调用 `aoci_*` 或 `mcporter call aoci`，不加载 `aoci_overview`，不执行 `aoci_maintain`。下方 AOCI 段落仅作为历史资料保留；已生成的索引文件不删除，但本仓库当前不使用。
 
-网页跑团工具（v1 适配 CoC 7e），参考 CCFolia，沉浸式场景 + 立绘 + 对话。全栈 TypeScript，运行时 Bun。
+网页跑团工具，支持 CoC 7e 和 D&D 第五版（2024 规则），参考 CCFolia，沉浸式场景 + 立绘 + 对话。全栈 TypeScript，运行时 Bun。
 
 ## 必读文档
 
@@ -19,7 +19,8 @@
 ## 硬性约束
 
 - 技术选型以 `docs/tech-stack.md` 为准，不引入已被否决的方案（Socket.IO、React Router、Next/Nuxt 等）。
-- **规则系统抽象（永久原则）**：所有规则相关逻辑（人物卡 schema 与解析、鉴定判级、特殊检定、团内状态定义与推导、骰点命令）必须通过规则系统抽象接入——面向对象设计，`RuleSystem` 抽象类 + 每种规则一个实现类（v1 仅 CoC 7e），服务端按 `ruleId` 从注册表取实现。通用业务代码禁止硬编码任何具体规则的判定；规则专属 schema 放 `packages/shared/src/rules/{ruleId}/` 并以命名空间导出。详见 `docs/architecture.md` 的"规则系统抽象"。
+- **规则系统抽象（永久原则）**：所有规则相关逻辑（人物卡 schema 与解析、鉴定判级、特殊检定、团内状态定义与推导、骰点命令）必须通过规则系统抽象接入——面向对象设计，`RuleSystem` 抽象类 + 每种规则一个实现类，服务端按 `ruleId` 从注册表取实现。通用业务代码禁止硬编码任何具体规则的判定；规则专属 schema 放 `packages/shared/src/rules/{ruleId}/` 并以命名空间导出。详见 `docs/architecture.md` 的"规则系统抽象"。
+- D&D 第五版（2024）的规则 ID 为 `dnd5r`。内置资料限于 SRD 5.2.1 的结构化数据，接入或扩展目录时保留来源与署名。见 [D&D 规则与目录](docs/dnd5r-srd.md)。
 - 发言权限、团状态机、掷骰等规则判定必须服务端权威，见 `docs/architecture.md`。
 - WS 消息协议与数据 schema 一律定义在 `packages/shared`（zod），禁止两端各写一份。
 - 一律使用 Bun 工具链：`bun install` / `bun run` / `bunx` / `bun test`。

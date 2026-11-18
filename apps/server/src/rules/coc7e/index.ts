@@ -74,6 +74,10 @@ export class Coc7eRuleSystem extends RuleSystem<
 		return coc7e.recalculateCoc7eStateOnSync(state, newSheet);
 	}
 
+	projectSyncState({ hp, maxHp, mp, maxMp, san, maxSan }: coc7e.CharacterSessionState) {
+		return { hp, maxHp, mp, maxMp, san, maxSan };
+	}
+
 	mergeSheetPatch(
 		base: coc7e.Coc7eCharacterSheet,
 		patch: unknown,

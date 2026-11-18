@@ -1,7 +1,14 @@
-import type { CharacterSheetContextResponse, RuleMetadata } from "@cogm/shared";
+import type {
+	CharacterSheetContextResponse,
+	CheckRequestDto,
+	RuleMetadata,
+	SnapshotCharacter,
+} from "@cogm/shared";
 import { coc7e } from "@cogm/shared";
 import type { ReactNode } from "react";
+import { t } from "@/i18n";
 import { Coc7eCharacterCreationEditor } from "./coc7e/character-creation-editor";
+import { dnd5rComponent } from "./dnd5r/component";
 
 export type RuleSheetEditorProps = {
 	sheet: unknown;
@@ -10,8 +17,8 @@ export type RuleSheetEditorProps = {
 };
 
 export type RuleCreationEditorProps = {
-	sheet: coc7e.Coc7eCharacterSheet;
-	onChange: (sheet: coc7e.Coc7eCharacterSheet) => void;
+	sheet: unknown;
+	onChange: (sheet: unknown) => void;
 	showValidation: boolean;
 	onValidityChange: (valid: boolean) => void;
 	onWarningsChange?: (count: number) => void;
@@ -79,11 +86,60 @@ export type RuleStateBar = {
 	max: number;
 	barClassName: string;
 };
+export type RuleCheckOptions = {
+	mode?: "normal" | "advantage" | "disadvantage";
+	dc?: number;
+	targetId?: string;
+	ability?: string;
+	twoHanded?: boolean;
+};
+export type RuleD20CheckResult = {
+	kind: string;
+	mode: string;
+	rolls: number[];
+	roll: number;
+	modifier: number;
+	total: number;
+	dc: number | null;
+	damage?: {
+		type: string;
+		rolls: number[];
+		sides: number;
+		modifier: number;
+		total: number;
+	};
+};
+
+export type RuleSessionSheetProps = {
+	target: SnapshotCharacter;
+	characters: SnapshotCharacter[];
+	canPerform: boolean;
+	onPerform: (skillKey: string, options?: RuleCheckOptions) => void;
+};
+
+export type RuleDiceTrayProps = {
+	character: SnapshotCharacter;
+	characters: SnapshotCharacter[];
+	gm: boolean;
+	disabled: boolean;
+	onSubmitted?: () => void;
+};
+
+export type RuleCheckPanelProps = {
+	characters: SnapshotCharacter[];
+	onClose: () => void;
+};
+
+export type RuleStateEditorProps = {
+	character: SnapshotCharacter;
+	onClose: () => void;
+};
 
 export type RuleComponent = {
 	metadata: RuleMetadata;
-	createEmptySheet: () => coc7e.Coc7eCharacterSheet;
+	createEmptySheet: () => unknown;
 	creationEditor: (props: RuleCreationEditorProps) => ReactNode;
+	creationTitle?: () => string;
 	backgroundSource: RuleBackgroundSource;
 	serializeBackground?: (sheet: unknown, fallbackBackground: string) => string;
 	parseSheet: (value: unknown) => unknown | null;
@@ -120,7 +176,10 @@ export type RuleComponent = {
 		label: string;
 		success: boolean;
 	}>;
+	supportsLuck: boolean;
+	supportsExcelImport: boolean;
 	statusLabels: (statuses: string[]) => string[];
+	stateFieldLabel: (key: string) => string;
 	statusLabelsOfState: (state: unknown) => string[];
 	stateBars: (state: unknown) => RuleStateBar[];
 	publicStateOptions: () => Array<{ value: string; label: string }>;
@@ -130,6 +189,14 @@ export type RuleComponent = {
 	sheetOverview: (sheet: unknown) => RuleSheetOverview | null;
 	sheetSections: (sheet: unknown) => RuleSheetSection[];
 	attributeOrder: () => string[];
+	sessionSheet?: (props: RuleSessionSheetProps) => ReactNode;
+	diceTray?: (props: RuleDiceTrayProps) => ReactNode;
+	checkPanel?: (props: RuleCheckPanelProps) => ReactNode;
+	stateEditor?: (props: RuleStateEditorProps) => ReactNode;
+	checkRequestDescription?: (request: CheckRequestDto) => string;
+	parseD20Check?: (value: unknown) => RuleD20CheckResult | null;
+	d20ModeLabel?: (mode: string) => string;
+	damageTypeLabel?: (type: string) => string;
 };
 
 const COC7E_STATUS_LABELS = coc7e.CharacterStatusFlagLabel as Record<
@@ -214,6 +281,7 @@ const coc7eComponent: RuleComponent = {
 			luck: 50,
 		}),
 	creationEditor: Coc7eCharacterCreationEditor,
+	creationTitle: () => t("characterCreation.pageTitle"),
 	backgroundSource: "sheet",
 	serializeBackground: (sheet, fallbackBackground) => {
 		const parsed = coc7e.Coc7eCharacterSheet.safeParse(sheet);
@@ -296,6 +364,16 @@ const coc7eComponent: RuleComponent = {
 		);
 	},
 	stateBars: coc7eStateBars,
+	stateFieldLabel: (key) =>
+		({
+			hp: "HP",
+			maxHp: t("gm.workbench.maxHp"),
+			mp: "MP",
+			maxMp: t("gm.workbench.maxMp"),
+			san: "SAN",
+			maxSan: t("gm.workbench.maxSan"),
+			luck: t("sheet.destiny"),
+		})[key] ?? key,
 	publicStateOptions: () => [
 		{ value: "hp", label: "HP" },
 		{ value: "mp", label: "MP" },
@@ -371,6 +449,8 @@ const coc7eComponent: RuleComponent = {
 				label: coc7e.CheckOutcomeLabel[option.outcome],
 			}));
 	},
+	supportsLuck: true,
+	supportsExcelImport: true,
 	skillCatalog: coc7e.COC7E_SKILL_CATALOG.map(({ key, base }) => ({
 		key,
 		base,
@@ -551,6 +631,7 @@ function readSkills(sheet: unknown): Record<string, number> {
 
 const registry = new Map<string, RuleComponent>([
 	[coc7eComponent.metadata.id, coc7eComponent],
+	[dnd5rComponent.metadata.id, dnd5rComponent],
 ]);
 
 export const FALLBACK_RULE_ID = coc7eComponent.metadata.id;

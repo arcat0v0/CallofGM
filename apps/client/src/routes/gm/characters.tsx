@@ -40,6 +40,7 @@ import {
 import { errorText } from "@/lib/errors";
 import { requireGmAuth } from "@/lib/identity";
 import { cn } from "@/lib/utils";
+import { getRuleComponent } from "@/rules/registry";
 
 export const Route = createFileRoute("/gm/characters")({
 	beforeLoad: requireGmAuth,
@@ -246,19 +247,21 @@ function GmCharactersPage() {
 										})}
 										className="bg-md-surface-container-high/80 border-md-outline-variant/45 flex flex-wrap items-center gap-1 rounded-full border p-1"
 									>
-										<Button
-											type="button"
-											variant="ghost"
-											size="sm"
-											className="text-md-on-surface hover:bg-md-on-surface/10 h-9 gap-2 rounded-full px-3.5 text-label-medium"
-											onClick={() => {
-												setImportTargetId(selected.id);
-												setImportOpen(true);
-											}}
-										>
-											<FileSpreadsheet className="size-4" />
-											{t("gm.characters.importExcel")}
-										</Button>
+										{getRuleComponent(selected.ruleId).supportsExcelImport ? (
+											<Button
+												type="button"
+												variant="ghost"
+												size="sm"
+												className="text-md-on-surface hover:bg-md-on-surface/10 h-9 gap-2 rounded-full px-3.5 text-label-medium"
+												onClick={() => {
+													setImportTargetId(selected.id);
+													setImportOpen(true);
+												}}
+											>
+												<FileSpreadsheet className="size-4" />
+												{t("gm.characters.importExcel")}
+											</Button>
+										) : null}
 										<Button
 											type="button"
 											variant="ghost"
@@ -383,6 +386,9 @@ function GmCharactersPage() {
 				}}
 				onImported={() => void reload()}
 				updateCharacterId={importTargetId}
+				ruleId={
+					list.find((character) => character.id === importTargetId)?.ruleId
+				}
 			/>
 			<ConfirmDialog
 				open={deleteOpen}

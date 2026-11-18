@@ -72,6 +72,40 @@ describe("dice animation event mapping", () => {
 		});
 	});
 
+	test("animates both authoritative d20s for a public advantage check", () => {
+		const event = {
+			...liveDiceRoll,
+			type: "check:resolved",
+			payload: {
+				hidden: false,
+				result: {
+					ruleId: "dnd5r",
+					kind: "skill",
+					mode: "advantage",
+					rolls: [7, 15],
+					roll: 15,
+					modifier: 3,
+					total: 18,
+					dc: 14,
+					outcome: "success",
+					success: true,
+				},
+			},
+		};
+		expect(diceAnimationFromMessage(event)).toMatchObject({
+			kind: "roll",
+			faces: 20,
+			rolls: [7, 15],
+			total: 18,
+		});
+		expect(
+			diceAnimationFromMessage({
+				...event,
+				payload: { ...event.payload, hidden: true },
+			}),
+		).toBeNull();
+	});
+
 	test("never animates hidden results or non-dice live events", () => {
 		expect(
 			diceAnimationFromMessage({

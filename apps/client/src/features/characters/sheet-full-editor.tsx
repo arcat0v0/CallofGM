@@ -1,6 +1,5 @@
-import type { CharacterSheetContextResponse, coc7e } from "@cogm/shared";
+import type { CharacterSheetContextResponse } from "@cogm/shared";
 import type { ReactNode } from "react";
-import { t } from "@/i18n";
 import { getRuleComponent } from "@/rules/registry";
 
 export function SheetFullEditor({
@@ -27,7 +26,7 @@ export function SheetFullEditor({
 }: {
 	ruleId: string;
 	sheet: unknown;
-	onChange: (sheet: coc7e.Coc7eCharacterSheet) => void;
+	onChange: (sheet: unknown) => void;
 	showValidation: boolean;
 	onValidityChange: (valid: boolean) => void;
 	onWarningsChange?: (count: number) => void;
@@ -46,34 +45,28 @@ export function SheetFullEditor({
 	submitPending?: boolean;
 	identityHeaderSlot?: ReactNode;
 }) {
-	const rule = getRuleComponent(ruleId);
-	const parsed = rule.parseSheet(sheet);
-	if (!parsed) {
-		return (
-			<p role="alert" className="text-body-medium text-danger">
-				{t("characterCreation.ruleValidationSummary")}
-			</p>
-		);
-	}
-	return rule.creationEditor({
-		sheet: parsed as coc7e.Coc7eCharacterSheet,
-		onChange,
-		showValidation,
-		onValidityChange,
-		onWarningsChange,
-		characterName,
-		onCharacterNameChange,
-		background,
-		onBackgroundChange,
-		portraitPreviewUrl,
-		portraitPending,
-		onPickPortraitFile,
-		onClearPendingPortrait,
-		onManageExpressions,
-		sheetContext,
-		onSubmitAction,
-		submitLabel,
-		submitPending,
-		identityHeaderSlot,
-	});
+	const CreationEditor = getRuleComponent(ruleId).creationEditor;
+	return (
+		<CreationEditor
+			sheet={sheet}
+			onChange={onChange}
+			showValidation={showValidation}
+			onValidityChange={onValidityChange}
+			onWarningsChange={onWarningsChange}
+			characterName={characterName}
+			onCharacterNameChange={onCharacterNameChange}
+			background={background}
+			onBackgroundChange={onBackgroundChange}
+			portraitPreviewUrl={portraitPreviewUrl}
+			portraitPending={portraitPending}
+			onPickPortraitFile={onPickPortraitFile}
+			onClearPendingPortrait={onClearPendingPortrait}
+			onManageExpressions={onManageExpressions}
+			sheetContext={sheetContext}
+			onSubmitAction={onSubmitAction}
+			submitLabel={submitLabel}
+			submitPending={submitPending}
+			identityHeaderSlot={identityHeaderSlot}
+		/>
+	);
 }

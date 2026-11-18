@@ -55,7 +55,6 @@ import { cn } from "@/lib/utils";
 import { usePlayStore } from "@/stores/play-store";
 import { playbackModeLabel, useBgmPlayback } from "./gm-audio";
 import {
-	hpLine,
 	isCritical,
 	orderBySeverity,
 	stateEntries,
@@ -530,12 +529,11 @@ function QueueCard({ className }: { className?: string }) {
 						disabled={ended}
 						drag={dragHandlers(item)}
 						expressionName={
-							characters.find(
-								(character) => character.characterId === item.characterId,
-							)?.portraits?.find(
-								(portrait) =>
-									portrait.expressionKey === item.expressionKey,
-							)?.label ?? null
+							characters
+								.find((character) => character.characterId === item.characterId)
+								?.portraits?.find(
+									(portrait) => portrait.expressionKey === item.expressionKey,
+								)?.label ?? null
 						}
 						onToggle={() =>
 							setExpandedId(item.id === currentExpanded ? null : item.id)
@@ -699,7 +697,7 @@ function CharacterStateCard() {
 									{character.name}
 								</span>
 								<span className="text-md-on-surface-variant truncate text-label-small">
-									{hpLine(state)} · SAN {state.san} / {state.maxSan}
+									{statusLine(state, character.ruleId)}
 								</span>
 							</span>
 						</div>

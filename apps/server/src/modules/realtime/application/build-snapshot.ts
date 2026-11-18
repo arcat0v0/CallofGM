@@ -3,7 +3,6 @@ import type {
 	ChatMessageDto,
 	CheckRequestDto,
 	GrantedHandoutDto,
-	RuleId,
 	SessionSnapshotPayload,
 	SnapshotCharacter,
 } from "@cogm/shared";
@@ -157,13 +156,12 @@ export class BuildSessionSnapshotUseCase {
 
 		const moduleRows = await this.db
 			.select({
-				ruleId: modules.ruleId,
 				name: modules.name,
 				themeId: modules.themeId,
 			})
 			.from(modules)
 			.where(eq(modules.id, session.moduleId));
-		const ruleId = (moduleRows[0]?.ruleId ?? "coc7e") as RuleId;
+		const ruleId = session.ruleId;
 		const moduleName = moduleRows[0]?.name ?? "";
 
 		const [
@@ -255,6 +253,16 @@ export class BuildSessionSnapshotUseCase {
 			},
 			currentScene,
 			characters: charactersSnapshot,
+			ruleState: session.ruleStateJson
+				? (this.ruleRegistry
+						.get(ruleId)
+						.viewRuleState?.(JSON.parse(session.ruleStateJson), {
+							isGm,
+							characterIds: charactersSnapshot.map(
+								({ characterId }) => characterId,
+							),
+						}) ?? null)
+				: null,
 			bgm,
 			recentHistory: recentHistory.items,
 			history: {
@@ -304,7 +312,7 @@ export class BuildSessionSnapshotUseCase {
 	/** 人物列表：PC 状态按既有设置可见，NPC 状态按服务端公开投影裁剪 */
 	private async buildCharacters(
 		sessionId: string,
-		ruleId: RuleId,
+		ruleId: string,
 		actor: ActorContext,
 		seatRole: "pc" | "ob" | null,
 		settings: {
@@ -782,6 +790,7 @@ export class BuildSessionSnapshotUseCase {
 			penaltyDice: row.penaltyDice,
 			hidden: row.hidden === 1,
 			sanLossExpression: row.sanLossExpression ?? null,
+			...(row.optionsJson && { options: JSON.parse(row.optionsJson) }),
 			status: "pending" as const,
 			createdAt: row.createdAt,
 		}));

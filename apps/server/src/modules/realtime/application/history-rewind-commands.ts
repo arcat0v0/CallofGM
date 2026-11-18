@@ -37,6 +37,7 @@ import {
 } from "@/platform/db/schema";
 import { AppError } from "@/platform/errors/app-error";
 import type { IdGenerator } from "@/platform/ports";
+import type { RuleRegistry } from "@/rules/registry";
 import { loadCharacterNames } from "./chat-message-mapper";
 import type {
 	CommandHandler,
@@ -216,17 +217,44 @@ async function discardPendingMessages(
 		.map((row) => ({ messageId: row.id, senderId: row.senderId }));
 }
 
+async function restoredRuleStateJson(
+	ctx: CommandHandlerContext,
+	ruleRegistry: RuleRegistry,
+	snapshot: RuntimeSnapshot,
+): Promise<string | null> {
+	const json = snapshot.ruleStateJson ?? null;
+	if (json === null) return null;
+	const rule = ruleRegistry.get(ctx.session.ruleId);
+	if (!rule.reconcileRuleState) return json;
+	const rows = await ctx.tx
+		.select({ id: sessionCharacters.characterId })
+		.from(sessionCharacters)
+		.where(
+			and(
+				eq(sessionCharacters.sessionId, ctx.sessionId),
+				isNull(sessionCharacters.deletedAt),
+			),
+		);
+	const enrolled = new Set(rows.map(({ id }) => id));
+	const state = JSON.parse(json);
+	const reconciled = rule.reconcileRuleState(state, (id) => enrolled.has(id));
+	if (reconciled === state) return json;
+	return reconciled === null ? null : JSON.stringify(reconciled);
+}
+
 async function applyRuntimeSnapshot(
 	tx: DbClient,
 	sessionId: string,
 	snapshot: RuntimeSnapshot,
 	idGenerator: IdGenerator,
+	ruleStateJson: string | null,
 ): Promise<void> {
 	await tx
 		.update(sessions)
 		.set({
 			phase: snapshot.phase,
 			currentSceneId: snapshot.currentSceneId,
+			ruleStateJson,
 		})
 		.where(eq(sessions.id, sessionId));
 
@@ -306,6 +334,7 @@ async function applyRuntimeSnapshot(
 async function buildPreview(
 	ctx: CommandHandlerContext,
 	anchorEventId: number,
+	ruleRegistry: RuleRegistry,
 ): Promise<RewindPreview> {
 	const anchor = await resolveAnchor(ctx.tx, ctx.sessionId, anchorEventId);
 	const checkpoint = await findCheckpointBefore(
@@ -484,6 +513,10 @@ async function buildPreview(
 		characterChanges,
 		phaseChange,
 		sceneChange,
+		ruleStateChanged:
+			checkpoint !== null &&
+			(await restoredRuleStateJson(ctx, ruleRegistry, checkpoint.snapshot)) !==
+				ctx.session.ruleStateJson,
 		hasCheckpoint: checkpoint !== null,
 	};
 }
@@ -506,6 +539,8 @@ class HistoryPreviewRewindHandler implements CommandHandler {
 	readonly transientReply = true;
 	readonly skipHistoryCheckpoint = true;
 
+	constructor(private readonly ruleRegistry: RuleRegistry) {}
+
 	async execute(
 		ctx: CommandHandlerContext,
 		payload: unknown,
@@ -517,7 +552,11 @@ class HistoryPreviewRewindHandler implements CommandHandler {
 		if (!parsed.success) {
 			throw new AppError("VALIDATION_FAILED", parsed.error.message, 400);
 		}
-		const preview = await buildPreview(ctx, parsed.data.anchorEventId);
+		const preview = await buildPreview(
+			ctx,
+			parsed.data.anchorEventId,
+			this.ruleRegistry,
+		);
 		return { replyPayload: { preview } };
 	}
 }
@@ -525,6 +564,8 @@ class HistoryPreviewRewindHandler implements CommandHandler {
 class HistoryRewindHandler implements CommandHandler {
 	readonly type = "history:rewind" as const;
 	readonly allowedStatuses = ["active"] as const;
+
+	constructor(private readonly ruleRegistry: RuleRegistry) {}
 
 	async execute(
 		ctx: CommandHandlerContext,
@@ -571,6 +612,7 @@ class HistoryRewindHandler implements CommandHandler {
 			ctx.sessionId,
 			checkpoint.snapshot,
 			ctx.idGenerator,
+			await restoredRuleStateJson(ctx, this.ruleRegistry, checkpoint.snapshot),
 		);
 
 		const reason =
@@ -635,6 +677,8 @@ class HistoryRewindHandler implements CommandHandler {
 class HistoryUndoRewindHandler implements CommandHandler {
 	readonly type = "history:undo-rewind" as const;
 	readonly allowedStatuses = ["active"] as const;
+
+	constructor(private readonly ruleRegistry: RuleRegistry) {}
 
 	async execute(
 		ctx: CommandHandlerContext,
@@ -728,6 +772,7 @@ class HistoryUndoRewindHandler implements CommandHandler {
 			ctx.sessionId,
 			checkpoint.snapshot,
 			ctx.idGenerator,
+			await restoredRuleStateJson(ctx, this.ruleRegistry, checkpoint.snapshot),
 		);
 
 		const reason =
@@ -871,11 +916,13 @@ class HistoryAuditHandler implements CommandHandler {
 	}
 }
 
-export function createHistoryRewindCommandHandlers(): CommandHandler[] {
+export function createHistoryRewindCommandHandlers(
+	ruleRegistry: RuleRegistry,
+): CommandHandler[] {
 	return [
-		new HistoryPreviewRewindHandler(),
-		new HistoryRewindHandler(),
-		new HistoryUndoRewindHandler(),
+		new HistoryPreviewRewindHandler(ruleRegistry),
+		new HistoryRewindHandler(ruleRegistry),
+		new HistoryUndoRewindHandler(ruleRegistry),
 		new HistoryArchiveHandler(),
 		new HistoryArchiveItemsHandler(),
 		new HistoryAuditHandler(),

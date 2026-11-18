@@ -38,6 +38,14 @@ const rules: RuleMetadata[] = [
 			"luck",
 		],
 	},
+	{
+		id: "dnd5r",
+		name: "Dungeons & Dragons 2024",
+		version: "1.0.0",
+		apiVersion: 1,
+		description: "D&D 2024",
+		permanentSheetFields: [],
+	},
 ];
 
 const inviteInfo = {
@@ -196,6 +204,38 @@ describe("character creation page", () => {
 		document.body.innerHTML = "";
 		document.body.removeAttribute("data-scroll-locked");
 		document.body.style.pointerEvents = "";
+	});
+
+	test("waits for explicit rule selection and uses the D&D editor and title", async () => {
+		const harness = setup();
+		cleanupHarness = harness.restore;
+		const view = render(
+			<Harness mode="independent" onDone={() => undefined} />,
+		);
+		expect(
+			within(view.container).getByRole("heading", { name: "新建人物" }),
+		).toBeTruthy();
+		expect(within(view.container).getByText("先选择规则")).toBeTruthy();
+		expect(within(view.container).queryByRole("tablist")).toBeNull();
+		fireEvent.keyDown(
+			within(view.container).getByRole("combobox", { name: "规则系统" }),
+			{ key: "Enter" },
+		);
+		fireEvent.click(
+			await within(document.body).findByRole("option", {
+				name: "Dungeons & Dragons 2024",
+			}),
+		);
+		await waitFor(() =>
+			expect(
+				within(view.container).getByRole("heading", {
+					name: "新建角色 · Dungeons & Dragons 2024",
+				}),
+			).toBeTruthy(),
+		);
+		expect(
+			within(view.container).getByRole("tab", { name: "概念" }),
+		).toBeTruthy();
 	});
 
 	test("submits a full sheet to the independent character endpoint", async () => {
@@ -379,12 +419,11 @@ describe("character creation page", () => {
 		expect(confirm).toBeTruthy();
 		fireEvent.click(confirm);
 		expect(
-			(
-				within(view.container).getByRole("textbox", {
-					name: "姓名",
-				}) as HTMLInputElement
-			).value,
-		).toBe("");
+			within(view.container).queryByRole("textbox", { name: "姓名" }),
+		).toBeNull();
+		expect(
+			within(view.container).getByRole("combobox", { name: "规则系统" }),
+		).toBeTruthy();
 	});
 
 	test("cancels soft-warning submission dialog without posting and serializes structured background when warnings are cleared", async () => {

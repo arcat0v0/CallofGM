@@ -208,10 +208,11 @@ export interface SessionsRepository {
 		sessionId: string,
 		characterId: string,
 	): Promise<string | null>;
-	softDeleteSessionCharacter(
+	softDeleteSessionNpc(
 		sessionId: string,
 		characterId: string,
 		deletedAt: number,
+		ruleStateJson?: string | null,
 	): Promise<boolean>;
 	isCharacterInSession(
 		sessionId: string,

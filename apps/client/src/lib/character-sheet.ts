@@ -31,6 +31,7 @@ export type GameCharacter = {
 	name: string;
 	initial: string;
 	profession: string;
+	ruleId: string;
 	kind: CharacterKind;
 	meta: string;
 	claim?: string;
@@ -77,6 +78,7 @@ export function mapCharacterRow(row: CharacterRow): GameCharacter {
 		initial: initialsOf(row.name),
 		profession: "—",
 		kind: row.kind === "npc" ? "NPC" : "PC",
+		ruleId: row.ruleId,
 		meta: row.ruleId,
 		portrait: mediaUrl(defaultPortrait?.portraitAssetId) ?? undefined,
 		expressions:

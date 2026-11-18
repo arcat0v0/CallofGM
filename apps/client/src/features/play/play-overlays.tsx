@@ -48,6 +48,7 @@ function PlayOverlays({
 		<>
 			{check ? (
 				<CheckPrompt
+					key={check.id}
 					request={check}
 					ruleId={ruleId}
 					onRespond={() =>

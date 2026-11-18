@@ -41,8 +41,9 @@ function Harness({
 			onValidityChange={() => undefined}
 			sheetContext={sheetContext}
 			onChange={(next) => {
-				onChange(next);
-				setSheet(next);
+				const parsed = coc7e.Coc7eCharacterSheet.parse(next);
+				onChange(parsed);
+				setSheet(parsed);
 			}}
 		/>
 	);
@@ -55,9 +56,7 @@ function BackgroundHarness() {
 		<div>
 			<Coc7eBackgroundTab
 				sheet={sheet}
-				onChange={(patch) =>
-					setSheet((current) => ({ ...current, ...patch }))
-				}
+				onChange={(patch) => setSheet((current) => ({ ...current, ...patch }))}
 				background={background}
 				onBackgroundChange={setBackground}
 			/>

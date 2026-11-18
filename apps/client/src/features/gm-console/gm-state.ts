@@ -54,7 +54,9 @@ export function statusLine(
 	ruleId?: string | null,
 ): string {
 	const labels = getRuleComponent(ruleId).statusLabels(state.statuses);
-	const resources = `${hpLine(state)} · SAN ${state.san} / ${state.maxSan}`;
+	const resources = getRuleComponent(ruleId).supportsLuck
+		? `${hpLine(state)} · SAN ${state.san} / ${state.maxSan}`
+		: hpLine(state);
 	return labels.length > 0 ? `${labels.join(" · ")} · ${resources}` : resources;
 }
 
@@ -62,7 +64,7 @@ export function othersLine(entries: CharacterStateEntry[]): string {
 	return entries
 		.map(
 			({ character, state }) =>
-				`${character.name} · ${hpLine(state)} · SAN ${state.san} / ${state.maxSan}`,
+				`${character.name} · ${statusLine(state, character.ruleId)}`,
 		)
 		.join("  ·  ");
 }

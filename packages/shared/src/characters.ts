@@ -294,22 +294,8 @@ export const CharacterSyncField = z.enum(["name", "background", "sheet"]);
 export type CharacterSyncField = z.infer<typeof CharacterSyncField>;
 
 export const SyncStatePreviewDto = z.object({
-	current: z.object({
-		hp: z.number().int(),
-		maxHp: z.number().int(),
-		mp: z.number().int(),
-		maxMp: z.number().int(),
-		san: z.number().int(),
-		maxSan: z.number().int(),
-	}),
-	next: z.object({
-		hp: z.number().int(),
-		maxHp: z.number().int(),
-		mp: z.number().int(),
-		maxMp: z.number().int(),
-		san: z.number().int(),
-		maxSan: z.number().int(),
-	}),
+	current: z.record(z.string(), z.number().int()),
+	next: z.record(z.string(), z.number().int()),
 });
 
 export const CharacterSyncDiffDto = z.object({

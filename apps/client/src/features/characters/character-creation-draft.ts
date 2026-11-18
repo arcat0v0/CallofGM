@@ -1,11 +1,12 @@
-import { coc7e } from "@cogm/shared";
+import type { coc7e } from "@cogm/shared";
+import { getRuleComponent } from "@/rules/registry";
 
 export type CharacterCreationDraft = {
 	version: 1;
 	name: string;
 	background: string;
 	ruleId: string;
-	sheet: coc7e.Coc7eCharacterSheet;
+	sheet: unknown;
 };
 
 export type CharacterCreationDraftInput = Omit<
@@ -16,23 +17,12 @@ export type CharacterCreationDraftInput = Omit<
 const DRAFT_VERSION = 1;
 const KEY_PREFIX = "cogm.character-creation-draft.v1";
 
-export function createEmptyCharacterSheet(): coc7e.Coc7eCharacterSheet {
-	return coc7e.normalizeCoc7eSheet({
-		attributes: {
-			str: 50,
-			con: 50,
-			siz: 50,
-			dex: 50,
-			app: 50,
-			int: 50,
-			pow: 50,
-			edu: 50,
-			luck: 50,
-		},
-		skills: {},
-	});
+export function createEmptyCharacterSheet(): coc7e.Coc7eCharacterSheet;
+export function createEmptyCharacterSheet(ruleId: string): unknown;
+export function createEmptyCharacterSheet(ruleId?: string): unknown;
+export function createEmptyCharacterSheet(ruleId?: string): unknown {
+	return getRuleComponent(ruleId).createEmptySheet();
 }
-
 export function parseCharacterCreationDraft(
 	input: unknown,
 ): CharacterCreationDraft | null {
@@ -48,16 +38,20 @@ export function parseCharacterCreationDraft(
 	) {
 		return null;
 	}
-	const sheet = coc7e.Coc7eCharacterSheet.safeParse(value.sheet);
-	if (!sheet.success) {
-		return null;
+	let sheet: unknown = null;
+	if (value.ruleId) {
+		sheet = getRuleComponent(value.ruleId).parseSheet(value.sheet);
+		if (!sheet) return null;
+	} else if (value.sheet !== null) {
+		sheet = getRuleComponent("coc7e").parseSheet(value.sheet);
+		if (!sheet) return null;
 	}
 	return {
 		version: DRAFT_VERSION,
 		name: value.name,
 		background: value.background,
 		ruleId: value.ruleId,
-		sheet: sheet.data,
+		sheet,
 	};
 }
 

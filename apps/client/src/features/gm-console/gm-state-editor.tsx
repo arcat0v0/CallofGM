@@ -72,7 +72,7 @@ function GmStateEditor({
 		);
 		setDelta("1");
 		setTag("");
-	}, [open, character?.state]);
+	}, [open, character?.state, character?.ruleId]);
 
 	function send(payload: Record<string, unknown>) {
 		if (!character) {
@@ -141,6 +141,18 @@ function GmStateEditor({
 		}
 		send({ addTags: [next] });
 		setTag("");
+	}
+	if (character && rule.stateEditor) {
+		return (
+			<Dialog open={open} onOpenChange={onOpenChange}>
+				<DialogContent
+					showCloseButton={false}
+					className="border-0! bg-transparent! p-0! shadow-none! rounded-none! w-auto! max-w-none!"
+				>
+					{rule.stateEditor({ character, onClose: () => onOpenChange(false) })}
+				</DialogContent>
+			</Dialog>
+		);
 	}
 
 	return (

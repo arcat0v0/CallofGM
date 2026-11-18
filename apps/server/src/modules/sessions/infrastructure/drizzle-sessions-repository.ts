@@ -209,23 +209,34 @@ export class DrizzleSessionsRepository implements SessionsRepository {
 			});
 	}
 
-	async softDeleteSessionCharacter(
+	async softDeleteSessionNpc(
 		sessionId: string,
 		characterId: string,
 		deletedAt: number,
+		ruleStateJson?: string | null,
 	): Promise<boolean> {
-		const updated = await this.db
-			.update(sessionCharacters)
-			.set({ deletedAt })
-			.where(
-				and(
-					eq(sessionCharacters.sessionId, sessionId),
-					eq(sessionCharacters.characterId, characterId),
-					isNull(sessionCharacters.deletedAt),
-				),
-			)
-			.returning({ id: sessionCharacters.id });
-		return updated.length > 0;
+		return this.db.transaction((tx) => {
+			const removed = tx
+				.update(sessionCharacters)
+				.set({ deletedAt })
+				.where(
+					and(
+						eq(sessionCharacters.sessionId, sessionId),
+						eq(sessionCharacters.characterId, characterId),
+						eq(sessionCharacters.kind, "npc"),
+						isNull(sessionCharacters.deletedAt),
+					),
+				)
+				.returning({ id: sessionCharacters.id })
+				.get();
+			if (removed && ruleStateJson !== undefined) {
+				tx.update(sessions)
+					.set({ ruleStateJson })
+					.where(eq(sessions.id, sessionId))
+					.run();
+			}
+			return removed !== undefined;
+		});
 	}
 
 	async findSessionCharacterKind(

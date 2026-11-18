@@ -26,14 +26,11 @@ export function CheckPrompt({
 	onDismiss: () => void;
 }) {
 	const rule = getRuleComponent(ruleId);
-	const skill = rule.skillLabel(request.skillKey);
-	const difficulty = rule.difficultyLabel(request.difficulty);
+	const summary =
+		rule.checkRequestDescription?.(request) ??
+		`${rule.skillLabel(request.skillKey)} · ${rule.difficultyLabel(request.difficulty)}`;
 	const [rolling, setRolling] = useState(false);
 	const dialog = useBlockingDialog("check", true, () => onDismiss());
-
-	useEffect(() => {
-		setRolling(false);
-	}, [request.id]);
 
 	useEffect(() => {
 		if (!rolling) {
@@ -51,7 +48,7 @@ export function CheckPrompt({
 				<DialogHeader>
 					<DialogTitle>{t("check.title")}</DialogTitle>
 					<DialogDescription>
-						{skill} · {difficulty}
+						{summary}
 						{request.hidden ? t("check.hiddenSuffix") : ""}
 					</DialogDescription>
 				</DialogHeader>

@@ -1,6 +1,7 @@
 import type { SessionEvent } from "@cogm/shared";
 import { t } from "@/i18n";
 import { checkDiceModifier, parseTensCandidates } from "@/lib/check-dice";
+import { getRuleComponent } from "@/rules/registry";
 import {
 	type DiceAnimationRequest,
 	type DiceSkin,
@@ -58,6 +59,23 @@ export function diceAnimationFromMessage(
 	if (message.type === "check:resolved") {
 		if (payload.hidden === true) return null;
 		const result = isRecord(payload.result) ? payload.result : null;
+		const rule =
+			typeof result?.ruleId === "string"
+				? getRuleComponent(result.ruleId)
+				: null;
+		const d20 = rule?.parseD20Check?.(result);
+		if (d20) {
+			return {
+				id: `check-${eventId}`,
+				eventId: message.eventId,
+				kind: "roll",
+				faces: 20,
+				rolls: d20.rolls,
+				total: d20.total,
+				label: t("dice.animationResult", { total: d20.total }),
+				skin,
+			};
+		}
 		const roll =
 			result && typeof result.roll === "number" && Number.isFinite(result.roll)
 				? result.roll

@@ -31,7 +31,7 @@ import {
 	skillValue,
 } from "@/lib/coc-live";
 import { sendSessionCommand } from "@/lib/session-socket";
-import { getRuleComponent } from "@/rules/registry";
+import { getRuleComponent, type RuleCheckOptions } from "@/rules/registry";
 import { useBlockingDialog } from "@/stores/modal-store";
 import { usePlayStore } from "@/stores/play-store";
 
@@ -96,7 +96,11 @@ export function CharacterSheetPanel({
 		);
 	});
 
-	function perform(skillKey: string, label = rule.skillLabel(skillKey)) {
+	function perform(
+		skillKey: string,
+		options?: RuleCheckOptions,
+		label = rule.skillLabel(skillKey),
+	) {
 		if (!target?.characterId) {
 			return;
 		}
@@ -106,6 +110,7 @@ export function CharacterSheetPanel({
 			difficulty: "regular",
 			bonusDice: 0,
 			penaltyDice: 0,
+			...(options ? { options } : {}),
 		});
 		if (!sent) {
 			toast.error(t("chat.notConnected"));
@@ -145,7 +150,14 @@ export function CharacterSheetPanel({
 						</SelectContent>
 					</Select>
 				) : null}
-				{!target || !sheet || !derived ? (
+				{target && rule.sessionSheet ? (
+					rule.sessionSheet({
+						target,
+						characters,
+						canPerform,
+						onPerform: perform,
+					})
+				) : !target || !sheet || !derived ? (
 					<p className="text-foreground-tertiary text-body-medium">
 						{t("sheet.empty")}
 					</p>
@@ -191,7 +203,9 @@ export function CharacterSheetPanel({
 							variant="tertiary"
 							className="bg-md-surface-container flex h-auto w-full items-stretch justify-between gap-4 px-4 py-3 text-left"
 							disabled={!canPerform}
-							onClick={() => perform("luck", t("sheet.destinyCheck"))}
+							onClick={() =>
+								perform("luck", undefined, t("sheet.destinyCheck"))
+							}
 						>
 							<span className="flex flex-col gap-0.5">
 								<span className="text-foreground-secondary text-label-small tracking-[0.14em]">
@@ -201,9 +215,7 @@ export function CharacterSheetPanel({
 									{canPerform ? (state?.luck ?? derived.luck) : derived.luck}
 								</span>
 								<span className="text-foreground-tertiary text-label-small">
-									{canPerform
-										? t("sheet.currentLuck")
-										: t("sheet.initialLuck")}
+									{canPerform ? t("sheet.currentLuck") : t("sheet.initialLuck")}
 								</span>
 							</span>
 							<span className="grid grid-cols-2 gap-2 self-center text-right">
@@ -213,8 +225,9 @@ export function CharacterSheetPanel({
 									</span>
 									<span className="text-foreground text-title-medium-emph tabular-nums">
 										{Math.floor(
-											(canPerform ? (state?.luck ?? derived.luck) : derived.luck) /
-												2,
+											(canPerform
+												? (state?.luck ?? derived.luck)
+												: derived.luck) / 2,
 										)}
 									</span>
 								</span>
@@ -224,8 +237,9 @@ export function CharacterSheetPanel({
 									</span>
 									<span className="text-foreground text-title-medium-emph tabular-nums">
 										{Math.floor(
-											(canPerform ? (state?.luck ?? derived.luck) : derived.luck) /
-												5,
+											(canPerform
+												? (state?.luck ?? derived.luck)
+												: derived.luck) / 5,
 										)}
 									</span>
 								</span>

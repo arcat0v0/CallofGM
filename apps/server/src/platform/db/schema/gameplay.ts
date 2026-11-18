@@ -51,6 +51,7 @@ export const checkRequests = sqliteTable("check_requests", {
 	penaltyDice: integer("penalty_dice").notNull().default(0),
 	hidden: integer("hidden").notNull().default(0),
 	sanLossExpression: text("san_loss_expression"),
+	optionsJson: text("options_json"),
 	status: text("status").notNull().default("pending"),
 	resolvedCheckResultJson: text("resolved_check_result_json"),
 	createdAt: integer("created_at").notNull(),

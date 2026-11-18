@@ -31,7 +31,7 @@ import { api, fetchAllPages, isApiError } from "@/lib/api";
 import { errorText } from "@/lib/errors";
 import { initialsOf } from "@/lib/format";
 import { logoutAccount, requireAccount } from "@/lib/identity";
-import { FALLBACK_RULE_ID } from "@/rules/registry";
+import { FALLBACK_RULE_ID, getRuleComponent } from "@/rules/registry";
 import { useIdentityStore } from "@/stores/identity-store";
 
 export const Route = createFileRoute("/pl/characters")({
@@ -177,19 +177,21 @@ function PlCharactersPage() {
 										<Pencil className="size-3.5" />
 										{t("common.edit")}
 									</Button>
-									<Button
-										type="button"
-										variant="ghost"
-										size="sm"
-										title={t("pl.characters.updateFromExcel")}
-										onClick={() => {
-											setImportTarget(character);
-											setImportOpen(true);
-										}}
-									>
-										<FileSpreadsheet className="size-3.5" />
-										{t("pl.characters.updateFromExcel")}
-									</Button>
+									{getRuleComponent(character.ruleId).supportsExcelImport ? (
+										<Button
+											type="button"
+											variant="ghost"
+											size="sm"
+											title={t("pl.characters.updateFromExcel")}
+											onClick={() => {
+												setImportTarget(character);
+												setImportOpen(true);
+											}}
+										>
+											<FileSpreadsheet className="size-3.5" />
+											{t("pl.characters.updateFromExcel")}
+										</Button>
+									) : null}
 									<Button
 										type="button"
 										variant="ghost"

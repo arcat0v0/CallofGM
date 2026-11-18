@@ -27,6 +27,7 @@ import {
 } from "@/platform/ports";
 import { HttpLimits } from "@/platform/security/http-limits";
 import { Coc7eRuleSystem } from "@/rules/coc7e";
+import { Dnd5rRuleSystem } from "@/rules/dnd5r";
 import { RuleRegistry } from "@/rules/registry";
 import { StartupService } from "./startup";
 
@@ -80,6 +81,7 @@ export class Container {
 		this.musicService = overrides.musicService ?? new OfficialMusicService();
 		this.ruleRegistry = new RuleRegistry();
 		this.ruleRegistry.register(new Coc7eRuleSystem());
+		this.ruleRegistry.register(new Dnd5rRuleSystem());
 		this.themeRegistry = new ThemeRegistry(this.env.THEMES_DIR, this.clock);
 
 		this.connectionRegistry = new ConnectionRegistry(this.db);

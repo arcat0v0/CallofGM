@@ -375,6 +375,19 @@ describe("ImportCharacterSheetDialog", () => {
 		).toEqual({ importToken: "token-1", kind: "pc" });
 	});
 
+	test("omits the CoC Excel dialog for D&D characters", () => {
+		render(
+			<ImportCharacterSheetDialog
+				open
+				onOpenChange={() => undefined}
+				ruleId="dnd5r"
+				updateCharacterId="dnd-character"
+			/>,
+		);
+		expect(body().queryByRole("dialog")).toBeNull();
+		expect(calls).toHaveLength(0);
+	});
+
 	test("PL preview posts only the selected file and ruleId", async () => {
 		const view = renderDialog("pl");
 		select(view, file("pl.xlsx"));

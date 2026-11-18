@@ -118,6 +118,9 @@ function CheckPanel({ onClose }: { onClose: () => void }) {
 		setBonusDice(value === "bonus-1" ? 1 : value === "bonus-2" ? 2 : 0);
 		setPenaltyDice(value === "penalty-1" ? 1 : value === "penalty-2" ? 2 : 0);
 	}
+	if (rule.checkPanel) {
+		return rule.checkPanel({ characters, onClose });
+	}
 
 	return (
 		<div data-rules-target={selected?.characterId ?? ""}>

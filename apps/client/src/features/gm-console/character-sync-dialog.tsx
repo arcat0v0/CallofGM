@@ -16,6 +16,8 @@ import {
 import { t } from "@/i18n";
 import { api } from "@/lib/api";
 import { errorText } from "@/lib/errors";
+import { getRuleComponent } from "@/rules/registry";
+import { usePlayStore } from "@/stores/play-store";
 
 const FIELD_OPTIONS: Array<{ value: CharacterSyncField; labelKey: string }> = [
 	{ value: "name", labelKey: "gm.sync.fieldName" },
@@ -46,6 +48,7 @@ export function CharacterSyncDialog({
 	const [pending, setPending] = useState(false);
 	const [error, setError] = useState("");
 
+	const rule = getRuleComponent(usePlayStore((state) => state.ruleId));
 	useEffect(() => {
 		if (!open || !sessionId || !characterId) {
 			return;
@@ -194,41 +197,28 @@ export function CharacterSyncDialog({
 							})}
 						</div>
 						{preview.statePreview ? (
-							<div className="grid grid-cols-[auto_repeat(3,minmax(0,1fr))] gap-x-3 gap-y-1 rounded-xl bg-md-surface-container-high px-3 py-2 text-label-medium tabular-nums">
+							<div className="grid grid-cols-[minmax(0,1fr)_auto_auto] gap-x-3 gap-y-1 rounded-xl bg-md-surface-container-high px-3 py-2 text-label-medium tabular-nums">
 								<span />
-								<span className="text-foreground-secondary">HP</span>
-								<span className="text-foreground-secondary">MP</span>
-								<span className="text-foreground-secondary">SAN</span>
 								<span className="text-foreground-secondary">
 									{t("gm.sync.current")}
-								</span>
-								<span>
-									{preview.statePreview.current.hp}/
-									{preview.statePreview.current.maxHp}
-								</span>
-								<span>
-									{preview.statePreview.current.mp}/
-									{preview.statePreview.current.maxMp}
-								</span>
-								<span>
-									{preview.statePreview.current.san}/
-									{preview.statePreview.current.maxSan}
 								</span>
 								<span className="text-foreground-secondary">
 									{t("gm.sync.after")}
 								</span>
-								<span>
-									{preview.statePreview.next.hp}/
-									{preview.statePreview.next.maxHp}
-								</span>
-								<span>
-									{preview.statePreview.next.mp}/
-									{preview.statePreview.next.maxMp}
-								</span>
-								<span>
-									{preview.statePreview.next.san}/
-									{preview.statePreview.next.maxSan}
-								</span>
+								{[
+									...new Set([
+										...Object.keys(preview.statePreview.current),
+										...Object.keys(preview.statePreview.next),
+									]),
+								].map((key) => (
+									<div key={key} className="col-span-3 grid grid-cols-subgrid">
+										<span className="text-foreground-secondary">
+											{rule.stateFieldLabel(key)}
+										</span>
+										<span>{preview.statePreview?.current[key] ?? "—"}</span>
+										<span>{preview.statePreview?.next[key] ?? "—"}</span>
+									</div>
+								))}
 							</div>
 						) : null}
 						{error ? (

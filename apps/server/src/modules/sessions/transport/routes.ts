@@ -322,27 +322,39 @@ export function createSessionsRoutes(container: Container) {
 			async ({ actor, params: { id, characterId }, request }) => {
 				assertTrustedOrigin(request, allowedOrigins);
 				const gm = requireGm(actor);
-				const session = await repo.findSessionById(id);
-				if (!session || session.ownerId !== gm.userId) {
-					throw new SessionNotFoundError();
-				}
-				if (session.status === "ended") {
-					throw new SessionStateInvalidError(
-						"Cannot remove NPCs from an ended session",
-					);
-				}
-				const kind = await repo.findSessionCharacterKind(id, characterId);
-				if (kind !== "npc") {
-					return RemoveSessionNpcResponse.parse({
-						characterId,
-						removed: false,
-					});
-				}
-				const removed = await repo.softDeleteSessionCharacter(
+				const result = await container.sessionCommandExecutor.runExclusive(
 					id,
-					characterId,
-					container.clock.nowEpochMs(),
+					async () => {
+						const session = await repo.findSessionById(id);
+						if (!session || session.ownerId !== gm.userId)
+							return new SessionNotFoundError();
+						if (session.status === "ended")
+							return new SessionStateInvalidError(
+								"Cannot remove NPCs from an ended session",
+							);
+						let ruleStateJson: string | null | undefined;
+						if (session.ruleStateJson !== null) {
+							const rule = container.ruleRegistry.get(session.ruleId);
+							if (rule.reconcileRuleState) {
+								const current = JSON.parse(session.ruleStateJson);
+								const next = rule.reconcileRuleState(
+									current,
+									(enrolledId) => enrolledId !== characterId,
+								);
+								if (next !== current)
+									ruleStateJson = next === null ? null : JSON.stringify(next);
+							}
+						}
+						return repo.softDeleteSessionNpc(
+							id,
+							characterId,
+							container.clock.nowEpochMs(),
+							ruleStateJson,
+						);
+					},
 				);
+				if (result instanceof AppError) throw result;
+				const removed = result;
 				if (removed) {
 					container.connectionRegistry.sendToSession(id, {
 						type: "session:refresh",

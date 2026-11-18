@@ -11,6 +11,7 @@ import {
 	PerformSanCheckCommand,
 	RespondCheckRequestCommand,
 	RollDiceCommand,
+	RuleActionCommand,
 	SpendLuckCommand,
 	type RuleId,
 	type SessionPhase,
@@ -29,7 +30,7 @@ import {
 	SessionStateInvalidError,
 } from "@/modules/sessions";
 import type { DbClient } from "@/platform/db/client";
-import { sessionCharacters } from "@/platform/db/schema";
+import { sessionCharacters, sessions } from "@/platform/db/schema";
 import { AppError } from "@/platform/errors/app-error";
 import { validationFailed } from "@/platform/errors/validation";
 import {
@@ -39,7 +40,7 @@ import {
 	rollDice,
 } from "@/rules/dice-engine";
 import type { RuleRegistry } from "@/rules/registry";
-import type { RuleSystem } from "@/rules/rule-system";
+import { type RuleCheckResult, type RuleMutation, type RuleRuntime, type RuleSystem, type RuntimeCharacter, unsupportedRuleAction } from "@/rules/rule-system";
 import {
 	CheckRequestAlreadyResolvedError,
 	CheckRequestNotFoundError,
@@ -61,7 +62,7 @@ interface LoadedCharacterContext {
 		ruleId: string;
 		sheetJson: string;
 	};
-	sessionCharacter: { kind: string; stateJson: string };
+	sessionCharacter: { name: string; kind: string; stateJson: string };
 	rule: RuleSystem<unknown, unknown>;
 	sheet: unknown;
 	state: unknown;
@@ -86,6 +87,7 @@ async function loadCharacterContext(
 			"Character is not participating in this session",
 		);
 	}
+	if (character.ruleId !== ctx.session.ruleId) throw new CharacterNotFoundError();
 
 	const rule = ruleRegistry.get(character.ruleId as RuleId);
 
@@ -110,6 +112,57 @@ async function loadCharacterContext(
 	}
 
 	return { character, sessionCharacter, rule, sheet, state };
+}
+
+function buildRuleRuntime(ctx: CommandHandlerContext, repo: GameplayRepository, registry: RuleRegistry, hidden = false, requested = false) {
+	const cache = new Map<string, LoadedCharacterContext>();
+	const runtime: RuleRuntime<unknown, unknown> = {
+		isGm: ctx.actor.type === "user" && ctx.actor.role === "gm",
+		requested,
+		hidden,
+		random: ctx.randomSource,
+		ruleState: ctx.session.ruleStateJson ? JSON.parse(ctx.session.ruleStateJson) : null,
+		async findCharacter(id) {
+			let loaded = cache.get(id);
+			if (!loaded) {
+				try {
+					loaded = await loadCharacterContext(ctx, repo, id, registry);
+				} catch (error) {
+					if (error instanceof CharacterNotFoundError) return null;
+					throw error;
+				}
+				cache.set(id, loaded);
+			}
+			return runtimeCharacter(loaded);
+		},
+	};
+	return runtime;
+}
+
+function runtimeCharacter(loaded: LoadedCharacterContext): RuntimeCharacter<unknown, unknown> {
+	return { id: loaded.character.id, name: loaded.sessionCharacter.name, kind: loaded.sessionCharacter.kind === "npc" ? "npc" : "pc", sheet: loaded.sheet, state: loaded.state };
+}
+
+async function resolveCheck(ctx: CommandHandlerContext, runtime: RuleRuntime<unknown, unknown>, loaded: LoadedCharacterContext, input: PerformCheckCommand): Promise<RuleCheckResult<unknown>> {
+	const { rule, sheet, state } = loaded;
+	if (rule.resolveCheck) return rule.resolveCheck(runtimeCharacter(loaded), input.skillKey, input.options, runtime);
+	if (input.options !== undefined) unsupportedRuleAction();
+	const targetValue = rule.getSkillTargetValue(sheet, input.skillKey);
+	if (targetValue === null) throw new SkillNotFoundError();
+	const result = rule.evaluateSkillCheck({ characterId: input.characterId, skillKey: input.skillKey, targetValue, difficulty: input.difficulty, bonusDice: input.bonusDice, penaltyDice: input.penaltyDice }, ctx.randomSource);
+	if (!isGrowthEligible(result)) return { result };
+	return { result, mutations: [{ characterId: input.characterId, state: runtime.hidden ? rule.markSkillGrowthHidden(state, input.skillKey) : rule.markSkillGrowth(state, input.skillKey), hints: [] }] };
+}
+
+async function persistRuleMutations(ctx: CommandHandlerContext, repo: GameplayRepository, rule: RuleSystem<unknown, unknown>, runtime: RuleRuntime<unknown, unknown>, mutations: RuleMutation<unknown>[] | undefined, eventIsPrivate: boolean) {
+	const events: ProducedEvent[] = [];
+	for (const mutation of mutations ?? []) {
+		const character = await runtime.findCharacter(mutation.characterId);
+		if (!character) throw new CharacterNotFoundError();
+		const updates = await persistStateAndBuildEvents(ctx, repo, mutation.characterId, character.kind, mutation.state, mutation.hints, rule, eventIsPrivate, ctx.session.obSeePcState === 1);
+		events.push(...updates);
+	}
+	return events;
 }
 
 async function loadNpcPublicStateFields(
@@ -182,7 +235,7 @@ async function persistStateAndBuildEvents(
 			visibility,
 		},
 	];
-	if (isNpc && publicStateFields.length > 0) {
+	if (isNpc && !hidden && publicStateFields.length > 0) {
 		events.push({
 			type: "state:public-changed",
 			payload: {
@@ -387,30 +440,10 @@ export class PerformCheckHandler implements CommandHandler {
 		const hidden = isGm && input.hidden === true;
 
 		const repo = this.repoFactory(ctx.tx);
-		const { character, sessionCharacter, rule, sheet, state } =
-			await loadCharacterContext(
-				ctx,
-				repo,
-				input.characterId,
-				this.ruleRegistry,
-			);
-
-		const targetValue = rule.getSkillTargetValue(sheet, input.skillKey);
-		if (targetValue === null) {
-			throw new SkillNotFoundError();
-		}
-
-		const result = rule.evaluateSkillCheck(
-			{
-				characterId: input.characterId,
-				skillKey: input.skillKey,
-				targetValue,
-				difficulty: input.difficulty,
-				bonusDice: input.bonusDice,
-				penaltyDice: input.penaltyDice,
-			},
-			ctx.randomSource,
-		);
+		const loaded = await loadCharacterContext(ctx, repo, input.characterId, this.ruleRegistry);
+		const { sessionCharacter, rule } = loaded;
+		const runtime = buildRuleRuntime(ctx, repo, this.ruleRegistry, hidden);
+		const { result, mutations } = await resolveCheck(ctx, runtime, loaded, input);
 
 		const events: ProducedEvent[] = withSealedDiceEvent(
 			[
@@ -419,7 +452,7 @@ export class PerformCheckHandler implements CommandHandler {
 					payload: {
 						requestId: null,
 						characterId: input.characterId,
-						characterName: character.name,
+						characterName: sessionCharacter.name,
 						skillKey: input.skillKey,
 						hidden,
 						result,
@@ -431,24 +464,7 @@ export class PerformCheckHandler implements CommandHandler {
 			hidden,
 		);
 
-		if (isGrowthEligible(result)) {
-			const newState = hidden
-				? rule.markSkillGrowthHidden(state, input.skillKey)
-				: rule.markSkillGrowth(state, input.skillKey);
-			events.push(
-				...(await persistStateAndBuildEvents(
-					ctx,
-					repo,
-					input.characterId,
-					sessionCharacter.kind,
-					newState,
-					[],
-					rule,
-					hidden,
-					ctx.session.obSeePcState === 1,
-				)),
-			);
-		}
+		events.push(...await persistRuleMutations(ctx, repo, rule, runtime, mutations, hidden));
 
 		return { events, replyPayload: { rolled: true, hidden } };
 	}
@@ -562,12 +578,13 @@ export class CreateCheckRequestHandler implements CommandHandler {
 		}
 		const input = parsed.data;
 		const repo = this.repoFactory(ctx.tx);
-		const { sessionCharacter, rule, sheet } = await loadCharacterContext(
+		const loaded = await loadCharacterContext(
 			ctx,
 			repo,
 			input.characterId,
 			this.ruleRegistry,
 		);
+		const { sessionCharacter, rule, sheet } = loaded;
 
 		if (sessionCharacter.kind !== "pc") {
 			throw new AppError(
@@ -576,8 +593,11 @@ export class CreateCheckRequestHandler implements CommandHandler {
 				400,
 			);
 		}
-		if (rule.getSkillTargetValue(sheet, input.skillKey) === null) {
-			throw new SkillNotFoundError();
+		const runtime = buildRuleRuntime(ctx, repo, this.ruleRegistry, input.hidden === true, true);
+		const options = rule.validateCheckOptions ? await rule.validateCheckOptions(runtimeCharacter(loaded), input.skillKey, input.options, runtime) : undefined;
+		if (!rule.validateCheckOptions) {
+			if (input.options !== undefined) unsupportedRuleAction();
+			if (rule.getSkillTargetValue(sheet, input.skillKey) === null) throw new SkillNotFoundError();
 		}
 
 		const now = ctx.clock.nowEpochMs();
@@ -592,6 +612,7 @@ export class CreateCheckRequestHandler implements CommandHandler {
 			penaltyDice: input.penaltyDice,
 			hidden: input.hidden === true ? 1 : 0,
 			sanLossExpression: null,
+			optionsJson: options === undefined ? null : JSON.stringify(options),
 			status: "pending",
 			resolvedCheckResultJson: null,
 			createdAt: now,
@@ -607,6 +628,7 @@ export class CreateCheckRequestHandler implements CommandHandler {
 			penaltyDice: input.penaltyDice,
 			hidden: input.hidden === true,
 			sanLossExpression: null,
+			...(options === undefined ? {} : { options }),
 			status: "pending",
 			createdAt: now,
 		};
@@ -657,30 +679,11 @@ export class RespondCheckRequestHandler implements CommandHandler {
 			);
 		}
 
-		const { character, sessionCharacter, rule, sheet, state } =
-			await loadCharacterContext(
-				ctx,
-				repo,
-				request.characterId,
-				this.ruleRegistry,
-			);
-
+		const loaded = await loadCharacterContext(ctx, repo, request.characterId, this.ruleRegistry);
+		const { sessionCharacter, rule } = loaded;
 		const hidden = request.hidden === 1;
-		const targetValue = rule.getSkillTargetValue(sheet, request.skillKey);
-		if (targetValue === null) {
-			throw new SkillNotFoundError();
-		}
-		const skillResult = rule.evaluateSkillCheck(
-			{
-				characterId: request.characterId,
-				skillKey: request.skillKey,
-				targetValue,
-				difficulty: request.difficulty as "regular" | "hard" | "extreme",
-				bonusDice: request.bonusDice,
-				penaltyDice: request.penaltyDice,
-			},
-			ctx.randomSource,
-		);
+		const runtime = buildRuleRuntime(ctx, repo, this.ruleRegistry, hidden, true);
+		const { result: skillResult, mutations } = await resolveCheck(ctx, runtime, loaded, { characterId: request.characterId, skillKey: request.skillKey, difficulty: request.difficulty as PerformCheckCommand["difficulty"], bonusDice: request.bonusDice, penaltyDice: request.penaltyDice, options: request.optionsJson ? JSON.parse(request.optionsJson) : undefined });
 
 		const resultJson = JSON.stringify(skillResult);
 		const casOk = await repo.resolveCheckRequestIfPending(
@@ -698,7 +701,7 @@ export class RespondCheckRequestHandler implements CommandHandler {
 					payload: {
 						requestId: request.id,
 						characterId: request.characterId,
-						characterName: character.name,
+						characterName: sessionCharacter.name,
 						skillKey: request.skillKey,
 						hidden,
 						result: skillResult,
@@ -710,24 +713,7 @@ export class RespondCheckRequestHandler implements CommandHandler {
 			hidden,
 		);
 
-		if (isGrowthEligible(skillResult)) {
-			const newState = hidden
-				? rule.markSkillGrowthHidden(state, request.skillKey)
-				: rule.markSkillGrowth(state, request.skillKey);
-			events.push(
-				...(await persistStateAndBuildEvents(
-					ctx,
-					repo,
-					request.characterId,
-					sessionCharacter.kind,
-					newState,
-					[],
-					rule,
-					hidden,
-					ctx.session.obSeePcState === 1,
-				)),
-			);
-		}
+		events.push(...await persistRuleMutations(ctx, repo, rule, runtime, mutations, hidden));
 
 		return {
 			events,
@@ -1020,6 +1006,30 @@ export class EditCharacterStateHandler implements CommandHandler {
 	}
 }
 
+class RuleActionHandler implements CommandHandler {
+	readonly type = "rule:action" as const;
+
+	constructor(private readonly registry: RuleRegistry, private readonly repoFactory: (tx: DbClient) => GameplayRepository) {}
+
+	async execute(ctx: CommandHandlerContext, payload: unknown): Promise<CommandHandlerResult> {
+		const parsed = RuleActionCommand.safeParse(payload);
+		if (!parsed.success) throw validationFailed(parsed.error);
+		const repo = this.repoFactory(ctx.tx);
+		const runtime = buildRuleRuntime(ctx, repo, this.registry);
+		if (!runtime.isGm && (!parsed.data.characterId || ctx.seat?.role !== "pc" || ctx.seat.characterId !== parsed.data.characterId)) throw new ForbiddenError("Players can only act with their claimed character");
+		assertPlayerCanRoll(ctx);
+		const rule = this.registry.get(ctx.session.ruleId);
+		if (!rule.applyRuleAction) unsupportedRuleAction();
+		const update = await rule.applyRuleAction(parsed.data, runtime);
+		const events = await persistRuleMutations(ctx, repo, rule, runtime, update.mutations, false);
+		if (update.ruleState !== undefined) {
+			await ctx.tx.update(sessions).set({ ruleStateJson: update.ruleState === null ? null : JSON.stringify(update.ruleState) }).where(eq(sessions.id, ctx.sessionId));
+			events.push({ type: "rule:state-changed", payload: { ruleId: rule.id, state: update.ruleState }, visibility: { type: "public" } });
+		}
+		return { events, replyPayload: { ok: true } };
+	}
+}
+
 export function createGameplayCommandHandlers(
 	ruleRegistry: RuleRegistry,
 	repoFactory: (tx: DbClient) => GameplayRepository,
@@ -1033,5 +1043,6 @@ export function createGameplayCommandHandlers(
 		new SpendLuckHandler(ruleRegistry, repoFactory),
 		new LuckRecoverHandler(ruleRegistry, repoFactory),
 		new EditCharacterStateHandler(ruleRegistry, repoFactory),
+		new RuleActionHandler(ruleRegistry, repoFactory),
 	];
 }

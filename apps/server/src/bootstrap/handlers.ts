@@ -22,6 +22,6 @@ export function buildCommandHandlers(container: Container): CommandHandler[] {
 		...createHandoutCommandHandlers(),
 		...createModerationCommandHandlers(),
 		...createHistoryCommandHandlers(),
-		...createHistoryRewindCommandHandlers(),
+		...createHistoryRewindCommandHandlers(container.ruleRegistry),
 	];
 }

@@ -1,3 +1,4 @@
+import type { CharacterSyncDiffDto } from "@cogm/shared";
 import type { SessionsRepository } from "@/modules/sessions";
 import {
 	SessionNotFoundError,
@@ -11,24 +12,7 @@ import {
 } from "../domain/errors";
 import type { CharactersRepository } from "./ports";
 
-export interface SyncStatePreview {
-	current: {
-		hp: number;
-		maxHp: number;
-		mp: number;
-		maxMp: number;
-		san: number;
-		maxSan: number;
-	};
-	next: {
-		hp: number;
-		maxHp: number;
-		mp: number;
-		maxMp: number;
-		san: number;
-		maxSan: number;
-	};
-}
+type SyncStatePreview = NonNullable<CharacterSyncDiffDto["statePreview"]>;
 
 export interface SessionSyncDiff {
 	characterId: string;
@@ -49,26 +33,15 @@ export interface SessionSyncDiff {
 function buildStatePreview(
 	ruleRegistry: RuleRegistry,
 	ruleId: string,
-	currentSheetJson: string,
 	newSheetJson: string,
 	stateJson: string,
 ): SyncStatePreview | undefined {
 	const rule = ruleRegistry.get(ruleId);
 	const sheet = rule.characterSheetSchema.parse(JSON.parse(newSheetJson));
-	const state = rule.sessionStateSchema.parse(JSON.parse(stateJson)) as Record<string, number>;
-	const next = rule.recalculateStateOnSync(state, sheet) as Record<string, number>;
-	return {
-		current: {
-			hp: state.hp!, maxHp: state.maxHp!,
-			mp: state.mp!, maxMp: state.maxMp!,
-			san: state.san!, maxSan: state.maxSan!,
-		},
-		next: {
-			hp: next.hp!, maxHp: next.maxHp!,
-			mp: next.mp!, maxMp: next.maxMp!,
-			san: next.san!, maxSan: next.maxSan!,
-		},
-	};
+	if (!rule.projectSyncState) return undefined;
+	const state = rule.sessionStateSchema.parse(JSON.parse(stateJson));
+	const next = rule.recalculateStateOnSync(state, sheet);
+	return { current: rule.projectSyncState(state), next: rule.projectSyncState(next) };
 }
 
 export class PreviewCharacterSyncUseCase {
@@ -112,7 +85,6 @@ export class PreviewCharacterSyncUseCase {
 			statePreview = buildStatePreview(
 				this.ruleRegistry,
 				character.ruleId,
-				snapshot.sheetJson,
 				character.sheetJson,
 				snapshot.stateJson,
 			);

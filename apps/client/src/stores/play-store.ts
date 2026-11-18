@@ -83,6 +83,7 @@ export type PlayState = {
 		holderId: string | null;
 	};
 	characters: SnapshotCharacter[];
+	ruleState: unknown;
 	messages: ChatMessage[];
 	pendingQueue: ChatMessageDto[];
 	discardedQueue: ChatMessageDto[];
@@ -188,6 +189,7 @@ const empty = {
 		holderId: null,
 	} as PlayState["viewer"],
 	characters: [] as SnapshotCharacter[],
+	ruleState: null as unknown,
 	messages: [] as ChatMessage[],
 	pendingQueue: [] as ChatMessageDto[],
 	discardedQueue: [] as ChatMessageDto[],
@@ -622,6 +624,9 @@ function applyEvent(
 		case "npc:state-visibility-changed": {
 			return characterStatePatch(state, payload);
 		}
+		case "rule:state-changed": {
+			return { ruleState: payload.state ?? null };
+		}
 		case "state:hint": {
 			const characterId =
 				typeof payload.characterId === "string" ? payload.characterId : null;
@@ -725,6 +730,7 @@ export const usePlayStore = create<PlayState>((set, get) => ({
 				holderId: payload.viewer.holderId ?? null,
 			},
 			characters: payload.characters,
+			ruleState: payload.ruleState ?? null,
 			messages: merged,
 			pendingQueue: payload.pendingQueue ?? [],
 			discardedQueue: payload.discardedQueue ?? [],

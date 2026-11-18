@@ -184,6 +184,9 @@ function PreviewSummary({ preview }: { preview: RewindPreview }) {
 						})}
 					</li>
 				) : null}
+				{preview.ruleStateChanged ? (
+					<li>{t("history.ruleStateChanged")}</li>
+				) : null}
 				{phaseChange ? (
 					<li>
 						{t("history.phaseChange", {

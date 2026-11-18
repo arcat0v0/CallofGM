@@ -187,6 +187,8 @@ function DiceTray({
 						) : null}
 					</div>
 				</div>
+			) : rule.diceTray && character ? (
+				rule.diceTray({ character, characters, gm, disabled, onSubmitted })
 			) : (
 				<div className="flex flex-col gap-2.5">
 					{gm ? (

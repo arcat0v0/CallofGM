@@ -6,11 +6,7 @@ export type ChatRollView = {
 	comment?: string;
 };
 
-export type ChatCheckOutcome =
-	| "success"
-	| "failure"
-	| "critical"
-	| "fumble";
+export type ChatCheckOutcome = "success" | "failure" | "critical" | "fumble";
 
 export type ChatCheckSanView = {
 	before: number;
@@ -42,6 +38,21 @@ export type ChatCheckView = {
 		count: number;
 		candidates: number[];
 		picked: number;
+	};
+	d20?: {
+		kind: string;
+		mode: string;
+		rolls: number[];
+		modifier: number;
+		total: number;
+		dc: number | null;
+		damage?: {
+			type: string;
+			rolls: number[];
+			sides: number;
+			modifier: number;
+			total: number;
+		};
 	};
 };
 

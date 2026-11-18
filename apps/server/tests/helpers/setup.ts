@@ -221,6 +221,7 @@ export interface TestSetupOptions {
 	gmPassword?: string;
 	extraHandlers?: CommandHandler[];
 	randomSource?: RandomSource;
+	databaseUrl?: string;
 	characters?: Array<{
 		id: string;
 		name: string;
@@ -376,7 +377,7 @@ export async function setupTestApp(
 	options: TestSetupOptions = {},
 ): Promise<TestContext> {
 	const gmPassword = options.gmPassword ?? "test-gm-password";
-	process.env.DATABASE_URL = ":memory:";
+	process.env.DATABASE_URL = options.databaseUrl ?? ":memory:";
 	const themesDir =
 		options.themesDir ?? (await mkdtemp(join(tmpdir(), "cogm-themes-")));
 	process.env.THEMES_DIR = themesDir;

@@ -8,6 +8,7 @@ export interface CharacterSummary {
 
 export interface SessionCharacterSummary {
 	kind: string;
+	name: string;
 	stateJson: string;
 	sheetJson: string;
 }
@@ -22,6 +23,7 @@ export interface CheckRequestRecord {
 	penaltyDice: number;
 	hidden: number;
 	sanLossExpression: string | null;
+	optionsJson: string | null;
 	status: string;
 	resolvedCheckResultJson: string | null;
 	createdAt: number;
@@ -55,6 +57,7 @@ export interface GameplayRepository {
 		penaltyDice: number;
 		hidden: number;
 		sanLossExpression: string | null;
+		optionsJson?: string | null;
 		status: string;
 		resolvedCheckResultJson: string | null;
 		createdAt: number;
