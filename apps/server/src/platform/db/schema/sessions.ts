@@ -141,7 +141,9 @@ export const sessionAudioState = sqliteTable(
 		trackId: text("track_id").references(() => tracks.id),
 		playing: integer("playing").notNull(),
 		volume: integer("volume").notNull().default(100),
-		loop: integer("loop").notNull(),
+		mode: text("mode", { enum: ["off", "single", "list", "shuffle"] })
+			.notNull()
+			.default("single"),
 		seekOffsetMs: integer("seek_offset_ms").notNull().default(0),
 		startedAtMs: integer("started_at_ms").notNull().default(0),
 		version: integer("version").notNull().default(0),

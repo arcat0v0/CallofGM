@@ -43,6 +43,13 @@
       "when": 1794933417089,
       "tag": "0005_lazy_xorn",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1794983167028,
+      "tag": "0006_bgm_playback_modes",
+      "breakpoints": true
     }
   ]
 }

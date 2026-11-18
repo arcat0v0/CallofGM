@@ -83,7 +83,7 @@ describe("external music protocol", () => {
 				trackId: "track-1",
 				playing: true,
 				volume: 100,
-				loop: true,
+				mode: "single",
 				seekOffsetMs: 0,
 				startedAtMs: 1,
 				version: 1,

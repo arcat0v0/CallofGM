@@ -1,4 +1,4 @@
-import type { TrackDto } from "@cogm/shared";
+import type { BgmPlaybackMode, TrackDto, UpdateBgmCommand } from "@cogm/shared";
 import { useEffect, useState } from "react";
 import { t } from "@/i18n";
 import { sendSessionCommand } from "@/lib/session-socket";
@@ -8,6 +8,10 @@ function trackSourceLabel(source: TrackDto["source"]) {
 	if (source === "netease") return t("gm.workbench.trackSourceNetease");
 	if (source === "qq") return t("gm.workbench.trackSourceQq");
 	return t("gm.workbench.trackSourceUpload");
+}
+
+function playbackModeLabel(mode: BgmPlaybackMode) {
+	return t(`gm.workbench.playbackMode.${mode}`);
 }
 
 function useBgmPlayback() {
@@ -85,19 +89,20 @@ function useBgmPlayback() {
 			livePosition += Math.max(0, now - bgm.startedAtMs);
 		}
 		if (durationMs > 0) {
-			livePosition = bgm.loop
-				? livePosition % durationMs
-				: Math.min(livePosition, durationMs);
+			livePosition =
+				bgm.mode === "single"
+					? livePosition % durationMs
+					: Math.min(livePosition, durationMs);
 		}
 	}
 	const displayPosition = seekDraft ?? livePosition;
 	const displayVolume = volumeDraft ?? Math.round(bgm?.volume ?? 100);
 
 	function sendBgm(
-		action: "play" | "pause" | "volume" | "loop" | "seek",
+		action: UpdateBgmCommand["action"],
 		extra: Record<string, unknown> = {},
 	) {
-		if (!connected || pendingCommandId) {
+		if (!connected || !snapshotReady || pendingCommandId) {
 			return null;
 		}
 		setCommandErrorState(null);
@@ -133,17 +138,7 @@ function useBgmPlayback() {
 		if (bgmTracks.length === 0) {
 			return;
 		}
-		const index = bgmTracks.findIndex((track) => track.id === bgm?.trackId);
-		const nextIndex =
-			index < 0
-				? direction === 1
-					? 0
-					: bgmTracks.length - 1
-				: (index + direction + bgmTracks.length) % bgmTracks.length;
-		const next = bgmTracks[nextIndex];
-		if (next) {
-			playTrack(next.id);
-		}
+		sendBgm(direction === 1 ? "next" : "previous");
 	}
 
 	function seek(positionMs: number) {
@@ -189,4 +184,4 @@ function useBgmPlayback() {
 	};
 }
 
-export { trackSourceLabel, useBgmPlayback };
+export { playbackModeLabel, trackSourceLabel, useBgmPlayback };

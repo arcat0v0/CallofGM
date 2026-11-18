@@ -53,7 +53,7 @@ import { expressionLabel, formatDurationMmSs } from "@/lib/format";
 import { sendSessionCommand } from "@/lib/session-socket";
 import { cn } from "@/lib/utils";
 import { usePlayStore } from "@/stores/play-store";
-import { useBgmPlayback } from "./gm-audio";
+import { playbackModeLabel, useBgmPlayback } from "./gm-audio";
 import {
 	hpLine,
 	isCritical,
@@ -739,9 +739,7 @@ function AudioMiniCard() {
 						{current
 							? bgm?.playing
 								? t("gm.workbench.bgmLoopPlaying", {
-										loop: bgm?.loop
-											? t("gm.workbench.loopOn")
-											: t("gm.workbench.loopOff"),
+										loop: playbackModeLabel(bgm?.mode ?? "single"),
 									})
 								: t("gm.workbench.bgmPaused")
 							: t("gm.workbench.bgmNone")}

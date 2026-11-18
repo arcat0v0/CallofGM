@@ -1,9 +1,21 @@
 import type { BgmState, SePlayedEvent } from "@cogm/shared";
 import { Howl } from "howler";
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { usePlayStore } from "@/stores/play-store";
 import { mediaUrl } from "./api";
 import { effectiveVolume } from "./local-volume";
+import { sendSessionCommand } from "./session-socket";
+
+function audioFormat(mimeType?: string): string {
+	const formats: Record<string, string> = {
+		"audio/mpeg": "mp3",
+		"audio/wav": "wav",
+		"audio/ogg": "ogg",
+		"audio/flac": "flac",
+		"audio/mp4": "m4a",
+	};
+	return formats[mimeType ?? ""] ?? "mp3";
+}
 
 export function currentBgmPosition(bgm: BgmState, now = Date.now()): number {
 	let position = bgm.seekOffsetMs;
@@ -12,7 +24,9 @@ export function currentBgmPosition(bgm: BgmState, now = Date.now()): number {
 	}
 	const duration = bgm.durationMs ?? 0;
 	if (duration > 0) {
-		return bgm.loop ? position % duration : Math.min(position, duration);
+		return bgm.mode === "single"
+			? position % duration
+			: Math.min(position, duration);
 	}
 	return position;
 }
@@ -26,6 +40,7 @@ export function useBgmPlayback(
 		muted?: boolean;
 		localVolume?: number;
 		isGm?: boolean;
+		connected?: boolean;
 		transitionMs?: number;
 		retryRevision?: number;
 		onPlaybackStatus?: (status: "idle" | "loading" | "ready" | "error") => void;
@@ -37,11 +52,36 @@ export function useBgmPlayback(
 	const muted = options?.muted ?? false;
 	const localVolume = options?.localVolume ?? 100;
 	const isGm = options?.isGm ?? false;
+	const connected = options?.connected ?? true;
+	const playbackRef = useRef({ bgm, isGm, connected });
+	playbackRef.current = { bgm, isGm, connected };
+	const endedRef = useRef<{
+		signature: string;
+		reportedVersion: number | null;
+	} | null>(null);
 	const transitionMs = Math.max(0, options?.transitionMs ?? 400);
 	const retryRevision = options?.retryRevision ?? 0;
 	const onPlaybackStatus = options?.onPlaybackStatus;
 	const seOptionsRef = useRef({ localVolume, muted, isGm });
 	seOptionsRef.current = { localVolume, muted, isGm };
+
+	const reportEnd = useCallback(() => {
+		const latest = playbackRef.current;
+		if (
+			!latest.bgm?.playing ||
+			latest.bgm.mode === "single" ||
+			!latest.isGm ||
+			!latest.connected ||
+			!endedRef.current ||
+			endedRef.current.reportedVersion === latest.bgm.version
+		)
+			return;
+		const commandId = sendSessionCommand("audio:bgm", {
+			action: "ended",
+			expectedVersion: latest.bgm.version,
+		});
+		if (commandId) endedRef.current.reportedVersion = latest.bgm.version;
+	}, []);
 
 	useEffect(() => {
 		const unlock = () => {
@@ -60,30 +100,50 @@ export function useBgmPlayback(
 	}, []);
 
 	useEffect(() => {
+		if (!connected && endedRef.current) endedRef.current.reportedVersion = null;
 		const src = playbackUrl ?? "";
 		if (!src || !bgm) {
 			howlRef.current?.unload();
 			howlRef.current = null;
 			assetRef.current = null;
+			endedRef.current = null;
 			onPlaybackStatus?.("idle");
 			return;
 		}
 
 		const assetKey = `${src}:${retryRevision}`;
+		const signature = `${bgm.trackId}:${bgm.startedAtMs}:${bgm.seekOffsetMs}`;
+		if (endedRef.current?.signature !== signature || bgm.mode === "single")
+			endedRef.current = null;
 		if (assetRef.current !== assetKey) {
 			howlRef.current?.unload();
 			onPlaybackStatus?.("loading");
-			howlRef.current = new Howl({
+			const created = new Howl({
 				src: [src],
+				format: [audioFormat(bgm.audioMimeType)],
 				html5: true,
 				xhr: { withCredentials: true },
-				loop: bgm.loop,
+				loop: bgm.mode === "single",
 				volume: 0,
 				onload: () => onPlaybackStatus?.("ready"),
 				onplay: () => onPlaybackStatus?.("ready"),
 				onloaderror: () => onPlaybackStatus?.("error"),
 				onplayerror: () => onPlaybackStatus?.("error"),
+				onend: () => {
+					const latest = playbackRef.current.bgm;
+					if (
+						howlRef.current !== created ||
+						!latest?.playing ||
+						latest.mode === "single"
+					)
+						return;
+					const finished = `${latest.trackId}:${latest.startedAtMs}:${latest.seekOffsetMs}`;
+					if (endedRef.current?.signature !== finished)
+						endedRef.current = { signature: finished, reportedVersion: null };
+					reportEnd();
+				},
 			});
+			howlRef.current = created;
 			assetRef.current = assetKey;
 		}
 
@@ -92,7 +152,7 @@ export function useBgmPlayback(
 			return;
 		}
 
-		howl.loop(bgm.loop);
+		howl.loop(bgm.mode === "single");
 		const targetVolume = effectiveVolume({
 			broadcastVolume: bgm.volume,
 			localVolume,
@@ -106,7 +166,22 @@ export function useBgmPlayback(
 				howl.volume(targetVolume);
 			}
 		}
-		const seekSec = currentBgmPosition(bgm) / 1000;
+		const position = currentBgmPosition(bgm);
+		const durationMs = bgm.durationMs ?? 0;
+		if (
+			bgm.playing &&
+			bgm.mode !== "single" &&
+			durationMs > 0 &&
+			position >= durationMs
+		) {
+			endedRef.current ??= { signature, reportedVersion: null };
+		}
+		if (bgm.playing && endedRef.current?.signature === signature) {
+			if (howl.playing()) howl.pause();
+			reportEnd();
+			return;
+		}
+		const seekSec = position / 1000;
 		const currentSeek =
 			typeof howl.seek() === "number" ? Number(howl.seek()) : 0;
 		if (Math.abs(currentSeek - seekSec) > 0.75) {
@@ -125,12 +200,14 @@ export function useBgmPlayback(
 		}
 	}, [
 		bgm,
+		connected,
 		isGm,
 		localVolume,
 		muted,
 		onPlaybackStatus,
 		playbackUrl,
 		retryRevision,
+		reportEnd,
 		transitionMs,
 	]);
 
@@ -147,6 +224,7 @@ export function useBgmPlayback(
 		const seOptions = seOptionsRef.current;
 		const se = new Howl({
 			src: [src],
+			format: [audioFormat(seCue.audioMimeType)],
 			html5: true,
 			xhr: { withCredentials: true },
 			volume: effectiveVolume({ broadcastVolume, ...seOptions }),
@@ -195,6 +273,7 @@ export function usePlayAudio(): void {
 	const muted = usePlayStore((state) => state.muted);
 	const localVolume = usePlayStore((state) => state.localVolume);
 	const isGm = usePlayStore((state) => state.viewer.isGm);
+	const connected = usePlayStore((state) => state.connected);
 	const transitionMs = usePlayStore((state) => state.bgmTransitionMs);
 	const retryRevision = usePlayStore((state) => state.audioRetryRevision);
 	const setPlaybackStatus = usePlayStore(
@@ -214,6 +293,7 @@ export function usePlayAudio(): void {
 		muted,
 		localVolume,
 		isGm,
+		connected,
 		transitionMs,
 		retryRevision,
 		onPlaybackStatus: setPlaybackStatus,

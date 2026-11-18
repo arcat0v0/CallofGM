@@ -1,26 +1,34 @@
+import type { BgmPlaybackMode } from "@cogm/shared";
 import {
 	ListMusic,
 	Music2,
 	Pause,
 	Play,
+	Repeat1,
 	Repeat2,
+	Shuffle,
 	SkipBack,
 	SkipForward,
 	SlidersHorizontal,
+	Square,
 	Volume1,
 	Volume2,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { SegmentedControl } from "@/components/shared/segmented-control";
 import { Button } from "@/components/ui/button";
 import { SelectItem } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
-import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { t } from "@/i18n";
 import { formatDurationMmSs } from "@/lib/format";
 import { usePlayStore } from "@/stores/play-store";
 import { AudioLibrary } from "./audio-library";
-import { trackSourceLabel, useBgmPlayback } from "./gm-audio";
+import {
+	playbackModeLabel,
+	trackSourceLabel,
+	useBgmPlayback,
+} from "./gm-audio";
 import { GmPanelShell, GmSelectField } from "./gm-panel-fields";
 
 const FADE_OPTIONS = [
@@ -28,6 +36,13 @@ const FADE_OPTIONS = [
 	{ value: "1000", labelKey: "gm.workbench.fadeNormal" },
 	{ value: "2000", labelKey: "gm.workbench.fadeSlow" },
 	{ value: "2500", labelKey: "gm.workbench.fadeSlowest" },
+] as const;
+
+const PLAYBACK_MODES = [
+	{ value: "list", icon: Repeat2 },
+	{ value: "single", icon: Repeat1 },
+	{ value: "shuffle", icon: Shuffle },
+	{ value: "off", icon: Square },
 ] as const;
 
 function AudioPanel({ onClose }: { onClose: () => void }) {
@@ -167,7 +182,7 @@ function AudioPanel({ onClose }: { onClose: () => void }) {
 										variant="tertiary"
 										size="icon-sm"
 										className="bg-md-surface-container-highest size-12"
-										aria-label={t("gm.workbench.previousTrackInList")}
+										aria-label={t("gm.workbench.previousTrackAction")}
 										disabled={controlsDisabled || bgmTracks.length < 2}
 										onClick={previous}
 									>
@@ -192,7 +207,7 @@ function AudioPanel({ onClose }: { onClose: () => void }) {
 										variant="tertiary"
 										size="icon-sm"
 										className="bg-md-surface-container-highest size-12"
-										aria-label={t("gm.workbench.nextTrackInList")}
+										aria-label={t("gm.workbench.nextTrackAction")}
 										disabled={controlsDisabled || bgmTracks.length < 2}
 										onClick={next}
 									>
@@ -242,6 +257,33 @@ function AudioPanel({ onClose }: { onClose: () => void }) {
 							</div>
 						) : null}
 					</section>
+					<div className="flex flex-col gap-2">
+						<span className="text-md-on-surface text-label-large">
+							{t("gm.workbench.playbackModeTitle")}
+						</span>
+						<SegmentedControl<BgmPlaybackMode>
+							aria-label={t("gm.workbench.playbackModeTitle")}
+							value={bgm?.mode ?? "single"}
+							className="grid grid-cols-2 rounded-xl"
+							itemClassName="min-h-11 px-2"
+							onValueChange={(mode) => {
+								if (mode !== (bgm?.mode ?? "single")) sendBgm("mode", { mode });
+							}}
+							options={PLAYBACK_MODES.map(({ value, icon: Icon }) => ({
+								value,
+								disabled: controlsDisabled,
+								label: (
+									<>
+										<Icon aria-hidden="true" />
+										{playbackModeLabel(value)}
+									</>
+								),
+							}))}
+						/>
+						<p className="text-md-on-surface-variant text-body-small">
+							{t(`gm.workbench.playbackModeHint.${bgm?.mode ?? "single"}`)}
+						</p>
+					</div>
 
 					<div className="flex flex-col gap-2">
 						<div className="flex items-center justify-between gap-3">
@@ -309,32 +351,6 @@ function AudioPanel({ onClose }: { onClose: () => void }) {
 						/>
 					</TabsContent>
 					<TabsContent value="settings" className="flex flex-col gap-4">
-						<div className="flex items-center justify-between gap-3 rounded-xl bg-md-surface-container p-4">
-							<div className="flex min-w-0 items-start gap-3">
-								<Repeat2
-									className="mt-0.5 size-5 shrink-0 text-md-on-surface-variant"
-									aria-hidden="true"
-								/>
-								<div className="flex flex-col gap-1">
-									<span className="text-md-on-surface text-label-large">
-										{t("gm.workbench.loopCurrent")}
-									</span>
-									<span className="text-md-on-surface-variant text-body-small">
-										{bgm?.loop
-											? t("gm.workbench.loopCurrentOn")
-											: t("gm.workbench.loopCurrentOff")}
-									</span>
-								</div>
-							</div>
-							<Switch
-								checked={Boolean(bgm?.loop)}
-								aria-label={t("gm.workbench.loopCurrent")}
-								disabled={currentDisabled}
-								onCheckedChange={(checked) =>
-									sendBgm("loop", { loop: checked })
-								}
-							/>
-						</div>
 						<div className="flex flex-col gap-3 rounded-xl bg-md-surface-container p-4">
 							<h3 className="text-md-on-surface text-label-large">
 								{t("gm.workbench.fade")}

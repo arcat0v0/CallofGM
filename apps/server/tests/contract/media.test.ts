@@ -465,7 +465,7 @@ describe("Media Storage contract tests", () => {
 			sessionId: "media-sess-1",
 			trackId: "media-t-1",
 			playing: 1,
-			loop: 1,
+			mode: "single",
 			createdAt: Date.now(),
 		});
 

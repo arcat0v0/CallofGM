@@ -140,7 +140,7 @@ function bgm(overrides: Partial<BgmState> = {}): BgmState {
 		trackId: "track-a",
 		playing: true,
 		volume: 64,
-		loop: true,
+		mode: "single",
 		seekOffsetMs: 65_000,
 		startedAtMs: Date.now(),
 		version: 4,
@@ -238,19 +238,55 @@ describe("sound panel hierarchy and states", () => {
 		expect(view.getByRole("button", { name: "暂停" })).toBeTruthy();
 	});
 
-	test("loop and fade controls describe their actual behavior without duplication", () => {
-		seed({ bgm: bgm({ loop: false }) });
+	test("four playback mode buttons and fade describe their behavior without duplication", () => {
+		seed({ bgm: bgm({ mode: "off" }) });
 		const view = renderPanel();
+		expect(
+			view
+				.getByRole("radio", { name: "播完停止" })
+				.getAttribute("aria-checked"),
+		).toBe("true");
+		for (const name of ["单曲循环", "列表循环", "随机播放"]) {
+			expect(view.getByRole("radio", { name })).toBeTruthy();
+		}
+		expect(view.queryByRole("switch", { name: "循环当前曲目" })).toBeNull();
 		fireEvent.mouseDown(view.getByRole("tab", { name: "播放设置" }), {
 			button: 0,
 			ctrlKey: false,
 		});
-		expect(view.getByRole("switch", { name: "循环当前曲目" })).toBeTruthy();
-		expect(view.getByText("播完自动停止")).toBeTruthy();
 		expect(view.queryByText("单曲播放")).toBeNull();
 		expect(view.getByRole("combobox", { name: "淡入淡出时长" })).toBeTruthy();
 		expect(view.getByRole("button", { name: "淡出至无声" })).toBeTruthy();
 		expect(view.queryByRole("button", { name: "淡入" })).toBeNull();
+	});
+
+	test("mode selection waits for the broadcast and keeps current progress", () => {
+		const view = renderPanel();
+		fireEvent.click(view.getByRole("radio", { name: "单曲循环" }));
+		expect(sent).toHaveLength(0);
+		fireEvent.click(view.getByRole("radio", { name: "随机播放" }));
+		expect(sent).toEqual([
+			{
+				type: "audio:bgm",
+				payload: { action: "mode", mode: "shuffle", expectedVersion: 4 },
+			},
+		]);
+		expect(
+			view
+				.getByRole("radio", { name: "单曲循环" })
+				.getAttribute("aria-checked"),
+		).toBe("true");
+		expect(
+			view.getByRole("radio", { name: "随机播放" }).hasAttribute("disabled"),
+		).toBe(true);
+		act(() =>
+			usePlayStore.setState({ bgm: bgm({ mode: "shuffle", version: 5 }) }),
+		);
+		expect(
+			view
+				.getByRole("radio", { name: "随机播放" })
+				.getAttribute("aria-checked"),
+		).toBe("true");
 	});
 
 	test("library opens adding in a separate named dialog", async () => {
@@ -419,14 +455,13 @@ describe("sound panel hierarchy and states", () => {
 });
 
 describe("BGM command behavior", () => {
-	test("previous from no selection chooses the last list item", () => {
+	test("previous delegates selection to the server", () => {
 		seed({ bgm: null });
 		const hook = renderHook(() => useBgmPlayback());
 		act(() => hook.result.current.previous());
 		expect(sent[0]?.payload).toEqual({
-			action: "play",
+			action: "previous",
 			expectedVersion: 0,
-			trackId: "track-c",
 		});
 	});
 
@@ -448,18 +483,14 @@ describe("BGM command behavior", () => {
 		const view = renderPanel();
 		fireEvent.click(view.getByRole("button", { name: "暂停" }));
 		expect(
-			view
-				.getByRole("button", { name: "下一首（按曲目列表）" })
-				.hasAttribute("disabled"),
+			view.getByRole("button", { name: "下一首" }).hasAttribute("disabled"),
 		).toBe(true);
 		act(() => {
 			usePlayStore.setState({ bgm: bgm({ playing: false, version: 5 }) });
 		});
 		await waitFor(() =>
 			expect(
-				view
-					.getByRole("button", { name: "下一首（按曲目列表）" })
-					.hasAttribute("disabled"),
+				view.getByRole("button", { name: "下一首" }).hasAttribute("disabled"),
 			).toBe(false),
 		);
 	});
@@ -481,9 +512,7 @@ describe("BGM command behavior", () => {
 			),
 		);
 		expect(
-			view
-				.getByRole("button", { name: "下一首（按曲目列表）" })
-				.hasAttribute("disabled"),
+			view.getByRole("button", { name: "下一首" }).hasAttribute("disabled"),
 		).toBe(false);
 	});
 });
