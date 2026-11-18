@@ -19,9 +19,12 @@ import {
 	render,
 	renderHook,
 	waitFor,
+	within,
 } from "@testing-library/react";
 import { AudioPanel } from "../src/features/gm-console/audio-panel";
 import { useBgmPlayback } from "../src/features/gm-console/gm-audio";
+import { GmToolProvider } from "../src/features/gm-console/gm-tool-context";
+import { GmToolDock } from "../src/features/gm-console/gm-tool-dock";
 import {
 	addExternalTrack,
 	resolveMusic,
@@ -250,7 +253,7 @@ describe("sound panel hierarchy and states", () => {
 		expect(view.queryByRole("button", { name: "淡入" })).toBeNull();
 	});
 
-	test("library is the default view and platform adding stays collapsed", () => {
+	test("library opens adding in a separate named dialog", async () => {
 		const view = renderPanel();
 		expect(
 			view.getByRole("tab", { name: "选择曲目" }).getAttribute("aria-selected"),
@@ -259,7 +262,14 @@ describe("sound panel hierarchy and states", () => {
 		expect(view.queryByRole("switch", { name: "循环当前曲目" })).toBeNull();
 		expect(view.queryByRole("textbox", { name: "搜索歌曲" })).toBeNull();
 		fireEvent.click(view.getByRole("button", { name: "添加平台曲目" }));
-		expect(view.getByRole("textbox", { name: "搜索歌曲" })).toBeTruthy();
+		const dialog = await view.findByRole("dialog", { name: "添加平台曲目" });
+		expect(
+			within(dialog).getByRole("textbox", { name: "搜索歌曲" }),
+		).toBeTruthy();
+		expect(view.container.contains(dialog)).toBe(false);
+		fireEvent.click(within(dialog).getByRole("button", { name: "关闭" }));
+		await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
+		expect(view.getByRole("slider", { name: "全团音量" })).toBeTruthy();
 	});
 
 	test("library filters both channels by name and artist, then clears a missing match", () => {
@@ -285,12 +295,22 @@ describe("sound panel hierarchy and states", () => {
 		expect(sent).toHaveLength(0);
 	});
 
-	test("switching workspaces preserves library filtering and expanded import state", () => {
+	test("reopening the dialog preserves the source tab and library filtering", async () => {
 		const view = renderPanel();
 		fireEvent.input(view.getByRole("searchbox", { name: "搜索模组曲目" }), {
 			target: { value: "旧宅" },
 		});
 		fireEvent.click(view.getByRole("button", { name: "添加平台曲目" }));
+		const dialog = await view.findByRole("dialog", { name: "添加平台曲目" });
+		fireEvent.input(within(dialog).getByRole("textbox", { name: "搜索歌曲" }), {
+			target: { value: "雨夜" },
+		});
+		fireEvent.mouseDown(within(dialog).getByRole("tab", { name: "导入歌单" }), {
+			button: 0,
+			ctrlKey: false,
+		});
+		fireEvent.click(within(dialog).getByRole("button", { name: "关闭" }));
+		await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
 		fireEvent.mouseDown(view.getByRole("tab", { name: "播放设置" }), {
 			button: 0,
 			ctrlKey: false,
@@ -308,10 +328,48 @@ describe("sound panel hierarchy and states", () => {
 				}) as HTMLInputElement
 			).value,
 		).toBe("旧宅");
-		expect(view.getByRole("textbox", { name: "搜索歌曲" })).toBeTruthy();
 		fireEvent.click(view.getByRole("button", { name: "添加平台曲目" }));
-		expect(view.queryByRole("textbox", { name: "搜索歌曲" })).toBeNull();
+		const reopened = await view.findByRole("dialog", { name: "添加平台曲目" });
+		expect(
+			within(reopened)
+				.getByRole("tab", { name: "导入歌单" })
+				.getAttribute("aria-selected"),
+		).toBe("true");
+		fireEvent.mouseDown(
+			within(reopened).getByRole("tab", { name: "搜索歌曲" }),
+			{ button: 0, ctrlKey: false },
+		);
+		expect(
+			(
+				within(reopened).getByRole("textbox", {
+					name: "搜索歌曲",
+				}) as HTMLInputElement
+			).value,
+		).toBe("雨夜");
 		expect(sent).toHaveLength(0);
+	});
+
+	test("Escape closes only the adding dialog and restores focus to its trigger", async () => {
+		const view = render(
+			<GmToolProvider>
+				<GmToolDock />
+			</GmToolProvider>,
+		);
+		fireEvent.click(view.getByRole("button", { name: "声音" }));
+		const trigger = view.getByRole("button", { name: "添加平台曲目" });
+		fireEvent.click(trigger);
+		await view.findByRole("dialog", { name: "添加平台曲目" });
+		fireEvent.keyDown(document.activeElement ?? document.body, {
+			key: "Escape",
+		});
+		await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
+		expect(view.getByRole("region", { name: "声音" })).toBeTruthy();
+		await waitFor(() => expect(document.activeElement).toBe(trigger));
+		expect(document.body.style.pointerEvents).not.toBe("none");
+		fireEvent.keyDown(document.activeElement ?? document.body, {
+			key: "Escape",
+		});
+		expect(view.queryByRole("region", { name: "声音" })).toBeNull();
 	});
 
 	test("track rows select music and sound effects use explicit accessible names", () => {
@@ -494,6 +552,13 @@ describe("platform music sources", () => {
 		expect(
 			apiRequests.filter((request) => request.init?.method === "POST"),
 		).toHaveLength(1);
+		fireEvent.click(
+			within(view.getByRole("dialog", { name: "添加平台曲目" })).getByRole(
+				"button",
+				{ name: "关闭" },
+			),
+		);
+		await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
 		await act(async () => pendingAdd.resolve(externalTrack));
 		await waitFor(() =>
 			expect(
@@ -502,6 +567,16 @@ describe("platform music sources", () => {
 					.catalogTracks.some((track) => track.id === externalTrack.id),
 			).toBe(true),
 		);
+		expect(view.getByRole("button", { name: "播放曲目：不合群" })).toBeTruthy();
+		fireEvent.click(view.getByRole("button", { name: "添加平台曲目" }));
+		const reopenedDialog = await view.findByRole("dialog", {
+			name: "添加平台曲目",
+		});
+		expect(
+			within(reopenedDialog)
+				.getByRole("button", { name: "添加歌曲：不合群" })
+				.hasAttribute("disabled"),
+		).toBe(true);
 		const post = apiRequests.find((request) => request.init?.method === "POST");
 		expect(JSON.parse(String(post?.init?.body))).toEqual({
 			source: "netease",

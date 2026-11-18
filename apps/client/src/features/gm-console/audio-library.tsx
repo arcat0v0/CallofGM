@@ -1,6 +1,5 @@
 import {
 	Check,
-	ChevronDown,
 	ListMusic,
 	LoaderCircle,
 	Play,
@@ -8,9 +7,16 @@ import {
 	Search,
 	Zap,
 } from "lucide-react";
-import { Collapsible } from "radix-ui";
-import { useState } from "react";
+import { Activity, useState } from "react";
 import { Button } from "@/components/ui/button";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogHeader,
+	DialogTitle,
+	DialogTrigger,
+} from "@/components/ui/dialog";
 import {
 	InputGroup,
 	InputGroupAddon,
@@ -234,12 +240,8 @@ function AudioLibrary({
 					)}
 				</>
 			)}
-			<Collapsible.Root
-				open={addingOpen}
-				onOpenChange={setAddingOpen}
-				className="flex flex-col gap-2"
-			>
-				<Collapsible.Trigger asChild>
+			<Dialog open={addingOpen} onOpenChange={setAddingOpen}>
+				<DialogTrigger asChild>
 					<Button
 						type="button"
 						variant="outline"
@@ -250,24 +252,29 @@ function AudioLibrary({
 						<span className="flex-1 text-left">
 							{t("gm.workbench.addPlatformTracks")}
 						</span>
-						<ChevronDown
-							data-icon="inline-end"
-							className={addingOpen ? "rotate-180" : undefined}
-						/>
 					</Button>
-				</Collapsible.Trigger>
-				<Collapsible.Content
-					forceMount
-					hidden={!addingOpen}
-					className="data-[state=closed]:hidden"
-				>
-					<MusicSourcePanel
-						moduleId={moduleId}
-						tracks={tracks}
-						onAdded={addCatalogTrack}
-					/>
-				</Collapsible.Content>
-			</Collapsible.Root>
+				</DialogTrigger>
+				<Activity mode={addingOpen ? "visible" : "hidden"}>
+					<DialogContent
+						forceMount
+						className="flex w-[calc(100vw-2rem)] max-w-2xl flex-col overflow-hidden"
+					>
+						<DialogHeader className="shrink-0 pr-8">
+							<DialogTitle>{t("gm.workbench.addPlatformTracks")}</DialogTitle>
+							<DialogDescription>
+								{t("gm.workbench.addPlatformTracksDescription")}
+							</DialogDescription>
+						</DialogHeader>
+						<div className="min-h-0 overflow-y-auto overscroll-contain pr-1 [scrollbar-width:thin] [scrollbar-color:var(--color-scrollbar)_transparent]">
+							<MusicSourcePanel
+								moduleId={moduleId}
+								tracks={tracks}
+								onAdded={addCatalogTrack}
+							/>
+						</div>
+					</DialogContent>
+				</Activity>
+			</Dialog>
 		</div>
 	);
 }

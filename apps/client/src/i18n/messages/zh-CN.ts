@@ -1936,6 +1936,8 @@ export const zhCN: Record<string, string> = {
 	"gm.workbench.playSoundEffect": "播放音效：{name}",
 	"gm.workbench.noSoundEffects": "模组中还没有即兴音效",
 	"gm.workbench.addPlatformTracks": "添加平台曲目",
+	"gm.workbench.addPlatformTracksDescription":
+		"搜索歌曲、粘贴单曲链接或导入歌单。添加到模组后再选择播放。",
 	"gm.workbench.musicProvider": "音乐平台",
 	"gm.workbench.providerNetease": "网易云音乐",
 	"gm.workbench.providerQq": "QQ 音乐",
