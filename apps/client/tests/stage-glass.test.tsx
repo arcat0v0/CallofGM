@@ -4,6 +4,7 @@ import { gmFloatingCard } from "../src/features/gm-console/gm-styles";
 import { PlayerActionDock } from "../src/features/play/player-action-dock";
 import { DialogueBox } from "../src/features/session-stage/dialogue-box";
 import { SceneAudioStatus } from "../src/features/session-stage/scene-audio-status";
+import { VoiceController } from "../src/features/voice/voice-controller";
 import { usePlayStore } from "../src/stores/play-store";
 import { PlayLayout } from "../src/themes/default/slots/play-layout";
 import { PlayStage } from "../src/themes/default/slots/play-stage";
@@ -163,7 +164,9 @@ describe("stage glass surfaces", () => {
 	});
 
 	test("tool dock, player popover, and GM floating cards use the shared material", async () => {
-		const dock = render(<PlayerActionDock variant="desktop" />);
+		const dock = render(
+			<PlayerActionDock variant="desktop" voice={new VoiceController()} />,
+		);
 		expectStageGlass(dock.getByRole("toolbar"));
 		fireEvent.click(dock.getByRole("button", { name: "界面显示" }));
 		await waitFor(() => {

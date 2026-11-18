@@ -1,0 +1,1 @@
+ALTER TABLE `sessions` ADD `voice_limit` integer;

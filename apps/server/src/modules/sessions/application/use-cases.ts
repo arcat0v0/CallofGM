@@ -175,6 +175,7 @@ export class CreateSessionUseCase {
 			obSeePcState: 1,
 			diceSkin: input.diceSkin ?? "olive",
 			portraitLayout: "auto",
+			voiceLimit: null,
 			portraitScale: "md",
 			growthConfirmedAt: null,
 			deletedAt: null,

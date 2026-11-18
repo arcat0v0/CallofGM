@@ -10,6 +10,7 @@ import type { SessionHistoryRecorder } from "./application/history-recorder";
 import type { ConnectionRegistry } from "./connection-registry";
 import type { VisibilityScope } from "./domain/visibility";
 import type { EventRingBuffer } from "./event-ring-buffer";
+import type { VoiceService } from "./voice-service";
 
 export interface StagedEvents {
 	sessionId: string;
@@ -30,6 +31,7 @@ export class SessionEventBus {
 		private readonly clock: Clock,
 		private readonly idGenerator: IdGenerator,
 		private readonly historyRecorder: SessionHistoryRecorder,
+		private readonly voiceService: VoiceService,
 	) {}
 
 	/**
@@ -103,6 +105,17 @@ export class SessionEventBus {
 				entry.event,
 				entry.visibility,
 			);
+		}
+		if (
+			staged.entries.some(({ event }) =>
+				[
+					"session:phase-changed",
+					"session:status-changed",
+					"session:rewound",
+				].includes(event.type),
+			)
+		) {
+			await this.voiceService.refreshSession(staged.sessionId);
 		}
 		if (staged.outboxIds.length > 0) {
 			await this.db

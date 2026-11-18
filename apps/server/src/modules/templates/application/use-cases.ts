@@ -473,6 +473,7 @@ export class InstantiateTemplateUseCase {
 				diceSkin: settings.diceSkin,
 				portraitLayout: "auto",
 				portraitScale: "md",
+				voiceLimit: null,
 				growthConfirmedAt: null,
 				deletedAt: null,
 				createdAt: now,

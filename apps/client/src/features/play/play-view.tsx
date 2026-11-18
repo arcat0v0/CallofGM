@@ -153,7 +153,7 @@ function PlayView() {
 
 function PlaySession({ sessionId }: { sessionId: string }) {
 	const observeMessage = useDiceEventStore((state) => state.observe);
-	const { retry } = useSessionConnection(sessionId, {
+	const { retry, voice } = useSessionConnection(sessionId, {
 		ensurePlayer: false,
 		onLiveEvent: observeMessage,
 	});
@@ -329,7 +329,7 @@ function PlaySession({ sessionId }: { sessionId: string }) {
 							stage,
 							chat,
 							composer: <Composer compact={viewport !== "desktop"} />,
-							dock: <PlayerActionDock variant={viewport} />,
+							dock: <PlayerActionDock variant={viewport} voice={voice} />,
 							overlays: (
 								<PlayOverlays
 									sessionId={sessionId}

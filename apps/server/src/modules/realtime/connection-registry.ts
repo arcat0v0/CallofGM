@@ -1,4 +1,4 @@
-import type { SessionEvent } from "@cogm/shared";
+import { SessionCloseCode, type SessionEvent } from "@cogm/shared";
 import { and, eq, isNull } from "drizzle-orm";
 import type { ActorContext } from "@/modules/identity";
 import type { DbClient } from "@/platform/db/client";
@@ -27,8 +27,19 @@ export class ConnectionRegistry {
 	private bySession = new Map<string, Set<string>>();
 	private byPlayer = new Map<string, Set<string>>();
 	private byUser = new Map<string, Set<string>>();
+	private unregisterListeners = new Set<
+		(connection: ActiveConnection) => void
+	>();
 
 	constructor(private readonly db: DbClient) {}
+
+	onUnregister(listener: (connection: ActiveConnection) => void): void {
+		this.unregisterListeners.add(listener);
+	}
+
+	getConnection(connectionId: string): ActiveConnection | null {
+		return this.connections.get(connectionId) ?? null;
+	}
 
 	register(conn: ActiveConnection): void {
 		conn.state = conn.state ?? "hydrating";
@@ -100,6 +111,7 @@ export class ConnectionRegistry {
 				}
 			}
 		}
+		for (const listener of this.unregisterListeners) listener(conn);
 	}
 
 	getConnectionsBySession(sessionId: string): ActiveConnection[] {
@@ -289,6 +301,9 @@ export class ConnectionRegistry {
 				// 忽略已断开的连接
 			}
 		}
+		for (const connectionId of [...this.connections.keys()]) {
+			this.unregister(connectionId);
+		}
 		this.connections.clear();
 		this.bySession.clear();
 		this.byPlayer.clear();
@@ -298,7 +313,7 @@ export class ConnectionRegistry {
 	/** 关闭某用户会话的全部连接（新登录顶替旧会话） */
 	closeLoginSessionConnections(
 		loginSessionId: string,
-		code = 401,
+		code: number = SessionCloseCode.loginRevoked,
 		reason = "session replaced",
 	): number {
 		return this.closeMatching(
@@ -314,7 +329,7 @@ export class ConnectionRegistry {
 	closeUserConnections(
 		userId: string,
 		sessionId?: string,
-		code = 401,
+		code: number = SessionCloseCode.loginRevoked,
 		reason = "session revoked",
 	): number {
 		return this.closeMatching(

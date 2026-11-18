@@ -41,6 +41,7 @@ export interface SessionRecord {
 	diceSkin: string;
 	portraitLayout: string;
 	portraitScale: string;
+	voiceLimit: number | null;
 	growthConfirmedAt: number | null;
 	deletedAt: number | null;
 	createdAt: number;

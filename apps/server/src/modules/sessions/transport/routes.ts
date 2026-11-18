@@ -389,6 +389,7 @@ export function createSessionsRoutes(container: Container) {
 					}
 				}
 				await container.presenceService.broadcast(id);
+				await container.voiceService.refreshSession(id);
 				container.connectionRegistry.sendToSession(id, {
 					type: "session:refresh",
 					payload: {},
@@ -420,6 +421,7 @@ export function createSessionsRoutes(container: Container) {
 					"seat released",
 				);
 				await container.presenceService.broadcast(id);
+				await container.voiceService.refreshSession(id);
 				container.connectionRegistry.sendToSession(id, {
 					type: "session:refresh",
 					payload: {},
@@ -670,6 +672,7 @@ export function createSessionsRoutes(container: Container) {
 					characterId: result.data.characterId,
 				});
 				await container.presenceService.broadcast(id);
+				await container.voiceService.refreshSession(id);
 				return ClaimDto.parse(claim);
 			},
 		)
@@ -680,6 +683,7 @@ export function createSessionsRoutes(container: Container) {
 			const holder = requireSeatHolder(actor);
 			const result = await releaseSeat.execute({ sessionId: id, holder });
 			await container.presenceService.broadcast(id);
+			await container.voiceService.refreshSession(id);
 			return result;
 		});
 }

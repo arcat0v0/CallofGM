@@ -239,6 +239,7 @@ export const SessionCloseCode = {
 	kicked: 4000,
 	claimReplaced: 4001,
 	seatReleased: 4002,
+	loginRevoked: 4003,
 } as const;
 export type SessionCloseCode =
 	(typeof SessionCloseCode)[keyof typeof SessionCloseCode];

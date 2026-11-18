@@ -25,6 +25,7 @@ import type { SessionHistoryRecorder } from "./application/history-recorder";
 import type { ConnectionRegistry } from "./connection-registry";
 import type { PresenceService } from "./presence-service";
 import type { SessionEventBus, StagedEvents } from "./session-event-bus";
+import type { VoiceService } from "./voice-service";
 
 const MAX_CACHED_REPLIES_PER_SESSION = 500;
 
@@ -55,6 +56,7 @@ export class SessionCommandExecutor {
 		private readonly idGenerator: IdGenerator,
 		private readonly randomSource: RandomSource,
 		private readonly historyRecorder: SessionHistoryRecorder,
+		private readonly voiceService: VoiceService,
 	) {}
 
 	registerHandlers(handlers: CommandHandler[]): void {
@@ -332,6 +334,9 @@ export class SessionCommandExecutor {
 				);
 			}
 			result.refreshPresence = true;
+		}
+		if ((result.closeConnectionsOfHolders?.length ?? 0) > 0) {
+			await this.voiceService.refreshSession(sessionId);
 		}
 
 		if (result.refreshPresence) {

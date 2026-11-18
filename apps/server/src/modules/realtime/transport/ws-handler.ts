@@ -3,6 +3,8 @@ import {
 	type CommandReply,
 	type SessionKickedMessage,
 	type SessionSnapshot,
+	VoiceClientMessage,
+	VoiceServerMessage,
 } from "@cogm/shared";
 import { and, eq, isNull } from "drizzle-orm";
 import { Elysia } from "elysia";
@@ -24,6 +26,7 @@ import { checkVisibility } from "../domain/visibility";
 
 const RATE_LIMIT_WINDOW_MS = 5_000;
 const RATE_LIMIT_MAX_COMMANDS = 50;
+const VOICE_RATE_LIMIT_MAX_SIGNALS = 256;
 const KICKED_CLOSE_CODE = 4000;
 
 interface KickNotice {
@@ -181,6 +184,8 @@ export function createRealtimeRoutes(container: Container) {
 			const connectionId = crypto.randomUUID();
 			(ws.data as Record<string, unknown>).connectionId = connectionId;
 			(ws.data as Record<string, unknown>).commandTimestamps = [] as number[];
+			(ws.data as Record<string, unknown>).voiceSignalTimestamps =
+				[] as number[];
 
 			const holder: SeatHolderInput | null =
 				actor.type === "user" && actor.role === "gm"
@@ -295,6 +300,8 @@ export function createRealtimeRoutes(container: Container) {
 					}
 				}
 
+				await container.voiceService.sendInitialState(connection);
+
 				await presenceService.broadcast(sessionId);
 			} catch (error) {
 				logger.error("ws.hydrate.failed", {
@@ -336,6 +343,82 @@ export function createRealtimeRoutes(container: Container) {
 				ws.send(
 					JSON.stringify({ protocolVersion: 1, type: "pong", payload: {} }),
 				);
+				return;
+			}
+
+			if (
+				parsedJson &&
+				typeof parsedJson === "object" &&
+				"type" in parsedJson &&
+				typeof parsedJson.type === "string" &&
+				parsedJson.type.startsWith("voice:")
+			) {
+				const rawRequestId =
+					"requestId" in parsedJson ? parsedJson.requestId : undefined;
+				const requestId =
+					typeof rawRequestId === "string" &&
+					rawRequestId.length >= 1 &&
+					rawRequestId.length <= 128
+						? rawRequestId
+						: "invalid";
+				const voiceMessage = VoiceClientMessage.safeParse(parsedJson);
+				const isSignal =
+					voiceMessage.success && voiceMessage.data.type === "voice:signal";
+				const socketData = ws.data as Record<string, unknown>;
+				const timestamps = (
+					isSignal
+						? socketData.voiceSignalTimestamps
+						: socketData.commandTimestamps
+				) as number[];
+				const limit = isSignal
+					? VOICE_RATE_LIMIT_MAX_SIGNALS
+					: RATE_LIMIT_MAX_COMMANDS;
+				const now = Date.now();
+				while (
+					timestamps.length > 0 &&
+					now - (timestamps[0] ?? 0) > RATE_LIMIT_WINDOW_MS
+				) {
+					timestamps.shift();
+				}
+				if (timestamps.length >= limit) {
+					ws.send(
+						JSON.stringify(
+							VoiceServerMessage.parse({
+								protocolVersion: 1,
+								type: "voice:reply",
+								payload: { requestId, ok: false, code: "VOICE_RATE_LIMITED" },
+							}),
+						),
+					);
+					return;
+				}
+				timestamps.push(now);
+				if (!voiceMessage.success) {
+					ws.send(
+						JSON.stringify(
+							VoiceServerMessage.parse({
+								protocolVersion: 1,
+								type: "voice:reply",
+								payload: { requestId, ok: false, code: "VALIDATION_FAILED" },
+							}),
+						),
+					);
+					return;
+				}
+				const connection = connectionRegistry.getConnection(connectionId);
+				if (!connection || connection.state !== "active") {
+					ws.send(
+						JSON.stringify(
+							VoiceServerMessage.parse({
+								protocolVersion: 1,
+								type: "voice:reply",
+								payload: { requestId, ok: false, code: "VOICE_NOT_READY" },
+							}),
+						),
+					);
+					return;
+				}
+				await container.voiceService.handle(connection, voiceMessage.data);
 				return;
 			}
 

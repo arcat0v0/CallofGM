@@ -120,6 +120,16 @@ BgmState = { trackId, playing, volume, loop, seekOffset, startedAt(服务器时�
 - **SE 音效**为一次性广播（fire-and-forget），不进快照。
 - 玩家本地可静音/调本地音量，不影响他人；进团点击作为浏览器音频解锁手势。
 
+### WebRTC 语音与临时信令
+
+- 语音复用 `/api/v1/sessions/:id/ws`，协议在 `packages/shared/src/voice.ts` 定义，客户端/服务端消息均运行时 zod 校验。信封使用 `protocolVersion: 1` 与 `requestId`，但不使用 `ClientCommand`，不分配 `eventId`，不写 outbox、历史、聊天或补发日志。`voice:join` 携带权威 `voice:state.roomId`，避免状态下发与自动重入之间跨开启竞态；不匹配返回 `VOICE_ROOM_CHANGED`。
+- `VoiceService` 在单进程内保存当前开启、连接成员与按席位 claim id 索引的授权/静音。归属 GM 在准备中/进行中开启后，GM 断线不关闭；显式关闭、结团和进程重启清除。成员 UUID 每次加入重新签发，连接注册表的所有注销路径同步撤销成员，目标发送前再次核验来源、目标、团、开启与 active 连接。
+- 同一 claim/GM 同时只能有一个媒体连接。准入在同团串行队列中原子完成，GM 保留一个名额，PC/OB 不抢占。`sessions.voice_limit` 仅保存可空单团上限；实例 `VOICE_MAX_PARTICIPANTS` 默认 8，实际取两者较小值。运行时成员、房间 UUID、SDP/ICE 和静音不持久化。
+- 服务端先完成普通 WS 快照 hydration，再下发 `voice:state`，之后才接受信令；加入时先更新成员状态再允许后续信令。SDP offer/answer 与 ICE candidate（包括 glare 中双向 candidate）只向同开启的目标成员单播。信令采用独立 5 秒 256 帧突发上限，其他语音控制与无效帧复用普通命令 5 秒 50 帧上限。
+- GM 获得完整管理列表，已加入成员获得对等列表，未加入的非 GM 只获得人数与自身可用状态。OB 默认 listen-only，授权与 GM 静音在同一 claim 的重连/主动离开再入间保留；替换、释放、踢出清除。阶段、回溯与撤销通过事件投递后的刷新重算 `canSpeak`，已结束团关闭整个语音开启。
+- 浏览器按权威状态在发送端停止/禁用采集与轨道，并在接收端 mute、pause、disable 对应远端轨道。服务端不能约束相互串通的客户端再次转发已经收到的媒体，语音不是对恶意合谋参与者的保密通道。
+- ICE 配置默认空，浏览器可直接尝试 host candidate。`VOICE_STUN_URLS` 配置逗号分隔 STUN；`VOICE_TURN_URLS` 与 `VOICE_TURN_REST_SECRET` 成对配置独立 TURN，服务端按 `VOICE_TURN_TTL_SECONDS`（默认 600）生成 coturn REST 用户名与 HMAC-SHA1 临时凭据，仅向已加入成员下发。长期 REST secret 仅存在服务端环境，不下发前端。
+
 ### 曲目来源与平台接口
 
 - `tracks.source` 为 `upload | netease | qq`。上传曲目引用 `audio_asset_id`；平台曲目的该字段为 NULL，并保存 `external_id`、`artists_json`、`album`、`source_url`。临时 CDN URL、vkey、Cookie 与账号凭据不入库。`template_tracks` 和模板 JSON 快照保存同一来源信息，实例化生成新曲目行。

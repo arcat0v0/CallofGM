@@ -3,6 +3,7 @@ import {
 	BlacklistEntryDto,
 	ChangePasswordRequest,
 	LoginRequest,
+	SessionCloseCode,
 	UnbanFingerprintRequest,
 } from "@cogm/shared";
 import { Elysia } from "elysia";
@@ -92,7 +93,7 @@ export function createIdentityRoutes(container: Container) {
 			container.connectionRegistry.closeUserConnections(
 				result.user.id,
 				undefined,
-				401,
+				SessionCloseCode.loginRevoked,
 				"session replaced",
 			);
 

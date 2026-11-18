@@ -5,6 +5,7 @@ import { GmChatPanel } from "../src/features/gm-console/gm-chat-panel";
 import { CharacterStateCard } from "../src/features/gm-console/gm-panel-stage";
 import { GmToolProvider } from "../src/features/gm-console/gm-tool-context";
 import { GmToolDock } from "../src/features/gm-console/gm-tool-dock";
+import { VoiceController } from "../src/features/voice/voice-controller";
 import { usePlayStore } from "../src/stores/play-store";
 
 function character(
@@ -107,13 +108,13 @@ describe("GM workbench B2 composition", () => {
 		expect(view.getByText("重伤 · HP 5 / 12 · SAN 44 / 61")).toBeTruthy();
 	});
 
-	test("dock exposes all five director tools", () => {
+	test("dock exposes all six director tools", () => {
 		const view = render(
 			<GmToolProvider>
-				<GmToolDock />
+				<GmToolDock voice={new VoiceController()} />
 			</GmToolProvider>,
 		);
-		for (const label of ["场景", "人物", "情报", "鉴定", "声音"]) {
+		for (const label of ["场景", "人物", "情报", "鉴定", "声音", "语音"]) {
 			expect(view.getByRole("button", { name: label })).toBeTruthy();
 		}
 	});

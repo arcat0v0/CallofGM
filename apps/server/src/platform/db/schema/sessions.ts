@@ -31,6 +31,7 @@ export const sessions = sqliteTable(
 		diceSkin: text("dice_skin").notNull().default("olive"),
 		portraitLayout: text("portrait_layout").notNull().default("auto"),
 		portraitScale: text("portrait_scale").notNull().default("md"),
+		voiceLimit: integer("voice_limit"),
 		growthConfirmedAt: integer("growth_confirmed_at"),
 		deletedAt: integer("deleted_at"),
 		createdAt: integer("created_at").notNull(),

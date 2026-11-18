@@ -9,6 +9,8 @@ import {
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { ToolDock, ToolDockButton } from "@/components/shared/tool-dock";
+import type { VoiceController } from "@/features/voice/voice-controller";
+import { VoiceDockButton } from "@/features/voice/voice-dock-button";
 import { t } from "@/i18n";
 import { usePlayStore } from "@/stores/play-store";
 import { AudioPanel } from "./audio-panel";
@@ -26,7 +28,7 @@ const TOOLS: Array<{ id: GmTool; labelKey: string; icon: LucideIcon }> = [
 	{ id: "audio", labelKey: "gm.workbench.toolAudio", icon: Music2 },
 ];
 
-function GmToolDock() {
+function GmToolDock({ voice }: { voice: VoiceController }) {
 	const { activeTool, closeTool, toggleTool } = useGmTool();
 	const ended = usePlayStore((state) => state.status === "ended");
 
@@ -89,10 +91,12 @@ function GmToolDock() {
 								label={label}
 								active={active}
 								disabled={ended}
+								wideOnlyLabel
 								onClick={() => toggleTool(tool.id)}
 							/>
 						);
 					})}
+					<VoiceDockButton voice={voice} wideOnlyLabel onOpen={closeTool} />
 				</ToolDock>
 				{panel ? (
 					<div className="absolute top-[calc(100%_+_12px)] left-1/2 z-30 -translate-x-1/2">

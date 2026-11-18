@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `/api/version` 公开只读版本接口，通过共享 zod schema 返回后端构建信息。
 - 客户端构建通过 Vite 注入版本、提交与构建时间，后端在应用装配时读取根 `package.json` 与构建环境。
 - `bun run release:check` 发版一致性检查，以及根目录 `docker-compose.yml` 手动构建更新入口。
+- 增加基于现有团 WebSocket 的 WebRTC 语音协议与服务端权威控制：独立开启标识、人数与 GM 保留位、重复标签页防护、点对点 SDP/ICE 单播、OB 授权、个别静音、阶段/回溯/席位更新与断线重连。
+- 支持可选 STUN 与 coturn REST 短期 TURN 凭据；默认不依赖外部 ICE 服务，并新增可空持久单团人数上限迁移 `0006_cold_argent`。
 
 ### Changed
 
@@ -31,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 修复切换/重播曲目后进度未立即刷新、平台流 URL 被误当作 asset id、播放失败缺少重试入口，以及循环与淡入淡出文案语义矛盾。
 - 修复平台 `MUSIC_UNAVAILABLE` 等错误未映射为中文的问题，服务端英文 message 不再直接显示。
 - 修复 QQ 匿名 vkey 偶发返回空 `purl` 时立即判不可播：最多三次更换匿名 guid 并退避重试，仍为空才返回 `MUSIC_UNAVAILABLE`。
+- 登录顶替与账号撤销统一使用有效且共享的 `SessionCloseCode.loginRevoked = 4003`，不再发送浏览器无法干净关闭的 401 WS 关闭码。
 
 ### Security
 

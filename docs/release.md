@@ -79,6 +79,28 @@ curl -fsS https://cogm.example.com/api/version
 - 应用启动会在 `apps/server` 启动流程中执行数据库迁移；不要在未备份的情况下直接更新。
 - 回滚代码不等于降级数据库。若新版本已执行不可逆迁移，必须按该版本迁移说明处理，不能自动降级。
 
+## WebRTC 语音部署
+
+语音是 GM + 最多 7 个其他席位的全网状 WebRTC 拓扑（8 人共 28 条对等连接），CoGM 只交换信令，不代理媒体。默认可不配置任何外部服务，浏览器会直接尝试 host/host；跨 NAT 或受限网络通常需要 STUN，无法直连时需要 TURN。实际生产验收必须覆盖目标网络与真实音频设备，不能用同机结果代替跨网络保证。
+
+可选环境变量：
+
+| 变量 | 默认 | 说明 |
+|---|---|---|
+| `VOICE_MAX_PARTICIPANTS` | `8` | 实例最大语音人数，含 GM，整数 2–256；大规模全网状需另行评估浏览器带宽与 CPU |
+| `VOICE_STUN_URLS` | 空 | 逗号分隔的 `stun:` / `stuns:` 地址 |
+| `VOICE_TURN_URLS` | 空 | 逗号分隔的 `turn:` / `turns:` 地址，与 REST secret 成对设置 |
+| `VOICE_TURN_REST_SECRET` | 空 | 仅服务端持有的 coturn `static-auth-secret`，不写入前端或公开示例 |
+| `VOICE_TURN_TTL_SECONDS` | `600` | TURN 临时凭据寿命，60–86400 秒 |
+
+coturn 需启用 `use-auth-secret` 与同一 `static-auth-secret`，按实际公网地址开放 UDP/TCP relay 端口及 relay 端口范围；公网部署优先使用受 TLS 保护的 `turns:`。TURN 是独立可选组件，不由 CoGM compose 强制启动。部署机通过受保护环境注入 secret，`docker-compose.yml` 只透传变量，不含任何长期凭据。
+
+浏览器麦克风在非 localhost 环境只可用于安全上下文，生产必须同时提供 HTTPS 页面与 WSS 团连接；仅开放 HTTP/WS 不能作为公网语音部署。TURN REST 凭据在每次语音 join/rejoin 时重新签发；若 relay 协商在凭据到期后失败，应重新加入以取得新凭据，并按单次通话时长、网络切换与重连策略调整 TTL，不能把已下发凭据当作永久配置。
+
+本次隔离验收记录：真实 Chromium 中 GM + 7 个匿名 OB 使用同机 localhost Bun/Vite，各自只有一条团 WS，每人 7 条 peer connection（全网状 28 对）；未配置 ICE 时选择 host/host，七名 OB 均收到非零音频能量，授权 OB 上行也被 GM 收到。强制关闭 WS 后，客户端在同一开启重入并终止旧麦克风轨道；GM 将持久上限 8 调为 6 后刷新与服务重启均保留。私有 loopback rootless coturn 4.9 REST fixture 在仅允许 relay 的验收策略下选择 relay/relay，OB 收到非零音频。另验证了 GM 静音与强制 CG 会停止 OB 采集并在远端 mute/pause/disable 轨道，结团关闭连接与音频，暂停语音不影响 BGM。
+
+上述结果来自 Chromium 合成采集与同一主机，未验证物理麦克风、跨设备或跨公网 NAT；部署验收应补测这些项目，并检查满员、重复标签页、非归属 GM 隔离与 TURN 凭据到期后的重连。
+
 ## 回滚
 
 1. 备份当前数据库。

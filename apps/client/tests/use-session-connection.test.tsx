@@ -1,6 +1,13 @@
-import { beforeEach, describe, expect, mock, test } from "bun:test";
-import type { ServerMessage } from "@cogm/shared";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import {
+	type ServerMessage,
+	SessionCloseCode,
+	type VoiceClientMessage,
+	type VoiceServerMessage,
+	type VoiceState,
+} from "@cogm/shared";
 import { act, render, waitFor } from "@testing-library/react";
+import type { VoiceController } from "@/features/voice/voice-controller";
 import type { SessionSocket } from "@/lib/session-socket";
 
 type ConnectOptions = {
@@ -8,16 +15,23 @@ type ConnectOptions = {
 	lastEventId?: number;
 	signal?: AbortSignal;
 	onMessage: (message: ServerMessage) => void;
+	onVoiceMessage?: (message: VoiceServerMessage) => void;
 	onClose?: (info: { code: number; reason: string }) => void;
 };
 
 const connections: ConnectOptions[] = [];
+const voiceCommands: VoiceClientMessage[] = [];
+const nativePeerConnection = globalThis.RTCPeerConnection;
 
 mock.module("@/lib/session-socket", () => ({
 	connectSession: async (options: ConnectOptions): Promise<SessionSocket> => {
 		connections.push(options);
 		return {
 			sendCommand: () => crypto.randomUUID(),
+			sendVoice: (message) => {
+				voiceCommands.push(message);
+				return true;
+			},
 			close: () => undefined,
 		};
 	},
@@ -56,9 +70,12 @@ const SNAPSHOT = {
 } satisfies ServerMessage;
 
 let retry: (() => void) | null = null;
+let voice: VoiceController | null = null;
 
 function Harness() {
-	retry = useSessionConnection("session-1", { ensurePlayer: false }).retry;
+	const connection = useSessionConnection("session-1", { ensurePlayer: false });
+	retry = connection.retry;
+	voice = connection.voice;
 	return null;
 }
 
@@ -77,14 +94,21 @@ function ObservedHarness({
 describe("useSessionConnection retry", () => {
 	beforeEach(() => {
 		connections.length = 0;
+		voiceCommands.length = 0;
+		voice = null;
 		retry = null;
 		usePlayStore.getState().reset();
+	});
+
+	afterEach(() => {
+		globalThis.RTCPeerConnection = nativePeerConnection;
 	});
 
 	test("kicked retry resyncs with a fresh snapshot instead of replaying the old watermark", async () => {
 		render(<Harness />);
 		await waitFor(() => expect(connections.length).toBe(1));
-		const first = connections[0]!;
+		const first = connections[0];
+		if (!first) throw new Error("Expected first session connection");
 
 		act(() => {
 			usePlayStore.setState({ lastEventId: 7, snapshotReady: true });
@@ -95,9 +119,9 @@ describe("useSessionConnection retry", () => {
 		act(() => retry?.());
 		expect(usePlayStore.getState().terminal).toBeNull();
 		await waitFor(() => expect(connections.length).toBe(2));
-		expect(connections[1]!.lastEventId).toBeUndefined();
+		expect(connections[1]?.lastEventId).toBeUndefined();
 
-		act(() => connections[1]!.onMessage(SNAPSHOT));
+		act(() => connections[1]?.onMessage(SNAPSHOT));
 		expect(usePlayStore.getState().connected).toBe(true);
 		expect(usePlayStore.getState().snapshotReady).toBe(true);
 		expect(usePlayStore.getState().lastEventId).toBe(3);
@@ -107,7 +131,8 @@ describe("useSessionConnection retry", () => {
 	test("a superseded connection cannot restore the kicked terminal state", async () => {
 		render(<Harness />);
 		await waitFor(() => expect(connections.length).toBe(1));
-		const first = connections[0]!;
+		const first = connections[0];
+		if (!first) throw new Error("Expected first session connection");
 
 		act(() => first.onClose?.({ code: 4000, reason: "kicked" }));
 		expect(usePlayStore.getState().terminal).toBe("kicked");
@@ -125,11 +150,11 @@ describe("useSessionConnection retry", () => {
 
 		act(() => {
 			usePlayStore.setState({ lastEventId: 7 });
-			connections[0]!.onClose?.({ code: 1006, reason: "network" });
+			connections[0]?.onClose?.({ code: 1006, reason: "network" });
 		});
 
 		await waitFor(() => expect(connections.length).toBe(2), { timeout: 3000 });
-		expect(connections[1]!.lastEventId).toBe(7);
+		expect(connections[1]?.lastEventId).toBe(7);
 	});
 
 	test("claim replacement still terminates the session", async () => {
@@ -137,7 +162,7 @@ describe("useSessionConnection retry", () => {
 		await waitFor(() => expect(connections.length).toBe(1));
 
 		act(() =>
-			connections[0]!.onClose?.({ code: 4001, reason: "claim replaced" }),
+			connections[0]?.onClose?.({ code: 4001, reason: "claim replaced" }),
 		);
 		expect(usePlayStore.getState().terminal).toBe("replaced");
 	});
@@ -147,10 +172,82 @@ describe("useSessionConnection retry", () => {
 		await waitFor(() => expect(connections.length).toBe(1));
 
 		act(() =>
-			connections[0]!.onClose?.({ code: 1001, reason: "session ended" }),
+			connections[0]?.onClose?.({ code: 1001, reason: "session ended" }),
 		);
 		expect(usePlayStore.getState().status).toBe("ended");
 		await waitFor(() => expect(connections.length).toBe(2), { timeout: 3000 });
+	});
+
+	test("refresh rejoins only the same room and login revocation clears voice", async () => {
+		globalThis.RTCPeerConnection =
+			class extends EventTarget {} as typeof RTCPeerConnection;
+		render(<Harness />);
+		await waitFor(() => expect(connections.length).toBe(1));
+		const member = {
+			id: "00000000-0000-4000-8000-000000000021",
+			name: "OB",
+			role: "ob",
+			canSpeak: false,
+			speakGranted: false,
+			muted: false,
+		} as const;
+		const room = {
+			enabled: true,
+			available: true,
+			limit: 8,
+			maxLimit: 8,
+			selfId: null,
+			members: [],
+			memberCount: 0,
+			iceServers: [],
+			roomId: "00000000-0000-4000-8000-000000000020",
+			canManage: false,
+		} satisfies VoiceState;
+		const joined = {
+			...room,
+			selfId: member.id,
+			members: [member],
+			memberCount: 1,
+		};
+		const deliver = (index: number, payload: VoiceState) =>
+			connections[index]?.onVoiceMessage?.({
+				protocolVersion: 1,
+				type: "voice:state",
+				payload,
+			});
+		act(() => {
+			deliver(0, room);
+			voice?.join();
+			deliver(0, joined);
+		});
+		expect(voice?.getSnapshot().member).toEqual(member);
+		act(() =>
+			connections[0]?.onMessage({
+				protocolVersion: 1,
+				type: "session:refresh",
+				payload: {},
+			}),
+		);
+		expect(voice?.getSnapshot().member).toBeNull();
+		await waitFor(() => expect(connections.length).toBe(2));
+		act(() => {
+			deliver(0, joined);
+			deliver(1, room);
+			deliver(1, joined);
+		});
+		expect(voiceCommands.map((message) => message.payload)).toEqual([
+			{ roomId: room.roomId },
+			{ roomId: room.roomId },
+		]);
+		expect(voice?.getSnapshot().member).toEqual(member);
+		act(() =>
+			connections[1]?.onClose?.({
+				code: SessionCloseCode.loginRevoked,
+				reason: "session replaced",
+			}),
+		);
+		expect(voice?.getSnapshot().member).toBeNull();
+		expect(voice?.getSnapshot().link).toBe("offline");
 	});
 
 	test("skips onLiveEvent for replayed reconnect events while forwarding live events", async () => {

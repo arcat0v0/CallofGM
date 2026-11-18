@@ -9,6 +9,7 @@ import {
 	SessionCommandExecutor,
 	SessionEventBus,
 	SessionHistoryRecorder,
+	VoiceService,
 } from "@/modules/realtime";
 import { ThemeRegistry } from "@/modules/themes";
 import { createDb, type DbClient, type DbContext } from "@/platform/db/client";
@@ -45,6 +46,7 @@ export class Container {
 	readonly musicService: MusicService;
 	readonly connectionRegistry: ConnectionRegistry;
 	readonly eventRingBuffer: EventRingBuffer;
+	readonly voiceService: VoiceService;
 	readonly presenceService: PresenceService;
 	readonly historyRecorder: SessionHistoryRecorder;
 	readonly sessionEventBus: SessionEventBus;
@@ -81,6 +83,11 @@ export class Container {
 		this.themeRegistry = new ThemeRegistry(this.env.THEMES_DIR, this.clock);
 
 		this.connectionRegistry = new ConnectionRegistry(this.db);
+		this.voiceService = new VoiceService(
+			this.db,
+			this.connectionRegistry,
+			this.env,
+		);
 		this.eventRingBuffer = new EventRingBuffer();
 		this.presenceService = new PresenceService(
 			this.db,
@@ -98,6 +105,7 @@ export class Container {
 			this.clock,
 			this.idGenerator,
 			this.historyRecorder,
+			this.voiceService,
 		);
 		this.sessionCommandExecutor = new SessionCommandExecutor(
 			this.db,
@@ -109,6 +117,7 @@ export class Container {
 			this.idGenerator,
 			this.randomSource,
 			this.historyRecorder,
+			this.voiceService,
 		);
 		this.sessionCommandExecutor.registerHandlers(commandHandlers);
 		this.snapshotBuilder = new BuildSessionSnapshotUseCase(

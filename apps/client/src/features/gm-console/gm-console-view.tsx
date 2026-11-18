@@ -25,7 +25,7 @@ function GmConsoleView() {
 	useI18nVersion();
 	const { sessionId } = useParams({ from: "/gm/session/$sessionId" });
 	const observeMessage = useDiceEventStore((state) => state.observe);
-	const { retry } = useSessionConnection(sessionId, {
+	const { retry, voice } = useSessionConnection(sessionId, {
 		ensurePlayer: false,
 		onLiveEvent: observeMessage,
 	});
@@ -130,7 +130,7 @@ function GmConsoleView() {
 								chat: (
 									<GmChatPanel onOpenHistory={() => setHistoryOpen(true)} />
 								),
-								dock: <GmToolDock />,
+								dock: <GmToolDock voice={voice} />,
 								overlays: (
 									<SessionTerminalOverlay
 										sessionId={sessionId}

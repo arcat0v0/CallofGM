@@ -33,9 +33,10 @@ import { CharacterSheetPanel } from "@/features/session-live/character-sheet-pan
 import { DiceTray } from "@/features/session-live/dice-tray";
 import { HandoutLibrary } from "@/features/session-live/handout-library";
 import { PresenceList } from "@/features/session-live/presence-list";
+import type { VoiceController } from "@/features/voice/voice-controller";
+import { VoiceDockButton } from "@/features/voice/voice-dock-button";
 import { t } from "@/i18n";
 import type { PlayDisplayKey } from "@/lib/storage";
-import { useIdentityStore } from "@/stores/identity-store";
 import { usePlayDisplayStore } from "@/stores/play-display-store";
 import { usePlayStore } from "@/stores/play-store";
 
@@ -102,7 +103,13 @@ function DisplaySettings() {
 	);
 }
 
-function PlayerActionDock({ variant }: { variant: PlayViewport }) {
+function PlayerActionDock({
+	variant,
+	voice,
+}: {
+	variant: PlayViewport;
+	voice: VoiceController;
+}) {
 	const characters = usePlayStore((state) => state.characters);
 	const seatRole = usePlayStore((state) => state.viewer.seatRole);
 	const status = usePlayStore((state) => state.status);
@@ -252,6 +259,7 @@ function PlayerActionDock({ variant }: { variant: PlayViewport }) {
 					</PopoverContent>
 				</Popover>
 			) : null}
+			<VoiceDockButton voice={voice} showLabel={showLabel} wideOnlyLabel />
 
 			{variant === "desktop" ? (
 				<Popover open={displayOpen} onOpenChange={setDisplayOpen}>

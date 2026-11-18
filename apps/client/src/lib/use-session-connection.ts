@@ -3,7 +3,8 @@ import {
 	SessionCloseCode,
 	type SessionEvent,
 } from "@cogm/shared";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { VoiceController } from "@/features/voice/voice-controller";
 import { usePlayStore } from "@/stores/play-store";
 import { ensurePlayer } from "./identity";
 import { connectSession, type SessionSocket } from "./session-socket";
@@ -17,7 +18,8 @@ export function useSessionConnection(
 		ensurePlayer?: boolean;
 		onLiveEvent?: (message: SessionEvent) => void;
 	},
-): { retry: () => void } {
+): { retry: () => void; voice: VoiceController } {
+	const [voice] = useState(() => new VoiceController());
 	const applyMessage = usePlayStore((state) => state.applyMessage);
 	const reset = usePlayStore((state) => state.reset);
 	const setConnected = usePlayStore((state) => state.setConnected);
@@ -41,6 +43,7 @@ export function useSessionConnection(
 		reset();
 
 		function scheduleReconnect() {
+			clearTimeout(retry ?? undefined);
 			const watermark = usePlayStore.getState().lastEventId;
 			const delay = Math.min(8_000, 800 * 2 ** attempt);
 			attempt += 1;
@@ -80,6 +83,8 @@ export function useSessionConnection(
 			}
 			const settingsBefore = usePlayStore.getState().settings;
 			applyMessage(message);
+			const play = usePlayStore.getState();
+			if (play.terminal || play.status === "ended") voice.disconnect(false);
 			if (message.type !== "session:settings-changed") {
 				return;
 			}
@@ -96,6 +101,11 @@ export function useSessionConnection(
 		async function open(lastEventId?: number): Promise<void> {
 			const generation = ++attemptGeneration;
 			const isCurrent = () => !cancelled && generation === attemptGeneration;
+			if (retry) {
+				clearTimeout(retry);
+				retry = null;
+			}
+			if (socket) voice.disconnect(true);
 			socket?.close();
 			socket = null;
 			try {
@@ -114,24 +124,40 @@ export function useSessionConnection(
 							handleMessage(message);
 						}
 					},
+					onVoiceMessage: (message) => {
+						if (isCurrent()) voice.receive(message);
+					},
+					onReplaced: () => {
+						if (isCurrent()) voice.disconnect(false);
+					},
 					onClose: ({ code, reason }) => {
 						if (!isCurrent()) {
 							return;
 						}
+						socket = null;
 						setConnected(false);
 						if (code === SessionCloseCode.kicked) {
+							voice.disconnect(false);
 							setTerminal("kicked");
 							return;
 						}
 						if (code === SessionCloseCode.claimReplaced) {
+							voice.disconnect(false);
 							setTerminal("replaced");
 							return;
 						}
 						if (code === SessionCloseCode.seatReleased) {
+							voice.disconnect(false);
 							setTerminal("released");
 							return;
 						}
+						if (code === SessionCloseCode.loginRevoked) {
+							voice.disconnect(false);
+							setTerminal("unavailable");
+							return;
+						}
 						if (code === 1001 && reason === SESSION_ENDED_REASON) {
+							voice.disconnect(false);
 							markEnded();
 							if (!reopenedAfterEnd) {
 								reopenedAfterEnd = true;
@@ -139,6 +165,7 @@ export function useSessionConnection(
 							}
 							return;
 						}
+						voice.disconnect(!usePlayStore.getState().terminal);
 						scheduleReconnect();
 					},
 				});
@@ -147,6 +174,7 @@ export function useSessionConnection(
 					return;
 				}
 				socket = next;
+				voice.connect(next.sendVoice);
 				attempt = 0;
 				handshakeFailures = 0;
 			} catch {
@@ -156,6 +184,7 @@ export function useSessionConnection(
 				setConnected(false);
 				handshakeFailures += 1;
 				if (handshakeFailures >= MAX_HANDSHAKE_FAILURES) {
+					voice.disconnect(false);
 					setTerminal("unavailable");
 					return;
 				}
@@ -175,6 +204,7 @@ export function useSessionConnection(
 
 		return () => {
 			cancelled = true;
+			voice.disconnect(false);
 			controls.current = null;
 			if (retry) {
 				clearTimeout(retry);
@@ -192,6 +222,7 @@ export function useSessionConnection(
 		setConnected,
 		setTerminal,
 		markEnded,
+		voice,
 	]);
 
 	const retryConnection = useCallback(() => {
@@ -199,5 +230,5 @@ export function useSessionConnection(
 		void controls.current?.resync();
 	}, [setTerminal]);
 
-	return { retry: retryConnection };
+	return { retry: retryConnection, voice };
 }

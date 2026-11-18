@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import { fireEvent, render } from "@testing-library/react";
 import { PlayerActionDock } from "../src/features/play/player-action-dock";
+import { VoiceController } from "../src/features/voice/voice-controller";
 import { usePlayStore } from "../src/stores/play-store";
 
 beforeEach(() => {
@@ -20,7 +21,7 @@ beforeEach(() => {
 describe("player action dock", () => {
 	test("opens the dice panel from the shared dock button", async () => {
 		const { findByRole, getByRole } = render(
-			<PlayerActionDock variant="desktop" />,
+			<PlayerActionDock variant="desktop" voice={new VoiceController()} />,
 		);
 
 		fireEvent.click(getByRole("button", { name: "掷骰与鉴定" }));

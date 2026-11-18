@@ -368,9 +368,9 @@ describe("Realtime contract tests", () => {
 		const p1Ws = await connectWs(wsUrl, player1Token);
 		const p2Ws = await connectWs(wsUrl, player2Token);
 
-		const gmMsgsPromise = gmWs.waitForMessages(9);
-		const p1MsgsPromise = p1Ws.waitForMessages(4);
-		const p2MsgsPromise = p2Ws.waitForMessages(3);
+		const gmMsgsPromise = gmWs.waitForMessages(10);
+		const p1MsgsPromise = p1Ws.waitForMessages(5);
+		const p2MsgsPromise = p2Ws.waitForMessages(4);
 
 		p1Ws.send(
 			JSON.stringify({
@@ -467,7 +467,7 @@ describe("Realtime contract tests", () => {
 		gmWs.send(command);
 
 		// snapshot + presence + reply×2（第二条为去重后的缓存回执）+ event×1
-		await gmWs.waitForMessages(5);
+		await gmWs.waitForMessages(6);
 
 		const replies = gmWs.messages.filter(
 			(m) => m.type === "command:accepted" && m.commandId === "cmd-dedup-1",

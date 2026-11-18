@@ -31,3 +31,4 @@ export {
 	createRealtimeRoutes as routes,
 	createRealtimeRoutes,
 } from "./transport/ws-handler";
+export { VoiceService } from "./voice-service";

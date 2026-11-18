@@ -1,13 +1,16 @@
-import type {
-	ClientCommand,
-	ClientCommandType,
-	ServerMessage,
+import {
+	type ClientCommand,
+	type ClientCommandType,
+	type ServerMessage,
+	type VoiceClientMessage,
+	VoiceServerMessage,
 } from "@cogm/shared";
 import { t } from "@/i18n";
 import { getFingerprint } from "./fingerprint";
 
 export type SessionSocket = {
 	sendCommand: (type: ClientCommandType, payload: unknown) => string;
+	sendVoice: (message: VoiceClientMessage) => boolean;
 	close: () => void;
 };
 
@@ -16,13 +19,15 @@ type ConnectSessionOptions = {
 	lastEventId?: number;
 	signal?: AbortSignal;
 	onMessage: (message: ServerMessage) => void;
+	onVoiceMessage?: (message: VoiceServerMessage) => void;
+	onReplaced?: () => void;
 	onClose?: (info: { code: number; reason: string }) => void;
 };
 
 const HEARTBEAT_MS = 20_000;
 const PONG_TIMEOUT_MS = 10_000;
 
-let active: SessionSocket | null = null;
+let active: (SessionSocket & { replace: () => void }) | null = null;
 
 export async function connectSession(
 	options: ConnectSessionOptions,
@@ -38,7 +43,6 @@ export async function connectSession(
 	}
 	const url = `${protocol}//${location.host}/api/v1/sessions/${encodeURIComponent(options.sessionId)}/ws?${params.toString()}`;
 
-	const previous = active;
 	const ws = new WebSocket(url);
 	let heartbeat: ReturnType<typeof setInterval> | null = null;
 	let pongTimer: ReturnType<typeof setTimeout> | null = null;
@@ -124,10 +128,20 @@ export async function connectSession(
 		return commandId;
 	};
 
-	const socket: SessionSocket = {
+	const socket: NonNullable<typeof active> = {
 		sendCommand,
+		sendVoice: (message) => {
+			if (closedByClient || ws.readyState !== WebSocket.OPEN) return false;
+			ws.send(JSON.stringify(message));
+			return true;
+		},
+		replace: () => {
+			socket.close();
+			options.onReplaced?.();
+		},
 		close: () => {
 			closedByClient = true;
+			options.signal?.removeEventListener("abort", abortConnection);
 			clearTimers();
 			cleanupListeners();
 			if (active === socket) {
@@ -169,14 +183,23 @@ export async function connectSession(
 			return;
 		}
 		try {
-			const parsed = JSON.parse(String(event.data)) as ServerMessage;
-			options.onMessage(parsed);
+			const parsed = JSON.parse(String(event.data));
+			if (
+				typeof parsed?.type === "string" &&
+				parsed.type.startsWith("voice:")
+			) {
+				const voice = VoiceServerMessage.safeParse(parsed);
+				if (voice.success) options.onVoiceMessage?.(voice.data);
+				return;
+			}
+			options.onMessage(parsed as ServerMessage);
 		} catch {
 			// ignore malformed frames
 		}
 	});
 
 	ws.addEventListener("close", (event) => {
+		options.signal?.removeEventListener("abort", abortConnection);
 		clearTimers();
 		cleanupListeners();
 		if (active === socket) {
@@ -210,7 +233,7 @@ export async function connectSession(
 		throw new DOMException(t("play.connectAborted"), "AbortError");
 	}
 
-	previous?.close();
+	active?.replace();
 	active = socket;
 	return socket;
 }
