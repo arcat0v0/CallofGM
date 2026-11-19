@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, mock, test } from "bun:test";
+import { afterEach, describe, expect, jest, mock, test } from "bun:test";
 import type { VoiceSignal } from "@cogm/shared";
 import {
 	applyOpusSenderParameters,
@@ -20,6 +20,7 @@ class PeerConnection {
 	remoteDescription: RTCSessionDescriptionInit | null = null;
 	onnegotiationneeded?: () => void;
 	ontrack?: (event: { track: MediaStreamTrack }) => void;
+	onconnectionstatechange?: () => void;
 	private readonly transceiver = {
 		sender: { replaceTrack: mock(async () => {}) },
 		receiver: { track: { kind: "audio" } },
@@ -142,6 +143,26 @@ describe("voice peer", () => {
 		expect(stop).toHaveBeenCalledTimes(1);
 		expect(output?.srcObject).toBeNull();
 		expect(document.querySelector("audio")).toBeNull();
+	});
+
+	test("retries a later disconnect after an exhausted recovery cycle", () => {
+		jest.useFakeTimers();
+		try {
+			const { subject, connection } = fixture(true);
+			connection.connectionState = "disconnected";
+			connection.onconnectionstatechange?.();
+			jest.advanceTimersByTime(4_000);
+			jest.advanceTimersByTime(15_000);
+			jest.advanceTimersByTime(15_000);
+			expect(connection.restartIce).toHaveBeenCalledTimes(2);
+			expect(subject.health).toBe("failed");
+			connection.onconnectionstatechange?.();
+			jest.advanceTimersByTime(4_000);
+			expect(connection.restartIce).toHaveBeenCalledTimes(3);
+			expect(subject.health).toBe("connecting");
+		} finally {
+			jest.useRealTimers();
+		}
 	});
 
 	test("applies per-speaker volume before and after track attachment and notifies remote track lifecycle", () => {

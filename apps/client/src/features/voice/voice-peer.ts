@@ -477,6 +477,7 @@ export class VoicePeer {
 			this.restarts = 0;
 			this.setHealth("connected");
 		} else if (state === "disconnected" || state === "failed") {
+			if (this.health === "failed") this.restarts = 0;
 			this.setHealth("connecting");
 			this.armRecovery(DISCONNECT_GRACE);
 		}
