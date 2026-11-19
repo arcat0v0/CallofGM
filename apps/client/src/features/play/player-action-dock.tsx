@@ -259,7 +259,12 @@ function PlayerActionDock({
 					</PopoverContent>
 				</Popover>
 			) : null}
-			<VoiceDockButton voice={voice} showLabel={showLabel} wideOnlyLabel />
+			<VoiceDockButton
+				voice={voice}
+				showLabel={showLabel}
+				wideOnlyLabel
+				compact={variant !== "desktop"}
+			/>
 
 			{variant === "desktop" ? (
 				<Popover open={displayOpen} onOpenChange={setDisplayOpen}>

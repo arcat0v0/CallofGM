@@ -7,7 +7,14 @@ import {
 	useState,
 } from "react";
 
-const GM_TOOLS = ["scene", "characters", "handouts", "check", "audio"] as const;
+const GM_TOOLS = [
+	"scene",
+	"characters",
+	"handouts",
+	"check",
+	"audio",
+	"voice",
+] as const;
 
 type GmTool = (typeof GM_TOOLS)[number];
 

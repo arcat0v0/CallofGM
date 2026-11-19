@@ -1,21 +1,24 @@
 import type { LucideIcon } from "lucide-react";
 import {
 	Dices,
+	Headphones,
 	Image as ImageIcon,
 	Music2,
 	ScrollText,
 	Users,
 } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { ToolDock, ToolDockButton } from "@/components/shared/tool-dock";
 import type { VoiceController } from "@/features/voice/voice-controller";
-import { VoiceDockButton } from "@/features/voice/voice-dock-button";
+import { VoicePanelBody } from "@/features/voice/voice-panel";
+import { VoiceSpeakerOverlay } from "@/features/voice/voice-speaker-overlay";
 import { t } from "@/i18n";
 import { usePlayStore } from "@/stores/play-store";
 import { AudioPanel } from "./audio-panel";
 import { CharactersPanel } from "./characters-panel";
 import { CheckPanel } from "./check-panel";
+import { GmPanelShell } from "./gm-panel-fields";
 import { type GmTool, useGmTool } from "./gm-tool-context";
 import { HandoutPanel } from "./handout-panel";
 import { ScenePanel } from "./scene-panel";
@@ -26,11 +29,14 @@ const TOOLS: Array<{ id: GmTool; labelKey: string; icon: LucideIcon }> = [
 	{ id: "handouts", labelKey: "gm.workbench.toolHandouts", icon: ScrollText },
 	{ id: "check", labelKey: "gm.workbench.toolCheck", icon: Dices },
 	{ id: "audio", labelKey: "gm.workbench.toolAudio", icon: Music2 },
+	{ id: "voice", labelKey: "voice.title", icon: Headphones },
 ];
 
 function GmToolDock({ voice }: { voice: VoiceController }) {
 	const { activeTool, closeTool, toggleTool } = useGmTool();
 	const ended = usePlayStore((state) => state.status === "ended");
+	const voiceSnapshot = useSyncExternalStore(voice.subscribe, voice.getSnapshot);
+	const voiceJoined = voiceSnapshot.member !== null;
 
 	useEffect(() => {
 		if (!activeTool) {
@@ -62,6 +68,15 @@ function GmToolDock({ voice }: { voice: VoiceController }) {
 			<CheckPanel onClose={closeTool} />
 		) : activeTool === "audio" ? (
 			<AudioPanel onClose={closeTool} />
+		) : activeTool === "voice" ? (
+			<GmPanelShell
+				title={t("voice.title")}
+				subtitle={t("voice.description")}
+				onClose={closeTool}
+				className="w-[min(880px,calc(100vw-24px))] max-h-[calc(100dvh-176px)] xl:max-h-[calc(100dvh-112px)] [&>div]:[scrollbar-width:thin] [&>div]:[scrollbar-color:var(--color-scrollbar)_transparent]"
+			>
+				<VoicePanelBody voice={voice} snapshot={voiceSnapshot} />
+			</GmPanelShell>
 		) : null;
 
 	return (
@@ -70,7 +85,7 @@ function GmToolDock({ voice }: { voice: VoiceController }) {
 				? createPortal(
 						<div
 							aria-hidden
-							className="bg-md-scrim/25 animate-in fade-in fixed inset-0 z-20 duration-200"
+							className="bg-md-scrim/25 animate-in fade-in fixed inset-0 z-[35] duration-200"
 							onClick={closeTool}
 						/>,
 						document.body,
@@ -82,7 +97,9 @@ function GmToolDock({ voice }: { voice: VoiceController }) {
 					className="shadow-overlay p-1.5"
 				>
 					{TOOLS.map((tool) => {
-						const active = activeTool === tool.id;
+						const active =
+							activeTool === tool.id ||
+							(tool.id === "voice" && voiceJoined);
 						const label = t(tool.labelKey);
 						return (
 							<ToolDockButton
@@ -96,7 +113,6 @@ function GmToolDock({ voice }: { voice: VoiceController }) {
 							/>
 						);
 					})}
-					<VoiceDockButton voice={voice} wideOnlyLabel onOpen={closeTool} />
 				</ToolDock>
 				{panel ? (
 					<div className="absolute top-[calc(100%_+_12px)] left-1/2 z-30 -translate-x-1/2">
@@ -104,6 +120,11 @@ function GmToolDock({ voice }: { voice: VoiceController }) {
 					</div>
 				) : null}
 			</div>
+			<VoiceSpeakerOverlay
+				voice={voice}
+				panelOpen={activeTool === "voice"}
+				placement="gm"
+			/>
 		</>
 	);
 }

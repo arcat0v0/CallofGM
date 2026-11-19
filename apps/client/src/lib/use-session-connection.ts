@@ -19,7 +19,7 @@ export function useSessionConnection(
 		onLiveEvent?: (message: SessionEvent) => void;
 	},
 ): { retry: () => void; voice: VoiceController } {
-	const [voice] = useState(() => new VoiceController());
+	const [voice] = useState(() => new VoiceController({ sessionId }));
 	const applyMessage = usePlayStore((state) => state.applyMessage);
 	const reset = usePlayStore((state) => state.reset);
 	const setConnected = usePlayStore((state) => state.setConnected);
@@ -31,6 +31,7 @@ export function useSessionConnection(
 	} | null>(null);
 
 	useEffect(() => {
+		voice.setSessionId(sessionId);
 		let cancelled = false;
 		let socket: SessionSocket | null = null;
 		const controller = new AbortController();
