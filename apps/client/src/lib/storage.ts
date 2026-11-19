@@ -5,6 +5,7 @@ export const ROTATE_SUGGESTION_KEY = "cogm.rotateSuggestionDismissed";
 export const LOCAL_VOLUME_KEY = "cogm.localVolume";
 export const LOCAL_MUTED_KEY = "cogm.localMuted";
 export const PLAY_DISPLAY_KEY = "cogm.playDisplay";
+export const VOICE_MEMBER_VOLUMES_PREFIX = "cogm.voiceMemberVolumes.";
 
 export type PlayDisplayKey =
 	| "sceneInfo"
@@ -118,4 +119,48 @@ export function writePlayDisplay(settings: PlayDisplaySettings): void {
 		return;
 	}
 	localStorage.setItem(PLAY_DISPLAY_KEY, JSON.stringify(settings));
+}
+
+export function readVoiceMemberVolumes(
+	sessionId: string,
+): Record<string, number> {
+	if (typeof localStorage === "undefined" || !sessionId) {
+		return {};
+	}
+	const raw = localStorage.getItem(`${VOICE_MEMBER_VOLUMES_PREFIX}${sessionId}`);
+	if (!raw) {
+		return {};
+	}
+	try {
+		const parsed: unknown = JSON.parse(raw);
+		if (typeof parsed !== "object" || parsed === null) {
+			return {};
+		}
+		const result: Record<string, number> = {};
+		for (const [key, value] of Object.entries(parsed)) {
+			if (typeof value === "number" && Number.isFinite(value)) {
+				result[key] = normalizeLocalVolume(value);
+			}
+		}
+		return result;
+	} catch {
+		return {};
+	}
+}
+
+export function writeVoiceMemberVolumes(
+	sessionId: string,
+	volumes: Record<string, number>,
+): void {
+	if (typeof localStorage === "undefined" || !sessionId) {
+		return;
+	}
+	try {
+		localStorage.setItem(
+			`${VOICE_MEMBER_VOLUMES_PREFIX}${sessionId}`,
+			JSON.stringify(volumes),
+		);
+	} catch {
+		// Ignore quota errors on local preference persistence.
+	}
 }

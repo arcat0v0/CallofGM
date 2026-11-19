@@ -12,6 +12,7 @@ type VoicePeerOptions = {
 	iceServers: RTCIceServer[];
 	send: (signal: VoiceSignal) => void;
 	changed: () => void;
+	onRemoteTrack?: (track: MediaStreamTrack | null) => void;
 };
 
 function audioOnly(sdp: string): boolean {
@@ -27,6 +28,149 @@ function iceFragments(sdp: string): Set<string> {
 	);
 }
 
+export const VOICE_MAX_BITRATE = 32_000;
+
+type OpusSupport = {
+	opus: boolean;
+	fec: boolean;
+	dtx: boolean;
+};
+
+type OpusCapabilities = {
+	support: OpusSupport;
+	codecs: RTCRtpCodec[];
+};
+
+type OpusFmtpOptions = Pick<OpusSupport, "fec" | "dtx">;
+
+export type OpusSenderParameterStatus = {
+	maxBitrate: boolean;
+	dtx: boolean;
+};
+
+type EncodingWithDtx = RTCRtpEncodingParameters & {
+	dtx?: "enabled" | "disabled";
+};
+
+function detectOpusCapabilities(): OpusCapabilities {
+	if (
+		typeof RTCRtpSender === "undefined" ||
+		typeof RTCRtpSender.getCapabilities !== "function"
+	) {
+		return { support: { opus: false, fec: false, dtx: false }, codecs: [] };
+	}
+	try {
+		const codecs = RTCRtpSender.getCapabilities("audio")?.codecs ?? [];
+		const opus = codecs.find(
+			(codec) => codec.mimeType.toLowerCase() === "audio/opus",
+		);
+		if (!opus) {
+			return { support: { opus: false, fec: false, dtx: false }, codecs };
+		}
+		const fmtp = opus.sdpFmtpLine ?? "";
+		return {
+			support: {
+				opus: true,
+				fec: /(?:^|;)\s*useinbandfec\s*=\s*1\s*(?:;|$)/i.test(fmtp),
+				dtx: true,
+			},
+			codecs,
+		};
+	} catch {
+		return { support: { opus: false, fec: false, dtx: false }, codecs: [] };
+	}
+}
+
+function opusFmtp(parameters: string, options: OpusFmtpOptions): string {
+	const entries = parameters
+		.split(";")
+		.map((entry) => entry.trim())
+		.filter(Boolean);
+	const values = new Map<string, string>();
+	for (const entry of entries) {
+		const separator = entry.indexOf("=");
+		const key = (separator >= 0 ? entry.slice(0, separator) : entry)
+			.trim()
+			.toLowerCase();
+		values.set(key, entry);
+	}
+	values.set("maxaveragebitrate", `maxaveragebitrate=${VOICE_MAX_BITRATE}`);
+	values.set("stereo", "stereo=0");
+	if (options.dtx) values.set("usedtx", "usedtx=1");
+	if (options.fec) values.set("useinbandfec", "useinbandfec=1");
+	return [...values.values()].join(";");
+}
+
+export function configureOpusSdp(
+	sdp: string,
+	options: OpusFmtpOptions,
+): string {
+	const lines = sdp.split(/\r?\n/);
+	const opusPayloads = new Set<string>();
+	const fmtpPayloads = new Set<string>();
+	let audio = false;
+	for (const line of lines) {
+		if (line.startsWith("m=")) audio = line.startsWith("m=audio");
+		if (!audio) continue;
+		const rtpmap = line.match(/^a=rtpmap:(\d+)\s+opus\/48000(?:\/2)?/i);
+		if (rtpmap?.[1]) opusPayloads.add(rtpmap[1]);
+		const fmtp = line.match(/^a=fmtp:(\d+)\s*/i);
+		if (fmtp?.[1]) fmtpPayloads.add(fmtp[1]);
+	}
+	const configured: string[] = [];
+	audio = false;
+	for (const line of lines) {
+		if (line.startsWith("m=")) audio = line.startsWith("m=audio");
+		if (!audio) {
+			configured.push(line);
+			continue;
+		}
+		const rtpmap = line.match(/^a=rtpmap:(\d+)\s+opus\/48000(?:\/2)?/i);
+		const payload = rtpmap?.[1];
+		if (payload && !fmtpPayloads.has(payload)) {
+			configured.push(line);
+			configured.push(`a=fmtp:${payload} ${opusFmtp("", options)}`);
+			continue;
+		}
+		const fmtp = line.match(/^a=fmtp:(\d+)\s*(.*)$/i);
+		if (fmtp?.[1] && opusPayloads.has(fmtp[1])) {
+			configured.push(`a=fmtp:${fmtp[1]} ${opusFmtp(fmtp[2] ?? "", options)}`);
+			continue;
+		}
+		configured.push(line);
+	}
+	return configured.join("\r\n");
+}
+
+export async function applyOpusSenderParameters(
+	sender: RTCRtpSender,
+): Promise<OpusSenderParameterStatus> {
+	try {
+		if (
+			typeof sender.getParameters !== "function" ||
+			typeof sender.setParameters !== "function"
+		) {
+			return { maxBitrate: false, dtx: false };
+		}
+		const parameters = sender.getParameters();
+		const encoding = parameters.encodings[0] as EncodingWithDtx | undefined;
+		if (!encoding) return { maxBitrate: false, dtx: false };
+		const supportsDtx = "dtx" in encoding;
+		encoding.maxBitrate = VOICE_MAX_BITRATE;
+		if (supportsDtx) encoding.dtx = "enabled";
+		await sender.setParameters(parameters);
+		const applied = sender.getParameters().encodings[0] as
+			| EncodingWithDtx
+			| undefined;
+		return {
+			maxBitrate: applied?.maxBitrate === VOICE_MAX_BITRATE,
+			dtx: supportsDtx && applied?.dtx === "enabled",
+		};
+	} catch {
+		return { maxBitrate: false, dtx: false };
+	}
+}
+
 export class VoicePeer {
 	private readonly connection: RTCPeerConnection;
 	private readonly options: VoicePeerOptions;
@@ -35,6 +179,7 @@ export class VoicePeer {
 	private output: HTMLAudioElement | null = null;
 	private remoteTrack: MediaStreamTrack | null = null;
 	private audible = false;
+	private volume = 100;
 	private playbackAttempt = 0;
 	private closed = false;
 	private tasks = Promise.resolve();
@@ -45,6 +190,8 @@ export class VoicePeer {
 	private candidates: RTCIceCandidateInit[] = [];
 	private timer: ReturnType<typeof setTimeout> | undefined;
 	private restarts = 0;
+	private readonly opus = detectOpusCapabilities();
+	private opusSenderConfigured = false;
 	health: PeerHealth = "connecting";
 	playbackBlocked = false;
 
@@ -76,7 +223,7 @@ export class VoicePeer {
 		connection.onnegotiationneeded = () => {
 			this.enqueue(async () => {
 				if (connection.signalingState !== "stable" || !this.transceiver) return;
-				await connection.setLocalDescription();
+				await this.setLocalDescription();
 				this.sendDescription();
 			});
 		};
@@ -86,6 +233,7 @@ export class VoicePeer {
 			this.transceiver = connection.addTransceiver("audio", {
 				direction: "sendrecv",
 			});
+			this.configureCodecPreferences();
 		}
 		this.armRecovery(CONNECTION_TIMEOUT);
 	}
@@ -156,18 +304,75 @@ export class VoicePeer {
 				continue;
 			await this.addCandidate(candidate);
 		}
-		if (!offer || this.closed) return;
+		if (this.closed) return;
+		if (!offer) {
+			await this.configureOpusSender();
+			return;
+		}
 		this.transceiver = connection
 			.getTransceivers()
 			.find(
 				(item) => item.receiver.track.kind === "audio" && item.mid !== null,
 			);
 		if (!this.transceiver) return;
+		this.configureCodecPreferences();
 		this.transceiver.direction = "sendrecv";
 		await this.transceiver.sender.replaceTrack(this.track);
 		if (this.closed) return;
-		await connection.setLocalDescription();
+		await this.setLocalDescription();
+		await this.configureOpusSender();
+		if (this.closed) return;
 		this.sendDescription();
+	}
+
+	private configureCodecPreferences(): void {
+		if (
+			!this.opus.support.opus ||
+			!this.transceiver ||
+			typeof this.transceiver.setCodecPreferences !== "function"
+		) {
+			return;
+		}
+		try {
+			const opus = this.opus.codecs.filter(
+				(codec) => codec.mimeType.toLowerCase() === "audio/opus",
+			);
+			const remaining = this.opus.codecs.filter(
+				(codec) => codec.mimeType.toLowerCase() !== "audio/opus",
+			);
+			this.transceiver.setCodecPreferences([...opus, ...remaining]);
+		} catch {}
+	}
+
+	private async setLocalDescription(): Promise<void> {
+		const connection = this.connection;
+		if (
+			!this.opus.support.opus ||
+			typeof connection.createOffer !== "function" ||
+			typeof connection.createAnswer !== "function"
+		) {
+			await connection.setLocalDescription();
+			return;
+		}
+		try {
+			const description =
+				connection.signalingState === "have-remote-offer"
+					? await connection.createAnswer()
+					: await connection.createOffer();
+			if (!description.sdp) throw new Error("Missing local SDP");
+			await connection.setLocalDescription({
+				type: description.type,
+				sdp: configureOpusSdp(description.sdp, this.opus.support),
+			});
+		} catch {
+			if (!this.closed) await connection.setLocalDescription();
+		}
+	}
+
+	private async configureOpusSender(): Promise<void> {
+		if (this.opusSenderConfigured || !this.transceiver || this.closed) return;
+		this.opusSenderConfigured = true;
+		await applyOpusSenderParameters(this.transceiver.sender);
 	}
 
 	private async addCandidate(candidate: RTCIceCandidateInit): Promise<void> {
@@ -211,9 +416,11 @@ export class VoicePeer {
 			this.output = document.createElement("audio");
 			this.output.hidden = true;
 			this.output.muted = true;
+			this.output.volume = this.volume / 100;
 			document.body.append(this.output);
 		}
 		this.output.srcObject = new MediaStream([track]);
+		this.options.onRemoteTrack?.(track);
 		this.updatePlayback();
 	}
 
@@ -221,6 +428,17 @@ export class VoicePeer {
 		if (this.audible === audible) return;
 		this.audible = audible;
 		this.updatePlayback();
+	}
+
+	setVolume(volume: number): void {
+		const next = Number.isFinite(volume)
+			? Math.min(100, Math.max(0, Math.round(volume)))
+			: 100;
+		if (this.volume === next) return;
+		this.volume = next;
+		if (this.output) {
+			this.output.volume = next / 100;
+		}
 	}
 
 	retryPlayback(): void {
@@ -233,6 +451,7 @@ export class VoicePeer {
 		const attempt = ++this.playbackAttempt;
 		this.remoteTrack.enabled = this.audible;
 		output.muted = !this.audible;
+		output.volume = this.volume / 100;
 		this.setBlocked(false);
 		if (!this.audible) {
 			output.pause();
@@ -288,6 +507,7 @@ export class VoicePeer {
 		this.closed = true;
 		clearTimeout(this.timer);
 		this.candidates = [];
+		this.options.onRemoteTrack?.(null);
 		this.remoteTrack?.stop();
 		this.remoteTrack = null;
 		if (this.output) {

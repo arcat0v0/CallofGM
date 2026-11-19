@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, mock, test } from "bun:test";
 import type { VoiceSignal } from "@cogm/shared";
-import { VoicePeer } from "@/features/voice/voice-peer";
+import {
+	applyOpusSenderParameters,
+	configureOpusSdp,
+	VOICE_MAX_BITRATE,
+	VoicePeer,
+} from "@/features/voice/voice-peer";
 
 let created: PeerConnection | undefined;
 let peer: VoicePeer | undefined;
@@ -48,7 +53,10 @@ class PeerConnection {
 	restartIce = mock(() => {});
 }
 
-function fixture(initiator: boolean) {
+function fixture(
+	initiator: boolean,
+	onRemoteTrack?: (track: MediaStreamTrack | null) => void,
+) {
 	globalThis.RTCPeerConnection =
 		PeerConnection as unknown as typeof RTCPeerConnection;
 	const send = mock((_signal: VoiceSignal) => {});
@@ -57,6 +65,7 @@ function fixture(initiator: boolean) {
 		iceServers: [],
 		send,
 		changed: () => {},
+		onRemoteTrack,
 	});
 	peer = subject;
 	if (!created) throw new Error("missing peer connection");
@@ -133,5 +142,83 @@ describe("voice peer", () => {
 		expect(stop).toHaveBeenCalledTimes(1);
 		expect(output?.srcObject).toBeNull();
 		expect(document.querySelector("audio")).toBeNull();
+	});
+
+	test("applies per-speaker volume before and after track attachment and notifies remote track lifecycle", () => {
+		const trackEvents: Array<MediaStreamTrack | null> = [];
+		const { subject, connection } = fixture(false, (track) => {
+			trackEvents.push(track);
+		});
+		subject.setVolume(35);
+		const track = { kind: "audio", enabled: true, stop: mock(() => {}) };
+		connection.ontrack?.({ track: track as unknown as MediaStreamTrack });
+		const output = document.querySelector("audio");
+		expect(output?.volume).toBeCloseTo(0.35, 2);
+		expect(trackEvents).toEqual([track as unknown as MediaStreamTrack]);
+		subject.setVolume(140);
+		expect(output?.volume).toBe(1);
+		subject.setVolume(-10);
+		expect(output?.volume).toBe(0);
+		subject.close();
+		expect(trackEvents).toEqual([track as unknown as MediaStreamTrack, null]);
+	});
+});
+
+describe("Opus voice configuration", () => {
+	test("applies bitrate and standard DTX only when the encoding supports it", async () => {
+		const parameters = {
+			codecs: [],
+			headerExtensions: [],
+			rtcp: {},
+			encodings: [{ maxBitrate: 64_000, dtx: "disabled" }],
+		} as unknown as RTCRtpSendParameters;
+		const sender = {
+			getParameters: mock(() => parameters),
+			setParameters: mock(async (next: RTCRtpSendParameters) => {
+				Object.assign(parameters, next);
+			}),
+		} as unknown as RTCRtpSender;
+		const result = await applyOpusSenderParameters(sender);
+		expect(parameters.encodings[0]?.maxBitrate).toBe(VOICE_MAX_BITRATE);
+		expect(parameters.encodings[0]).toMatchObject({ dtx: "enabled" });
+		expect(result.maxBitrate).toBe(true);
+		expect(result.dtx).toBe(true);
+	});
+
+	test("keeps the negotiated connection when sender parameters are rejected", async () => {
+		const sender = {
+			getParameters: () => ({ encodings: [{}] }),
+			setParameters: mock(async () => {
+				throw new Error("unsupported");
+			}),
+		} as unknown as RTCRtpSender;
+		await expect(applyOpusSenderParameters(sender)).resolves.toEqual({
+			maxBitrate: false,
+			dtx: false,
+		});
+	});
+
+	test("updates only Opus fmtp and preserves audio media and ICE lines", () => {
+		const sdp = [
+			"v=0",
+			"a=ice-ufrag:keep-me",
+			"m=audio 9 UDP/TLS/RTP/SAVPF 111 96",
+			"a=rtpmap:111 opus/48000/2",
+			"a=fmtp:111 minptime=10;stereo=1",
+			"a=rtpmap:96 telephone-event/8000",
+			"a=fmtp:96 0-16",
+			"",
+		].join("\r\n");
+		const configured = configureOpusSdp(sdp, { fec: true, dtx: true });
+		expect(configured).toContain("a=ice-ufrag:keep-me");
+		expect(configured).toContain("a=fmtp:96 0-16");
+		expect(configured).toContain(`maxaveragebitrate=${VOICE_MAX_BITRATE}`);
+		expect(configured).toContain("useinbandfec=1");
+		expect(configured).toContain("usedtx=1");
+		expect(configured).toContain("stereo=0");
+		expect(configured).not.toContain("stereo=1");
+		const withoutFec = configureOpusSdp(sdp, { fec: false, dtx: false });
+		expect(withoutFec).not.toContain("useinbandfec=1");
+		expect(withoutFec).not.toContain("usedtx=1");
 	});
 });

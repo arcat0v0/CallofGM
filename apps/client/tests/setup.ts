@@ -1,7 +1,21 @@
 import { afterEach } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { cleanup } from "@testing-library/react";
+import { plugin } from "bun";
 
+plugin({
+	name: "vite-worker-url",
+	setup(build) {
+		build.onResolve({ filter: /\?worker&url$/ }, (args) => ({
+			path: args.path,
+			namespace: "vite-worker-url",
+		}));
+		build.onLoad({ filter: /.*/, namespace: "vite-worker-url" }, (args) => ({
+			contents: `export default ${JSON.stringify(args.path)};`,
+			loader: "js",
+		}));
+	},
+});
 GlobalRegistrator.register({
 	url: "http://localhost/",
 	settings: { disableCSSFileLoading: true, disableJavaScriptFileLoading: true },

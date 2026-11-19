@@ -93,6 +93,7 @@ export default defineConfig({
     __COGM_CLIENT_BUILD__: JSON.stringify(clientBuildInfo()),
   },
   plugins: [tanstackRouter({ target: "react", autoCodeSplitting: true }), react(), tailwindcss(), devDesignSystemEntry()],
+  worker: { format: "es" },
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "./src"),
