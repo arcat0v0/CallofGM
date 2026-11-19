@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- GM 与玩家语音面板新增本地麦克风选择、浏览器音频约束、RNNoise 深度降噪、噪声门和压限器，显示实际应用状态与处理回退提示。
+- 语音支持本地麦克风测试与回听、可配置的按键说话，以及说话人悬浮窗和独立成员音量。
+
 ## [0.1.0] - 2026-11-19
 
 发布验证使用 Bun `1.4.4`。Docker 构建与运行使用 Bun `1.3.14`。
