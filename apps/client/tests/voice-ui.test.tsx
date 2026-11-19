@@ -161,13 +161,11 @@ function renderAudioSettings(overrides: Record<string, unknown> = {}) {
 	const updateAudioSettings = mock(async (_patch: unknown) => {});
 	const refreshAudioDevices = mock(async () => {});
 	const setPushToTalkActive = mock((_active: boolean) => {});
-	const toggleMic = mock(async () => {});
 	const voice = Object.create(controller) as VoiceController;
 	Object.assign(voice, {
 		updateAudioSettings,
 		refreshAudioDevices,
 		setPushToTalkActive,
-		toggleMic,
 		stopMicTest: mock(() => {}),
 	});
 	const { audioSettings: audioSettingsOverride, ...snapshotOverrides } =
@@ -206,7 +204,6 @@ function renderAudioSettings(overrides: Record<string, unknown> = {}) {
 		updateAudioSettings,
 		refreshAudioDevices,
 		setPushToTalkActive,
-		toggleMic,
 	};
 }
 
@@ -412,7 +409,9 @@ describe("voice audio settings UI", () => {
 			name: "麦克风设备",
 		});
 		fireEvent.keyDown(trigger, { key: "ArrowDown" });
-		expect(await view.findByRole("option", { name: "未命名麦克风" })).toBeTruthy();
+		expect(
+			await view.findByRole("option", { name: "未命名麦克风" }),
+		).toBeTruthy();
 		fireEvent.click(view.getByRole("option", { name: "USB 麦克风" }));
 		expect(updateAudioSettings).toHaveBeenLastCalledWith({
 			deviceId: "usb-mic",
@@ -423,18 +422,10 @@ describe("voice audio settings UI", () => {
 	});
 
 	test("push-to-talk key selection and hold button release capture safely", async () => {
-		const {
-			view,
-			section,
-			updateAudioSettings,
-			setPushToTalkActive,
-			toggleMic,
-		} = renderAudioSettings({
-			audioSettings: { pushToTalk: true, pushToTalkKey: "Space" },
-		});
-
-		fireEvent.click(view.getByRole("button", { name: "启用按键说话" }));
-		expect(toggleMic).toHaveBeenCalledTimes(1);
+		const { view, section, updateAudioSettings, setPushToTalkActive } =
+			renderAudioSettings({
+				audioSettings: { pushToTalk: true, pushToTalkKey: "Space" },
+			});
 
 		const keyTrigger = within(section).getByRole("combobox", {
 			name: "说话按键",
@@ -447,7 +438,6 @@ describe("voice audio settings UI", () => {
 
 		const hold = within(section).getByRole("button", { name: "按住说话" });
 		fireEvent.pointerDown(hold, { button: 0 });
-		expect(toggleMic).toHaveBeenCalledTimes(2);
 		expect(setPushToTalkActive).toHaveBeenLastCalledWith(true);
 		fireEvent.pointerUp(hold);
 		expect(setPushToTalkActive).toHaveBeenLastCalledWith(false);

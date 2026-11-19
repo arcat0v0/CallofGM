@@ -464,9 +464,6 @@ function PushToTalkButton({
 	const press = () => {
 		if (held.current || !snapshot.member?.canSpeak) return;
 		held.current = true;
-		if (snapshot.mic !== "on" && snapshot.mic !== "requesting") {
-			void voice.toggleMic();
-		}
 		voice.setPushToTalkActive(true);
 	};
 
