@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-11-19
+
+发布验证使用 Bun `1.4.4`。Docker 构建与运行使用 Bun `1.3.14`。
+
 ### Added
 
 - 首页、登录页、入团页、GM 后台与 GM 控制台提供低调的版本入口，可查看网页与后端版本、提交与构建时间。
