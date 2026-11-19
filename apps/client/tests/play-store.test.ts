@@ -629,6 +629,37 @@ describe("chat history paging", () => {
 		expect(state.lastEventId).toBe(12);
 	});
 
+	test("advances the watermark for unhandled events and still applies older recognized events", () => {
+		const { applyMessage } = usePlayStore.getState();
+		applyMessage({
+			protocolVersion: 1,
+			type: "constructor",
+			eventId: 20,
+			occurredAt: 20,
+			payload: { status: "ended" },
+		});
+		expect(usePlayStore.getState().lastEventId).toBe(20);
+		applyMessage({
+			protocolVersion: 1,
+			type: "session:status-changed",
+			eventId: 21,
+			occurredAt: 21,
+			payload: null,
+		});
+		expect(usePlayStore.getState().lastEventId).toBe(21);
+		expect(usePlayStore.getState().status).toBeNull();
+
+		applyMessage({
+			protocolVersion: 1,
+			type: "session:status-changed",
+			eventId: 19,
+			occurredAt: 19,
+			payload: { status: "active" },
+		});
+		expect(usePlayStore.getState().lastEventId).toBe(21);
+		expect(usePlayStore.getState().status).toBe("active");
+	});
+
 	test("session:kicked puts the player into the terminal kick state with the GM reason", () => {
 		usePlayStore.getState().applyMessage({
 			protocolVersion: 1,

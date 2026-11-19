@@ -1,3 +1,4 @@
+export type { UiSettingsRepository } from "./application/ports";
 export {
 	GetUiSettingsUseCase,
 	UpdateUiSettingsUseCase,

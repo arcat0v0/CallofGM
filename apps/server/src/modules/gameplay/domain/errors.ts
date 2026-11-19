@@ -1,11 +1,5 @@
 import { AppError } from "@/platform/errors/app-error";
 
-export class SkillNotFoundError extends AppError {
-	constructor(message = "Skill or attribute not found on character sheet") {
-		super("SKILL_NOT_FOUND", message, 400);
-	}
-}
-
 export class CheckRequestNotFoundError extends AppError {
 	constructor(message = "Check request not found") {
 		super("CHECK_REQUEST_NOT_FOUND", message, 404);

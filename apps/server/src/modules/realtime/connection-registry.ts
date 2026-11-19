@@ -1,8 +1,6 @@
 import { SessionCloseCode, type SessionEvent } from "@cogm/shared";
-import { and, eq, isNull } from "drizzle-orm";
 import type { ActorContext } from "@/modules/identity";
-import type { DbClient } from "@/platform/db/client";
-import { sessionClaims } from "@/platform/db/schema";
+import type { ActiveClaimLookup } from "./application/ports";
 import { checkVisibility, type VisibilityScope } from "./domain/visibility";
 
 export interface ActiveConnection {
@@ -31,7 +29,7 @@ export class ConnectionRegistry {
 		(connection: ActiveConnection) => void
 	>();
 
-	constructor(private readonly db: DbClient) {}
+	constructor(private readonly claimLookup: ActiveClaimLookup) {}
 
 	onUnregister(listener: (connection: ActiveConnection) => void): void {
 		this.unregisterListeners.add(listener);
@@ -148,16 +146,7 @@ export class ConnectionRegistry {
 			return;
 		}
 
-		const claims = await this.db
-			.select()
-			.from(sessionClaims)
-			.where(
-				and(
-					eq(sessionClaims.sessionId, sessionId),
-					isNull(sessionClaims.releasedAt),
-				),
-			)
-			.execute();
+		const claims = await this.claimLookup.findActiveClaims(sessionId);
 
 		const characterByHolder = new Map<string, string>();
 		for (const claim of claims) {

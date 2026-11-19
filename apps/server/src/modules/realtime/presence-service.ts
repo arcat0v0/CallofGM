@@ -1,7 +1,8 @@
 import type { OnlinePlayerDto } from "@cogm/shared";
-import { and, eq, inArray, isNull } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import type { DbClient } from "@/platform/db/client";
-import { anonymousPlayers, sessionClaims, users } from "@/platform/db/schema";
+import { loadHolderDisplayNames } from "@/platform/db/holder-display-names";
+import { sessionClaims } from "@/platform/db/schema";
 import { loadKickedPlayers } from "./application/kicked-players";
 import type { ConnectionRegistry } from "./connection-registry";
 
@@ -33,7 +34,7 @@ export class PresenceService {
 			)
 			.execute();
 
-		const holderNames = await this.loadHolderNames(claims);
+		const holderNames = await loadHolderDisplayNames(this.db, claims);
 		const online: OnlinePlayerDto[] = [];
 		for (const claim of claims) {
 			const holderKind = claim.holderKind as "user" | "anonymous";
@@ -51,38 +52,6 @@ export class PresenceService {
 			});
 		}
 		return online;
-	}
-
-	private async loadHolderNames(
-		claims: Array<{
-			holderKind: string;
-			userId: string | null;
-			playerId: string | null;
-		}>,
-	): Promise<Map<string, string>> {
-		const names = new Map<string, string>();
-		const userIds = claims
-			.map((c) => c.userId)
-			.filter((id): id is string => Boolean(id));
-		const playerIds = claims
-			.map((c) => c.playerId)
-			.filter((id): id is string => Boolean(id));
-		if (userIds.length > 0) {
-			const rows = await this.db
-				.select({ id: users.id, username: users.username })
-				.from(users)
-				.where(inArray(users.id, userIds));
-			for (const row of rows) names.set(`user:${row.id}`, row.username);
-		}
-		if (playerIds.length > 0) {
-			const rows = await this.db
-				.select({ id: anonymousPlayers.id })
-				.from(anonymousPlayers)
-				.where(inArray(anonymousPlayers.id, playerIds));
-			for (const row of rows)
-				names.set(`player:${row.id}`, `观战 ${row.id.slice(0, 8)}`);
-		}
-		return names;
 	}
 
 	/** 向 GM 连接全量推送在线列表与禁入名单（DirectControlMessage，无 eventId） */

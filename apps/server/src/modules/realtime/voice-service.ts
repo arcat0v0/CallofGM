@@ -6,17 +6,10 @@ import {
 	VoiceServerMessage,
 	type VoiceState,
 } from "@cogm/shared";
-import { and, eq, isNull } from "drizzle-orm";
 import type { Env } from "@/config/env";
-import type { ActorContext } from "@/modules/identity";
-import type { DbClient } from "@/platform/db/client";
-import {
-	sessionCharacters,
-	sessionClaims,
-	sessionKicks,
-	sessions,
-	users,
-} from "@/platform/db/schema";
+import { type ActorContext, holderKey, holderOf } from "@/modules/identity";
+import { SessionLifecycle } from "@/modules/sessions";
+import type { VoiceSession, VoiceSessionStore } from "./application/ports";
 import type {
 	ActiveConnection,
 	ConnectionRegistry,
@@ -49,20 +42,12 @@ interface VoiceIdentity {
 	canManage: boolean;
 }
 
-interface VoiceSession {
-	id: string;
-	ownerId: string;
-	status: string;
-	phase: string;
-	voiceLimit: number | null;
-}
-
 export class VoiceService {
 	private rooms = new Map<string, VoiceRoom>();
 	private queues = new Map<string, Promise<unknown>>();
 
 	constructor(
-		private readonly db: DbClient,
+		private readonly store: VoiceSessionStore,
 		private readonly connectionRegistry: ConnectionRegistry,
 		private readonly env: Env,
 	) {
@@ -80,7 +65,12 @@ export class VoiceService {
 			const current = this.connectionRegistry.getConnection(
 				connection.connectionId,
 			);
-			if (current?.state === "active") await this.sendState(current);
+			if (current?.state !== "active") return;
+			const session = await this.store.loadSession(
+				current.sessionId,
+				this.claimHolder(current.actor) ?? "none",
+			);
+			this.sendStates(current.sessionId, [current], session);
 		});
 	}
 
@@ -128,57 +118,14 @@ export class VoiceService {
 
 	async refreshSession(sessionId: string): Promise<void> {
 		await this.enqueue(sessionId, async () => {
-			const [session] = await this.db
-				.select({
-					id: sessions.id,
-					ownerId: sessions.ownerId,
-					status: sessions.status,
-					phase: sessions.phase,
-					voiceLimit: sessions.voiceLimit,
-				})
-				.from(sessions)
-				.where(eq(sessions.id, sessionId))
-				.limit(1);
+			const session = await this.store.loadSession(sessionId);
 			const room = this.rooms.get(sessionId);
-			if (!session || session.status === "ended") {
+			if (!session || new SessionLifecycle(session).isEnded()) {
 				this.rooms.delete(sessionId);
 			} else if (room) {
-				const claims = await this.db
-					.select({
-						id: sessionClaims.id,
-						userId: sessionClaims.userId,
-						playerId: sessionClaims.playerId,
-					})
-					.from(sessionClaims)
-					.where(
-						and(
-							eq(sessionClaims.sessionId, sessionId),
-							isNull(sessionClaims.releasedAt),
-						),
-					);
-				const activeClaims = new Set(claims.map((claim) => claim.id));
-				const kicks = await this.db
-					.select({
-						userId: sessionKicks.userId,
-						playerId: sessionKicks.playerId,
-					})
-					.from(sessionKicks)
-					.where(
-						and(
-							eq(sessionKicks.sessionId, sessionId),
-							isNull(sessionKicks.liftedAt),
-						),
-					);
-				for (const claim of claims) {
-					if (
-						kicks.some(
-							(kick) =>
-								(claim.userId !== null && kick.userId === claim.userId) ||
-								(claim.playerId !== null && kick.playerId === claim.playerId),
-						)
-					) {
-						activeClaims.delete(claim.id);
-					}
+				const activeClaims = new Set<string>();
+				for (const claim of session.claims) {
+					if (!claim.kicked) activeClaims.add(claim.id);
 				}
 				for (const claimId of room.moderation.keys()) {
 					if (!claimId.startsWith("gm:") && !activeClaims.has(claimId)) {
@@ -191,8 +138,7 @@ export class VoiceService {
 					const valid =
 						connection &&
 						(member.role === "gm"
-							? connection.actor.type === "user" &&
-								connection.actor.userId === session.ownerId
+							? this.isOwnerGm(connection.actor, session)
 							: activeClaims.has(member.claimId));
 					if (!valid) {
 						room.members.delete(connectionId);
@@ -200,7 +146,7 @@ export class VoiceService {
 					}
 				}
 			}
-			await this.broadcast(sessionId);
+			await this.broadcast(sessionId, session);
 		});
 	}
 
@@ -219,7 +165,7 @@ export class VoiceService {
 		}
 		const room = this.rooms.get(connection.sessionId);
 		if (!room || room.id !== roomId) throw new VoiceError("VOICE_ROOM_CHANGED");
-		if (session.status !== "preparing" && session.status !== "active") {
+		if (!new SessionLifecycle(session).isVoiceAvailable()) {
 			throw new VoiceError("VOICE_UNAVAILABLE");
 		}
 		for (const member of room.members.values()) {
@@ -262,7 +208,7 @@ export class VoiceService {
 	): Promise<void> {
 		const { session, identity } = await this.requireIdentity(connection);
 		if (!identity.canManage) throw new VoiceError("VOICE_FORBIDDEN");
-		if (session.status !== "preparing" && session.status !== "active") {
+		if (!new SessionLifecycle(session).isVoiceAvailable()) {
 			throw new VoiceError("VOICE_UNAVAILABLE");
 		}
 		if ("enabled" in payload) {
@@ -284,10 +230,7 @@ export class VoiceService {
 			if (payload.limit > this.env.VOICE_MAX_PARTICIPANTS) {
 				throw new VoiceError("VOICE_LIMIT_INVALID");
 			}
-			await this.db
-				.update(sessions)
-				.set({ voiceLimit: payload.limit })
-				.where(eq(sessions.id, connection.sessionId));
+			await this.store.setVoiceLimit(connection.sessionId, payload.limit);
 		}
 		this.reply(connection, requestId, true);
 		await this.broadcast(connection.sessionId);
@@ -352,55 +295,85 @@ export class VoiceService {
 		this.reply(connection, requestId, true);
 	}
 
-	private async broadcast(sessionId: string): Promise<void> {
+	private async broadcast(
+		sessionId: string,
+		session?: VoiceSession | null,
+	): Promise<void> {
 		const connections = this.connectionRegistry
 			.getConnectionsBySession(sessionId)
 			.filter((connection) => connection.state === "active");
-		await Promise.all(
-			connections.map((connection) => this.sendState(connection)),
-		);
+		if (connections.length === 0) return;
+		const snapshot =
+			session === undefined ? await this.store.loadSession(sessionId) : session;
+		this.sendStates(sessionId, connections, snapshot);
 	}
 
-	private async sendState(connection: ActiveConnection): Promise<void> {
-		const { session, identity } = await this.resolveIdentity(connection);
-		if (!session || !identity) {
-			this.send(connection, {
-				protocolVersion: 1,
-				type: "voice:state",
-				payload: {
-					enabled: false,
-					available: false,
-					limit: this.env.VOICE_MAX_PARTICIPANTS,
-					maxLimit: this.env.VOICE_MAX_PARTICIPANTS,
-					selfId: null,
-					members: [],
-					memberCount: 0,
-					iceServers: [],
-					roomId: null,
-					canManage: false,
-				},
-			});
+	private sendStates(
+		sessionId: string,
+		connections: ActiveConnection[],
+		session: VoiceSession | null,
+	): void {
+		const unavailable: VoiceState = {
+			enabled: false,
+			available: false,
+			limit: this.env.VOICE_MAX_PARTICIPANTS,
+			maxLimit: this.env.VOICE_MAX_PARTICIPANTS,
+			selfId: null,
+			members: [],
+			memberCount: 0,
+			iceServers: [],
+			roomId: null,
+			canManage: false,
+		};
+		if (!session) {
+			for (const connection of connections) {
+				this.sendVoiceState(connection, unavailable);
+			}
 			return;
 		}
-		const room = this.rooms.get(connection.sessionId);
-		const self = room?.members.get(connection.connectionId);
-		const members = room
-			? [...room.members.values()].map((member) =>
-					this.publicMember(room, session, member),
-				)
-			: [];
-		const state: VoiceState = {
+		const claimHolders = new Set<string>();
+		for (const claim of session.claims) {
+			if (claim.userId !== null) claimHolders.add(`user:${claim.userId}`);
+			if (claim.playerId !== null) claimHolders.add(`player:${claim.playerId}`);
+		}
+		const lifecycle = new SessionLifecycle(session);
+		const room = this.rooms.get(sessionId);
+		const members: VoiceMember[] = [];
+		if (room) {
+			for (const member of room.members.values()) {
+				members.push(this.publicMember(room, lifecycle, member));
+			}
+		}
+		const shared: VoiceState = {
+			...unavailable,
 			enabled: room !== undefined,
-			available: session.status === "preparing" || session.status === "active",
+			available: lifecycle.isVoiceAvailable(),
 			limit: this.effectiveLimit(session),
-			maxLimit: this.env.VOICE_MAX_PARTICIPANTS,
-			selfId: self?.id ?? null,
-			members: identity.canManage || self ? members : [],
 			memberCount: room?.members.size ?? 0,
-			iceServers: self?.iceServers ?? [],
 			roomId: room?.id ?? null,
-			canManage: identity.canManage,
 		};
+		for (const connection of connections) {
+			const canManage = this.isOwnerGm(connection.actor, session);
+			const holder = this.claimHolder(connection.actor);
+			if (!canManage && (!holder || !claimHolders.has(holderKey(holder)))) {
+				this.sendVoiceState(connection, unavailable);
+				continue;
+			}
+			const self = room?.members.get(connection.connectionId);
+			this.sendVoiceState(connection, {
+				...shared,
+				selfId: self?.id ?? null,
+				members: canManage || self ? members : shared.members,
+				iceServers: self?.iceServers ?? shared.iceServers,
+				canManage,
+			});
+		}
+	}
+
+	private sendVoiceState(
+		connection: ActiveConnection,
+		state: VoiceState,
+	): void {
 		this.send(connection, {
 			protocolVersion: 1,
 			type: "voice:state",
@@ -410,23 +383,18 @@ export class VoiceService {
 
 	private publicMember(
 		room: VoiceRoom,
-		session: VoiceSession,
+		lifecycle: SessionLifecycle,
 		member: RuntimeVoiceMember,
 	): VoiceMember {
 		const moderation = room.moderation.get(member.claimId) ?? {
 			speakGranted: member.role !== "ob",
 			muted: false,
 		};
-		const phaseAllows =
-			member.role === "gm" ||
-			session.status === "preparing" ||
-			session.phase === "free_discussion" ||
-			session.phase === "free_performance";
 		return {
 			id: member.id,
 			name: member.name,
 			role: member.role,
-			canSpeak: phaseAllows && moderation.speakGranted && !moderation.muted,
+			canSpeak: lifecycle.canVoiceSpeak(member.role, moderation),
 			speakGranted: moderation.speakGranted,
 			muted: moderation.muted,
 		};
@@ -464,87 +432,30 @@ export class VoiceService {
 		session: VoiceSession;
 		identity: VoiceIdentity;
 	}> {
-		const resolved = await this.resolveIdentity(connection);
-		if (!resolved.session || !resolved.identity)
-			throw new VoiceError("VOICE_FORBIDDEN");
-		return { session: resolved.session, identity: resolved.identity };
-	}
-
-	private async resolveIdentity(connection: ActiveConnection): Promise<{
-		session: VoiceSession | null;
-		identity: VoiceIdentity | null;
-	}> {
-		const [session] = await this.db
-			.select({
-				id: sessions.id,
-				ownerId: sessions.ownerId,
-				status: sessions.status,
-				phase: sessions.phase,
-				voiceLimit: sessions.voiceLimit,
-			})
-			.from(sessions)
-			.where(eq(sessions.id, connection.sessionId))
-			.limit(1);
-		if (!session) return { session: null, identity: null };
-		const actor: ActorContext = connection.actor;
-		if (actor.type === "user" && actor.role === "gm") {
-			if (actor.userId !== session.ownerId) return { session, identity: null };
-			const [user] = await this.db
-				.select({ username: users.username })
-				.from(users)
-				.where(eq(users.id, actor.userId))
-				.limit(1);
+		const actor = connection.actor;
+		const session = await this.store.loadSession(
+			connection.sessionId,
+			this.claimHolder(actor) ?? "none",
+		);
+		if (!session) throw new VoiceError("VOICE_FORBIDDEN");
+		if (this.isOwnerGm(actor, session)) {
 			return {
 				session,
 				identity: {
-					claimId: `gm:${actor.userId}`,
-					name: user?.username ?? "GM",
+					claimId: `gm:${session.ownerId}`,
+					name: session.ownerName ?? "GM",
 					role: "gm",
 					canManage: true,
 				},
 			};
 		}
-		if (actor.type === "user" && actor.role !== "pl") {
-			return { session, identity: null };
-		}
-		const holderCondition =
-			actor.type === "user"
-				? eq(sessionClaims.userId, actor.userId)
-				: eq(sessionClaims.playerId, actor.playerId);
-		const [claim] = await this.db
-			.select()
-			.from(sessionClaims)
-			.where(
-				and(
-					eq(sessionClaims.sessionId, connection.sessionId),
-					holderCondition,
-					isNull(sessionClaims.releasedAt),
-				),
-			)
-			.limit(1);
-		if (!claim) return { session, identity: null };
-		let name = "Observer";
-		if (claim.characterId) {
-			const [character] = await this.db
-				.select({ name: sessionCharacters.name })
-				.from(sessionCharacters)
-				.where(
-					and(
-						eq(sessionCharacters.sessionId, connection.sessionId),
-						eq(sessionCharacters.characterId, claim.characterId),
-					),
-				)
-				.limit(1);
-			name = character?.name ?? name;
-		} else if (actor.type === "user") {
-			const [user] = await this.db
-				.select({ username: users.username })
-				.from(users)
-				.where(eq(users.id, actor.userId))
-				.limit(1);
-			name = user?.username ?? name;
-		}
-		if (actor.type === "player") name = `观战 ${actor.playerId.slice(0, 8)}`;
+		const claim = session.claims[0];
+		if (!claim) throw new VoiceError("VOICE_FORBIDDEN");
+		const name =
+			actor.type === "player"
+				? `观战 ${actor.playerId.slice(0, 8)}`
+				: ((claim.characterId ? claim.characterName : claim.username) ??
+					"Observer");
 		return {
 			session,
 			identity: {
@@ -554,6 +465,20 @@ export class VoiceService {
 				canManage: false,
 			},
 		};
+	}
+
+	private claimHolder(actor: ActorContext) {
+		return actor.type === "player" || actor.role === "pl"
+			? holderOf(actor)
+			: null;
+	}
+
+	private isOwnerGm(actor: ActorContext, session: VoiceSession): boolean {
+		return (
+			actor.type === "user" &&
+			actor.role === "gm" &&
+			actor.userId === session.ownerId
+		);
 	}
 
 	private reply(

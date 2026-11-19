@@ -22,7 +22,6 @@ import {
 } from "@/components/ui/select";
 import { t } from "@/i18n";
 import { sendSessionCommand } from "@/lib/session-socket";
-import { usePlayStore } from "@/stores/play-store";
 import { DndChoiceGrid } from "./editor-controls";
 import { conditionLabel, damageLabel } from "./labels";
 
@@ -37,13 +36,14 @@ export function sendDndAction(payload: dnd5r.Action): boolean {
 
 export function DndEncounterPanel({
 	characters,
+	isGm,
+	ruleState,
 }: {
 	characters: SnapshotCharacter[];
+	isGm: boolean;
+	ruleState: unknown;
 }) {
-	const isGm = usePlayStore((state) => state.viewer.isGm);
-	const parsed = dnd5r.EncounterState.safeParse(
-		usePlayStore((state) => state.ruleState),
-	);
+	const parsed = dnd5r.EncounterState.safeParse(ruleState);
 	const encounter = parsed.success ? parsed.data : null;
 	const [participantIds, setParticipantIds] = useState(() =>
 		characters

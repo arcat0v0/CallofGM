@@ -3,12 +3,14 @@ import { AppError } from "@/platform/errors/app-error";
 import { validationFailed } from "@/platform/errors/validation";
 import type { RandomSource } from "@/platform/ports";
 import {
+	type CheckInput,
+	type PermanentFieldEditInput,
 	RULE_API_VERSION,
+	type RuleCheckResult,
+	type RuleRuntime,
 	RuleSystem,
 	type RuntimeCharacter,
-	type RuleRuntime,
-	type RuleCheckResult,
-	type PermanentFieldEditInput,
+	type SessionStateContext,
 	unsupportedRuleAction,
 } from "../rule-system";
 
@@ -147,6 +149,7 @@ export class Dnd5rRuleSystem extends RuleSystem<Sheet, State> {
 		permanentSheetFields: dnd5r.ABILITIES.map(
 			(ability) => `abilities.${ability}`,
 		),
+		permanentFieldRange: { min: 1, max: 30 },
 	};
 	readonly characterSheetSchema = dnd5r.CharacterSheet;
 	readonly sessionStateSchema = dnd5r.SessionState;
@@ -156,7 +159,7 @@ export class Dnd5rRuleSystem extends RuleSystem<Sheet, State> {
 		return dnd5r.createBlankSheet();
 	}
 
-	initializeSessionState(sheet: Sheet): State {
+	initializeSessionState(sheet: Sheet, context?: SessionStateContext): State {
 		const derived = deriveCharacter(sheet);
 		return {
 			hp: derived.maxHp,
@@ -180,6 +183,7 @@ export class Dnd5rRuleSystem extends RuleSystem<Sheet, State> {
 					},
 				]),
 			),
+			...context,
 		};
 	}
 
@@ -272,40 +276,6 @@ export class Dnd5rRuleSystem extends RuleSystem<Sheet, State> {
 		});
 	}
 
-	getSkillTargetValue(): null {
-		return null;
-	}
-	evaluateSkillCheck(): never {
-		return unsupportedRuleAction();
-	}
-	getSanCurrent(): never {
-		return unsupportedRuleAction();
-	}
-	evaluateSanCheck(): never {
-		return unsupportedRuleAction();
-	}
-	applySanLoss(): never {
-		return unsupportedRuleAction();
-	}
-	getLuckCurrent(): never {
-		return unsupportedRuleAction();
-	}
-	spendLuckOnCheck(): never {
-		return unsupportedRuleAction();
-	}
-	recoverLuck(): never {
-		return unsupportedRuleAction();
-	}
-	markSkillGrowth(): never {
-		return unsupportedRuleAction();
-	}
-	markSkillGrowthHidden(): never {
-		return unsupportedRuleAction();
-	}
-	applySkillGrowth(): never {
-		return unsupportedRuleAction();
-	}
-
 	applyGmStateEdit(state: State, edit: Record<string, unknown>) {
 		const hp =
 			typeof edit.hp === "number" ? Math.min(state.maxHp, edit.hp) : state.hp;
@@ -326,9 +296,10 @@ export class Dnd5rRuleSystem extends RuleSystem<Sheet, State> {
 	async validateCheckOptions(
 		character: Character,
 		skillKey: string,
-		options: unknown,
+		check: CheckInput,
 		runtime: Runtime,
 	) {
+		const options = check && "options" in check ? check.options : undefined;
 		const parsed = dnd5r.CheckOptions.safeParse(
 			options === undefined ? {} : options,
 		);
@@ -402,7 +373,7 @@ export class Dnd5rRuleSystem extends RuleSystem<Sheet, State> {
 	async resolveCheck(
 		character: Character,
 		skillKey: string,
-		options: unknown,
+		options: CheckInput,
 		runtime: Runtime,
 	): Promise<RuleCheckResult<State>> {
 		const input = await this.validateCheckOptions(

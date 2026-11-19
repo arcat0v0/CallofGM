@@ -32,7 +32,6 @@ import { SelectItem } from "@/components/ui/select";
 import { CharacterSheetPanel } from "@/features/session-live/character-sheet-panel";
 import { t } from "@/i18n";
 import { api } from "@/lib/api";
-import { parseCocState } from "@/lib/coc-live";
 import { errorText } from "@/lib/errors";
 import { expressionLabel, initialsOf } from "@/lib/format";
 import { sendSessionCommand } from "@/lib/session-socket";
@@ -151,16 +150,14 @@ function CharactersPanel({ onClose }: { onClose: () => void }) {
 
 	function recoverAllLuck() {
 		const pcs = characters.filter((character) => character.kind === "pc");
+		const luck = getRuleComponent(ruleId).capabilities?.luck;
+		if (!luck) return;
 		if (pcs.length === 0) {
 			return;
 		}
 		let sent = false;
 		for (const character of pcs) {
-			if (
-				sendSessionCommand("luck:recover", {
-					characterId: character.characterId,
-				})
-			) {
+			if (luck.recover(character.characterId)) {
 				sent = true;
 			}
 		}
@@ -182,7 +179,7 @@ function CharactersPanel({ onClose }: { onClose: () => void }) {
 						<span className="text-md-on-surface-variant text-label-medium">
 							{t("gm.workbench.stateScope")}
 						</span>
-						{getRuleComponent(ruleId).supportsLuck ? (
+						{getRuleComponent(ruleId).capabilities?.luck ? (
 							<Button
 								type="button"
 								variant="tertiary"
@@ -265,7 +262,9 @@ function CharactersPanel({ onClose }: { onClose: () => void }) {
 				) : (
 					<div className="flex flex-col gap-3">
 						{orderedCharacters.map((character) => {
-							const state = parseCocState(character.state);
+							const rule = getRuleComponent(character.ruleId);
+							const luck = rule.capabilities?.luck;
+							const currentLuck = luck?.readCurrent(character.state);
 							const expanded =
 								overrides[character.characterId] ?? character.kind === "pc";
 							const portraits = character.portraits ?? [];
@@ -274,7 +273,8 @@ function CharactersPanel({ onClose }: { onClose: () => void }) {
 								portraits.find((item) => item.isDefault)?.expressionKey ??
 								portraits[0]?.expressionKey ??
 								"";
-							const critical = Boolean(state?.statuses.length);
+							const critical =
+								rule.statusLabelsOfState(character.state).length > 0;
 							const claim = character.claim;
 							const claimOnline = claim
 								? presence.some(
@@ -545,10 +545,12 @@ function CharactersPanel({ onClose }: { onClose: () => void }) {
 															}
 														/>
 													))}
-												{getRuleComponent(character.ruleId).supportsLuck ? (
+												{luck ? (
 													<GmValueField
 														label={t("sheet.destiny")}
-														value={state ? String(state.luck) : "—"}
+														value={
+															currentLuck == null ? "—" : String(currentLuck)
+														}
 														actionLabel={t("gm.workbench.editStateFor", {
 															name: character.name,
 														})}

@@ -1,8 +1,8 @@
-import { coc7e } from "@cogm/shared";
 import { ModuleNotFoundError } from "@/modules/catalog";
 import { hashToken, issueOpaqueToken } from "@/modules/identity";
 import { SessionNotFoundError } from "@/modules/sessions";
 import type { Clock, IdGenerator } from "@/platform/ports";
+import { requireSkillGrowthCapability } from "@/rules/capabilities";
 import type { RuleRegistry } from "@/rules/registry";
 import {
 	CharacterNotFoundError,
@@ -527,38 +527,12 @@ export class ConfirmGrowthUseCase {
 
 		const ruleSystem = this.ruleRegistry.get(character.ruleId);
 		const now = this.clock.nowEpochMs();
-		let sheet = ruleSystem.characterSheetSchema.parse(
+		const currentSheet = ruleSystem.characterSheetSchema.parse(
 			JSON.parse(character.sheetJson),
 		);
-		const entries: Array<{
-			skillKey: string;
-			oldValue: number;
-			newValue: number;
-		}> = [];
-
-		for (const gain of input.gains) {
-			const canonical =
-				coc7e.canonicalizeCoc7eSkillKey(gain.skillKey) ?? gain.skillKey;
-			if (canonical === "信用评级" || canonical === "克苏鲁神话") {
-				continue;
-			}
-			const before = ruleSystem.getSkillTargetValue(sheet, gain.skillKey) ?? 0;
-			const next = ruleSystem.applySkillGrowth(
-				sheet,
-				gain.skillKey,
-				gain.delta,
-			);
-			const after =
-				ruleSystem.getSkillTargetValue(next, gain.skillKey) ?? before;
-			if (after !== before) {
-				entries.push({
-					skillKey: gain.skillKey,
-					oldValue: before,
-					newValue: after,
-				});
-			}
-			sheet = next;
-		}
+		const { sheet, applied } = requireSkillGrowthCapability(
+			ruleSystem,
+		).applySkillGrowthBatch(currentSheet, input.gains);
 
 		const nextSheetJson = JSON.stringify(sheet);
 		await this.repo.updateCharacter(
@@ -572,7 +546,7 @@ export class ConfirmGrowthUseCase {
 			character.version,
 		);
 
-		for (const entry of entries) {
+		for (const entry of applied) {
 			await this.repo.appendGrowth({
 				id: this.idGenerator.nextId(),
 				characterId: character.id,
@@ -599,6 +573,6 @@ export class ConfirmGrowthUseCase {
 			createdAt: now,
 		});
 
-		return { applied: entries };
+		return { applied };
 	}
 }

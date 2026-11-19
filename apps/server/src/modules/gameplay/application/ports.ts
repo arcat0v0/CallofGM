@@ -11,6 +11,7 @@ export interface SessionCharacterSummary {
 	name: string;
 	stateJson: string;
 	sheetJson: string;
+	publicStateFieldsJson: string;
 }
 
 export interface CheckRequestRecord {
@@ -46,6 +47,10 @@ export interface GameplayRepository {
 		sessionId: string,
 		characterId: string,
 		stateJson: string,
+	): Promise<void>;
+	updateSessionRuleState(
+		sessionId: string,
+		ruleStateJson: string | null,
 	): Promise<void>;
 	insertCheckRequest(row: {
 		id: string;

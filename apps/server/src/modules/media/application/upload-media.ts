@@ -1,13 +1,16 @@
 import { createHash } from "crypto";
-import type { DbClient } from "@/platform/db/client";
-import { mediaAssets } from "@/platform/db/schema";
+import {
+	type ActorContext,
+	ForbiddenError,
+	requireActor,
+} from "@/modules/identity";
 import { detectFileMimeType } from "@/platform/file-type";
 import type { Clock, IdGenerator } from "@/platform/ports";
 import {
 	FileSizeExceededError,
 	UnsupportedMimeTypeError,
 } from "../domain/media-errors";
-import type { MediaStorage } from "./ports";
+import type { MediaRepository, MediaStorage } from "./ports";
 
 export interface UploadMediaInput {
 	ownerId: string;
@@ -16,9 +19,22 @@ export interface UploadMediaInput {
 	purpose: string;
 }
 
+export function requireMediaUploader(actor: ActorContext | null): string {
+	const authenticated = requireActor(actor);
+	if (
+		authenticated.type !== "user" ||
+		(authenticated.role !== "gm" && authenticated.role !== "pl")
+	) {
+		throw new ForbiddenError(
+			"Only a game master or player account can upload media",
+		);
+	}
+	return authenticated.userId;
+}
+
 export class UploadMediaUseCase {
 	constructor(
-		private readonly db: DbClient,
+		private readonly repo: MediaRepository,
 		private readonly mediaStorage: MediaStorage,
 		private readonly idGenerator: IdGenerator,
 		private readonly clock: Clock,
@@ -63,7 +79,7 @@ export class UploadMediaUseCase {
 		};
 
 		try {
-			await this.db.insert(mediaAssets).values(asset);
+			await this.repo.insert(asset);
 		} catch (error) {
 			await this.mediaStorage.delete(storageKey).catch(() => undefined);
 			throw error;

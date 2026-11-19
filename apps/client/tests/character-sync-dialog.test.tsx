@@ -81,8 +81,14 @@ describe("character sync dialog", () => {
 			expect(
 				within(document.body).getByText(/审核记录可能已过期/),
 			).toBeTruthy();
-			expect(within(document.body).getByText("3/12")).toBeTruthy();
-			expect(within(document.body).getByText("4/14")).toBeTruthy();
+			const mpRow = within(document.body).getByText("MP").parentElement;
+			const maxMpRow = within(document.body).getByText("MP上限").parentElement;
+			expect(
+				Array.from(mpRow?.children ?? [], (cell) => cell.textContent),
+			).toEqual(["MP", "3", "4"]);
+			expect(
+				Array.from(maxMpRow?.children ?? [], (cell) => cell.textContent),
+			).toEqual(["MP上限", "12", "14"]);
 			fireEvent.click(
 				within(document.body).getByRole("button", { name: "确认同步" }),
 			);

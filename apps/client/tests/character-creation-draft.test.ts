@@ -43,7 +43,7 @@ function storage(): Map<string, string> {
 describe("character creation draft", () => {
 	test("keeps identity and every sheet field across save and load", () => {
 		const values = storage();
-		const sheet = createEmptyCharacterSheet();
+		const sheet = coc7e.Coc7eCharacterSheet.parse(createEmptyCharacterSheet());
 		sheet.age = 42;
 		sheet.era = "modern";
 		sheet.occupation = {
@@ -133,7 +133,7 @@ describe("character creation draft", () => {
 
 	test("isolates independent and invite drafts for the same account", () => {
 		storage();
-		const sheet = createEmptyCharacterSheet();
+		const sheet = coc7e.Coc7eCharacterSheet.parse(createEmptyCharacterSheet());
 		sheet.skills = { 图书馆: 40 };
 		saveCharacterCreationDraft({
 			accountId: "pl-1",
@@ -186,7 +186,7 @@ describe("character creation draft", () => {
 
 	test("restores an unfinished independent draft before a rule is selected", () => {
 		storage();
-		const sheet = createEmptyCharacterSheet();
+		const sheet = coc7e.Coc7eCharacterSheet.parse(createEmptyCharacterSheet());
 		sheet.attributes = { ...attributes, str: 65 };
 		sheet.skills = { 侦查: 60 };
 		expect(
@@ -233,7 +233,7 @@ describe("character creation draft", () => {
 	});
 
 	test("creates a valid v2 sheet with all official sections", () => {
-		const sheet = createEmptyCharacterSheet();
+		const sheet = coc7e.Coc7eCharacterSheet.parse(createEmptyCharacterSheet());
 		expect(sheet.schemaVersion).toBe(2);
 		expect(coc7e.Coc7eCharacterSheet.safeParse(sheet).success).toBe(true);
 		expect(sheet.weapons).toEqual([]);

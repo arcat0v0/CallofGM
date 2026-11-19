@@ -6,10 +6,7 @@ import type {
 import { and, eq, eq as eqCol, isNull } from "drizzle-orm";
 import type { ActorContext } from "@/modules/identity";
 import { ForbiddenError, holderOfActor } from "@/modules/identity";
-import {
-	SessionNotFoundError,
-	SessionStateInvalidError,
-} from "@/modules/sessions";
+import { SessionLifecycle, SessionNotFoundError } from "@/modules/sessions";
 import type { DbClient } from "@/platform/db/client";
 import { sessionClaims, sessions } from "@/platform/db/schema";
 import type { TransactionRunner } from "@/platform/db/transaction";
@@ -171,22 +168,10 @@ export class SessionCommandExecutor {
 					if (!session) {
 						throw new SessionNotFoundError();
 					}
-					if (session.status === "ended") {
-						if (!handler.allowWhenEnded) {
-							throw new SessionStateInvalidError("Session has ended");
-						}
-					} else {
-						const allowed = handler.allowedStatuses ?? ["active"];
-						if (
-							!allowed.includes(
-								session.status as "waiting" | "preparing" | "active",
-							)
-						) {
-							throw new SessionStateInvalidError(
-								`Command not allowed while session is ${session.status}`,
-							);
-						}
-					}
+					new SessionLifecycle(session).assertCommandAllowed(
+						handler.allowedStatuses,
+						handler.allowWhenEnded,
+					);
 
 					const seat = await this.resolveSeat(tx, sessionId, actor);
 					const ctx: CommandHandlerContext = {

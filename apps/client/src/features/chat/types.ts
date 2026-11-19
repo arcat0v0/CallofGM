@@ -67,6 +67,7 @@ type ChatMessage = {
 	characterId?: string;
 	anchorable?: boolean;
 	activityType?: string;
+	ruleId?: string;
 	sealedActivityType?: string;
 	roll?: ChatRollView;
 	check?: ChatCheckView;

@@ -1,9 +1,6 @@
+import type { RuleMetadata } from "@cogm/shared";
 import { AppError } from "@/platform/errors/app-error";
-import {
-	RULE_API_VERSION,
-	type RuleMetadata,
-	type RuleSystem,
-} from "./rule-system";
+import { RULE_API_VERSION, type RuleSystem } from "./rule-system";
 
 export class RuleNotFoundError extends AppError {
 	readonly ruleId: string;

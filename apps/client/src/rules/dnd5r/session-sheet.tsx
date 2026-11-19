@@ -10,8 +10,7 @@ import {
 } from "@/components/ui/input-group";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { t } from "@/i18n";
-import type { RuleSessionSheetProps } from "@/rules/registry";
-import { usePlayStore } from "@/stores/play-store";
+import type { RuleSessionSheetProps } from "../types";
 import { DndSourceCredit } from "./catalog-picker";
 import { DndDerivedGrid, namedRecordRows } from "./editor-controls";
 import {
@@ -31,12 +30,13 @@ import { DndEncounterPanel, DndStateActions } from "./runtime-actions";
 export function DndSessionSheet({
 	target,
 	characters,
+	isGm,
+	ruleState,
 	canPerform,
 	onPerform,
 }: RuleSessionSheetProps) {
 	const parsed = dnd5r.CharacterSheet.safeParse(target.sheet);
 	const stateParsed = dnd5r.SessionState.safeParse(target.state);
-	const isGm = usePlayStore((state) => state.viewer.isGm);
 	const [search, setSearch] = useState("");
 	const derived = parsed.success ? dnd5r.deriveCharacter(parsed.data) : null;
 	const visibleSkills = useMemo(() => {
@@ -272,7 +272,11 @@ export function DndSessionSheet({
 					</div>
 				</TabsContent>
 				<TabsContent value="actions" className="flex flex-col gap-4">
-					<DndEncounterPanel characters={characters} />
+					<DndEncounterPanel
+						characters={characters}
+						isGm={isGm}
+						ruleState={ruleState}
+					/>
 					{state && canPerform ? (
 						<DndStateActions character={target} state={state} gm={isGm} />
 					) : (

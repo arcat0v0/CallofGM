@@ -2,12 +2,7 @@ import { ThemeSummaryDto } from "@cogm/shared";
 import { Elysia, t } from "elysia";
 import type { Container } from "@/bootstrap/container";
 import { corsOriginsFor } from "@/config/env";
-import {
-	AuthRequiredError,
-	createAuthPlugin,
-	DrizzleIdentityRepository,
-	ForbiddenError,
-} from "@/modules/identity";
+import { ForbiddenError } from "@/modules/identity";
 import { logger } from "@/platform/logging/logger";
 import { assertTrustedOrigin } from "@/platform/security/origin";
 import { clientIp } from "@/platform/security/request-ip";
@@ -21,10 +16,7 @@ import { ThemeNotFoundError, ThemeTooLargeError } from "../domain/errors";
 import { ThemeRegistry } from "../infrastructure/theme-registry";
 
 export function createThemeRoutes(container: Container) {
-	const registry = container.themeRegistry;
-	const authPlugin = createAuthPlugin(
-		new DrizzleIdentityRepository(container.db),
-	);
+	const { themeRegistry: registry, themeUsageRepo, authPlugin } = container;
 	const requireAdmin = (
 		actor: { type: string; role?: string } | null,
 	): void => {
@@ -32,10 +24,10 @@ export function createThemeRoutes(container: Container) {
 			throw new ForbiddenError("Administrators only");
 		}
 	};
-	const listThemes = new ListThemesUseCase(registry, container.db);
-	const installTheme = new InstallThemeUseCase(registry, container.db);
-	const deleteTheme = new DeleteThemeUseCase(registry, container.db);
-	const rescanThemes = new RescanThemesUseCase(registry, container.db);
+	const listThemes = new ListThemesUseCase(registry, themeUsageRepo);
+	const installTheme = new InstallThemeUseCase(registry, themeUsageRepo);
+	const deleteTheme = new DeleteThemeUseCase(registry, themeUsageRepo);
+	const rescanThemes = new RescanThemesUseCase(registry, themeUsageRepo);
 	const allowedOrigins = corsOriginsFor(container.env);
 
 	return new Elysia()

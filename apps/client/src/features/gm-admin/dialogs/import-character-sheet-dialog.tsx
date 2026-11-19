@@ -169,13 +169,12 @@ function ImportCharacterSheetDialog({
 
 	const rule = getRuleComponent(ruleId);
 	const sheet = preview ? rule.parseSheet(preview.preview.sheetData) : null;
-	const attributes = Object.fromEntries(
-		rule.attributeEntries(sheet).map(({ key, value }) => [key, value]),
-	);
+	const excelImport = rule.capabilities?.excelImport;
+	const attributes = sheet ? (excelImport?.previewAttributes(sheet) ?? []) : [];
 	const skills = (sheet ? rule.skillEntries(sheet) : []).slice(0, 6);
 	const hasErrors = (preview?.preview.errors.length ?? 0) > 0;
 
-	if (!rule.supportsExcelImport) {
+	if (!excelImport) {
 		return null;
 	}
 	return (
@@ -250,8 +249,9 @@ function ImportCharacterSheetDialog({
 								</Button>
 							</div>
 							<p className="text-foreground-secondary text-body-small">
-								STR {attributes.str ?? "—"} / DEX {attributes.dex ?? "—"} / INT{" "}
-								{attributes.int ?? "—"}
+								{attributes
+									.map(({ label, value }) => `${label} ${value}`)
+									.join(" / ")}
 							</p>
 							<p className="text-foreground-secondary text-body-small">
 								{skills

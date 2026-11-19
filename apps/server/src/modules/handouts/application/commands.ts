@@ -16,7 +16,7 @@ import {
 	HandoutGrantNotFoundError,
 	HandoutNotFoundError,
 } from "../domain/errors";
-import { buildHandoutGrantOverview } from "./grant-overview";
+import { buildHandoutGrantOverview } from "../infrastructure/grant-overview";
 import type { HandoutsRepository } from "./ports";
 
 function toGrantedDto(

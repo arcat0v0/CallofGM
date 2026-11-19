@@ -494,7 +494,14 @@ describe("PL character ownership, versions and growth", () => {
 			{
 				method: "POST",
 				token: ctx.gmToken,
-				body: JSON.stringify({ gains: [{ skillKey: "侦查", delta: 5 }] }),
+				body: JSON.stringify({
+					gains: [
+						{ skillKey: "spot hidden", delta: 3 },
+						{ skillKey: "credit rating", delta: 5 },
+						{ skillKey: "cthulhu mythos", delta: 5 },
+						{ skillKey: "侦查", delta: 2 },
+					],
+				}),
 			},
 		);
 		const confirmBody = (await confirm.json()) as {
@@ -511,11 +518,10 @@ describe("PL character ownership, versions and growth", () => {
 		const applied = confirmBody.characters.find(
 			(c) => c.characterId === character.id,
 		);
-		expect(applied?.applied[0]).toEqual({
-			skillKey: "侦查",
-			oldValue: 40,
-			newValue: 45,
-		});
+		expect(applied?.applied).toEqual([
+			{ skillKey: "spot hidden", oldValue: 40, newValue: 43 },
+			{ skillKey: "侦查", oldValue: 43, newValue: 45 },
+		]);
 
 		const detail = await api(`/api/v1/pl/characters/${character.id}`, {
 			token: plToken,

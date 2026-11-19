@@ -1,13 +1,8 @@
 import type { KickedPlayerDto } from "@cogm/shared";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import type { DbClient } from "@/platform/db/client";
-import {
-	anonymousPlayers,
-	characters,
-	sessionClaims,
-	sessionKicks,
-	users,
-} from "@/platform/db/schema";
+import { loadHolderDisplayNames } from "@/platform/db/holder-display-names";
+import { characters, sessionClaims, sessionKicks } from "@/platform/db/schema";
 
 export async function loadKickedPlayers(
 	db: DbClient,
@@ -57,28 +52,7 @@ export async function loadKickedPlayers(
 			: [];
 	const nameById = new Map(nameRows.map((row) => [row.id, row.name]));
 
-	const userIds = kicks
-		.map((k) => k.userId)
-		.filter((id): id is string => Boolean(id));
-	const playerIds = kicks
-		.map((k) => k.playerId)
-		.filter((id): id is string => Boolean(id));
-	const holderNames = new Map<string, string>();
-	if (userIds.length > 0) {
-		const rows = await db
-			.select({ id: users.id, username: users.username })
-			.from(users)
-			.where(inArray(users.id, userIds));
-		for (const row of rows) holderNames.set(`user:${row.id}`, row.username);
-	}
-	if (playerIds.length > 0) {
-		const rows = await db
-			.select({ id: anonymousPlayers.id })
-			.from(anonymousPlayers)
-			.where(inArray(anonymousPlayers.id, playerIds));
-		for (const row of rows)
-			holderNames.set(`player:${row.id}`, `观战 ${row.id.slice(0, 8)}`);
-	}
+	const holderNames = await loadHolderDisplayNames(db, kicks);
 
 	return kicks.map((kick) => {
 		const holderKind = kick.holderKind as "user" | "anonymous";

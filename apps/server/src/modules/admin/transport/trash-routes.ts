@@ -6,8 +6,6 @@ import { corsOriginsFor } from "@/config/env";
 import {
 	AdminRequiredError,
 	AuthRequiredError,
-	createAuthPlugin,
-	DrizzleIdentityRepository,
 	ForbiddenError,
 	UserNotFoundError,
 } from "@/modules/identity";
@@ -15,10 +13,12 @@ import { AppError } from "@/platform/errors/app-error";
 import { validationFailed } from "@/platform/errors/validation";
 import { logger } from "@/platform/logging/logger";
 import { assertTrustedOrigin } from "@/platform/security/origin";
-import {
-	TrashItemNotFoundError,
-	TrashRepository,
-} from "../application/trash-repository";
+
+class TrashItemNotFoundError extends AppError {
+	constructor() {
+		super("TRASH_ITEM_NOT_FOUND", "Trashed resource not found", 404);
+	}
+}
 
 const RestoreRequest = z.object({
 	entityType: TrashEntityType,
@@ -26,10 +26,7 @@ const RestoreRequest = z.object({
 });
 
 export function createTrashRoutes(container: Container) {
-	const repo = new TrashRepository(container.db);
-	const authPlugin = createAuthPlugin(
-		new DrizzleIdentityRepository(container.db),
-	);
+	const { trashRepo: repo, authPlugin } = container;
 	const allowedOrigins = corsOriginsFor(container.env);
 
 	return new Elysia()

@@ -21,6 +21,7 @@ export interface PlayerBanContext {
 }
 
 export interface SessionKickStore {
+	hasActiveClaim(sessionId: string, holder: SeatHolderInput): Promise<boolean>;
 	findActiveSessionKick(
 		sessionId: string,
 		holder: SeatHolderInput,

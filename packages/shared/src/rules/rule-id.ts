@@ -15,6 +15,9 @@ export const RuleMetadata = z.object({
 	apiVersion: z.number().int().positive(),
 	description: z.string(),
 	permanentSheetFields: z.array(z.string()),
+	permanentFieldRange: z
+		.object({ min: z.number(), max: z.number() })
+		.optional(),
 });
 export type RuleMetadata = z.infer<typeof RuleMetadata>;
 

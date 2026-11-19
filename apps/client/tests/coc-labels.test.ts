@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { coc7e } from "@cogm/shared";
 import { mapActivityEvent } from "../src/lib/chat-map";
-import { skillKeysFor, skillValue } from "../src/lib/coc-live";
+import { skillKeysFor, skillValue } from "../src/rules/coc7e/sheet-data";
 
 const sheet = coc7e.normalizeCoc7eSheet({
 	attributes: {

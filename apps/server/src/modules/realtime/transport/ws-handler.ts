@@ -6,21 +6,16 @@ import {
 	VoiceClientMessage,
 	VoiceServerMessage,
 } from "@cogm/shared";
-import { and, eq, isNull } from "drizzle-orm";
 import { Elysia } from "elysia";
 import type { Container } from "@/bootstrap/container";
 import {
-	type ActorContext,
 	AuthRequiredError,
-	createAuthPlugin,
-	DrizzleIdentityRepository,
 	ForbiddenError,
 	holderOfActor,
 	requireSeatHolder,
 } from "@/modules/identity";
 import type { SeatHolderInput } from "@/modules/sessions";
 import { SessionNotFoundError } from "@/modules/sessions";
-import { sessionClaims, sessionKicks } from "@/platform/db/schema";
 import { logger } from "@/platform/logging/logger";
 import { checkVisibility } from "../domain/visibility";
 
@@ -32,47 +27,6 @@ const KICKED_CLOSE_CODE = 4000;
 interface KickNotice {
 	reason: string | null;
 	createdAt: number;
-}
-
-async function findActiveKick(
-	container: Container,
-	sessionId: string,
-	holder: SeatHolderInput,
-): Promise<KickNotice | null> {
-	const rows = await container.db
-		.select({ reason: sessionKicks.reason, createdAt: sessionKicks.createdAt })
-		.from(sessionKicks)
-		.where(
-			and(
-				eq(sessionKicks.sessionId, sessionId),
-				holder.holderKind === "user"
-					? eq(sessionKicks.userId, holder.userId!)
-					: eq(sessionKicks.playerId, holder.playerId!),
-				isNull(sessionKicks.liftedAt),
-			),
-		)
-		.limit(1);
-	return rows[0] ?? null;
-}
-
-async function resolveClaimedCharacterId(
-	container: Container,
-	sessionId: string,
-	holder: SeatHolderInput,
-): Promise<string | null> {
-	const rows = await container.db
-		.select({ characterId: sessionClaims.characterId })
-		.from(sessionClaims)
-		.where(
-			and(
-				eq(sessionClaims.sessionId, sessionId),
-				holder.holderKind === "user"
-					? eq(sessionClaims.userId, holder.userId!)
-					: eq(sessionClaims.playerId, holder.playerId!),
-				isNull(sessionClaims.releasedAt),
-			),
-		);
-	return rows[0]?.characterId ?? null;
 }
 
 function parseLastEventId(raw: string | undefined): number | null {
@@ -101,8 +55,7 @@ function rejectCommand(
 }
 
 export function createRealtimeRoutes(container: Container) {
-	const identityRepo = new DrizzleIdentityRepository(container.db);
-	const authPlugin = createAuthPlugin(identityRepo);
+	const { authPlugin, sessionsRepo } = container;
 	const {
 		connectionRegistry,
 		eventRingBuffer,
@@ -131,21 +84,14 @@ export function createRealtimeRoutes(container: Container) {
 				return;
 			}
 			const holder = requireSeatHolder(actor);
-			const kick = await findActiveKick(container, id, holder);
+			const kick = await sessionsRepo.findActiveSessionKick(id, holder);
 			if (kick) {
 				Object.assign(context, { kick, holder });
 				return;
 			}
-			const claimedCharacterId = await resolveClaimedCharacterId(
-				container,
-				id,
-				holder,
-			);
-			const hasClaim =
-				claimedCharacterId !== null ||
-				(await hasObClaim(container, id, holder));
+			const claim = await sessionsRepo.findActiveClaimByHolder(id, holder);
 			Object.assign(context, { holder });
-			if (!hasClaim) {
+			if (!claim) {
 				throw new ForbiddenError("No active claim in this session");
 			}
 		},
@@ -226,7 +172,8 @@ export function createRealtimeRoutes(container: Container) {
 			};
 
 			const claimedCharacterId = holder
-				? await resolveClaimedCharacterId(container, sessionId, holder)
+				? ((await sessionsRepo.findActiveClaimByHolder(sessionId, holder))
+						?.characterId ?? null)
 				: null;
 			const lastEventId = parseLastEventId(ws.data.query.lastEventId);
 
@@ -472,25 +419,4 @@ export function createRealtimeRoutes(container: Container) {
 			}
 		},
 	});
-}
-
-async function hasObClaim(
-	container: Container,
-	sessionId: string,
-	holder: SeatHolderInput,
-): Promise<boolean> {
-	const rows = await container.db
-		.select({ id: sessionClaims.id })
-		.from(sessionClaims)
-		.where(
-			and(
-				eq(sessionClaims.sessionId, sessionId),
-				holder.holderKind === "user"
-					? eq(sessionClaims.userId, holder.userId!)
-					: eq(sessionClaims.playerId, holder.playerId!),
-				isNull(sessionClaims.releasedAt),
-				isNull(sessionClaims.characterId),
-			),
-		);
-	return rows.length > 0;
 }

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import type { RuleMetadata } from "@cogm/shared";
+import { coc7e } from "@cogm/shared";
 import {
 	cleanup,
 	fireEvent,
@@ -429,7 +430,7 @@ describe("character creation page", () => {
 	test("cancels soft-warning submission dialog without posting and serializes structured background when warnings are cleared", async () => {
 		const harness = setup();
 		cleanupHarness = harness.restore;
-		const sheet = createEmptyCharacterSheet();
+		const sheet = coc7e.Coc7eCharacterSheet.parse(createEmptyCharacterSheet());
 		// Spend all 100 interest points (INT 50 -> 100) and set a key connection
 		sheet.skills = { 侦查: 75, 图书馆: 70 };
 		sheet.skillAllocation = {

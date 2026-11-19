@@ -1,6 +1,7 @@
 import type {
 	CharacterDetailDto,
 	CharacterHistoryResponse,
+	RuleMetadata,
 } from "@cogm/shared";
 import { History } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -46,6 +47,7 @@ export function CharacterPermanentFieldDialog({
 }) {
 	const [character, setCharacter] = useState<CharacterDetailDto | null>(null);
 	const [history, setHistory] = useState<CharacterHistoryResponse | null>(null);
+	const [metadata, setMetadata] = useState<RuleMetadata | null>(null);
 	const [field, setField] = useState("");
 	const [value, setValue] = useState("");
 	const [reason, setReason] = useState("");
@@ -55,7 +57,10 @@ export function CharacterPermanentFieldDialog({
 	const rule = getRuleComponent(character?.ruleId);
 	const sheet = rule.parseSheetJson(character?.sheetJson ?? "");
 	const attributes = rule.attributeEntries(sheet);
-	const fields = rule.metadata.permanentSheetFields.map((key) => ({
+	const range = metadata?.permanentFieldRange;
+	const fields = (
+		metadata?.permanentSheetFields ?? rule.metadata.permanentSheetFields
+	).map((key) => ({
 		key,
 		label: rule.attributeLabel(key) ?? key,
 		value: attributes.find((entry) => entry.key === key)?.value ?? null,
@@ -70,6 +75,7 @@ export function CharacterPermanentFieldDialog({
 		setLoading(true);
 		setError("");
 		setCharacter(null);
+		setMetadata(null);
 		setHistory(null);
 		setReason("");
 		void Promise.all([
@@ -79,17 +85,22 @@ export function CharacterPermanentFieldDialog({
 			api<CharacterHistoryResponse>(
 				`/gm/characters/${encodeURIComponent(characterId)}/history`,
 			),
+			api<RuleMetadata[]>("/rules"),
 		])
-			.then(([detail, audit]) => {
+			.then(([detail, audit, rules]) => {
 				if (cancelled) {
 					return;
 				}
+				const metadata = rules.find(({ id }) => id === detail.ruleId);
+				setMetadata(metadata ?? null);
 				setCharacter(detail);
 				setHistory(audit);
 				const nextRule = getRuleComponent(detail.ruleId);
 				const nextSheet = nextRule.parseSheetJson(detail.sheetJson);
 				const entries = nextRule.attributeEntries(nextSheet);
-				const first = nextRule.metadata.permanentSheetFields[0] ?? "";
+				const first =
+					(metadata?.permanentSheetFields ??
+						nextRule.metadata.permanentSheetFields)[0] ?? "";
 				setField(first);
 				setValue(
 					String(entries.find((entry) => entry.key === first)?.value ?? ""),
@@ -124,9 +135,16 @@ export function CharacterPermanentFieldDialog({
 		if (!characterId || !character || pending) {
 			return;
 		}
-		const parsed = Number.parseInt(value, 10);
-		if (!Number.isInteger(parsed) || parsed < 1 || parsed > 99) {
-			setError(t("gm.permanent.invalidValue"));
+		const parsed = value.trim() ? Number(value) : Number.NaN;
+		if (
+			!Number.isInteger(parsed) ||
+			(range && (parsed < range.min || parsed > range.max))
+		) {
+			setError(
+				range
+					? t("gm.permanent.invalidValue", range)
+					: t("gm.permanent.invalidInteger"),
+			);
 			return;
 		}
 		if (!reason.trim()) {
@@ -206,8 +224,8 @@ export function CharacterPermanentFieldDialog({
 								<Input
 									id="permanent-value"
 									type="number"
-									min={1}
-									max={99}
+									min={range?.min}
+									max={range?.max}
 									value={value}
 									onInput={(event) => setValue(event.currentTarget.value)}
 								/>
@@ -223,7 +241,7 @@ export function CharacterPermanentFieldDialog({
 								maxLength={500}
 								rows={2}
 								placeholder={t("gm.permanent.reasonPlaceholder")}
-								onChange={(event) => setReason(event.target.value)}
+								onInput={(event) => setReason(event.currentTarget.value)}
 							/>
 						</div>
 						{error ? (

@@ -247,7 +247,8 @@ function GmCharactersPage() {
 										})}
 										className="bg-md-surface-container-high/80 border-md-outline-variant/45 flex flex-wrap items-center gap-1 rounded-full border p-1"
 									>
-										{getRuleComponent(selected.ruleId).supportsExcelImport ? (
+										{getRuleComponent(selected.ruleId).capabilities
+											?.excelImport ? (
 											<Button
 												type="button"
 												variant="ghost"
@@ -300,31 +301,23 @@ function GmCharactersPage() {
 							</div>
 						</div>
 						<div className="grid grid-cols-5 gap-2">
-							{(["hp", "mp", "san"] as const).map((key) => (
+							{selected.metrics.map(({ key, label, value, tone }) => (
 								<Card
 									key={key}
 									className="border-md-outline-variant/50 rounded-2xl border p-3 text-center"
 								>
-									<div className="text-foreground-tertiary text-label-small uppercase">
-										{key}
+									<div
+										className={cn(
+											"text-label-small",
+											tone !== "default" &&
+												"text-foreground-tertiary uppercase",
+										)}
+									>
+										{label}
 									</div>
-									<div className="text-body-large-emph">
-										{selected.derived[key].current}/{selected.derived[key].max}
-									</div>
+									<div className="text-body-large-emph">{value}</div>
 								</Card>
 							))}
-							<Card className="border-md-outline-variant/50 rounded-2xl border p-3 text-center">
-								<div className="text-label-small">LUCK</div>
-								<div className="text-body-large-emph">
-									{selected.derived.luck}
-								</div>
-							</Card>
-							<Card className="border-md-outline-variant/50 rounded-2xl border p-3 text-center">
-								<div className="text-label-small">MOV</div>
-								<div className="text-body-large-emph">
-									{selected.derived.mov}
-								</div>
-							</Card>
 						</div>
 						<div className="grid grid-cols-2 gap-4">
 							<Card className="border-md-outline-variant/50 flex flex-col gap-1 rounded-2xl border p-4">

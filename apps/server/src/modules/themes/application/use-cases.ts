@@ -1,13 +1,11 @@
 import type { ThemeSummaryDto } from "@cogm/shared";
-import { eq, isNotNull } from "drizzle-orm";
-import type { DbClient } from "@/platform/db/client";
-import { modules, uiSettings } from "@/platform/db/schema";
 import { logger } from "@/platform/logging/logger";
 import { ThemeInUseError } from "../domain/errors";
 import type {
 	InstalledTheme,
 	ThemeRegistry,
 } from "../infrastructure/theme-registry";
+import type { ThemeUsageRepository } from "./theme-usage-repository";
 
 function toSummary(
 	theme: InstalledTheme,
@@ -35,36 +33,15 @@ function toSummary(
 	};
 }
 
-async function usage(
-	db: DbClient,
-): Promise<{ counts: Map<string, number>; gmThemeId: string | null }> {
-	const rows = await db
-		.select({ themeId: modules.themeId })
-		.from(modules)
-		.where(isNotNull(modules.themeId));
-	const counts = new Map<string, number>();
-	for (const row of rows) {
-		if (row.themeId) {
-			counts.set(row.themeId, (counts.get(row.themeId) ?? 0) + 1);
-		}
-	}
-	const settings = await db
-		.select({ gmThemeId: uiSettings.gmThemeId })
-		.from(uiSettings)
-		.where(eq(uiSettings.id, "singleton"))
-		.limit(1);
-	return { counts, gmThemeId: settings[0]?.gmThemeId ?? null };
-}
-
 export class ListThemesUseCase {
 	constructor(
 		private readonly registry: ThemeRegistry,
-		private readonly db: DbClient,
+		private readonly usageRepo: ThemeUsageRepository,
 	) {}
 
 	async execute(): Promise<ThemeSummaryDto[]> {
 		await this.registry.ready();
-		const { counts, gmThemeId } = await usage(this.db);
+		const { counts, gmThemeId } = await this.usageRepo.getUsage();
 		return this.registry
 			.list()
 			.map((theme) =>
@@ -80,12 +57,12 @@ export class ListThemesUseCase {
 export class InstallThemeUseCase {
 	constructor(
 		private readonly registry: ThemeRegistry,
-		private readonly db: DbClient,
+		private readonly usageRepo: ThemeUsageRepository,
 	) {}
 
 	async execute(archive: Uint8Array): Promise<ThemeSummaryDto> {
 		const installed = await this.registry.install(archive);
-		const { counts, gmThemeId } = await usage(this.db);
+		const { counts, gmThemeId } = await this.usageRepo.getUsage();
 		logger.audit("theme.install", {
 			themeId: installed.manifest.id,
 			version: installed.manifest.version,
@@ -102,7 +79,7 @@ export class InstallThemeUseCase {
 export class DeleteThemeUseCase {
 	constructor(
 		private readonly registry: ThemeRegistry,
-		private readonly db: DbClient,
+		private readonly usageRepo: ThemeUsageRepository,
 	) {}
 
 	async execute(id: string): Promise<void> {
@@ -111,7 +88,7 @@ export class DeleteThemeUseCase {
 		if (!theme) {
 			return;
 		}
-		const { counts, gmThemeId } = await usage(this.db);
+		const { counts, gmThemeId } = await this.usageRepo.getUsage();
 		const usedByModules = counts.get(id) ?? 0;
 		if (usedByModules > 0 || gmThemeId === id) {
 			throw new ThemeInUseError("主题仍被模组或 GM 界面引用", {
@@ -130,12 +107,12 @@ export class DeleteThemeUseCase {
 export class RescanThemesUseCase {
 	constructor(
 		private readonly registry: ThemeRegistry,
-		private readonly db: DbClient,
+		private readonly usageRepo: ThemeUsageRepository,
 	) {}
 
 	async execute(): Promise<ThemeSummaryDto[]> {
 		await this.registry.rescan();
-		const { counts, gmThemeId } = await usage(this.db);
+		const { counts, gmThemeId } = await this.usageRepo.getUsage();
 		return this.registry
 			.list()
 			.map((theme) =>

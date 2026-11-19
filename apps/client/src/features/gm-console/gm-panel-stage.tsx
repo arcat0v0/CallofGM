@@ -54,12 +54,7 @@ import { sendSessionCommand } from "@/lib/session-socket";
 import { cn } from "@/lib/utils";
 import { usePlayStore } from "@/stores/play-store";
 import { playbackModeLabel, useBgmPlayback } from "./gm-audio";
-import {
-	isCritical,
-	orderBySeverity,
-	stateEntries,
-	statusLine,
-} from "./gm-state";
+import { orderBySeverity, stateEntries } from "./gm-state";
 import { gmFloatingCard } from "./gm-styles";
 import { useGmTool } from "./gm-tool-context";
 
@@ -635,7 +630,7 @@ function CharacterStateCard() {
 						size="sm"
 						className={cn(
 							"size-8",
-							isCritical(featured.state)
+							featured.critical
 								? "bg-danger-soft"
 								: "bg-md-surface-container-highest",
 						)}
@@ -643,7 +638,7 @@ function CharacterStateCard() {
 						<AvatarFallback
 							className={cn(
 								"text-label-medium",
-								isCritical(featured.state)
+								featured.critical
 									? "text-danger-soft-foreground"
 									: "text-md-on-surface-variant",
 							)}
@@ -658,18 +653,18 @@ function CharacterStateCard() {
 						<span
 							className={cn(
 								"truncate text-label-medium",
-								isCritical(featured.state)
+								featured.critical
 									? "text-danger"
 									: "text-md-on-surface-variant",
 							)}
 						>
-							{statusLine(featured.state, featured.character.ruleId)}
+							{featured.summary}
 						</span>
 					</span>
 					<HeartPulse
 						className={cn(
 							"size-5 shrink-0",
-							isCritical(featured.state)
+							featured.critical
 								? "text-danger/80"
 								: "text-md-on-surface-variant/35",
 						)}
@@ -682,7 +677,7 @@ function CharacterStateCard() {
 			)}
 			{others.length > 0 ? (
 				<div className="border-separator-secondary/60 flex flex-col gap-2 border-t pt-2">
-					{others.map(({ character, state }) => (
+					{others.map(({ character, summary }) => (
 						<div
 							key={character.characterId}
 							className="flex min-w-0 items-center gap-2.5"
@@ -697,7 +692,7 @@ function CharacterStateCard() {
 									{character.name}
 								</span>
 								<span className="text-md-on-surface-variant truncate text-label-small">
-									{statusLine(state, character.ruleId)}
+									{summary}
 								</span>
 							</span>
 						</div>

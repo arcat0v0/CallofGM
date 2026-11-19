@@ -11,8 +11,6 @@ import {
 	AdminRequiredError,
 	AuthRequiredError,
 	CreateUserUseCase,
-	createAuthPlugin,
-	DrizzleIdentityRepository,
 	InvalidPasswordError,
 	isPasswordFieldFailure,
 	ResetUserPasswordUseCase,
@@ -44,7 +42,7 @@ function toUserDto(user: {
 }
 
 export function createAdminRoutes(container: Container) {
-	const repo = new DrizzleIdentityRepository(container.db);
+	const { identityRepo: repo, authPlugin } = container;
 	const allowedOrigins = corsOriginsFor(container.env);
 	const createUser = new CreateUserUseCase(
 		container.idGenerator,
@@ -61,8 +59,6 @@ export function createAdminRoutes(container: Container) {
 			container.connectionRegistry.closeUserConnections(userId);
 		},
 	);
-
-	const authPlugin = createAuthPlugin(repo);
 
 	const requireAdmin = (actor: { type: string; role?: string } | null) => {
 		if (!actor) {

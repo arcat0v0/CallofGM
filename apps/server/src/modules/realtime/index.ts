@@ -11,6 +11,7 @@ export {
 } from "./application/history-command-handler";
 export { SessionHistoryRecorder } from "./application/history-recorder";
 export { createHistoryRewindCommandHandlers } from "./application/history-rewind-commands";
+export type { ActiveClaimLookup, VoiceSessionStore } from "./application/ports";
 export {
 	captureRuntimeSnapshot,
 	initialRuntimeSnapshot,
@@ -24,6 +25,8 @@ export {
 } from "./connection-registry";
 export { checkVisibility, type VisibilityScope } from "./domain/visibility";
 export { type BufferedEvent, EventRingBuffer } from "./event-ring-buffer";
+export { DrizzleActiveClaimLookup } from "./infrastructure/drizzle-active-claim-lookup";
+export { DrizzleVoiceSessionStore } from "./infrastructure/drizzle-voice-session-store";
 export { PresenceService } from "./presence-service";
 export { SessionCommandExecutor } from "./session-command-executor";
 export { SessionEventBus, type StagedEvents } from "./session-event-bus";

@@ -1,70 +1,166 @@
-import { Glob } from "bun";
-import { readFile } from "fs/promises";
-import { dirname, resolve, relative } from "path";
+import { resolve } from "node:path";
+import {
+	type ImportNames,
+	isPackage,
+	readConcreteRuleIds,
+	resolveBoundaryImport,
+	scanProjectSources,
+	visitBoundarySyntax,
+} from "./boundary-ast";
 
-const srcRoot = resolve(import.meta.dirname ?? ".", "../src");
+const genericRuleModules: Record<string, true> = {
+	"rule-system": true,
+	registry: true,
+	"dice-engine": true,
+	capabilities: true,
+};
 
-const glob = new Glob("**/*.ts");
-const files = await Array.fromAsync(glob.scan({
-  cwd: srcRoot,
-  onlyFiles: true,
-}));
+const realtimePersistence: Record<string, true> = {
+	"modules/realtime/session-command-executor.ts": true,
+	"modules/realtime/session-event-bus.ts": true,
+	"modules/realtime/presence-service.ts": true,
+	"modules/realtime/application/build-snapshot.ts": true,
+	"modules/realtime/application/session-history.ts": true,
+	"modules/realtime/application/history-recorder.ts": true,
+	"modules/realtime/application/runtime-snapshot.ts": true,
+	"modules/realtime/application/history-rewind-commands.ts": true,
+	"modules/realtime/application/chat-message-mapper.ts": true,
+	"modules/realtime/application/kicked-players.ts": true,
+};
 
-let hasErrors = false;
+type Rule =
+	| "module-entrypoint"
+	| "rule-isolation"
+	| "domain-layer"
+	| "application-layer"
+	| "persistence-layer";
 
-for (const file of files) {
-  if (!file.endsWith(".ts")) continue;
-  const filePath = resolve(srcRoot, file);
-  const fileContent = await readFile(filePath, "utf-8");
-  const fileDir = dirname(filePath);
-
-  const importRegex = /(?:import|export)\s+[\s\S]*?\s+from\s+['"]([^'"]+)['"]/g;
-  let match;
-
-  while ((match = importRegex.exec(fileContent)) !== null) {
-    const importPath = match[1] ?? "";
-
-    let resolvedImport: string;
-    if (importPath.startsWith("@/")) {
-      // 别名导入：@/ 映射到 src/
-      resolvedImport = resolve(srcRoot, importPath.slice(2));
-    } else if (importPath.startsWith(".")) {
-      resolvedImport = resolve(fileDir, importPath);
-    } else {
-      continue;
-    }
-
-    const relativeToSrc = relative(srcRoot, resolvedImport);
-
-    const fileParts = file.split("/");
-    const isFileInModule = fileParts[0] === "modules" && fileParts.length > 1;
-    const fileModule = isFileInModule ? fileParts[1] : null;
-
-    const importParts = relativeToSrc.split("/");
-    const isImportInModule = importParts[0] === "modules" && importParts.length > 1;
-    const importModule = isImportInModule ? importParts[1] : null;
-
-    if (isImportInModule && importModule !== fileModule) {
-      if (importParts.length > 2) {
-        console.error(`Error in ${file}: Cross-module import to internal path "${importPath}" (resolved: ${relativeToSrc}). Only imports from the module root index are allowed.`);
-        hasErrors = true;
-      }
-    }
-
-    if (relativeToSrc.startsWith("rules/") && !file.startsWith("rules/") && file !== "bootstrap/container.ts") {
-      const rulesParts = relativeToSrc.split("/");
-      // 仅允许依赖规则抽象层与通用引擎；具体规则实现（如 coc7e）禁止被通用代码导入
-      const genericAllowed = new Set(["rule-system", "registry", "dice-engine"]);
-      if (rulesParts[1] && !genericAllowed.has(rulesParts[1])) {
-        console.error(`Error in ${file}: Cannot import concrete rule system "${importPath}" (resolved: ${relativeToSrc}). General code must only depend on RuleSystem and RuleRegistry.`);
-        hasErrors = true;
-      }
-    }
-  }
+interface Violation {
+	file: string;
+	line: number;
+	rule: Rule;
+	specifier: string;
 }
 
-if (hasErrors) {
-  process.exit(1);
-} else {
-  console.log("Boundary checks passed successfully.");
+function checkRules(
+	file: string,
+	specifier: string,
+	local: string | null,
+	shared: string | null,
+	concreteRules: ReadonlySet<string>,
+	names: ImportNames,
+): Rule[] {
+	const violations: Rule[] = [];
+	const [root, module, layer, child] = file.split("/");
+	const [targetRoot, targetModule, targetLayer, ...deeper] =
+		local?.split("/") ?? [];
+	const ownModule = root === "modules" && module === targetModule;
+	if (
+		targetRoot === "modules" &&
+		targetModule &&
+		!ownModule &&
+		(deeper.length > 0 || (targetLayer && targetLayer !== "index"))
+	) {
+		violations.push("module-entrypoint");
+	}
+
+	const [sharedArea, sharedRule] = shared?.split("/") ?? [];
+	const sharedBarrel = shared === "" || shared === "index";
+	const serverRuleImport =
+		targetRoot === "rules" &&
+		(!targetModule ||
+			deeper.length > 0 ||
+			targetLayer !== undefined ||
+			!Object.hasOwn(genericRuleModules, targetModule));
+	const sharedRuleImport =
+		(sharedArea === "rules" &&
+			sharedRule !== undefined &&
+			concreteRules.has(sharedRule)) ||
+		(sharedBarrel &&
+			(names === "all" || names.some((name) => concreteRules.has(name))));
+	if (
+		root !== "rules" &&
+		(sharedRuleImport ||
+			(serverRuleImport && file !== "bootstrap/container.ts"))
+	) {
+		violations.push("rule-isolation");
+	}
+
+	if (root !== "modules") return violations;
+	const web = isPackage(specifier, "elysia");
+	const drizzle = isPackage(specifier, "drizzle-orm");
+	const db = local === "platform/db" || local?.startsWith("platform/db/");
+	const schema =
+		local === "platform/db/schema" || local?.startsWith("platform/db/schema/");
+	if (
+		layer === "domain" &&
+		(web ||
+			drizzle ||
+			db ||
+			(targetRoot === "modules" &&
+				ownModule &&
+				(targetLayer === "application" ||
+					targetLayer === "transport" ||
+					targetLayer === "infrastructure")))
+	) {
+		violations.push("domain-layer");
+	}
+	const application =
+		layer === "application" ||
+		(module === "realtime" && child === undefined && layer !== "index.ts");
+	if (application && web) violations.push("application-layer");
+	if (
+		(application || layer === "transport") &&
+		(drizzle || schema) &&
+		!Object.hasOwn(realtimePersistence, file)
+	) {
+		violations.push("persistence-layer");
+	}
+	return violations;
+}
+
+export async function checkServerBoundaries(
+	serverRoot: string,
+	sharedRoot: string,
+): Promise<Violation[]> {
+	const srcRoot = resolve(serverRoot, "src");
+	const concreteRules = await readConcreteRuleIds(sharedRoot);
+	const issues: Violation[] = [];
+	await scanProjectSources(serverRoot, (file, filePath, source) => {
+		visitBoundarySyntax(source, (specifier, names, line) => {
+			const { local, shared } = resolveBoundaryImport(
+				specifier,
+				filePath,
+				srcRoot,
+				sharedRoot,
+				"@cogm/server",
+			);
+			for (const rule of checkRules(
+				file,
+				specifier,
+				local,
+				shared,
+				concreteRules,
+				names,
+			)) {
+				issues.push({ file, line, rule, specifier });
+			}
+		});
+	});
+	return issues;
+}
+
+if (import.meta.main) {
+	const serverRoot = resolve(import.meta.dirname, "..");
+	const issues = await checkServerBoundaries(
+		serverRoot,
+		resolve(serverRoot, "../../packages/shared/src"),
+	);
+	for (const { file, line, rule, specifier } of issues) {
+		console.error(
+			`${file}:${line}: ${rule} forbids ${JSON.stringify(specifier)}`,
+		);
+	}
+	if (issues.length > 0) process.exitCode = 1;
+	else console.log("Server boundary checks passed.");
 }

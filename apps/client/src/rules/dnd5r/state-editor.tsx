@@ -2,7 +2,7 @@ import { dnd5r } from "@cogm/shared";
 import { Button } from "@/components/ui/button";
 import { GmPanelShell } from "@/features/gm-console/gm-panel-fields";
 import { t } from "@/i18n";
-import type { RuleStateEditorProps } from "@/rules/registry";
+import type { RuleStateEditorProps } from "../types";
 import { DndStateActions } from "./runtime-actions";
 
 export function DndStateEditor({ character, onClose }: RuleStateEditorProps) {

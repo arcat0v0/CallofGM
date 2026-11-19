@@ -1,24 +1,16 @@
 import { UpdateUiSettingsRequest } from "@cogm/shared";
 import { Elysia } from "elysia";
 import type { Container } from "@/bootstrap/container";
-import {
-	AuthRequiredError,
-	createAuthPlugin,
-	DrizzleIdentityRepository,
-} from "@/modules/identity";
+import { AuthRequiredError } from "@/modules/identity";
 import { validationFailed } from "@/platform/errors/validation";
 import { logger } from "@/platform/logging/logger";
 import {
 	GetUiSettingsUseCase,
 	UpdateUiSettingsUseCase,
 } from "../application/use-cases";
-import { DrizzleUiSettingsRepository } from "../infrastructure/drizzle-ui-settings-repository";
 
 export function createUiSettingsRoutes(container: Container) {
-	const repo = new DrizzleUiSettingsRepository(container.db);
-	const authPlugin = createAuthPlugin(
-		new DrizzleIdentityRepository(container.db),
-	);
+	const { uiSettingsRepo: repo, authPlugin } = container;
 	const getSettings = new GetUiSettingsUseCase(repo, container.themeRegistry);
 	const updateSettings = new UpdateUiSettingsUseCase(
 		repo,

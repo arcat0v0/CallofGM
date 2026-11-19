@@ -226,6 +226,25 @@ describe("Gameplay contract tests", () => {
 		await closeAll(gm, pc1, pc2);
 	});
 
+	test("CoC checks reject supplied options before looking up the skill", async () => {
+		const { gm, pc1, pc2 } = await openAll();
+		for (const [type, options] of [
+			["check:perform", null],
+			["check:request", {}],
+		] as const) {
+			sendCommand(
+				gm,
+				type,
+				{ characterId: "char-pc1", skillKey: "不存在的技能", options },
+				type,
+			);
+			const reply = await gm.waitFor((message) => message.commandId === type);
+			expect(reply.type).toBe("command:rejected");
+			expect(reply.payload.code).toBe("RULE_ACTION_UNSUPPORTED");
+		}
+		await closeAll(gm, pc1, pc2);
+	});
+
 	test("空卡人物：技能目录基础值兜底，GM 鉴定与请求可写入", async () => {
 		await setSessionPhase(ctx, "free_performance");
 		const gm = await connectWs(wsUrl(), ctx.gmToken);
@@ -317,25 +336,39 @@ describe("Gameplay contract tests", () => {
 		sendCommand(
 			gm,
 			"check:request",
-			{ characterId: "char-pc1", skillKey: "图书馆", difficulty: "regular" },
+			{
+				characterId: "char-pc1",
+				skillKey: "图书馆",
+				difficulty: "hard",
+				penaltyDice: 1,
+			},
 			"r-1",
 		);
 		const requested = await pc1.waitFor((m) => m.type === "check:requested");
 		const requestId = requested.payload.request.id;
 		expect(requested.payload.request.characterId).toBe("char-pc1");
+		expect(requested.payload.request).toMatchObject({
+			difficulty: "hard",
+			penaltyDice: 1,
+		});
+		expect(requested.payload.request).not.toHaveProperty("options");
 
 		// 非目标玩家收不到请求
 		await new Promise((r) => setTimeout(r, 200));
 		expect(pc2.messages.some((m) => m.type === "check:requested")).toBe(false);
 
-		// 强制 CG 阶段响应请求不受限制；roll 30 vs 图书馆 45 → 常规成功
-		random.push(0, 3);
+		// 强制 CG 阶段响应请求不受限制；惩罚骰取 30，大于困难阈值 22
+		random.push(0, 2, 3);
 		sendCommand(pc1, "check:respond", { requestId }, "r-2");
 		const resolved = await gm.waitFor(
 			(m) => m.type === "check:resolved" && m.payload.requestId === requestId,
 		);
 		expect(resolved.payload.result.roll).toBe(30);
-		expect(resolved.payload.result.success).toBe(true);
+		expect(resolved.payload.result).toMatchObject({
+			difficulty: "hard",
+			penaltyDice: 1,
+			success: false,
+		});
 
 		// 重复响应被拒
 		sendCommand(pc1, "check:respond", { requestId }, "r-3");
@@ -348,6 +381,7 @@ describe("Gameplay contract tests", () => {
 			.from(checkRequests)
 			.where(eq(checkRequests.id, requestId));
 		expect(rows[0]?.status).toBe("resolved");
+		expect(rows[0]?.optionsJson).toBeNull();
 		expect(rows[0]?.resolvedCheckResultJson).toBeTruthy();
 
 		await closeAll(gm, pc1, pc2);

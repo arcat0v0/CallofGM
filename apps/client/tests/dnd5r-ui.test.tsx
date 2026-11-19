@@ -181,6 +181,10 @@ describe("D&D attack controls", () => {
 		const calls: unknown[][] = [];
 		const view = render(
 			<DndSessionSheet
+				isGm={false}
+				ruleState={null}
+				search=""
+				onSearchChange={() => undefined}
 				target={target}
 				characters={[target]}
 				canPerform

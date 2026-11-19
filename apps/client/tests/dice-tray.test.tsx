@@ -105,6 +105,15 @@ describe("DiceTray local failure toasts", () => {
 		}
 	});
 
+	test("keeps CoC bonus dice when switching to the roll tab and back", () => {
+		const { tray } = renderTray();
+		fireEvent.click(tray.getByRole("radio", { name: "鉴定" }));
+		fireEvent.click(tray.getByRole("button", { name: "奖励 0" }));
+		fireEvent.click(tray.getByRole("radio", { name: "骰点" }));
+		fireEvent.click(tray.getByRole("radio", { name: "鉴定" }));
+		expect(tray.getByRole("button", { name: "奖励 1" })).toBeTruthy();
+	});
+
 	test("local dice failures do not overwrite command rejection recovery state", () => {
 		const { tray } = renderTray();
 		commandResult = null;

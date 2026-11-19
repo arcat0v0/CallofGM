@@ -1,6 +1,6 @@
 import { coc7e } from "@cogm/shared";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { RuleCreationEditorProps } from "@/rules/registry";
+import type { RuleCreationEditorProps } from "../types";
 import { Coc7eCreationTabsBar } from "./creation-tabs-bar";
 import { type Coc7eTabId, computeCoc7eValidation } from "./creation-validation";
 import { Coc7eBackgroundTab } from "./tabs/background-tab";

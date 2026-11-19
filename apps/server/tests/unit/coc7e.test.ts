@@ -56,6 +56,54 @@ const baseState: coc7e.CharacterSessionState = {
 	hiddenGrowthMarks: [],
 };
 
+test("unified CoC checks preserve roll options and isolate hidden growth", async () => {
+	const character = {
+		id: "c1",
+		name: "Investigator",
+		kind: "pc" as const,
+		sheet: baseSheet,
+		state: baseState,
+	};
+	const runtime = {
+		isGm: true,
+		requested: false,
+		hidden: true,
+		random: new FakeRandomSource([1, 3, 8]),
+		ruleState: null,
+		findCharacter: async () => null,
+	};
+	const resolved = await rule.resolveCheck(
+		character,
+		"侦查",
+		{ legacy: { difficulty: "hard", bonusDice: 0, penaltyDice: 1 } },
+		runtime,
+	);
+	expect(resolved.result).toMatchObject({
+		difficulty: "hard",
+		penaltyDice: 1,
+		roll: 81,
+		success: false,
+	});
+	expect(resolved.mutations).toBeUndefined();
+
+	const hidden = await rule.resolveCheck(character, "侦查", undefined, {
+		...runtime,
+		random: new FakeRandomSource([1, 2]),
+	});
+	expect(hidden.result).toMatchObject({
+		difficulty: "regular",
+		roll: 21,
+		growthEligible: true,
+	});
+	expect(hidden.mutations).toEqual([
+		{
+			characterId: "c1",
+			state: { ...baseState, hiddenGrowthMarks: ["侦查"] },
+			hints: [],
+		},
+	]);
+});
+
 function check(
 	roll: { tens: number[]; units: number },
 	opts?: Partial<Parameters<Coc7eRuleSystem["evaluateSkillCheck"]>[0]>,

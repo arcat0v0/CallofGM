@@ -21,7 +21,7 @@ import {
 	StagingRecordNotFoundError,
 	StagingTargetMismatchError,
 } from "../domain/errors";
-import type { CharactersRepository, CursorPageOptions } from "./ports";
+import type { CharactersRepository } from "./ports";
 
 const STAGING_TTL_MS = 30 * 60 * 1000;
 const DEFAULT_OWNER_KIND = "gm";
@@ -261,16 +261,6 @@ export class GetCharacterUseCase {
 		}
 		const portraits = await this.repo.listPortraitsByCharacterId(character.id);
 		return { ...character, portraits };
-	}
-}
-
-export class ListCharactersUseCase {
-	constructor(private readonly repo: CharactersRepository) {}
-	async execute(
-		ownerId: string,
-		options: CursorPageOptions & { kind?: string },
-	) {
-		return await this.repo.listCharacters(ownerId, options);
 	}
 }
 
@@ -821,13 +811,6 @@ export class ImportConfirmUseCase {
 
 		await this.repo.consumeStaging(staging.id, now);
 		return await this.repo.findCharacterById(characterId);
-	}
-}
-
-export class ListModuleCharactersUseCase {
-	constructor(private readonly repo: CharactersRepository) {}
-	async execute(moduleId: string, options: CursorPageOptions) {
-		return await this.repo.listModuleCharacters(moduleId, options);
 	}
 }
 

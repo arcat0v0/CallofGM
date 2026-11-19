@@ -36,6 +36,7 @@ import { api, fetchAllPages, isApiError } from "@/lib/api";
 import { errorText } from "@/lib/errors";
 import { formatStamp } from "@/lib/format";
 import { requireGmAuth } from "@/lib/identity";
+import { FALLBACK_RULE_ID } from "@/rules/registry";
 
 export const Route = createFileRoute("/gm/templates")({
 	beforeLoad: () => requireGmAuth(),
@@ -84,7 +85,7 @@ function TemplatesPage() {
 				body: JSON.stringify({
 					name: name.trim(),
 					description: "",
-					ruleId: source?.ruleId ?? "coc7e",
+					ruleId: source?.ruleId ?? FALLBACK_RULE_ID,
 					sourceModuleId,
 				}),
 			});

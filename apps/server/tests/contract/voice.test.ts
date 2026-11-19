@@ -356,6 +356,100 @@ describe("Voice realtime contract", () => {
 		).toMatchObject({ payload: { ok: false } });
 	});
 
+	test("refreshes joined, unjoined and released seats with the same ordered roster", async () => {
+		await prepare();
+		const pcToken = required(ctx.playerTokens.get("one"));
+		const gm = await connect(ctx.gmToken);
+		const ob = await connect(required(ctx.playerTokens.get("observer")));
+		const pc = await connect(pcToken);
+		const listener = await connect(required(ctx.playerTokens.get("two")));
+		await Promise.all(
+			[gm, ob, pc, listener].map((socket) => voiceState(socket)),
+		);
+
+		const enable = sendVoice(gm, "voice:configure", { enabled: true });
+		expect(await voiceReply(gm, enable)).toMatchObject({ ok: true });
+		const { payload: opening } = await voiceState(pc, (state) => state.enabled);
+		const roomId = required(opening.roomId);
+		const joinPc = sendVoice(pc, "voice:join", { roomId });
+		expect(await voiceReply(pc, joinPc)).toMatchObject({ ok: true });
+		const { payload: joinedPc } = await voiceState(
+			pc,
+			(state) => state.selfId !== null,
+		);
+		const joinOb = sendVoice(ob, "voice:join", { roomId });
+		expect(await voiceReply(ob, joinOb)).toMatchObject({ ok: true });
+		const hasBothMembers = (state: VoiceState) => state.memberCount === 2;
+		const [gmState, obState, pcState, listenerState] = await Promise.all([
+			voiceState(gm, hasBothMembers),
+			voiceState(ob, hasBothMembers),
+			voiceState(pc, hasBothMembers),
+			voiceState(listener, hasBothMembers),
+		]);
+		const expectedRoster: VoiceState["members"] = [
+			{
+				id: required(joinedPc.selfId),
+				name: "Voice PC One",
+				role: "pc",
+				canSpeak: true,
+				speakGranted: true,
+				muted: false,
+			},
+			{
+				id: required(obState.payload.selfId),
+				name: `观战 ${required(ctx.playerIds.get("observer")).slice(0, 8)}`,
+				role: "ob",
+				canSpeak: false,
+				speakGranted: false,
+				muted: false,
+			},
+		];
+		expect(gmState.payload).toMatchObject({
+			roomId,
+			canManage: true,
+			selfId: null,
+		});
+		expect(gmState.payload.members).toEqual(expectedRoster);
+		expect(pcState.payload.members).toEqual(expectedRoster);
+		expect(obState.payload.members).toEqual(expectedRoster);
+		expect(listenerState.payload).toMatchObject({
+			roomId,
+			available: true,
+			selfId: null,
+			members: [],
+			iceServers: [],
+		});
+
+		const release = await ctx.app.handle(
+			new Request(`http://localhost/api/v1/sessions/${ctx.sessionId}/release`, {
+				method: "POST",
+				headers: { authorization: `Bearer ${pcToken}` },
+			}),
+		);
+		expect(release.status).toBe(200);
+		const [gmAfterRelease, obAfterRelease, pcAfterRelease] = await Promise.all([
+			voiceState(
+				gm,
+				(state) => state.members[0]?.id === obState.payload.selfId,
+			),
+			voiceState(
+				ob,
+				(state) => state.memberCount === 1 && state.selfId !== null,
+			),
+			voiceState(pc, (state) => !state.available),
+		]);
+		expect(gmAfterRelease.payload.members).toEqual(expectedRoster.slice(1));
+		expect(obAfterRelease.payload.members).toEqual(expectedRoster.slice(1));
+		expect(pcAfterRelease.payload).toMatchObject({
+			enabled: false,
+			roomId: null,
+			selfId: null,
+			members: [],
+			memberCount: 0,
+			iceServers: [],
+		});
+	});
+
 	test("reserves the GM seat, admits atomically and persists the limit override", async () => {
 		await prepare();
 		const gm = await connect(ctx.gmToken);

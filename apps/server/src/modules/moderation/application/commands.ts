@@ -4,7 +4,6 @@ import {
 	UnbanFingerprintCommand,
 	UnkickPlayerCommand,
 } from "@cogm/shared";
-import { and, eq, isNull } from "drizzle-orm";
 import { ForbiddenError } from "@/modules/identity";
 import type {
 	CommandHandler,
@@ -14,7 +13,6 @@ import type {
 import type { SeatHolderInput } from "@/modules/sessions";
 import { holderKeyOf } from "@/modules/sessions";
 import type { DbClient } from "@/platform/db/client";
-import { sessionClaims } from "@/platform/db/schema";
 import { AppError } from "@/platform/errors/app-error";
 import type { ModerationRepository, SessionKickStore } from "./ports";
 
@@ -56,19 +54,7 @@ export class KickPlayerHandler implements CommandHandler {
 		const existing = await store.findActiveSessionKick(ctx.sessionId, holder);
 
 		if (!existing) {
-			const claims = await ctx.tx
-				.select({ id: sessionClaims.id })
-				.from(sessionClaims)
-				.where(
-					and(
-						eq(sessionClaims.sessionId, ctx.sessionId),
-						holder.holderKind === "user"
-							? eq(sessionClaims.userId, holder.userId!)
-							: eq(sessionClaims.playerId, holder.playerId!),
-						isNull(sessionClaims.releasedAt),
-					),
-				);
-			if (claims.length === 0) {
+			if (!(await store.hasActiveClaim(ctx.sessionId, holder))) {
 				throw new PlayerNotFoundError(
 					"Player has no active claim in this session",
 				);

@@ -1,5 +1,4 @@
-import type { coc7e } from "@cogm/shared";
-import { getRuleComponent } from "@/rules/registry";
+import { FALLBACK_RULE_ID, getRuleComponent } from "@/rules/registry";
 
 export type CharacterCreationDraft = {
 	version: 1;
@@ -17,9 +16,6 @@ export type CharacterCreationDraftInput = Omit<
 const DRAFT_VERSION = 1;
 const KEY_PREFIX = "cogm.character-creation-draft.v1";
 
-export function createEmptyCharacterSheet(): coc7e.Coc7eCharacterSheet;
-export function createEmptyCharacterSheet(ruleId: string): unknown;
-export function createEmptyCharacterSheet(ruleId?: string): unknown;
 export function createEmptyCharacterSheet(ruleId?: string): unknown {
 	return getRuleComponent(ruleId).createEmptySheet();
 }
@@ -43,7 +39,7 @@ export function parseCharacterCreationDraft(
 		sheet = getRuleComponent(value.ruleId).parseSheet(value.sheet);
 		if (!sheet) return null;
 	} else if (value.sheet !== null) {
-		sheet = getRuleComponent("coc7e").parseSheet(value.sheet);
+		sheet = getRuleComponent(FALLBACK_RULE_ID).parseSheet(value.sheet);
 		if (!sheet) return null;
 	}
 	return {

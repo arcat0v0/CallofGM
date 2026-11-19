@@ -71,17 +71,6 @@ export class LoginUseCase {
 	}
 }
 
-export class LogoutUseCase {
-	constructor(
-		private readonly clock: Clock,
-		private readonly repo: IdentityRepository,
-	) {}
-
-	async execute(sessionId: string): Promise<void> {
-		await this.repo.revokeSession(sessionId, this.clock.nowEpochMs());
-	}
-}
-
 export class ChangeOwnPasswordUseCase {
 	constructor(
 		private readonly clock: Clock,

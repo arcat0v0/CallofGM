@@ -3,6 +3,7 @@ import type {
 	MusicProvider,
 	MusicTrackDto,
 } from "@cogm/shared";
+import type { ActorContext } from "@/modules/identity";
 
 export interface MusicService {
 	search(
@@ -22,4 +23,16 @@ export interface MusicService {
 		externalId: string,
 		range?: string,
 	): Promise<Response>;
+}
+
+export interface MusicTrackAccess {
+	source: string;
+	externalId: string | null;
+	moduleId: string;
+	ownerId: string;
+}
+
+export interface MusicTrackAccessRepository {
+	findById(id: string): Promise<MusicTrackAccess | undefined>;
+	hasActiveClaim(moduleId: string, actor: ActorContext): Promise<boolean>;
 }

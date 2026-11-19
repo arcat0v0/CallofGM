@@ -1,4 +1,7 @@
-export type { MusicService } from "./application/ports";
+export type {
+	MusicService,
+	MusicTrackAccessRepository,
+} from "./application/ports";
 export {
 	MusicNotFoundError,
 	MusicPlaylistEmptyError,
@@ -12,6 +15,7 @@ export {
 	MusicStreamTooLargeError,
 	MusicUnavailableError,
 } from "./domain/music-errors";
+export { DrizzleMusicTrackAccessRepository } from "./infrastructure/drizzle-music-track-access-repository";
 export {
 	type MusicFetch,
 	OfficialMusicService,

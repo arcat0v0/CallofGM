@@ -27,16 +27,8 @@ import {
 import { Elysia, t } from "elysia";
 import type { Container } from "@/bootstrap/container";
 import { corsOriginsFor } from "@/config/env";
-import {
-	AuthRequiredError,
-	createAuthPlugin,
-	DrizzleIdentityRepository,
-	requireGm,
-} from "@/modules/identity";
-import {
-	AddSessionCharacterUseCase,
-	DrizzleSessionsRepository,
-} from "@/modules/sessions";
+import { AuthRequiredError, requireGm } from "@/modules/identity";
+import { AddSessionCharacterUseCase } from "@/modules/sessions";
 import { AppError } from "@/platform/errors/app-error";
 import { validationFailed } from "@/platform/errors/validation";
 import { assertXlsxUploadSize } from "@/platform/file-type";
@@ -59,8 +51,6 @@ import {
 	ImportPreviewUseCase,
 	LinkModuleCharacterUseCase,
 	ListCharacterInvitesUseCase,
-	ListCharactersUseCase,
-	ListModuleCharactersUseCase,
 	ListReviewsUseCase,
 	PreviewCharacterSyncUseCase,
 	RevokeCharacterInviteUseCase,
@@ -69,7 +59,6 @@ import {
 	UpdateCharacterUseCase,
 	UpdatePortraitUseCase,
 } from "../application/use-cases";
-import { DrizzleCharactersRepository } from "../infrastructure/drizzle-characters-repository";
 
 function parseBody<T>(
 	schema: {
@@ -95,10 +84,7 @@ function parsePageQuery(query: unknown) {
 }
 
 export function createCharactersRoutes(container: Container) {
-	const repo = new DrizzleCharactersRepository(container.db);
-	const sessionsRepo = new DrizzleSessionsRepository(container.db);
-	const identityRepo = new DrizzleIdentityRepository(container.db);
-	const authPlugin = createAuthPlugin(identityRepo);
+	const { charactersRepo: repo, sessionsRepo, authPlugin } = container;
 
 	const createCharacter = new CreateCharacterUseCase(
 		repo,
@@ -114,7 +100,6 @@ export function createCharactersRoutes(container: Container) {
 	);
 	const deleteCharacter = new DeleteCharacterUseCase(repo, container.clock);
 	const getCharacter = new GetCharacterUseCase(repo);
-	const listCharacters = new ListCharactersUseCase(repo);
 	const getHistory = new GetCharacterHistoryUseCase(repo);
 	const getSheetContext = new GetCharacterSheetContextUseCase(
 		repo,
@@ -141,7 +126,6 @@ export function createCharactersRoutes(container: Container) {
 		container.idGenerator,
 		container.clock,
 	);
-	const listModuleCharacters = new ListModuleCharactersUseCase(repo);
 	const linkModuleCharacter = new LinkModuleCharacterUseCase(
 		repo,
 		container.idGenerator,
@@ -235,7 +219,7 @@ export function createCharactersRoutes(container: Container) {
 		.get("/", async ({ query, actor }) => {
 			const gm = requireGm(actor);
 			return CursorPageResponse(CharacterDto).parse(
-				await listCharacters.execute(gm.userId, parsePageQuery(query)),
+				await repo.listCharacters(gm.userId, parsePageQuery(query)),
 			);
 		})
 		.get("/:id", async ({ params: { id }, actor }) => {
@@ -451,7 +435,7 @@ export function createCharactersRoutes(container: Container) {
 		})
 		.get("/:id/characters", async ({ params, query }) => {
 			return CursorPageResponse(CharacterDto).parse(
-				await listModuleCharacters.execute(params.id, parsePageQuery(query)),
+				await repo.listModuleCharacters(params.id, parsePageQuery(query)),
 			);
 		})
 		.post("/:id/characters", async ({ params, body, actor }) => {
@@ -571,7 +555,7 @@ export function createCharactersRoutes(container: Container) {
 		.get("/", async ({ actor, query }) => {
 			const user = requireUser(actor);
 			return CursorPageResponse(CharacterDto).parse(
-				await listCharacters.execute(user.userId, parsePageQuery(query)),
+				await repo.listCharacters(user.userId, parsePageQuery(query)),
 			);
 		})
 		.post("/", async ({ actor, body }) => {

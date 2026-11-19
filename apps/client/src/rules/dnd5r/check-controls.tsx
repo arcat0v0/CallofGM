@@ -1,4 +1,4 @@
-import { dnd5r } from "@cogm/shared";
+import { dnd5r, type SnapshotCharacter } from "@cogm/shared";
 import { Dices, EyeOff, Send } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -26,12 +26,7 @@ import {
 } from "@/features/gm-console/gm-panel-fields";
 import { t } from "@/i18n";
 import { sendSessionCommand } from "@/lib/session-socket";
-import type {
-	RuleCheckOptions,
-	RuleCheckPanelProps,
-	RuleDiceTrayProps,
-} from "@/rules/registry";
-import { usePlayStore } from "@/stores/play-store";
+import type { RuleCheckPanelProps, RuleDiceTrayProps } from "../types";
 import {
 	ABILITIES,
 	abilityLabel,
@@ -79,7 +74,10 @@ export function DndCheckControls({
 	gm,
 	disabled,
 	onSubmitted,
-}: RuleDiceTrayProps) {
+	ruleState,
+}: Pick<RuleDiceTrayProps, "gm" | "disabled" | "onSubmitted" | "ruleState"> & {
+	character: SnapshotCharacter;
+}) {
 	const parsed = dnd5r.CharacterSheet.safeParse(character.sheet);
 	const derived = parsed.success ? dnd5r.deriveCharacter(parsed.data) : null;
 	const [kind, setKind] = useState<CheckKind>("skill");
@@ -92,9 +90,7 @@ export function DndCheckControls({
 	);
 	const [twoHanded, setTwoHanded] = useState(false);
 	const [hidden, setHidden] = useState(gm);
-	const encounter = dnd5r.EncounterState.safeParse(
-		usePlayStore((state) => state.ruleState),
-	);
+	const encounter = dnd5r.EncounterState.safeParse(ruleState);
 	const targets = encounter.success
 		? encounter.data.combatants.filter(
 				(item) => item.characterId !== character.characterId,
@@ -127,7 +123,7 @@ export function DndCheckControls({
 		Boolean(selectedAttack?.weapon?.versatileDie) &&
 		parsed.success &&
 		!parsed.data.shield;
-	const options: RuleCheckOptions = {
+	const options: dnd5r.CheckOptions = {
 		mode,
 		...(dcAllowed && dcNumber !== undefined && validDc ? { dc: dcNumber } : {}),
 		...(targetedAttack ? { targetId: selectedTargetId } : {}),
@@ -401,12 +397,24 @@ export function DndCheckControls({
 	);
 }
 
-export function DndDiceTray(props: RuleDiceTrayProps) {
-	const [selectedId, setSelectedId] = useState(props.character.characterId);
+export function DndDiceTray({ active, ...props }: RuleDiceTrayProps) {
+	return active ? <DndDiceTrayControls {...props} /> : null;
+}
+
+function DndDiceTrayControls(props: Omit<RuleDiceTrayProps, "active">) {
+	const [selectedId, setSelectedId] = useState(
+		props.character?.characterId ?? "",
+	);
 	const character = props.gm
 		? (props.characters.find((item) => item.characterId === selectedId) ??
 			props.character)
 		: props.character;
+	if (!character)
+		return (
+			<p className="text-body-medium text-foreground-secondary">
+				{t("gm.console.noTarget")}
+			</p>
+		);
 	return (
 		<FieldGroup>
 			{props.gm ? (
@@ -428,12 +436,22 @@ export function DndDiceTray(props: RuleDiceTrayProps) {
 					</Select>
 				</Field>
 			) : null}
-			<DndCheckControls {...props} character={character} />
+			<DndCheckControls
+				character={character}
+				gm={props.gm}
+				disabled={props.disabled}
+				ruleState={props.ruleState}
+				onSubmitted={props.onSubmitted}
+			/>
 		</FieldGroup>
 	);
 }
 
-export function DndGmCheckPanel({ characters, onClose }: RuleCheckPanelProps) {
+export function DndGmCheckPanel({
+	characters,
+	ruleState,
+	onClose,
+}: RuleCheckPanelProps) {
 	const [characterId, setCharacterId] = useState("");
 	const character =
 		characters.find((item) => item.characterId === characterId) ??
@@ -460,7 +478,7 @@ export function DndGmCheckPanel({ characters, onClose }: RuleCheckPanelProps) {
 					</GmSelectField>
 					<DndCheckControls
 						character={character}
-						characters={characters}
+						ruleState={ruleState}
 						gm
 						disabled={false}
 					/>

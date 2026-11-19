@@ -1,9 +1,40 @@
 import { type Env, parseEnv } from "@/config/env";
-import { type MusicService, OfficialMusicService } from "@/modules/music";
+import { DrizzleTrashRepository, type TrashRepository } from "@/modules/admin";
+import {
+	type CatalogRepository,
+	DrizzleCatalogRepository,
+} from "@/modules/catalog";
+import {
+	type CharactersRepository,
+	DrizzleCharactersRepository,
+} from "@/modules/characters";
+import {
+	createAuthPlugin,
+	DrizzleIdentityRepository,
+	type IdentityRepository,
+} from "@/modules/identity";
+import {
+	DrizzleMediaRepository,
+	LocalMediaStorage,
+	type MediaRepository,
+	type MediaStorage,
+} from "@/modules/media";
+import {
+	DrizzleModerationRepository,
+	type ModerationRepository,
+} from "@/modules/moderation";
+import {
+	DrizzleMusicTrackAccessRepository,
+	type MusicService,
+	type MusicTrackAccessRepository,
+	OfficialMusicService,
+} from "@/modules/music";
 import {
 	BuildSessionSnapshotUseCase,
 	type CommandHandler,
 	ConnectionRegistry,
+	DrizzleActiveClaimLookup,
+	DrizzleVoiceSessionStore,
 	EventRingBuffer,
 	PresenceService,
 	SessionCommandExecutor,
@@ -11,7 +42,23 @@ import {
 	SessionHistoryRecorder,
 	VoiceService,
 } from "@/modules/realtime";
-import { ThemeRegistry } from "@/modules/themes";
+import {
+	DrizzleSessionsRepository,
+	type SessionsRepository,
+} from "@/modules/sessions";
+import {
+	DrizzleTemplatesRepository,
+	type TemplatesRepository,
+} from "@/modules/templates";
+import {
+	DrizzleThemeUsageRepository,
+	ThemeRegistry,
+	type ThemeUsageRepository,
+} from "@/modules/themes";
+import {
+	DrizzleUiSettingsRepository,
+	type UiSettingsRepository,
+} from "@/modules/ui-settings";
 import { createDb, type DbClient, type DbContext } from "@/platform/db/client";
 import {
 	DrizzleTransactionRunner,
@@ -44,6 +91,20 @@ export class Container {
 	readonly httpLimits: HttpLimits;
 	readonly themeRegistry: ThemeRegistry;
 
+	readonly identityRepo: IdentityRepository;
+	readonly authPlugin: ReturnType<typeof createAuthPlugin>;
+	readonly sessionsRepo: SessionsRepository;
+	readonly charactersRepo: CharactersRepository;
+	readonly catalogRepo: CatalogRepository;
+	readonly moderationRepo: ModerationRepository;
+	readonly templatesRepo: TemplatesRepository;
+	readonly uiSettingsRepo: UiSettingsRepository;
+	readonly mediaStorage: MediaStorage;
+	readonly mediaRepo: MediaRepository;
+	readonly musicTrackAccessRepo: MusicTrackAccessRepository;
+	readonly trashRepo: TrashRepository;
+	readonly themeUsageRepo: ThemeUsageRepository;
+
 	readonly musicService: MusicService;
 	readonly connectionRegistry: ConnectionRegistry;
 	readonly eventRingBuffer: EventRingBuffer;
@@ -67,6 +128,19 @@ export class Container {
 		this.env = parseEnv();
 		this.dbContext = createDb(this.env.DATABASE_URL);
 		this.db = this.dbContext.db;
+		this.identityRepo = new DrizzleIdentityRepository(this.db);
+		this.authPlugin = createAuthPlugin(this.identityRepo);
+		this.sessionsRepo = new DrizzleSessionsRepository(this.db);
+		this.charactersRepo = new DrizzleCharactersRepository(this.db);
+		this.catalogRepo = new DrizzleCatalogRepository(this.db);
+		this.moderationRepo = new DrizzleModerationRepository(this.db);
+		this.templatesRepo = new DrizzleTemplatesRepository(this.db);
+		this.uiSettingsRepo = new DrizzleUiSettingsRepository(this.db);
+		this.mediaStorage = new LocalMediaStorage(this.env.MEDIA_DIR);
+		this.mediaRepo = new DrizzleMediaRepository(this.db);
+		this.musicTrackAccessRepo = new DrizzleMusicTrackAccessRepository(this.db);
+		this.trashRepo = new DrizzleTrashRepository(this.db);
+		this.themeUsageRepo = new DrizzleThemeUsageRepository(this.db);
 		this.transactionRunner = new DrizzleTransactionRunner(this.db);
 		this.clock = overrides.clock ?? new SystemClock();
 		this.idGenerator = overrides.idGenerator ?? new UuidGenerator();
@@ -84,9 +158,11 @@ export class Container {
 		this.ruleRegistry.register(new Dnd5rRuleSystem());
 		this.themeRegistry = new ThemeRegistry(this.env.THEMES_DIR, this.clock);
 
-		this.connectionRegistry = new ConnectionRegistry(this.db);
+		this.connectionRegistry = new ConnectionRegistry(
+			new DrizzleActiveClaimLookup(this.db),
+		);
 		this.voiceService = new VoiceService(
-			this.db,
+			new DrizzleVoiceSessionStore(this.db),
 			this.connectionRegistry,
 			this.env,
 		);

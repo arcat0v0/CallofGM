@@ -12,11 +12,10 @@ import {
 	RespondCheckRequestCommand,
 	RollDiceCommand,
 	RuleActionCommand,
-	SpendLuckCommand,
 	type RuleId,
 	type SessionPhase,
+	SpendLuckCommand,
 } from "@cogm/shared";
-import { and, eq, isNull } from "drizzle-orm";
 import { CharacterNotFoundError } from "@/modules/characters";
 import { ForbiddenError } from "@/modules/identity";
 import type {
@@ -30,9 +29,12 @@ import {
 	SessionStateInvalidError,
 } from "@/modules/sessions";
 import type { DbClient } from "@/platform/db/client";
-import { sessionCharacters, sessions } from "@/platform/db/schema";
 import { AppError } from "@/platform/errors/app-error";
 import { validationFailed } from "@/platform/errors/validation";
+import {
+	requireLuckCapability,
+	requireSanityCheckCapability,
+} from "@/rules/capabilities";
 import {
 	formatExpression,
 	formatRollDetail,
@@ -40,7 +42,14 @@ import {
 	rollDice,
 } from "@/rules/dice-engine";
 import type { RuleRegistry } from "@/rules/registry";
-import { type RuleCheckResult, type RuleMutation, type RuleRuntime, type RuleSystem, type RuntimeCharacter, unsupportedRuleAction } from "@/rules/rule-system";
+import {
+	type CheckInput,
+	type RuleMutation,
+	type RuleRuntime,
+	type RuleSystem,
+	type RuntimeCharacter,
+	unsupportedRuleAction,
+} from "@/rules/rule-system";
 import {
 	CheckRequestAlreadyResolvedError,
 	CheckRequestNotFoundError,
@@ -50,7 +59,6 @@ import {
 	LuckSpendInvalidPointsError,
 	LuckSpendNotAllowedError,
 	LuckSpendNotLatestError,
-	SkillNotFoundError,
 } from "../domain/errors";
 import type { GameplayRepository } from "./ports";
 
@@ -143,15 +151,27 @@ function runtimeCharacter(loaded: LoadedCharacterContext): RuntimeCharacter<unkn
 	return { id: loaded.character.id, name: loaded.sessionCharacter.name, kind: loaded.sessionCharacter.kind === "npc" ? "npc" : "pc", sheet: loaded.sheet, state: loaded.state };
 }
 
-async function resolveCheck(ctx: CommandHandlerContext, runtime: RuleRuntime<unknown, unknown>, loaded: LoadedCharacterContext, input: PerformCheckCommand): Promise<RuleCheckResult<unknown>> {
-	const { rule, sheet, state } = loaded;
-	if (rule.resolveCheck) return rule.resolveCheck(runtimeCharacter(loaded), input.skillKey, input.options, runtime);
-	if (input.options !== undefined) unsupportedRuleAction();
-	const targetValue = rule.getSkillTargetValue(sheet, input.skillKey);
-	if (targetValue === null) throw new SkillNotFoundError();
-	const result = rule.evaluateSkillCheck({ characterId: input.characterId, skillKey: input.skillKey, targetValue, difficulty: input.difficulty, bonusDice: input.bonusDice, penaltyDice: input.penaltyDice }, ctx.randomSource);
-	if (!isGrowthEligible(result)) return { result };
-	return { result, mutations: [{ characterId: input.characterId, state: runtime.hidden ? rule.markSkillGrowthHidden(state, input.skillKey) : rule.markSkillGrowth(state, input.skillKey), hints: [] }] };
+function checkInput(
+	input: {
+		options?: unknown;
+		difficulty: string;
+		bonusDice: number;
+		penaltyDice: number;
+	},
+	payload: unknown = input,
+): CheckInput {
+	if (input.options !== undefined) return { options: input.options };
+	if (payload === null || typeof payload !== "object") return undefined;
+	if (
+		!(
+			"difficulty" in payload ||
+			"bonusDice" in payload ||
+			"penaltyDice" in payload
+		)
+	)
+		return undefined;
+	const { difficulty, bonusDice, penaltyDice } = input;
+	return { legacy: { difficulty, bonusDice, penaltyDice } };
 }
 
 async function persistRuleMutations(ctx: CommandHandlerContext, repo: GameplayRepository, rule: RuleSystem<unknown, unknown>, runtime: RuleRuntime<unknown, unknown>, mutations: RuleMutation<unknown>[] | undefined, eventIsPrivate: boolean) {
@@ -165,23 +185,9 @@ async function persistRuleMutations(ctx: CommandHandlerContext, repo: GameplayRe
 	return events;
 }
 
-async function loadNpcPublicStateFields(
-	tx: DbClient,
-	sessionId: string,
-	characterId: string,
-): Promise<string[]> {
-	const rows = await tx
-		.select({ fieldsJson: sessionCharacters.publicStateFieldsJson })
-		.from(sessionCharacters)
-		.where(
-			and(
-				eq(sessionCharacters.sessionId, sessionId),
-				eq(sessionCharacters.characterId, characterId),
-				isNull(sessionCharacters.deletedAt),
-			),
-		);
+function parseNpcPublicStateFields(fieldsJson: string | undefined): string[] {
 	try {
-		const parsed: unknown = JSON.parse(rows[0]?.fieldsJson ?? "[]");
+		const parsed: unknown = JSON.parse(fieldsJson ?? "[]");
 		return Array.isArray(parsed)
 			? parsed.filter((field): field is string => typeof field === "string")
 			: [];
@@ -210,7 +216,10 @@ async function persistStateAndBuildEvents(
 
 	const isNpc = kind === "npc";
 	const publicStateFields = isNpc
-		? await loadNpcPublicStateFields(ctx.tx, ctx.sessionId, characterId)
+		? parseNpcPublicStateFields(
+				(await repo.findSessionCharacter(ctx.sessionId, characterId))
+					?.publicStateFieldsJson,
+			)
 		: [];
 	const publicState = isNpc
 		? rule.projectPublicSessionState(newState, publicStateFields)
@@ -335,29 +344,6 @@ function parseSanLossExpression(expression: string): {
 	return { successLoss: parts[0].trim(), failureLoss: parts[1].trim() };
 }
 
-function isGrowthEligible(result: unknown): boolean {
-	if (!result || typeof result !== "object") {
-		return false;
-	}
-	const record = result as {
-		growthEligible?: unknown;
-		outcome?: unknown;
-		success?: unknown;
-	};
-	if (typeof record.growthEligible === "boolean") {
-		return record.growthEligible;
-	}
-	if (typeof record.outcome === "string") {
-		return (
-			record.outcome === "critical" ||
-			record.outcome === "extreme_success" ||
-			record.outcome === "hard_success" ||
-			record.outcome === "regular_success"
-		);
-	}
-	return record.success === true;
-}
-
 export class RollDiceHandler implements CommandHandler {
 	readonly type = "dice:roll" as const;
 
@@ -443,7 +429,12 @@ export class PerformCheckHandler implements CommandHandler {
 		const loaded = await loadCharacterContext(ctx, repo, input.characterId, this.ruleRegistry);
 		const { sessionCharacter, rule } = loaded;
 		const runtime = buildRuleRuntime(ctx, repo, this.ruleRegistry, hidden);
-		const { result, mutations } = await resolveCheck(ctx, runtime, loaded, input);
+		const { result, mutations } = await rule.resolveCheck(
+			runtimeCharacter(loaded),
+			input.skillKey,
+			checkInput(input, payload),
+			runtime,
+		);
 
 		const events: ProducedEvent[] = withSealedDiceEvent(
 			[
@@ -505,8 +496,9 @@ export class PerformSanCheckHandler implements CommandHandler {
 				this.ruleRegistry,
 			);
 
-		const sanCurrent = rule.getSanCurrent(state);
-		const sanResult = rule.evaluateSanCheck(
+		const sanRule = requireSanityCheckCapability(rule);
+		const sanCurrent = sanRule.getSanCurrent(state);
+		const sanResult = sanRule.evaluateSanCheck(
 			{
 				characterId: input.characterId,
 				sanCurrent,
@@ -514,7 +506,7 @@ export class PerformSanCheckHandler implements CommandHandler {
 				failureLoss,
 			},
 			ctx.randomSource,
-		) as { loss: number };
+		);
 
 		const events: ProducedEvent[] = withSealedDiceEvent(
 			[
@@ -535,10 +527,7 @@ export class PerformSanCheckHandler implements CommandHandler {
 			hidden,
 		);
 
-		const mutated = rule.applySanLoss(state, sanResult.loss) as {
-			state: unknown;
-			hints: string[];
-		};
+		const mutated = sanRule.applySanLoss(state, sanResult.loss);
 		events.push(
 			...(await persistStateAndBuildEvents(
 				ctx,
@@ -584,7 +573,7 @@ export class CreateCheckRequestHandler implements CommandHandler {
 			input.characterId,
 			this.ruleRegistry,
 		);
-		const { sessionCharacter, rule, sheet } = loaded;
+		const { sessionCharacter, rule } = loaded;
 
 		if (sessionCharacter.kind !== "pc") {
 			throw new AppError(
@@ -593,12 +582,19 @@ export class CreateCheckRequestHandler implements CommandHandler {
 				400,
 			);
 		}
-		const runtime = buildRuleRuntime(ctx, repo, this.ruleRegistry, input.hidden === true, true);
-		const options = rule.validateCheckOptions ? await rule.validateCheckOptions(runtimeCharacter(loaded), input.skillKey, input.options, runtime) : undefined;
-		if (!rule.validateCheckOptions) {
-			if (input.options !== undefined) unsupportedRuleAction();
-			if (rule.getSkillTargetValue(sheet, input.skillKey) === null) throw new SkillNotFoundError();
-		}
+		const runtime = buildRuleRuntime(
+			ctx,
+			repo,
+			this.ruleRegistry,
+			input.hidden === true,
+			true,
+		);
+		const options = await rule.validateCheckOptions(
+			runtimeCharacter(loaded),
+			input.skillKey,
+			checkInput(input, payload),
+			runtime,
+		);
 
 		const now = ctx.clock.nowEpochMs();
 		const requestId = ctx.idGenerator.nextId();
@@ -682,8 +678,22 @@ export class RespondCheckRequestHandler implements CommandHandler {
 		const loaded = await loadCharacterContext(ctx, repo, request.characterId, this.ruleRegistry);
 		const { sessionCharacter, rule } = loaded;
 		const hidden = request.hidden === 1;
-		const runtime = buildRuleRuntime(ctx, repo, this.ruleRegistry, hidden, true);
-		const { result: skillResult, mutations } = await resolveCheck(ctx, runtime, loaded, { characterId: request.characterId, skillKey: request.skillKey, difficulty: request.difficulty as PerformCheckCommand["difficulty"], bonusDice: request.bonusDice, penaltyDice: request.penaltyDice, options: request.optionsJson ? JSON.parse(request.optionsJson) : undefined });
+		const runtime = buildRuleRuntime(
+			ctx,
+			repo,
+			this.ruleRegistry,
+			hidden,
+			true,
+		);
+		const input = request.optionsJson
+			? { options: JSON.parse(request.optionsJson) }
+			: checkInput(request);
+		const { result: skillResult, mutations } = await rule.resolveCheck(
+			runtimeCharacter(loaded),
+			request.skillKey,
+			input,
+			runtime,
+		);
 
 		const resultJson = JSON.stringify(skillResult);
 		const casOk = await repo.resolveCheckRequestIfPending(
@@ -811,19 +821,17 @@ export class SpendLuckHandler implements CommandHandler {
 			throw new LuckSpendAlreadyUsedError();
 		}
 
-		const luckCurrent = rule.getLuckCurrent(state);
+		const luckRule = requireLuckCapability(rule);
+		const luckCurrent = luckRule.getLuckCurrent(state);
 		if (input.points > luckCurrent) {
 			throw new LuckSpendInsufficientError();
 		}
-		const mutated = rule.spendLuckOnCheck(
+		const mutated = luckRule.spendLuckOnCheck(
 			state,
 			latest.payload.result,
 			input.points,
 		);
-		const amended = mutated.result as {
-			luckSpent?: number;
-			luckAfter?: number;
-		};
+		const amended = mutated.result;
 		if (
 			amended.luckSpent !== input.points ||
 			typeof amended.luckAfter !== "number"
@@ -913,7 +921,10 @@ export class LuckRecoverHandler implements CommandHandler {
 			);
 		}
 
-		const recovered = rule.recoverLuck(state, ctx.randomSource);
+		const recovered = requireLuckCapability(rule).recoverLuck(
+			state,
+			ctx.randomSource,
+		);
 		const recoveredPayload: LuckRecoveredEvent = {
 			characterId: input.characterId,
 			characterName: character.name,
@@ -1023,8 +1034,15 @@ class RuleActionHandler implements CommandHandler {
 		const update = await rule.applyRuleAction(parsed.data, runtime);
 		const events = await persistRuleMutations(ctx, repo, rule, runtime, update.mutations, false);
 		if (update.ruleState !== undefined) {
-			await ctx.tx.update(sessions).set({ ruleStateJson: update.ruleState === null ? null : JSON.stringify(update.ruleState) }).where(eq(sessions.id, ctx.sessionId));
-			events.push({ type: "rule:state-changed", payload: { ruleId: rule.id, state: update.ruleState }, visibility: { type: "public" } });
+			await repo.updateSessionRuleState(
+				ctx.sessionId,
+				update.ruleState === null ? null : JSON.stringify(update.ruleState),
+			);
+			events.push({
+				type: "rule:state-changed",
+				payload: { ruleId: rule.id, state: update.ruleState },
+				visibility: { type: "public" },
+			});
 		}
 		return { events, replyPayload: { ok: true } };
 	}

@@ -1,6 +1,5 @@
 import type { SessionEvent } from "@cogm/shared";
 import { t } from "@/i18n";
-import { checkDiceModifier, parseTensCandidates } from "@/lib/check-dice";
 import { getRuleComponent } from "@/rules/registry";
 import {
 	type DiceAnimationRequest,
@@ -55,64 +54,13 @@ export function diceAnimationFromMessage(
 			skin,
 		};
 	}
-
-	if (message.type === "check:resolved") {
-		if (payload.hidden === true) return null;
-		const result = isRecord(payload.result) ? payload.result : null;
-		const rule =
-			typeof result?.ruleId === "string"
-				? getRuleComponent(result.ruleId)
-				: null;
-		const d20 = rule?.parseD20Check?.(result);
-		if (d20) {
-			return {
-				id: `check-${eventId}`,
-				eventId: message.eventId,
-				kind: "roll",
-				faces: 20,
-				rolls: d20.rolls,
-				total: d20.total,
-				label: t("dice.animationResult", { total: d20.total }),
-				skin,
-			};
-		}
-		const roll =
-			result && typeof result.roll === "number" && Number.isFinite(result.roll)
-				? result.roll
-				: null;
-		if (roll === null) return null;
-		const outcome =
-			result && typeof result.outcome === "string"
-				? result.outcome
-				: String(result?.success ?? "unknown");
-		const modifier = result ? checkDiceModifier(result) : null;
-		const tensCandidates = result
-			? parseTensCandidates(result.tensCandidates)
-			: [];
-		return {
-			id: `check-${eventId}`,
-			eventId: message.eventId,
-			kind: "check",
-			roll,
-			outcome,
-			...(modifier ? { tensCandidates } : {}),
-			label: t("dice.animationResult", { total: roll }),
-			...(modifier
-				? {
-						caption: t(
-							modifier.kind === "bonus"
-								? "dice.animationBonus"
-								: "dice.animationPenalty",
-							{
-								candidates: modifier.candidates.join(" / "),
-								picked: modifier.picked,
-							},
-						),
-					}
-				: {}),
-			skin,
-		};
-	}
-
-	return null;
+	if (payload.hidden === true || !isRecord(payload.result)) return null;
+	const result = payload.result;
+	const rule = getRuleComponent(
+		typeof result.ruleId === "string" ? result.ruleId : undefined,
+	);
+	const animation = rule.buildCheckDiceAnimation(result);
+	return animation
+		? { ...animation, id: `check-${eventId}`, eventId: message.eventId, skin }
+		: null;
 }

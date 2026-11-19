@@ -1,4 +1,7 @@
 import { expect, test } from "bun:test";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
 	CharacterDto,
 	CharacterInviteDto,
@@ -9,11 +12,9 @@ import {
 	dnd5r,
 	JoinInfoResponse,
 	RuleListResponse,
+	SessionDetailResponse,
 	SessionSnapshotPayload,
 } from "@cogm/shared";
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { createApp } from "@/app";
 import { Container } from "@/bootstrap/container";
 import { buildCommandHandlers } from "@/bootstrap/handlers";
@@ -90,6 +91,12 @@ test("a player-created 5R character joins by review and plays through rewind and
 	try {
 		const rules = RuleListResponse.parse(await request("/rules", gmToken));
 		expect(rules.map(({ id }) => id)).toEqual(["coc7e", "dnd5r"]);
+		expect(rules.map(({ permanentFieldRange }) => permanentFieldRange)).toEqual(
+			[
+				{ min: 1, max: 99 },
+				{ min: 1, max: 30 },
+			],
+		);
 		const base = dnd5r.createBlankSheet();
 		const pc = CharacterDto.parse(
 			await request("/pl/characters", pcToken, "POST", {
@@ -185,6 +192,25 @@ test("a player-created 5R character joins by review and plays through rewind and
 		).toMatchObject([{ id: pc.id, claimable: true, claimed: false }]);
 		const endpoints = `/gm/sessions/${session.id}`;
 		const publicEndpoints = `/sessions/${session.id}`;
+		const detail = SessionDetailResponse.parse(
+			await request(endpoints, gmToken),
+		);
+		expect(
+			detail.characters.map(({ characterId, state }) => ({
+				characterId,
+				state,
+			})),
+		).toEqual(
+			expect.arrayContaining(
+				[pc.id, goblin.id].map((characterId) => ({
+					characterId,
+					state: expect.objectContaining({
+						sessionId: session.id,
+						characterId,
+					}),
+				})),
+			),
+		);
 		await request(`${endpoints}/status`, gmToken, "POST", {
 			status: "preparing",
 		});
@@ -218,6 +244,28 @@ test("a player-created 5R character joins by review and plays through rewind and
 					?.state,
 			),
 		).toMatchObject({ hp: 12, hitDice: 1 });
+		await expect(
+			reply(gm, "check:san", { characterId: pc.id, sanLossExpression: "0/1" }),
+		).resolves.toMatchObject({
+			type: "command:rejected",
+			payload: { code: "RULE_ACTION_UNSUPPORTED" },
+		});
+		await expect(
+			reply(gm, "luck:recover", { characterId: pc.id }),
+		).resolves.toMatchObject({
+			type: "command:rejected",
+			payload: { code: "RULE_ACTION_UNSUPPORTED" },
+		});
+		await expect(
+			reply(player, "check:spend-luck", {
+				characterId: pc.id,
+				eventId: 1,
+				points: 1,
+			}),
+		).resolves.toMatchObject({
+			type: "command:rejected",
+			payload: { code: "LUCK_SPEND_NOT_LATEST" },
+		});
 		await expect(
 			reply(ob, "check:perform", {
 				characterId: pc.id,
@@ -267,6 +315,8 @@ test("a player-created 5R character joins by review and plays through rewind and
 		const { requestId } = await accepted(gm, "check:request", {
 			characterId: pc.id,
 			skillKey: "save:con",
+			difficulty: "extreme",
+			bonusDice: 2,
 			options: { mode: "advantage", dc: 16 },
 			hidden: true,
 		});
@@ -391,6 +441,8 @@ test("a player-created 5R character joins by review and plays through rewind and
 		await accepted(player, "check:perform", {
 			characterId: pc.id,
 			skillKey: "death",
+			difficulty: "extreme",
+			bonusDice: 2,
 		});
 		let dying = await snapshot(await connect(gmToken));
 		expect(
@@ -522,6 +574,28 @@ test("a player-created 5R character joins by review and plays through rewind and
 				}),
 			).resolves.toMatchObject({ type: "command:rejected" });
 		}
+		await request(`${endpoints}/status`, gmToken, "POST", { status: "ended" });
+		const growth = await fetch(
+			`http://127.0.0.1:${server.server.port}/api/v1${endpoints}/growth/confirm`,
+			{
+				method: "POST",
+				headers: {
+					Authorization: `Bearer ${gmToken}`,
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({
+					gains: [{ skillKey: "credit rating", delta: 5 }],
+				}),
+			},
+		);
+		expect(growth.status).toBe(400);
+		expect(await growth.json()).toMatchObject({
+			code: "RULE_ACTION_UNSUPPORTED",
+		});
+		const afterGrowth = CharacterDto.parse(
+			await request(`/pl/characters/${pc.id}`, pcToken),
+		);
+		expect(afterGrowth.version).toBe(updated.version);
 	} finally {
 		await Promise.all(sockets.map(closeWs));
 		await stopServer(server);

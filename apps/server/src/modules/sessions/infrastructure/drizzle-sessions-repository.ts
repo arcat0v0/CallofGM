@@ -12,8 +12,8 @@ import {
 	sql,
 } from "drizzle-orm";
 import type { DbClient } from "@/platform/db/client";
+import { loadHolderDisplayNames } from "@/platform/db/holder-display-names";
 import {
-	anonymousPlayers,
 	characterReviews,
 	characters,
 	moduleCharacters,
@@ -98,13 +98,6 @@ export class DrizzleSessionsRepository implements SessionsRepository {
 		db: DbClient = this.db,
 	) {
 		await db.update(sessions).set(updates).where(eq(sessions.id, id));
-	}
-
-	async softDeleteSession(id: string, deletedAt: number): Promise<void> {
-		await this.db
-			.update(sessions)
-			.set({ deletedAt })
-			.where(eq(sessions.id, id));
 	}
 
 	async createSession(
@@ -343,6 +336,24 @@ export class DrizzleSessionsRepository implements SessionsRepository {
 		return (result[0] as ClaimRecord | undefined) ?? null;
 	}
 
+	async hasActiveClaim(
+		sessionId: string,
+		holder: SeatHolderInput,
+	): Promise<boolean> {
+		const claims = await this.db
+			.select({ id: sessionClaims.id })
+			.from(sessionClaims)
+			.where(
+				and(
+					eq(sessionClaims.sessionId, sessionId),
+					holderCondition(holder, sessionClaims),
+					isNull(sessionClaims.releasedAt),
+				),
+			)
+			.limit(1);
+		return claims.length > 0;
+	}
+
 	async releaseHolderClaims(
 		sessionId: string,
 		holder: SeatHolderInput,
@@ -572,7 +583,7 @@ export class DrizzleSessionsRepository implements SessionsRepository {
 				),
 			);
 
-		const holderNames = await this.loadHolderDisplayNames(activeClaims);
+		const holderNames = await loadHolderDisplayNames(this.db, activeClaims);
 
 		const claimMap = new Map<
 			string,
@@ -759,38 +770,6 @@ export class DrizzleSessionsRepository implements SessionsRepository {
 			displayName: holderNames.get(`${holderKind}:${holderId}`) ?? null,
 			role: claim.role,
 		};
-	}
-
-	private async loadHolderDisplayNames(
-		claims: Array<typeof sessionClaims.$inferSelect>,
-	): Promise<Map<string, string>> {
-		const names = new Map<string, string>();
-		const userIds = claims
-			.map((c) => c.userId)
-			.filter((id): id is string => Boolean(id));
-		const playerIds = claims
-			.map((c) => c.playerId)
-			.filter((id): id is string => Boolean(id));
-
-		if (userIds.length > 0) {
-			const rows = await this.db
-				.select({ id: users.id, username: users.username })
-				.from(users)
-				.where(inArray(users.id, userIds));
-			for (const row of rows) {
-				names.set(`user:${row.id}`, row.username);
-			}
-		}
-		if (playerIds.length > 0) {
-			const rows = await this.db
-				.select({ id: anonymousPlayers.id })
-				.from(anonymousPlayers)
-				.where(inArray(anonymousPlayers.id, playerIds));
-			for (const row of rows) {
-				names.set(`player:${row.id}`, `观战 ${row.id.slice(0, 8)}`);
-			}
-		}
-		return names;
 	}
 
 	async findActiveSessionKick(

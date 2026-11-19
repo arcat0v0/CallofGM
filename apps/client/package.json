@@ -8,6 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
+    "check:boundaries": "bun run scripts/check-boundaries.ts",
     "test": "bun test --preload ./tests/setup.ts --isolate tests"
   },
   "dependencies": {

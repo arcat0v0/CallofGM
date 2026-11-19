@@ -7,7 +7,10 @@ import {
 	createHistoryCommandHandlers,
 	createHistoryRewindCommandHandlers,
 } from "@/modules/realtime";
-import { createStageCommandHandlers } from "@/modules/sessions";
+import {
+	createStageCommandHandlers,
+	DrizzleStageCommandRepository,
+} from "@/modules/sessions";
 import type { Container } from "./container";
 
 /**
@@ -18,7 +21,10 @@ export function buildCommandHandlers(container: Container): CommandHandler[] {
 	return [
 		...createChatCommandHandlers(),
 		...createGameplayCommandHandlers(container.ruleRegistry),
-		...createStageCommandHandlers(container.ruleRegistry),
+		...createStageCommandHandlers(
+			container.ruleRegistry,
+			(tx) => new DrizzleStageCommandRepository(tx),
+		),
 		...createHandoutCommandHandlers(),
 		...createModerationCommandHandlers(),
 		...createHistoryCommandHandlers(),

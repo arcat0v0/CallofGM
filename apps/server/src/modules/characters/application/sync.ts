@@ -1,8 +1,8 @@
 import type { CharacterSyncDiffDto } from "@cogm/shared";
-import type { SessionsRepository } from "@/modules/sessions";
 import {
+	SessionLifecycle,
 	SessionNotFoundError,
-	SessionStateInvalidError,
+	type SessionsRepository,
 } from "@/modules/sessions";
 import type { Clock } from "@/platform/ports";
 import type { RuleRegistry } from "@/rules/registry";
@@ -35,13 +35,15 @@ function buildStatePreview(
 	ruleId: string,
 	newSheetJson: string,
 	stateJson: string,
-): SyncStatePreview | undefined {
+): SyncStatePreview {
 	const rule = ruleRegistry.get(ruleId);
 	const sheet = rule.characterSheetSchema.parse(JSON.parse(newSheetJson));
-	if (!rule.projectSyncState) return undefined;
 	const state = rule.sessionStateSchema.parse(JSON.parse(stateJson));
 	const next = rule.recalculateStateOnSync(state, sheet);
-	return { current: rule.projectSyncState(state), next: rule.projectSyncState(next) };
+	return {
+		current: rule.projectSyncState(state),
+		next: rule.projectSyncState(next),
+	};
 }
 
 export class PreviewCharacterSyncUseCase {
@@ -129,11 +131,7 @@ export class ApplyCharacterSyncUseCase {
 		if (!session || session.ownerId !== input.ownerId) {
 			throw new SessionNotFoundError();
 		}
-		if (session.status === "ended") {
-			throw new SessionStateInvalidError(
-				"Cannot sync characters in an ended session",
-			);
-		}
+		new SessionLifecycle(session).assertCanModifyRosterOrSync("sync");
 
 		const snapshot = await this.sessions.findSessionCharacterSnapshot(
 			input.sessionId,

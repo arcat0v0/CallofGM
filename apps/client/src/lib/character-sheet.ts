@@ -3,16 +3,9 @@ import { t } from "@/i18n";
 import { mediaUrl } from "@/lib/api";
 import { expressionLabel, initialsOf } from "@/lib/format";
 import { getRuleComponent } from "@/rules/registry";
+import type { RuleSummaryMetric } from "@/rules/types";
 
 export type CharacterKind = "PC" | "NPC";
-
-export type DerivedStats = {
-	hp: { current: number; max: number };
-	mp: { current: number; max: number };
-	san: { current: number; max: number };
-	luck: number;
-	mov: number;
-};
 
 export type Attribute = { label: string; abbr: string; value: number };
 
@@ -39,7 +32,7 @@ export type GameCharacter = {
 	expressions: string[];
 	portraits: CharacterPortrait[];
 	sheet: unknown;
-	derived: DerivedStats;
+	metrics: RuleSummaryMetric[];
 	attributes: Attribute[];
 	skills: Skill[];
 };
@@ -89,15 +82,7 @@ export function mapCharacterRow(row: CharacterRow): GameCharacter {
 				: [t("expression.default")],
 		portraits,
 		sheet,
-		derived: sheet
-			? rule.deriveStats(sheet)
-			: {
-					hp: { current: 1, max: 1 },
-					mp: { current: 0, max: 0 },
-					san: { current: 0, max: 0 },
-					luck: 0,
-					mov: 8,
-				},
+		metrics: rule.summaryMetrics(sheet),
 		attributes: rule.attributeEntries(sheet).map(({ key, label, value }) => ({
 			label,
 			abbr: rule.attributePair(key)?.abbr ?? key.toUpperCase(),

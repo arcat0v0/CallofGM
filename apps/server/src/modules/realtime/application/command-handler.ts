@@ -1,7 +1,7 @@
 import type { ClientCommandType } from "@cogm/shared";
 import type { ActorContext } from "@/modules/identity";
+import type { SessionRecord } from "@/modules/sessions";
 import type { DbClient } from "@/platform/db/client";
-import type { sessions } from "@/platform/db/schema";
 import type { Clock, IdGenerator, RandomSource } from "@/platform/ports";
 import type { VisibilityScope } from "../domain/visibility";
 import type { StagedEvents } from "../session-event-bus";
@@ -17,7 +17,7 @@ export interface ProducedEvent {
 export interface CommandHandlerContext {
 	tx: DbClient;
 	sessionId: string;
-	session: typeof sessions.$inferSelect;
+	session: SessionRecord;
 	actor: ActorContext;
 	/** 玩家在当前团的有效认领；GM 或未认领玩家为 null */
 	seat: { role: "pc" | "ob"; characterId: string | null } | null;

@@ -10,10 +10,7 @@ import { Elysia } from "elysia";
 import { z } from "zod";
 import type { Container } from "@/bootstrap/container";
 import { corsOriginsFor } from "@/config/env";
-import {
-	DrizzleModerationRepository,
-	PlayerNotFoundError,
-} from "@/modules/moderation";
+import { PlayerNotFoundError } from "@/modules/moderation";
 import { AppError } from "@/platform/errors/app-error";
 import { validationFailed } from "@/platform/errors/validation";
 import { logger } from "@/platform/logging/logger";
@@ -24,16 +21,13 @@ import { PlayerIdentityUseCase } from "../application/player-identity";
 import {
 	ChangeOwnPasswordUseCase,
 	LoginUseCase,
-	LogoutUseCase,
 } from "../application/user-accounts";
 import {
 	AuthRequiredError,
 	InvalidPasswordError,
 	isPasswordFieldFailure,
 } from "../domain/errors";
-import { DrizzleIdentityRepository } from "../infrastructure/drizzle-identity-repository";
 import {
-	createAuthPlugin,
 	PLAYER_COOKIE,
 	readBearer,
 	readCookie,
@@ -41,13 +35,12 @@ import {
 } from "./auth-middleware";
 
 export function createIdentityRoutes(container: Container) {
-	const repo = new DrizzleIdentityRepository(container.db);
+	const { identityRepo: repo, moderationRepo, authPlugin } = container;
 	const loginUseCase = new LoginUseCase(
 		container.idGenerator,
 		container.clock,
 		repo,
 	);
-	const logoutUseCase = new LogoutUseCase(container.clock, repo);
 	const changePasswordUseCase = new ChangeOwnPasswordUseCase(
 		container.clock,
 		repo,
@@ -58,7 +51,6 @@ export function createIdentityRoutes(container: Container) {
 		repo,
 	);
 
-	const authPlugin = createAuthPlugin(repo);
 	const allowedOrigins = corsOriginsFor(container.env);
 
 	return new Elysia()
@@ -122,7 +114,10 @@ export function createIdentityRoutes(container: Container) {
 			if (!actor || actor.type !== "user") {
 				throw new AuthRequiredError();
 			}
-			await logoutUseCase.execute(actor.loginSessionId);
+			await repo.revokeSession(
+				actor.loginSessionId,
+				container.clock.nowEpochMs(),
+			);
 			cookie?.[SESSION_COOKIE]?.remove();
 			logger.audit("auth.logout");
 			return { success: true };
@@ -173,7 +168,6 @@ export function createIdentityRoutes(container: Container) {
 			if (!parsed.success) {
 				throw validationFailed(parsed.error);
 			}
-			const moderationRepo = new DrizzleModerationRepository(container.db);
 			let fingerprintHash: string;
 			let playerId: string | null = null;
 			let userId: string | null = null;
@@ -245,7 +239,6 @@ export function createIdentityRoutes(container: Container) {
 			if (!parsed.success) {
 				throw validationFailed(parsed.error);
 			}
-			const moderationRepo = new DrizzleModerationRepository(container.db);
 			const removed = await moderationRepo.deleteBlacklistEntry(parsed.data);
 			logger.audit("gm.blacklist.unban", {
 				fingerprintHash: parsed.data.fingerprintHash,

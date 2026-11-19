@@ -18,6 +18,7 @@ import {
 	SessionReferenceAmbiguousError,
 	SessionStateInvalidError,
 } from "../domain/errors";
+import { SessionLifecycle } from "../domain/session-lifecycle";
 import type {
 	HolderKind,
 	SeatHolderInput,
@@ -170,6 +171,7 @@ export class CreateSessionUseCase {
 			status: input.status ?? ("waiting" as const),
 			phase: "free_discussion" as const,
 			currentSceneId: null,
+			ruleStateJson: null,
 			lastEventId: 0,
 			sharePcSheets: 1,
 			obSeePcState: 1,
@@ -188,11 +190,10 @@ export class CreateSessionUseCase {
 			const parsedSheet = ruleSystem.characterSheetSchema.parse(
 				JSON.parse(char.sheetJson),
 			);
-			const initialState = ruleSystem.initializeSessionState(
-				parsedSheet,
-			) as Record<string, unknown>;
-			initialState.sessionId = sessionId;
-			initialState.characterId = char.id;
+			const initialState = ruleSystem.initializeSessionState(parsedSheet, {
+				sessionId,
+				characterId: char.id,
+			});
 
 			return {
 				id: this.idGenerator.nextId(),
@@ -271,11 +272,10 @@ export class AddSessionCharacterUseCase {
 		const parsedSheet = ruleSystem.characterSheetSchema.parse(
 			JSON.parse(character.sheetJson),
 		);
-		const initialState = ruleSystem.initializeSessionState(
-			parsedSheet,
-		) as Record<string, unknown>;
-		initialState.sessionId = session.id;
-		initialState.characterId = character.id;
+		const initialState = ruleSystem.initializeSessionState(parsedSheet, {
+			sessionId: session.id,
+			characterId: character.id,
+		});
 		const now = this.clock.nowEpochMs();
 
 		await this.repo.saveSessionCharacterSnapshot({
@@ -330,13 +330,7 @@ export class ClaimSeatUseCase {
 		if (activeKick) {
 			throw new SessionKickedError();
 		}
-		if (session.status === "ended") {
-			if (input.role !== "ob") {
-				throw new SessionStateInvalidError(
-					"Cannot claim PC seat in an ended session",
-				);
-			}
-		}
+		new SessionLifecycle(session).assertCanClaimSeat(input.role);
 
 		if (input.role === "pc") {
 			if (input.holder.holderKind !== "user" || !input.holder.userId) {
@@ -437,11 +431,7 @@ export class GmAssignClaimUseCase {
 		if (!session || session.ownerId !== input.ownerId) {
 			throw new SessionNotFoundError();
 		}
-		if (session.status === "ended") {
-			throw new SessionStateInvalidError(
-				"Cannot assign PC seat in an ended session",
-			);
-		}
+		new SessionLifecycle(session).assertCanModifyRosterOrSync("assign-pc");
 		const activeKick = await this.repo.findActiveSessionKick(
 			input.sessionId,
 			input.holder,
@@ -512,29 +502,19 @@ export class UpdateSessionStatusUseCase {
 		sessionId: string;
 		status: "waiting" | "preparing" | "active" | "ended";
 	}) {
-		const allowedTransition: Record<string, string> = {
-			waiting: "preparing",
-			preparing: "active",
-			active: "ended",
-		};
-
 		const { session, staged, ended } = await this.transactionRunner.run(
 			async (tx) => {
 				const current = await this.repo.findSessionById(input.sessionId, tx);
 				if (!current || current.ownerId !== input.ownerId) {
 					throw new SessionNotFoundError();
 				}
-				if (current.status === input.status) {
+				const lifecycle = new SessionLifecycle(current);
+				if (lifecycle.assertCanTransitionStatus(input.status) === "noop") {
 					return {
 						session: current,
 						staged: { sessionId: input.sessionId, outboxIds: [], entries: [] },
 						ended: false,
 					};
-				}
-				if (allowedTransition[current.status] !== input.status) {
-					throw new SessionStateInvalidError(
-						`Invalid transition from ${current.status} to ${input.status}`,
-					);
 				}
 				await this.repo.updateSession(
 					input.sessionId,
@@ -585,11 +565,7 @@ export class UpdateSessionPhaseUseCase {
 			if (!current || current.ownerId !== input.ownerId) {
 				throw new SessionNotFoundError();
 			}
-			if (current.status !== "active") {
-				throw new SessionStateInvalidError(
-					"Phase updates are only allowed in active sessions",
-				);
-			}
+			new SessionLifecycle(current).assertCanChangePhase();
 			await this.repo.updateSession(
 				input.sessionId,
 				{ phase: input.phase },
@@ -640,34 +616,6 @@ export class RenameSessionUseCase {
 		const name = normaliseSessionName(input.name);
 		await this.repo.updateSession(input.sessionId, { name });
 		return { ...session, name };
-	}
-}
-
-export class SoftDeleteSessionUseCase {
-	constructor(
-		private readonly repo: SessionsRepository,
-		private readonly clock: Clock,
-	) {}
-
-	async execute(input: { ownerId: string; sessionId: string }) {
-		const session = await this.repo.findSessionById(input.sessionId);
-		if (!session || session.ownerId !== input.ownerId) {
-			throw new SessionNotFoundError();
-		}
-		await this.repo.softDeleteSession(input.sessionId, this.clock.nowEpochMs());
-		return { success: true };
-	}
-}
-
-export class ListSessionsUseCase {
-	constructor(private readonly repo: SessionsRepository) {}
-	async execute(options: {
-		ownerId?: string;
-		limit: number;
-		offset?: number;
-		cursor?: string;
-	}) {
-		return await this.repo.listSessions(options);
 	}
 }
 

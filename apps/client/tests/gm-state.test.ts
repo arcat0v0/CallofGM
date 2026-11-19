@@ -1,22 +1,21 @@
 import { describe, expect, test } from "bun:test";
-import type { SnapshotCharacter } from "@cogm/shared";
+import type { coc7e, SnapshotCharacter } from "@cogm/shared";
 import {
-	isCritical,
 	orderBySeverity,
-	othersLine,
-	severityScore,
 	stateEntries,
-	statusLine,
 } from "../src/features/gm-console/gm-state";
-import type { parseCocState } from "../src/lib/coc-live";
+import { getRuleComponent } from "../src/rules/registry";
 
-type CharacterState = NonNullable<ReturnType<typeof parseCocState>> & {
+const rule = getRuleComponent("coc7e");
+
+type CharacterState = coc7e.CharacterSessionState & {
 	sessionId: string;
 	characterId: string;
 };
 
 function state(overrides: Partial<CharacterState> = {}): CharacterState {
 	return {
+		schemaVersion: 1,
 		sessionId: "s1",
 		characterId: "c1",
 		hp: 9,
@@ -50,11 +49,17 @@ function character(
 	};
 }
 
+function critical(state: CharacterState) {
+	return stateEntries([character({ state })])[0]?.critical;
+}
+
 describe("GM workbench state summary", () => {
 	test("status flags outrank missing HP and SAN", () => {
 		const wounded = state({ hp: 5, maxHp: 12, statuses: ["major_wound"] });
 		const scratched = state({ hp: 9, maxHp: 11, san: 20 });
-		expect(severityScore(wounded)).toBeGreaterThan(severityScore(scratched));
+		expect(rule.stateHealthScore(wounded)).toBeGreaterThan(
+			rule.stateHealthScore(scratched),
+		);
 	});
 
 	test("orders the most urgent character first", () => {
@@ -79,9 +84,15 @@ describe("GM workbench state summary", () => {
 
 	test("formats the featured status line", () => {
 		expect(
-			statusLine(state({ hp: 5, maxHp: 12, statuses: ["major_wound"] })),
+			rule
+				.gmStateSummaryLines(
+					state({ hp: 5, maxHp: 12, statuses: ["major_wound"] }),
+				)
+				.join(" · "),
 		).toBe("重伤 · HP 5 / 12 · SAN 52 / 58");
-		expect(statusLine(state())).toBe("HP 9 / 11 · SAN 52 / 58");
+		expect(rule.gmStateSummaryLines(state()).join(" · ")).toBe(
+			"HP 9 / 11 · SAN 52 / 58",
+		);
 	});
 
 	test("formats the remaining characters line", () => {
@@ -93,14 +104,18 @@ describe("GM workbench state summary", () => {
 				state: state({ hp: 5, maxHp: 12 }),
 			}),
 		]);
-		expect(othersLine(entries)).toBe(
+		expect(
+			entries
+				.map(({ character, summary }) => `${character.name} · ${summary}`)
+				.join("  ·  "),
+		).toBe(
 			"远野 澪 · HP 9 / 11 · SAN 52 / 58  ·  白石 拓真 · HP 5 / 12 · SAN 52 / 58",
 		);
 	});
 
 	test("treats status flags and low HP as critical", () => {
-		expect(isCritical(state({ statuses: ["temp_insanity"] }))).toBe(true);
-		expect(isCritical(state({ hp: 2, maxHp: 12 }))).toBe(true);
-		expect(isCritical(state())).toBe(false);
+		expect(critical(state({ statuses: ["temp_insanity"] }))).toBe(true);
+		expect(critical(state({ hp: 2, maxHp: 12 }))).toBe(true);
+		expect(critical(state())).toBe(false);
 	});
 });

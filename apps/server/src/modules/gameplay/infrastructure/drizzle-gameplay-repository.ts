@@ -5,6 +5,7 @@ import {
 	checkRequests,
 	sessionCharacters,
 	sessionHistoryEvents,
+	sessions,
 } from "@/platform/db/schema";
 import type { GameplayRepository } from "../application/ports";
 
@@ -21,7 +22,13 @@ export class DrizzleGameplayRepository implements GameplayRepository {
 
 	async findSessionCharacter(sessionId: string, characterId: string) {
 		const rows = await this.db
-			.select()
+			.select({
+				kind: sessionCharacters.kind,
+				name: sessionCharacters.name,
+				stateJson: sessionCharacters.stateJson,
+				sheetJson: sessionCharacters.sheetJson,
+				publicStateFieldsJson: sessionCharacters.publicStateFieldsJson,
+			})
 			.from(sessionCharacters)
 			.where(
 				and(
@@ -31,6 +38,16 @@ export class DrizzleGameplayRepository implements GameplayRepository {
 				),
 			);
 		return rows[0] ?? null;
+	}
+
+	async updateSessionRuleState(
+		sessionId: string,
+		ruleStateJson: string | null,
+	): Promise<void> {
+		await this.db
+			.update(sessions)
+			.set({ ruleStateJson })
+			.where(eq(sessions.id, sessionId));
 	}
 
 	async updateSessionCharacterState(

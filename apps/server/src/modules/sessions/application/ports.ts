@@ -35,6 +35,7 @@ export interface SessionRecord {
 	status: string;
 	phase: string;
 	currentSceneId: string | null;
+	ruleStateJson: string | null;
 	lastEventId: number;
 	sharePcSheets: number;
 	obSeePcState: number;
@@ -148,7 +149,6 @@ export interface SessionsRepository {
 		updates: Partial<Omit<SessionRecord, "id" | "createdAt">>,
 		db?: DbClient,
 	): Promise<void>;
-	softDeleteSession(id: string, deletedAt: number): Promise<void>;
 	createSession(
 		session: SessionRecord,
 		charactersToSave: Array<{

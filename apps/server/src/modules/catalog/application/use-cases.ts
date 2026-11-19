@@ -8,7 +8,6 @@ import {
 	ModuleInUseError,
 	ModuleNotFoundError,
 	SceneNotFoundError,
-	TrackNotFoundError,
 	TrackSourceUpdateError,
 } from "../domain/errors";
 import type {
@@ -80,17 +79,6 @@ export class CreateModuleUseCase {
 	}
 }
 
-export class UpdateModuleUseCase {
-	constructor(private readonly repo: CatalogRepository) {}
-
-	async execute(
-		id: string,
-		updates: Partial<Omit<CatalogModule, "id" | "createdAt">>,
-	): Promise<CatalogModule> {
-		return this.repo.updateModule(id, updates);
-	}
-}
-
 export class DeleteModuleUseCase {
 	constructor(
 		private readonly repo: CatalogRepository,
@@ -103,39 +91,6 @@ export class DeleteModuleUseCase {
 			throw new ModuleInUseError();
 		}
 		await this.repo.softDeleteModule(id, this.clock.nowEpochMs());
-	}
-}
-
-export class GetModuleUseCase {
-	constructor(private readonly repo: CatalogRepository) {}
-
-	async execute(id: string): Promise<CatalogModule> {
-		const module = await this.repo.findModuleById(id);
-		if (!module) {
-			throw new ModuleNotFoundError();
-		}
-		return module;
-	}
-}
-
-export class ListModulesUseCase {
-	constructor(private readonly repo: CatalogRepository) {}
-
-	async execute(options: {
-		ownerId?: string;
-		limit: number;
-		offset?: number;
-		cursor?: string;
-	}): Promise<{ items: CatalogModule[]; nextCursor: string | null }> {
-		return this.repo.listModules(options);
-	}
-}
-
-export class ListModuleSummariesUseCase {
-	constructor(private readonly repo: CatalogRepository) {}
-
-	async execute() {
-		return this.repo.listModuleSummaries();
 	}
 }
 
@@ -190,14 +145,6 @@ export class UpdateSceneUseCase {
 	}
 }
 
-export class DeleteSceneUseCase {
-	constructor(private readonly repo: CatalogRepository) {}
-
-	async execute(id: string): Promise<void> {
-		await this.repo.deleteScene(id);
-	}
-}
-
 export class ListScenesUseCase {
 	constructor(private readonly repo: CatalogRepository) {}
 
@@ -226,17 +173,14 @@ export class CreateTrackUseCase {
 	) {}
 
 	async execute(
-		input: CreateTrackRequest & { moduleId: string },
+		module: CatalogModule,
+		input: CreateTrackRequest,
 	): Promise<CatalogTrack> {
-		const moduleExists = await this.repo.findModuleById(input.moduleId);
-		if (!moduleExists) {
-			throw new ModuleNotFoundError();
-		}
 		if (input.source === "upload") {
 			await requireAudioAsset(this.repo, input.audioAssetId);
 			const track: CatalogTrack = {
 				id: this.idGenerator.nextId(),
-				moduleId: input.moduleId,
+				moduleId: module.id,
 				name: input.name,
 				source: "upload",
 				audioAssetId: input.audioAssetId,
@@ -259,7 +203,7 @@ export class CreateTrackUseCase {
 		);
 		const track: CatalogTrack = {
 			id: this.idGenerator.nextId(),
-			moduleId: input.moduleId,
+			moduleId: module.id,
 			name: input.name ?? resolved.name,
 			source: input.source,
 			audioAssetId: null,
@@ -282,47 +226,16 @@ export class UpdateTrackUseCase {
 	constructor(private readonly repo: CatalogRepository) {}
 
 	async execute(
-		id: string,
+		track: CatalogTrack,
 		updates: Partial<Omit<CatalogTrack, "id" | "moduleId" | "createdAt">>,
 	): Promise<CatalogTrack> {
-		const track = await this.repo.findTrackById(id);
-		if (!track) {
-			throw new TrackNotFoundError();
-		}
 		if (updates.audioAssetId) {
 			if (track.source !== "upload") {
 				throw new TrackSourceUpdateError();
 			}
 			await requireAudioAsset(this.repo, updates.audioAssetId);
 		}
-		return this.repo.updateTrack(id, updates);
-	}
-}
-
-export class DeleteTrackUseCase {
-	constructor(private readonly repo: CatalogRepository) {}
-
-	async execute(id: string): Promise<void> {
-		await this.repo.deleteTrack(id);
-	}
-}
-
-export class ListTracksUseCase {
-	constructor(private readonly repo: CatalogRepository) {}
-
-	async execute(
-		moduleId: string,
-		options: {
-			limit: number;
-			offset?: number;
-			cursor?: string;
-		},
-	): Promise<{ items: CatalogTrack[]; nextCursor: string | null }> {
-		const module = await this.repo.findModuleById(moduleId);
-		if (!module) {
-			throw new ModuleNotFoundError();
-		}
-		return this.repo.listTracksByModuleId(moduleId, options);
+		return this.repo.updateTrack(track.id, updates);
 	}
 }
 
@@ -374,14 +287,6 @@ export class UpdateHandoutUseCase {
 			await requireImageAsset(this.repo, updates.imageAssetId);
 		}
 		return this.repo.updateHandout(id, updates);
-	}
-}
-
-export class DeleteHandoutUseCase {
-	constructor(private readonly repo: CatalogRepository) {}
-
-	async execute(id: string): Promise<void> {
-		await this.repo.deleteHandout(id);
 	}
 }
 

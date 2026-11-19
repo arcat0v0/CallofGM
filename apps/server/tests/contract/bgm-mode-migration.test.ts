@@ -2,6 +2,7 @@ import { Database } from "bun:sqlite";
 import { describe, expect, test } from "bun:test";
 import { createDb } from "@/platform/db/client";
 import { runMigrations } from "@/platform/db/migration";
+import journal from "../../migrations/meta/_journal.json";
 
 describe("BGM mode migration", () => {
 	test("the application migrator applies cleanly and does not rerun completed migrations", async () => {
@@ -17,7 +18,7 @@ describe("BGM mode migration", () => {
 					.query("SELECT count(*) AS count FROM __drizzle_migrations")
 					.get(),
 			).toEqual(first);
-			expect(first).toEqual({ count: 8 });
+			expect(first).toEqual({ count: journal.entries.length });
 			expect(context.sqlite.query("PRAGMA foreign_key_check").all()).toEqual(
 				[],
 			);

@@ -1,5 +1,4 @@
 import type {
-	BgmState,
 	ChatMessageDto,
 	CheckRequestDto,
 	GrantedHandoutDto,
@@ -11,27 +10,22 @@ import { buildHandoutGrantOverview } from "@/modules/handouts";
 import type { ActorContext } from "@/modules/identity";
 import { holderOfActor } from "@/modules/identity";
 import type { SeatHolderInput } from "@/modules/sessions";
-import { SessionNotFoundError } from "@/modules/sessions";
+import { loadAudioState, SessionNotFoundError } from "@/modules/sessions";
 import type { DbClient } from "@/platform/db/client";
+import { loadHolderDisplayNames } from "@/platform/db/holder-display-names";
 import {
-	anonymousPlayers,
 	characterPortraits,
-	characters,
 	checkRequests,
 	handoutGrantRecipients,
 	handoutGrants,
 	handoutReads,
 	handouts,
-	mediaAssets,
 	modules,
 	scenes,
-	sessionAudioState,
 	sessionCharacters,
 	sessionClaims,
 	sessionMessages,
 	sessions,
-	tracks,
-	users,
 } from "@/platform/db/schema";
 import type { RuleRegistry } from "@/rules/registry";
 import type { PresenceService } from "../presence-service";
@@ -97,38 +91,6 @@ export class BuildSessionSnapshotUseCase {
 		return this.buildPendingQueue(sessionId);
 	}
 
-	private async loadClaimHolderNames(
-		claims: Array<{
-			holderKind: string;
-			userId: string | null;
-			playerId: string | null;
-		}>,
-	): Promise<Map<string, string>> {
-		const names = new Map<string, string>();
-		const userIds = claims
-			.map((c) => c.userId)
-			.filter((id): id is string => Boolean(id));
-		const playerIds = claims
-			.map((c) => c.playerId)
-			.filter((id): id is string => Boolean(id));
-		if (userIds.length > 0) {
-			const rows = await this.db
-				.select({ id: users.id, username: users.username })
-				.from(users)
-				.where(inArray(users.id, userIds));
-			for (const row of rows) names.set(`user:${row.id}`, row.username);
-		}
-		if (playerIds.length > 0) {
-			const rows = await this.db
-				.select({ id: anonymousPlayers.id })
-				.from(anonymousPlayers)
-				.where(inArray(anonymousPlayers.id, playerIds));
-			for (const row of rows)
-				names.set(`player:${row.id}`, `观战 ${row.id.slice(0, 8)}`);
-		}
-		return names;
-	}
-
 	async listDiscardedQueue(sessionId: string): Promise<ChatMessageDto[]> {
 		return this.buildDiscardedQueue(sessionId);
 	}
@@ -186,7 +148,7 @@ export class BuildSessionSnapshotUseCase {
 				diceSkin: session.diceSkin === "bone" ? "bone" : "olive",
 			}),
 			this.buildCurrentScene(session.currentSceneId),
-			this.buildBgm(sessionId),
+			loadAudioState(this.db, sessionId),
 			this.historyPager.page({
 				sessionId,
 				actor,
@@ -388,7 +350,7 @@ export class BuildSessionSnapshotUseCase {
 					isNull(sessionClaims.releasedAt),
 				),
 			);
-		const holderNames = await this.loadClaimHolderNames(activeClaims);
+		const holderNames = await loadHolderDisplayNames(this.db, activeClaims);
 		const claimMap = new Map<
 			string,
 			{
@@ -530,47 +492,6 @@ export class BuildSessionSnapshotUseCase {
 			id: scene.id,
 			name: scene.name,
 			bgAssetId: scene.bgAssetId ?? null,
-		};
-	}
-
-	private async buildBgm(sessionId: string): Promise<BgmState | null> {
-		const rows = await this.db
-			.select({
-				audio: sessionAudioState,
-				duration: tracks.duration,
-				name: tracks.name,
-				source: tracks.source,
-				audioAssetId: tracks.audioAssetId,
-				audioMimeType: mediaAssets.mimeType,
-			})
-			.from(sessionAudioState)
-			.leftJoin(tracks, eq(sessionAudioState.trackId, tracks.id))
-			.leftJoin(mediaAssets, eq(tracks.audioAssetId, mediaAssets.id))
-			.where(eq(sessionAudioState.sessionId, sessionId));
-		const row = rows[0];
-		if (!row) {
-			return null;
-		}
-		const audio = row.audio;
-		return {
-			trackId: audio.trackId ?? null,
-			playing: audio.playing === 1,
-			volume: audio.volume,
-			mode: audio.mode,
-			seekOffsetMs: audio.seekOffsetMs,
-			startedAtMs: audio.startedAtMs,
-			version: audio.version,
-			durationMs: row.duration ?? 0,
-			name: row.name ?? undefined,
-			source: (row.source ?? undefined) as BgmState["source"],
-			audioAssetId: row.audioAssetId ?? null,
-			audioMimeType: row.audioMimeType ?? undefined,
-			playbackUrl:
-				audio.trackId && row.source
-					? row.source === "upload"
-						? `/api/v1/media/${row.audioAssetId}`
-						: `/api/v1/music/tracks/${audio.trackId}/stream`
-					: undefined,
 		};
 	}
 

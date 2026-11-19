@@ -26,9 +26,7 @@ export function CheckPrompt({
 	onDismiss: () => void;
 }) {
 	const rule = getRuleComponent(ruleId);
-	const summary =
-		rule.checkRequestDescription?.(request) ??
-		`${rule.skillLabel(request.skillKey)} · ${rule.difficultyLabel(request.difficulty)}`;
+	const summary = rule.formatCheckRequest(request);
 	const [rolling, setRolling] = useState(false);
 	const dialog = useBlockingDialog("check", true, () => onDismiss());
 

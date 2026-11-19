@@ -1,18 +1,28 @@
-import { coc7e } from "@cogm/shared";
+import { coc7e, PerformCheckCommand, type RuleMetadata } from "@cogm/shared";
 import { AppError } from "@/platform/errors/app-error";
+import { validationFailed } from "@/platform/errors/validation";
 import type { RandomSource } from "@/platform/ports";
+import type {
+	LuckCapability,
+	LuckRecoveryResult,
+	LuckSpendResult,
+	SanCheckInput,
+	SanityCheckCapability,
+	SkillGrowthCapability,
+} from "@/rules/capabilities";
 import { evaluateLossExpression } from "@/rules/dice-engine";
 import {
 	type CharacterSheetPreview,
-	type LuckRecoveryResult,
-	type LuckSpendResult,
+	type CheckInput,
 	type PermanentFieldEditInput,
 	RULE_API_VERSION,
-	type RuleMetadata,
+	type RuleCheckResult,
+	type RuleRuntime,
 	RuleSystem,
-	type SanCheckInput,
-	type SkillCheckInput,
+	type RuntimeCharacter,
+	type SessionStateContext,
 	type StateMutationResult,
+	unsupportedRuleAction,
 } from "@/rules/rule-system";
 import { parseCoc7eCharacterSheet } from "./excel-parser";
 import { mergeCoc7eSheetPatch } from "./merge-patch";
@@ -29,10 +39,35 @@ const COC7E_PERMANENT_FIELDS = [
 	"luck",
 ] as const;
 
-export class Coc7eRuleSystem extends RuleSystem<
+const LegacyCheckOptions = PerformCheckCommand.pick({
+	difficulty: true,
+	bonusDice: true,
+	penaltyDice: true,
+});
+type SkillCheckInput = Pick<
+	PerformCheckCommand,
+	"difficulty" | "bonusDice" | "penaltyDice"
+> & {
+	characterId: string;
+	skillKey: string;
+	targetValue: number;
+};
+type Character = RuntimeCharacter<
 	coc7e.Coc7eCharacterSheet,
 	coc7e.CharacterSessionState
-> {
+>;
+type Runtime = RuleRuntime<
+	coc7e.Coc7eCharacterSheet,
+	coc7e.CharacterSessionState
+>;
+
+export class Coc7eRuleSystem
+	extends RuleSystem<coc7e.Coc7eCharacterSheet, coc7e.CharacterSessionState>
+	implements
+		SanityCheckCapability<coc7e.CharacterSessionState>,
+		LuckCapability<coc7e.CharacterSessionState>,
+		SkillGrowthCapability<coc7e.Coc7eCharacterSheet>
+{
 	readonly id = "coc7e";
 	readonly metadata: RuleMetadata = {
 		id: "coc7e",
@@ -42,6 +77,7 @@ export class Coc7eRuleSystem extends RuleSystem<
 		description:
 			"Call of Cthulhu 7th Edition：完整人物卡、技能专攻、衍生数值、理智检定与成长标记。",
 		permanentSheetFields: [...COC7E_PERMANENT_FIELDS],
+		permanentFieldRange: { min: 1, max: 99 },
 	};
 	readonly characterSheetSchema = coc7e.Coc7eCharacterSheet;
 	readonly sessionStateSchema = coc7e.CharacterSessionState;
@@ -126,24 +162,33 @@ export class Coc7eRuleSystem extends RuleSystem<
 		});
 	}
 
-	applySkillGrowth(
+	applySkillGrowthBatch(
 		sheet: coc7e.Coc7eCharacterSheet,
-		skillKey: string,
-		delta: number,
-	): coc7e.Coc7eCharacterSheet {
-		const current =
-			sheet.skills[skillKey] ??
-			coc7e.coc7eSkillTargetValue(sheet, skillKey) ??
-			0;
-		const next = Math.min(
-			999,
-			Math.max(0, current + Math.max(0, Math.trunc(delta))),
-		);
-		const canonicalKey = coc7e.canonicalizeCoc7eSkillKey(skillKey) ?? skillKey;
-		return this.characterSheetSchema.parse({
-			...sheet,
-			skills: { ...sheet.skills, [canonicalKey]: next },
-		});
+		gains: readonly { skillKey: string; delta: number }[],
+	) {
+		const applied: Array<{
+			skillKey: string;
+			oldValue: number;
+			newValue: number;
+		}> = [];
+		for (const { skillKey, delta } of gains) {
+			if (!coc7e.coc7eSkillGrowthAllowed(skillKey, 0)) continue;
+			const before = this.getSkillTargetValue(sheet, skillKey) ?? 0;
+			const value = Math.min(
+				999,
+				Math.max(0, before + Math.max(0, Math.trunc(delta))),
+			);
+			const canonicalKey =
+				coc7e.canonicalizeCoc7eSkillKey(skillKey) ?? skillKey;
+			sheet = this.characterSheetSchema.parse({
+				...sheet,
+				skills: { ...sheet.skills, [canonicalKey]: value },
+			});
+			const after = this.getSkillTargetValue(sheet, skillKey) ?? before;
+			if (after !== before)
+				applied.push({ skillKey, oldValue: before, newValue: after });
+		}
+		return { sheet, applied };
 	}
 
 	async parseCharacterSheet(
@@ -155,12 +200,13 @@ export class Coc7eRuleSystem extends RuleSystem<
 
 	initializeSessionState(
 		sheet: coc7e.Coc7eCharacterSheet,
+		context?: SessionStateContext,
 	): coc7e.CharacterSessionState {
 		const derived = coc7e.deriveCoc7eSheetStats(sheet);
 		return {
 			schemaVersion: 1,
-			sessionId: "",
-			characterId: "",
+			sessionId: context?.sessionId ?? "",
+			characterId: context?.characterId ?? "",
 			hp: derived.maxHp,
 			maxHp: derived.maxHp,
 			mp: derived.maxMp,
@@ -172,6 +218,58 @@ export class Coc7eRuleSystem extends RuleSystem<
 			tags: [],
 			growthMarks: [],
 			hiddenGrowthMarks: [],
+		};
+	}
+
+	private readCheckInput(
+		character: Character,
+		skillKey: string,
+		input: CheckInput,
+	): SkillCheckInput {
+		if (input && "options" in input) unsupportedRuleAction();
+		const options = LegacyCheckOptions.safeParse(input ? input.legacy : {});
+		if (!options.success) throw validationFailed(options.error);
+		const targetValue = this.getSkillTargetValue(character.sheet, skillKey);
+		if (targetValue === null)
+			throw new AppError(
+				"SKILL_NOT_FOUND",
+				"Skill or attribute not found on character sheet",
+				400,
+			);
+		return {
+			...options.data,
+			targetValue,
+			characterId: character.id,
+			skillKey,
+		};
+	}
+
+	async validateCheckOptions(
+		character: Character,
+		skillKey: string,
+		input: CheckInput,
+	): Promise<undefined> {
+		this.readCheckInput(character, skillKey, input);
+		return undefined;
+	}
+
+	async resolveCheck(
+		character: Character,
+		skillKey: string,
+		input: CheckInput,
+		runtime: Runtime,
+	): Promise<RuleCheckResult<coc7e.CharacterSessionState>> {
+		const result = this.evaluateSkillCheck(
+			this.readCheckInput(character, skillKey, input),
+			runtime.random,
+		);
+		if (!result.growthEligible) return { result };
+		const state = runtime.hidden
+			? this.markSkillGrowthHidden(character.state, skillKey)
+			: this.markSkillGrowth(character.state, skillKey);
+		return {
+			result,
+			mutations: [{ characterId: character.id, state, hints: [] }],
 		};
 	}
 

@@ -8,7 +8,6 @@ import {
 	UpdateSessionSettingsCommand,
 	UpdateStageLayoutCommand,
 } from "@cogm/shared";
-import { and, asc, eq, isNull } from "drizzle-orm";
 import { ExpressionNotFoundError } from "@/modules/chat";
 import { ForbiddenError } from "@/modules/identity";
 import type {
@@ -17,19 +16,10 @@ import type {
 	CommandHandlerResult,
 } from "@/modules/realtime";
 import { CharacterNotNpcError } from "@/modules/sessions/domain/errors";
-import type { DbClient } from "@/platform/db/client";
-import {
-	characterPortraits,
-	mediaAssets,
-	scenes,
-	sessionAudioState,
-	sessionCharacters,
-	sessions,
-	tracks,
-} from "@/platform/db/schema";
 import { AppError } from "@/platform/errors/app-error";
 import type { RuleRegistry } from "@/rules/registry";
 import { BgmPlayback } from "../domain/bgm-playback";
+import type { StageCommandRepositoryFactory } from "./stage-command-repository";
 
 class SceneNotFoundError extends AppError {
 	constructor(message = "Scene not found in this module") {
@@ -55,54 +45,12 @@ class CharacterNotInSessionError extends AppError {
 	}
 }
 
-async function loadAudioState(
-	tx: DbClient,
-	sessionId: string,
-): Promise<BgmState | null> {
-	const rows = await tx
-		.select({
-			audio: sessionAudioState,
-			duration: tracks.duration,
-			name: tracks.name,
-			source: tracks.source,
-			audioAssetId: tracks.audioAssetId,
-			audioMimeType: mediaAssets.mimeType,
-		})
-		.from(sessionAudioState)
-		.leftJoin(tracks, eq(sessionAudioState.trackId, tracks.id))
-		.leftJoin(mediaAssets, eq(tracks.audioAssetId, mediaAssets.id))
-		.where(eq(sessionAudioState.sessionId, sessionId));
-	const row = rows[0];
-	if (!row) {
-		return null;
-	}
-	const audio = row.audio;
-	return {
-		trackId: audio.trackId ?? null,
-		playing: audio.playing === 1,
-		volume: audio.volume,
-		mode: audio.mode,
-		seekOffsetMs: audio.seekOffsetMs,
-		startedAtMs: audio.startedAtMs,
-		version: audio.version,
-		durationMs: row.duration ?? 0,
-		name: row.name ?? undefined,
-		source: (row.source ?? undefined) as BgmState["source"],
-		audioAssetId: row.audioAssetId ?? null,
-		audioMimeType: row.audioMimeType ?? undefined,
-		playbackUrl:
-			audio.trackId && row.source
-				? row.source === "upload"
-					? `/api/v1/media/${row.audioAssetId}`
-					: `/api/v1/music/tracks/${audio.trackId}/stream`
-				: undefined,
-	};
-}
-
 /** scene:switch — 切换当前场景（仅允许本模组场景） */
 export class SwitchSceneHandler implements CommandHandler {
 	readonly type = "scene:switch" as const;
 	readonly allowedStatuses = ["preparing", "active"] as const;
+
+	constructor(private readonly repoFactory: StageCommandRepositoryFactory) {}
 
 	async execute(
 		ctx: CommandHandlerContext,
@@ -117,19 +65,13 @@ export class SwitchSceneHandler implements CommandHandler {
 		}
 		const sceneId = parsed.data.sceneId;
 
-		const rows = await ctx.tx
-			.select()
-			.from(scenes)
-			.where(eq(scenes.id, sceneId));
-		const scene = rows[0];
+		const repo = this.repoFactory(ctx.tx);
+		const scene = await repo.findScene(sceneId);
 		if (!scene || scene.moduleId !== ctx.session.moduleId) {
 			throw new SceneNotFoundError();
 		}
 
-		await ctx.tx
-			.update(sessions)
-			.set({ currentSceneId: sceneId })
-			.where(eq(sessions.id, ctx.sessionId));
+		await repo.updateCurrentScene(ctx.sessionId, sceneId);
 
 		return {
 			events: [
@@ -153,6 +95,8 @@ export class SetExpressionHandler implements CommandHandler {
 	readonly type = "expression:set" as const;
 	readonly allowedStatuses = ["preparing", "active"] as const;
 
+	constructor(private readonly repoFactory: StageCommandRepositoryFactory) {}
+
 	async execute(
 		ctx: CommandHandlerContext,
 		payload: unknown,
@@ -166,42 +110,16 @@ export class SetExpressionHandler implements CommandHandler {
 		}
 		const { characterId, expressionKey } = parsed.data;
 
-		const sessionCharRows = await ctx.tx
-			.select({ id: sessionCharacters.id })
-			.from(sessionCharacters)
-			.where(
-				and(
-					eq(sessionCharacters.sessionId, ctx.sessionId),
-					eq(sessionCharacters.characterId, characterId),
-				),
-			);
-		if (sessionCharRows.length === 0) {
+		const repo = this.repoFactory(ctx.tx);
+		if (!(await repo.hasSessionCharacter(ctx.sessionId, characterId))) {
 			throw new CharacterNotInSessionError();
 		}
 
-		const portraitRows = await ctx.tx
-			.select({ id: characterPortraits.id })
-			.from(characterPortraits)
-			.where(
-				and(
-					eq(characterPortraits.characterId, characterId),
-					eq(characterPortraits.expressionKey, expressionKey),
-					isNull(characterPortraits.deletedAt),
-				),
-			);
-		if (portraitRows.length === 0) {
+		if (!(await repo.hasActiveExpression(characterId, expressionKey))) {
 			throw new ExpressionNotFoundError();
 		}
 
-		await ctx.tx
-			.update(sessionCharacters)
-			.set({ currentExpressionKey: expressionKey })
-			.where(
-				and(
-					eq(sessionCharacters.sessionId, ctx.sessionId),
-					eq(sessionCharacters.characterId, characterId),
-				),
-			);
+		await repo.updateExpression(ctx.sessionId, characterId, expressionKey);
 
 		return {
 			events: [
@@ -221,6 +139,8 @@ export class UpdateStageLayoutHandler implements CommandHandler {
 	readonly type = "stage:layout" as const;
 	readonly allowedStatuses = ["preparing", "active"] as const;
 
+	constructor(private readonly repoFactory: StageCommandRepositoryFactory) {}
+
 	async execute(
 		ctx: CommandHandlerContext,
 		payload: unknown,
@@ -233,13 +153,10 @@ export class UpdateStageLayoutHandler implements CommandHandler {
 			throw new AppError("VALIDATION_FAILED", parsed.error.message, 400);
 		}
 
-		await ctx.tx
-			.update(sessions)
-			.set({
-				portraitLayout: parsed.data.layout,
-				portraitScale: parsed.data.scale,
-			})
-			.where(eq(sessions.id, ctx.sessionId));
+		await this.repoFactory(ctx.tx).updateStageLayout(
+			ctx.sessionId,
+			parsed.data,
+		);
 
 		return {
 			events: [
@@ -262,6 +179,8 @@ export class UpdateBgmHandler implements CommandHandler {
 	readonly type = "audio:bgm" as const;
 	readonly allowedStatuses = ["preparing", "active"] as const;
 
+	constructor(private readonly repoFactory: StageCommandRepositoryFactory) {}
+
 	async execute(
 		ctx: CommandHandlerContext,
 		payload: unknown,
@@ -275,7 +194,8 @@ export class UpdateBgmHandler implements CommandHandler {
 		}
 		const input = parsed.data;
 
-		const current = await loadAudioState(ctx.tx, ctx.sessionId);
+		const repo = this.repoFactory(ctx.tx);
+		const current = await repo.loadAudioState(ctx.sessionId);
 		const currentVersion = current?.version ?? 0;
 		if (input.expectedVersion !== currentVersion) {
 			throw new AudioVersionConflictError();
@@ -293,7 +213,6 @@ export class UpdateBgmHandler implements CommandHandler {
 		};
 
 		const playback = new BgmPlayback(base, now);
-		const next = playback.state;
 		switch (input.action) {
 			case "play": {
 				if (!input.trackId) {
@@ -303,28 +222,20 @@ export class UpdateBgmHandler implements CommandHandler {
 						400,
 					);
 				}
-				const trackRows = await ctx.tx
-					.select()
-					.from(tracks)
-					.where(eq(tracks.id, input.trackId));
-				const track = trackRows[0];
+				const track = await repo.findTrack(input.trackId);
 				if (
 					!track ||
 					track.moduleId !== ctx.session.moduleId ||
 					track.type !== "bgm" ||
-					(track.deletedAt !== null && track.id !== base.trackId)
+					(track.deletedAt !== null && track.id !== playback.trackId)
 				) {
 					throw new TrackNotFoundError("BGM track not found in this module");
 				}
-				playback.play(
-					{ ...track, source: track.source as NonNullable<BgmState["source"]> },
-					input.restart,
-					input.seekOffsetMs,
-				);
+				playback.play(track, input.restart, input.seekOffsetMs);
 				break;
 			}
 			case "pause": {
-				if (!base.playing) {
+				if (!playback.playing) {
 					break;
 				}
 				playback.pause();
@@ -338,8 +249,7 @@ export class UpdateBgmHandler implements CommandHandler {
 						400,
 					);
 				}
-				next.seekOffsetMs = input.seekOffsetMs;
-				next.startedAtMs = now;
+				playback.seek(input.seekOffsetMs);
 				break;
 			}
 			case "volume": {
@@ -350,7 +260,7 @@ export class UpdateBgmHandler implements CommandHandler {
 						400,
 					);
 				}
-				next.volume = input.volume;
+				playback.setVolume(input.volume);
 				break;
 			}
 			case "mode": {
@@ -374,73 +284,29 @@ export class UpdateBgmHandler implements CommandHandler {
 							"Track has not reached its end",
 							400,
 						);
-					if (base.mode === "off") {
+					if (playback.mode === "off") {
 						playback.finish();
 						break;
 					}
 				}
-				const candidates = await ctx.tx
-					.select()
-					.from(tracks)
-					.where(
-						and(
-							eq(tracks.moduleId, ctx.session.moduleId),
-							eq(tracks.type, "bgm"),
-							isNull(tracks.deletedAt),
-						),
-					)
-					.orderBy(asc(tracks.createdAt), asc(tracks.id));
+				const candidates = await repo.listActiveBgmTracks(ctx.session.moduleId);
 				playback.step(
-					candidates.map((track) => ({
-						...track,
-						source: track.source as NonNullable<BgmState["source"]>,
-					})),
+					candidates,
 					input.action === "previous" ? -1 : 1,
 					ctx.randomSource,
 				);
 				break;
 			}
 		}
-		next.version = currentVersion + 1;
+		playback.advanceVersion();
+		const next = playback.toSnapshot();
 		if (next.source === "upload" && next.audioAssetId) {
-			const [asset] = await ctx.tx
-				.select({ mimeType: mediaAssets.mimeType })
-				.from(mediaAssets)
-				.where(eq(mediaAssets.id, next.audioAssetId));
-			next.audioMimeType = asset?.mimeType;
+			next.audioMimeType = await repo.findAudioMimeType(next.audioAssetId);
 		}
 
-		const existing = await ctx.tx
-			.select({ id: sessionAudioState.id })
-			.from(sessionAudioState)
-			.where(eq(sessionAudioState.sessionId, ctx.sessionId));
-		if (existing.length > 0) {
-			await ctx.tx
-				.update(sessionAudioState)
-				.set({
-					trackId: next.trackId,
-					playing: next.playing ? 1 : 0,
-					volume: next.volume,
-					mode: next.mode,
-					seekOffsetMs: next.seekOffsetMs,
-					startedAtMs: next.startedAtMs,
-					version: next.version,
-				})
-				.where(eq(sessionAudioState.sessionId, ctx.sessionId));
-		} else {
-			await ctx.tx.insert(sessionAudioState).values({
-				id: ctx.idGenerator.nextId(),
-				sessionId: ctx.sessionId,
-				trackId: next.trackId,
-				playing: next.playing ? 1 : 0,
-				volume: next.volume,
-				mode: next.mode,
-				seekOffsetMs: next.seekOffsetMs,
-				startedAtMs: next.startedAtMs,
-				version: next.version,
-				createdAt: now,
-			});
-		}
+		await repo.saveAudioState(ctx.sessionId, next, now, () =>
+			ctx.idGenerator.nextId(),
+		);
 
 		return {
 			events: [
@@ -458,6 +324,8 @@ export class UpdateBgmHandler implements CommandHandler {
 export class PlaySeHandler implements CommandHandler {
 	readonly type = "audio:se" as const;
 
+	constructor(private readonly repoFactory: StageCommandRepositoryFactory) {}
+
 	async execute(
 		ctx: CommandHandlerContext,
 		payload: unknown,
@@ -471,11 +339,8 @@ export class PlaySeHandler implements CommandHandler {
 		}
 		const input = parsed.data;
 
-		const trackRows = await ctx.tx
-			.select()
-			.from(tracks)
-			.where(eq(tracks.id, input.trackId));
-		const track = trackRows[0];
+		const repo = this.repoFactory(ctx.tx);
+		const track = await repo.findTrack(input.trackId);
 		if (
 			!track ||
 			track.moduleId !== ctx.session.moduleId ||
@@ -483,13 +348,8 @@ export class PlaySeHandler implements CommandHandler {
 		) {
 			throw new TrackNotFoundError("SE track not found in this module");
 		}
-		const asset = track.audioAssetId
-			? (
-					await ctx.tx
-						.select({ mimeType: mediaAssets.mimeType })
-						.from(mediaAssets)
-						.where(eq(mediaAssets.id, track.audioAssetId))
-				)[0]
+		const audioMimeType = track.audioAssetId
+			? await repo.findAudioMimeType(track.audioAssetId)
 			: undefined;
 
 		return {
@@ -500,7 +360,7 @@ export class PlaySeHandler implements CommandHandler {
 						trackId: track.id,
 						volume: input.volume ?? 100,
 						audioAssetId: track.audioAssetId,
-						audioMimeType: asset?.mimeType,
+						audioMimeType,
 						source: track.source as BgmState["source"],
 						playbackUrl:
 							track.source === "upload"
@@ -519,6 +379,8 @@ export class UpdateSessionSettingsHandler implements CommandHandler {
 	readonly type = "session:settings" as const;
 	readonly allowedStatuses = ["waiting", "preparing", "active"] as const;
 
+	constructor(private readonly repoFactory: StageCommandRepositoryFactory) {}
+
 	async execute(
 		ctx: CommandHandlerContext,
 		payload: unknown,
@@ -532,14 +394,10 @@ export class UpdateSessionSettingsHandler implements CommandHandler {
 		}
 		const settings = parsed.data;
 
-		await ctx.tx
-			.update(sessions)
-			.set({
-				sharePcSheets: settings.sharePcSheets ? 1 : 0,
-				obSeePcState: settings.obSeePcState ? 1 : 0,
-				diceSkin: settings.diceSkin,
-			})
-			.where(eq(sessions.id, ctx.sessionId));
+		await this.repoFactory(ctx.tx).updateSessionSettings(
+			ctx.sessionId,
+			settings,
+		);
 
 		return {
 			events: [
@@ -557,7 +415,10 @@ export class UpdateSessionSettingsHandler implements CommandHandler {
 export class UpdateNpcStateVisibilityHandler implements CommandHandler {
 	readonly type = "npc:state-visibility" as const;
 
-	constructor(private readonly ruleRegistry: RuleRegistry) {}
+	constructor(
+		private readonly ruleRegistry: RuleRegistry,
+		private readonly repoFactory: StageCommandRepositoryFactory,
+	) {}
 
 	async execute(
 		ctx: CommandHandlerContext,
@@ -572,17 +433,11 @@ export class UpdateNpcStateVisibilityHandler implements CommandHandler {
 		}
 		const input = parsed.data;
 
-		const rows = await ctx.tx
-			.select()
-			.from(sessionCharacters)
-			.where(
-				and(
-					eq(sessionCharacters.sessionId, ctx.sessionId),
-					eq(sessionCharacters.characterId, input.characterId),
-					isNull(sessionCharacters.deletedAt),
-				),
-			);
-		const sessionCharacter = rows[0];
+		const repo = this.repoFactory(ctx.tx);
+		const sessionCharacter = await repo.findActiveSessionCharacter(
+			ctx.sessionId,
+			input.characterId,
+		);
 		if (!sessionCharacter) {
 			throw new CharacterNotInSessionError();
 		}
@@ -603,15 +458,11 @@ export class UpdateNpcStateVisibilityHandler implements CommandHandler {
 			fields,
 		);
 
-		await ctx.tx
-			.update(sessionCharacters)
-			.set({ publicStateFieldsJson: JSON.stringify(fields) })
-			.where(
-				and(
-					eq(sessionCharacters.sessionId, ctx.sessionId),
-					eq(sessionCharacters.characterId, input.characterId),
-				),
-			);
+		await repo.updateNpcStateVisibility(
+			ctx.sessionId,
+			input.characterId,
+			fields,
+		);
 
 		return {
 			events: [
@@ -647,14 +498,15 @@ export class UpdateNpcStateVisibilityHandler implements CommandHandler {
 
 export function createStageCommandHandlers(
 	ruleRegistry: RuleRegistry,
+	repoFactory: StageCommandRepositoryFactory,
 ): CommandHandler[] {
 	return [
-		new SwitchSceneHandler(),
-		new SetExpressionHandler(),
-		new UpdateStageLayoutHandler(),
-		new UpdateBgmHandler(),
-		new PlaySeHandler(),
-		new UpdateSessionSettingsHandler(),
-		new UpdateNpcStateVisibilityHandler(ruleRegistry),
+		new SwitchSceneHandler(repoFactory),
+		new SetExpressionHandler(repoFactory),
+		new UpdateStageLayoutHandler(repoFactory),
+		new UpdateBgmHandler(repoFactory),
+		new PlaySeHandler(repoFactory),
+		new UpdateSessionSettingsHandler(repoFactory),
+		new UpdateNpcStateVisibilityHandler(ruleRegistry, repoFactory),
 	];
 }

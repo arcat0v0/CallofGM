@@ -45,6 +45,14 @@ CallofGM/
 
 - 踢人、黑名单校验（WS 握手时校验指纹）
 
+## 服务端持久化边界
+
+- HTTP 与 WebSocket 路由通过组合根共享认证插件和无状态仓储。写入型实时命令用当前命令事务建立仓储，使业务写入、历史记录与 outbox 同步提交。
+- 实时快照与在线列表共用持有者名称查询。快照与 BGM 控制共用音频读模型。语音广播每次按团一次读取团状态、有效席位与踢出状态，再按各连接的身份投影。
+- Tier 3 保留实时事务协调器与多表读模型的直接持久化访问。清单限于 `realtime/session-command-executor.ts`、`realtime/session-event-bus.ts`、`realtime/presence-service.ts`，以及 `realtime/application/` 下的 `build-snapshot.ts`、`session-history.ts`、`history-recorder.ts`、`runtime-snapshot.ts`、`history-rewind-commands.ts`、`chat-message-mapper.ts`、`kicked-players.ts`。情报发放概览位于 `handouts/infrastructure/grant-overview.ts`。
+
+`bun run check:boundaries` 在服务端检查模块公开入口、具体规则隔离与分层导入。检查覆盖静态导入、重新导出和字面量模块加载，并按共享规则目录识别具体规则命名空间。上面的 Tier 3 清单按文件限定，只豁免持久化依赖。客户端检查具体规则导入、规则 ID 硬编码与默认主题读取实时 Store 的边界。
+
 ## WebSocket 设计
 
 - 每个团一个 topic：`session:{id}`。连接加入团即 `ws.subscribe`，广播用 `server.publish`。
@@ -74,22 +82,26 @@ CallofGM/
 已注册 CoC 7e（`coc7e`）与 D&D 第五版 2024（`dnd5r`）。**所有规则相关逻辑必须通过统一的规则系统接口接入，通用业务代码禁止硬编码任何具体规则的判定**（见 `AGENTS.md`）。
 
 - 服务端以面向对象组织：`RuleSystem` 抽象类 + 每种规则一个实现类（`apps/server/src/rules/{ruleId}/`）。职责边界：
-  - 不可变元数据：`id`、`name`、实现 `version`、核心兼容 `apiVersion`、`description`、`permanentSheetFields`
+  - 不可变元数据：`id`、`name`、实现 `version`、核心兼容 `apiVersion`、`description`、`permanentSheetFields`、可选的 `permanentFieldRange`（`{ min, max }`）
   - 人物卡 schema、空卡构造、Excel 解析器与导入器
-  - 鉴定选项校验、掷骰判定及结果引起的状态变更。规则使用注入的 `RandomSource` 生成骰点。
-  - 规则特有检定（如 CoC 的理智检定）以规则自有动作暴露
-  - 团内状态的 schema 定义与从人物卡的初始化推导（HP/MP/SAN 属于 CoC 7e 实现，不属于通用层）
+  - 必须实现鉴定选项校验、掷骰判定与同步预览投影。规则使用注入的 `RandomSource` 生成骰点，并返回鉴定引起的状态变更。
+  - 理智、幸运与技能成长是独立的可选能力。既有 v1 命令调用对应能力，由规则实现决定鉴定与成长细则。
+  - 团内状态的 schema 定义与初始化由规则拥有。初始化接收人物卡及团和人物标识。
   - 允许扩展项声明：CoC 允许自定义技能（名称/基础值/当前值），不允许自定义属性、公式、成功等级或特殊检定
   - 供结构化 UI 调用的规则动作定义（技能鉴定、理智检定等）；不解析聊天文本命令
 - 服务端维护规则注册表 `ruleId → RuleSystem 实例`；模组、团、人物、模板各自记录 `ruleId`，创建时必须显式提交，创建后不可切换。服务端不提供默认规则。
 - `GET /api/v1/rules` 暴露已注册且 `apiVersion` 兼容的元数据；前端选择器只消费该接口，不硬编码规则列表。
-- 客户端维护规则组件注册表 `apps/client/src/rules/{ruleId}/`：建卡组件、人物卡编辑/展示组件、检定面板与团内状态视图按 `ruleId` 取用。业务页面不得直接 import 具体规则；目前 14 处直接 import `coc7e` 的页面需在实施中清理。
+- 客户端由 `apps/client/src/rules/registry.ts` 按 `ruleId` 查找 `RuleComponent`。每个规则负责其人物卡、检定、状态编辑与事件展示，幸运和 Excel 导入等可选能力由组件声明。运行时界面通过注册表取用实现，默认主题通过现有主题 SDK 插槽属性取用数据。
 - 通用层只保留规则无关能力：普通骰点表达式、事件广播与可见性、演绎队列、团状态机。
 - `packages/shared` 按规则命名空间组织：通用 schema 在 `src/` 顶层，规则专属 schema 在 `src/rules/{ruleId}/` 下，以 `coc7e`、`dnd5r` 等命名空间导出。`RuleId` 协议为受限字符串，具体合法性由服务端注册表校验。
 - 快照、日志与 WS 规则相关 payload 携带 `ruleId`，由对应规则模块的 zod schema 校验。
 - 骰点与鉴定入口统一使用 `packages/shared` 定义的结构化 WS command：普通骰点由骰点面板提交表达式，玩家自主鉴定由人物卡提交技能标识，GM 鉴定请求由控制台创建并由目标玩家确认响应。聊天消息只承载文本，不参与规则动作解析。
+- v1 鉴定信封须区分显式 `options` 和顶层难度、奖励骰、惩罚骰。CoC 7e 沿用顶层字段并拒绝显式 `options`，待响应请求继续只保存顶层选项。D&D 使用 `options` 并忽略这三个顶层字段。
 - D&D 按 `packages/shared/src/rules/dnd5r/` 定义的人物卡、目录和规则指令运行，服务端实现位于 `apps/server/src/rules/dnd5r/`。普通鉴定沿用 `check:perform` / `check:request` / `check:respond`。可选 `options` 交规则校验，`check_requests.options_json` 保存已校验的请求选项以供重连和回溯。攻击会读取目标团内人物卡，结果省略目标 AC。
 - `rule:action` 封装规则专属动作，由团所属 `RuleSystem` 校验和执行。通用层核验团状态、角色席位和阶段并持久化变更。D&D 用该指令处理遭遇、伤害、治疗、状态、资源和休整。遭遇写入 `sessions.rule_state_json`，以 `rule:state-changed` 广播，在快照携带 `ruleState`。迁移 `0008_rule_runtime` 添加这两个可空 JSON 列。
+- 游戏指令通过绑定到当前指令事务的 `GameplayRepository` 读写团规则状态及角色团内状态。NPC 状态事件在写入后通过同一仓储读取公开字段配置。
+
+- 客户端实时状态保留 `usePlayStore` 作为公开入口。`apps/client/src/stores/play/` 下的 Zustand 切片管理各业务状态，快照协调器和事件处理器负责路由 WebSocket 更新。页面继续使用现有选择器与 Store 方法，默认主题消费插槽属性。
 
 ## 掷骰与鉴定引擎
 
@@ -118,6 +130,7 @@ BgmState = { trackId, playing, volume, mode: off|single|list|shuffle, seekOffset
 ```
 
 - GM 发出指令（播放/暂停/切歌/音量/淡入淡出/seek）→ 服务端更新状态并广播 → 各客户端 Howler 执行。
+- `BgmPlayback` 管理播放状态、时间和版本，指令通过行为方法更新它，写库和广播共用一次值快照。
 - 中途加入/重连者从快照恢复：播放位置 = `seekOffsetMs + (serverNow - startedAtMs)`，仅 `single` 模式对曲目时长取模，其余模式限制到曲末。
 - `audio:bgm` 的 `mode` 指令切换模式并固化当前进度；`next` / `previous` 由服务端从当前模组未删除 BGM 中选取，列表排序为 `createdAt ASC, id ASC`。随机模式由服务端 `RandomSource` 选择且多首时排除当前曲目；没有候选则停止。
 - GM `usePlayAudio` 的 Howler `onend` 回报 `ended + expectedVersion`，不依赖声音面板是否打开。服务端拒绝非 GM、陈旧版本、未到曲末与已暂停的回报，已知时长允许 1 秒结束误差；时长未知时信任 GM 播放器的实际结束。`off` 固化停止，`list`/`shuffle` 从头播放所选曲目，事务写库后通过既有事件总线广播。客户端同版本只回报一次，断线恢复可重试；新版本或重连快照停在曲末时补报。GM 离线期间不运行独立切歌调度器。
@@ -130,6 +143,7 @@ BgmState = { trackId, playing, volume, mode: off|single|list|shuffle, seekOffset
 
 - 语音复用 `/api/v1/sessions/:id/ws`，协议在 `packages/shared/src/voice.ts` 定义，客户端/服务端消息均运行时 zod 校验。信封使用 `protocolVersion: 1` 与 `requestId`，但不使用 `ClientCommand`，不分配 `eventId`，不写 outbox、历史、聊天或补发日志。`voice:join` 携带权威 `voice:state.roomId`，避免状态下发与自动重入之间跨开启竞态；不匹配返回 `VOICE_ROOM_CHANGED`。
 - `VoiceService` 在单进程内保存当前开启、连接成员与按席位 claim id 索引的授权/静音。归属 GM 在准备中/进行中开启后，GM 断线不关闭；显式关闭、结团和进程重启清除。成员 UUID 每次加入重新签发，连接注册表的所有注销路径同步撤销成员，目标发送前再次核验来源、目标、团、开启与 active 连接。
+- `SessionLifecycle` 统一判断状态转换、阶段变更、席位认领、名单、同步、成长确认和命令的状态限制。语音是否可用、阶段是否允许发言与 GM 对成员的授权和静音分别判定。
 - 同一 claim/GM 同时只能有一个媒体连接。准入在同团串行队列中原子完成，GM 保留一个名额，PC/OB 不抢占。`sessions.voice_limit` 仅保存可空单团上限；实例 `VOICE_MAX_PARTICIPANTS` 默认 8，实际取两者较小值。运行时成员、房间 UUID、SDP/ICE 和静音不持久化。
 - 服务端先完成普通 WS 快照 hydration，再下发 `voice:state`，之后才接受信令；加入时先更新成员状态再允许后续信令。SDP offer/answer 与 ICE candidate（包括 glare 中双向 candidate）只向同开启的目标成员单播。信令采用独立 5 秒 256 帧突发上限，其他语音控制与无效帧复用普通命令 5 秒 50 帧上限。
 - GM 获得完整管理列表，已加入成员获得对等列表，未加入的非 GM 只获得人数与自身可用状态。OB 默认 listen-only，授权与 GM 静音在同一 claim 的重连/主动离开再入间保留；替换、释放、踢出清除。阶段、回溯与撤销通过事件投递后的刷新重算 `canSpeak`，已结束团关闭整个语音开启。
@@ -138,6 +152,7 @@ BgmState = { trackId, playing, volume, mode: off|single|list|shuffle, seekOffset
 
 ### 曲目来源与平台接口
 
+- `OfficialMusicService` 按平台选择适配器。适配器解析引用并实现平台 API 和音频主机策略，`MusicHttpClient` 统一执行超时、重定向、Range 和流大小限制。
 - `tracks.source` 为 `upload | netease | qq`。上传曲目引用 `audio_asset_id`；平台曲目的该字段为 NULL，并保存 `external_id`、`artists_json`、`album`、`source_url`。临时 CDN URL、vkey、Cookie 与账号凭据不入库。`template_tracks` 和模板 JSON 快照保存同一来源信息，实例化生成新曲目行。
 - 搜索：`GET /api/v1/gm/music/search?provider=netease|qq&query=<关键词>&limit=1..20`，返回 `{ items: MusicTrackDto[] }`。搜索结果的 `availability` 为 `unknown`，不把关键词命中当作可播保证。
 - 解析：`POST /api/v1/gm/music/resolve`，body 为 `{ provider, reference }`；`reference` 只接受平台歌曲 ID 或严格白名单的官方歌曲页。服务端读取官方元数据并实际读取首字节，成功后返回 `availability=available`。

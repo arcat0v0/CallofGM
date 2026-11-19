@@ -9,12 +9,12 @@ export {
 	requirePl,
 	requireSeatHolder,
 } from "./application/guards";
+export type { IdentityRepository } from "./application/ports";
 export { hashToken, issueOpaqueToken } from "./application/token";
 export {
 	ChangeOwnPasswordUseCase,
 	CreateUserUseCase,
 	LoginUseCase,
-	LogoutUseCase,
 	ResetUserPasswordUseCase,
 	UpdateUserUseCase,
 	USER_SESSION_TTL_MS,

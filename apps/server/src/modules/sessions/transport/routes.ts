@@ -22,7 +22,6 @@ import {
 	UpdateSessionPhaseRequest,
 	UpdateSessionStatusRequest,
 } from "@cogm/shared";
-import { and, eq, isNull } from "drizzle-orm";
 import { Elysia } from "elysia";
 import { z } from "zod";
 import type { Container } from "@/bootstrap/container";
@@ -30,34 +29,25 @@ import { corsOriginsFor } from "@/config/env";
 import {
 	CharacterNotFoundError,
 	ConfirmGrowthUseCase,
-	DrizzleCharactersRepository,
 } from "@/modules/characters";
 import {
 	AuthRequiredError,
-	createAuthPlugin,
-	DrizzleIdentityRepository,
 	ForbiddenError,
 	holderOfActor,
 	requireActor,
 	requireGm,
 	requireSeatHolder,
 } from "@/modules/identity";
-import {
-	characters as charactersTable,
-	sessionClaims,
-} from "@/platform/db/schema";
 import { AppError } from "@/platform/errors/app-error";
 import { validationFailed } from "@/platform/errors/validation";
 import { assertTrustedOrigin } from "@/platform/security/origin";
 import { clientIp } from "@/platform/security/request-ip";
-import type { SeatHolderInput } from "../application/ports";
 import {
 	AddSessionCharacterUseCase,
 	ClaimSeatUseCase,
 	CreateSessionUseCase,
 	GetSessionSnapshotUseCase,
 	GmAssignClaimUseCase,
-	ListSessionsUseCase,
 	ReleaseSeatUseCase,
 	RenameSessionUseCase,
 	ResolveSessionReferenceUseCase,
@@ -70,7 +60,7 @@ import {
 	SessionNotFoundError,
 	SessionStateInvalidError,
 } from "../domain/errors";
-import { DrizzleSessionsRepository } from "../infrastructure/drizzle-sessions-repository";
+import { SessionLifecycle } from "../domain/session-lifecycle";
 
 async function effectiveThemeId(
 	container: Container,
@@ -84,9 +74,7 @@ async function effectiveThemeId(
 }
 
 export function createSessionsRoutes(container: Container) {
-	const repo = new DrizzleSessionsRepository(container.db);
-	const identityRepo = new DrizzleIdentityRepository(container.db);
-	const authPlugin = createAuthPlugin(identityRepo);
+	const { sessionsRepo: repo, authPlugin } = container;
 
 	const createSession = new CreateSessionUseCase(
 		repo,
@@ -143,7 +131,6 @@ export function createSessionsRoutes(container: Container) {
 		container.clock,
 	);
 	const getSessionSnapshot = new GetSessionSnapshotUseCase(repo);
-	const listSessions = new ListSessionsUseCase(repo);
 	const renameSession = new RenameSessionUseCase(repo);
 	const resolveSessionReference = new ResolveSessionReferenceUseCase(repo);
 	const releaseSeat = new ReleaseSeatUseCase(repo, container.clock);
@@ -153,7 +140,7 @@ export function createSessionsRoutes(container: Container) {
 		container.clock,
 	);
 	const confirmGrowth = new ConfirmGrowthUseCase(
-		new DrizzleCharactersRepository(container.db),
+		container.charactersRepo,
 		container.ruleRegistry,
 		container.idGenerator,
 		container.clock,
@@ -202,7 +189,7 @@ export function createSessionsRoutes(container: Container) {
 				throw validationFailed(parsed.error);
 			}
 			return CursorPageResponse(SessionDto).parse(
-				await listSessions.execute({
+				await repo.listSessions({
 					...parsed.data,
 					ownerId: requireGm(actor).userId,
 				}),
@@ -266,11 +253,7 @@ export function createSessionsRoutes(container: Container) {
 				if (!session || session.ownerId !== gm.userId) {
 					throw new SessionNotFoundError();
 				}
-				if (session.status === "ended") {
-					throw new SessionStateInvalidError(
-						"Cannot add NPCs to an ended session",
-					);
-				}
+				new SessionLifecycle(session).assertCanModifyRosterOrSync("add-npc");
 				const [character] = await repo.findCharactersByIds([
 					result.data.characterId,
 				]);
@@ -328,10 +311,10 @@ export function createSessionsRoutes(container: Container) {
 						const session = await repo.findSessionById(id);
 						if (!session || session.ownerId !== gm.userId)
 							return new SessionNotFoundError();
-						if (session.status === "ended")
-							return new SessionStateInvalidError(
-								"Cannot remove NPCs from an ended session",
-							);
+						const rosterError = new SessionLifecycle(session).rosterOrSyncError(
+							"remove-npc",
+						);
+						if (rosterError) return rosterError;
 						let ruleStateJson: string | null | undefined;
 						if (session.ruleStateJson !== null) {
 							const rule = container.ruleRegistry.get(session.ruleId);
@@ -454,16 +437,9 @@ export function createSessionsRoutes(container: Container) {
 				if (!session || session.ownerId !== gm.userId) {
 					throw new SessionNotFoundError();
 				}
-				if (session.status !== "ended") {
-					throw new SessionStateInvalidError(
-						"Growth can only be confirmed after the session ends",
-					);
-				}
-				if (session.growthConfirmedAt !== null) {
-					throw new SessionStateInvalidError(
-						"Growth has already been confirmed for this session",
-					);
-				}
+				new SessionLifecycle(session).assertCanConfirmGrowth(
+					session.growthConfirmedAt,
+				);
 				const snapshots = await repo.findSessionCharactersWithClaims(id);
 				const results: Array<{
 					characterId: string;
@@ -473,15 +449,15 @@ export function createSessionsRoutes(container: Container) {
 						newValue: number;
 					}>;
 				}> = [];
+				const participatingPcs = await repo.findCharactersByIds(
+					snapshots
+						.filter(({ kind }) => kind === "pc")
+						.map(({ characterId }) => characterId),
+				);
+				const activePcIds = new Set(participatingPcs.map(({ id }) => id));
 				for (const snapshot of snapshots) {
-					if (snapshot.kind !== "pc") continue;
-					const character = await container.db
-						.select()
-						.from(charactersTable)
-						.where(eq(charactersTable.id, snapshot.characterId))
-						.limit(1);
-					const row = character[0];
-					if (!row || row.deletedAt !== null) continue;
+					if (snapshot.kind !== "pc" || !activePcIds.has(snapshot.characterId))
+						continue;
 					const applied = await confirmGrowth.execute({
 						ownerId: gm.userId,
 						characterId: snapshot.characterId,
@@ -575,14 +551,11 @@ export function createSessionsRoutes(container: Container) {
 				current.type === "user" && current.role === "gm"
 					? null
 					: holderOfActor(current);
-			const claimedCharacterId = holder
-				? await resolveClaimedCharacterId(container, id, holder)
+			const claim = holder
+				? await repo.findActiveClaimByHolder(id, holder)
 				: null;
-			if (
-				holder &&
-				claimedCharacterId === null &&
-				!(await hasObClaim(container, id, holder))
-			) {
+			const claimedCharacterId = claim?.characterId ?? null;
+			if (holder && !claim) {
 				throw new ForbiddenError("No active claim in this session");
 			}
 			return {
@@ -698,47 +671,6 @@ export function createSessionsRoutes(container: Container) {
 			await container.voiceService.refreshSession(id);
 			return result;
 		});
-}
-
-async function resolveClaimedCharacterId(
-	container: Container,
-	sessionId: string,
-	holder: SeatHolderInput,
-): Promise<string | null> {
-	const rows = await container.db
-		.select({ characterId: sessionClaims.characterId })
-		.from(sessionClaims)
-		.where(
-			and(
-				eq(sessionClaims.sessionId, sessionId),
-				holder.holderKind === "user"
-					? eq(sessionClaims.userId, holder.userId!)
-					: eq(sessionClaims.playerId, holder.playerId!),
-				isNull(sessionClaims.releasedAt),
-			),
-		);
-	return rows[0]?.characterId ?? null;
-}
-
-async function hasObClaim(
-	container: Container,
-	sessionId: string,
-	holder: SeatHolderInput,
-): Promise<boolean> {
-	const rows = await container.db
-		.select({ id: sessionClaims.id })
-		.from(sessionClaims)
-		.where(
-			and(
-				eq(sessionClaims.sessionId, sessionId),
-				holder.holderKind === "user"
-					? eq(sessionClaims.userId, holder.userId!)
-					: eq(sessionClaims.playerId, holder.playerId!),
-				isNull(sessionClaims.releasedAt),
-				isNull(sessionClaims.characterId),
-			),
-		);
-	return rows.length > 0;
 }
 
 export { AppError };

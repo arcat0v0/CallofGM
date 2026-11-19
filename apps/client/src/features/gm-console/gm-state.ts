@@ -1,77 +1,37 @@
 import type { SnapshotCharacter } from "@cogm/shared";
-import { parseCocState } from "@/lib/coc-live";
-import { getRuleComponent, type RuleSessionState } from "@/rules/registry";
-
-type CharacterState = RuleSessionState;
+import { getRuleComponent } from "@/rules/registry";
 
 export type CharacterStateEntry = {
 	character: SnapshotCharacter;
-	state: CharacterState;
+	score: number;
+	critical: boolean;
+	summary: string;
 };
-
-const STATUS_WEIGHT: Record<string, number> = {
-	dead: 100,
-	dying: 90,
-	unconscious: 80,
-	indefinite_insanity: 70,
-	temp_insanity: 60,
-	major_wound: 50,
-};
-
-export function severityScore(state: CharacterState): number {
-	const statusScore = state.statuses.reduce(
-		(highest, flag) => Math.max(highest, STATUS_WEIGHT[flag] ?? 10),
-		0,
-	);
-	const hpScore = state.maxHp > 0 ? (1 - state.hp / state.maxHp) * 40 : 0;
-	const sanScore = state.maxSan > 0 ? (1 - state.san / state.maxSan) * 20 : 0;
-	return statusScore + hpScore + sanScore;
-}
 
 export function stateEntries(
 	characters: SnapshotCharacter[],
 ): CharacterStateEntry[] {
-	return characters.flatMap((character) => {
-		const state = parseCocState(character.state, character.ruleId);
-		return state ? [{ character, state }] : [];
-	});
+	const entries: CharacterStateEntry[] = [];
+	for (const character of characters) {
+		const rule = getRuleComponent(character.ruleId);
+		const lines = rule.gmStateSummaryLines(character.state);
+		if (lines.length === 0) continue;
+		const hp = rule.stateBars(character.state).find(({ key }) => key === "hp");
+		const critical =
+			rule.statusLabelsOfState(character.state).length > 0 ||
+			(hp !== undefined && hp.max > 0 && hp.current / hp.max <= 0.25);
+		entries.push({
+			character,
+			score: rule.stateHealthScore(character.state),
+			critical,
+			summary: lines.join(" · "),
+		});
+	}
+	return entries;
 }
 
 export function orderBySeverity(
 	entries: CharacterStateEntry[],
 ): CharacterStateEntry[] {
-	return [...entries].sort(
-		(a, b) => severityScore(b.state) - severityScore(a.state),
-	);
-}
-
-export function hpLine(state: CharacterState): string {
-	return `HP ${state.hp} / ${state.maxHp}`;
-}
-
-export function statusLine(
-	state: CharacterState,
-	ruleId?: string | null,
-): string {
-	const labels = getRuleComponent(ruleId).statusLabels(state.statuses);
-	const resources = getRuleComponent(ruleId).supportsLuck
-		? `${hpLine(state)} · SAN ${state.san} / ${state.maxSan}`
-		: hpLine(state);
-	return labels.length > 0 ? `${labels.join(" · ")} · ${resources}` : resources;
-}
-
-export function othersLine(entries: CharacterStateEntry[]): string {
-	return entries
-		.map(
-			({ character, state }) =>
-				`${character.name} · ${statusLine(state, character.ruleId)}`,
-		)
-		.join("  ·  ");
-}
-
-export function isCritical(state: CharacterState): boolean {
-	if (state.statuses.length > 0) {
-		return true;
-	}
-	return state.maxHp > 0 && state.hp / state.maxHp <= 0.25;
+	return [...entries].sort((a, b) => b.score - a.score);
 }

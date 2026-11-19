@@ -19,12 +19,7 @@ import { Elysia } from "elysia";
 import { z } from "zod";
 import type { Container } from "@/bootstrap/container";
 import { corsOriginsFor } from "@/config/env";
-import {
-	AuthRequiredError,
-	createAuthPlugin,
-	DrizzleIdentityRepository,
-	requireGm,
-} from "@/modules/identity";
+import { AuthRequiredError, requireGm } from "@/modules/identity";
 import { ThemeNotFoundError } from "@/modules/themes";
 import { validationFailed } from "@/platform/errors/validation";
 import { assertTrustedOrigin } from "@/platform/security/origin";
@@ -33,23 +28,14 @@ import {
 	CreateModuleUseCase,
 	CreateSceneUseCase,
 	CreateTrackUseCase,
-	DeleteHandoutUseCase,
 	DeleteModuleUseCase,
-	DeleteSceneUseCase,
-	DeleteTrackUseCase,
-	GetModuleUseCase,
 	ListHandoutsUseCase,
-	ListModuleSummariesUseCase,
-	ListModulesUseCase,
 	ListScenesUseCase,
-	ListTracksUseCase,
 	UpdateHandoutUseCase,
-	UpdateModuleUseCase,
 	UpdateSceneUseCase,
 	UpdateTrackUseCase,
 } from "../application/use-cases";
 import { ModuleNotFoundError, TrackNotFoundError } from "../domain/errors";
-import { DrizzleCatalogRepository } from "../infrastructure/drizzle-catalog-repository";
 
 function parsePageQuery(query: unknown) {
 	const parsed = CursorPageQuery.safeParse(query ?? {});
@@ -88,20 +74,14 @@ async function requireTheme(
 }
 
 export function createCatalogRoutes(container: Container) {
-	const repo = new DrizzleCatalogRepository(container.db);
-	const identityRepo = new DrizzleIdentityRepository(container.db);
-	const authPlugin = createAuthPlugin(identityRepo);
+	const repo = container.catalogRepo;
 
 	const createModule = new CreateModuleUseCase(
 		repo,
 		container.idGenerator,
 		container.clock,
 	);
-	const updateModule = new UpdateModuleUseCase(repo);
 	const deleteModule = new DeleteModuleUseCase(repo, container.clock);
-	const getModule = new GetModuleUseCase(repo);
-	const listModules = new ListModulesUseCase(repo);
-	const listModuleSummaries = new ListModuleSummariesUseCase(repo);
 
 	const createScene = new CreateSceneUseCase(
 		repo,
@@ -109,7 +89,6 @@ export function createCatalogRoutes(container: Container) {
 		container.clock,
 	);
 	const updateScene = new UpdateSceneUseCase(repo);
-	const deleteScene = new DeleteSceneUseCase(repo);
 	const listScenes = new ListScenesUseCase(repo);
 
 	const createTrack = new CreateTrackUseCase(
@@ -119,8 +98,6 @@ export function createCatalogRoutes(container: Container) {
 		container.musicService,
 	);
 	const updateTrack = new UpdateTrackUseCase(repo);
-	const deleteTrack = new DeleteTrackUseCase(repo);
-	const listTracks = new ListTracksUseCase(repo);
 
 	const createHandout = new CreateHandoutUseCase(
 		repo,
@@ -128,7 +105,6 @@ export function createCatalogRoutes(container: Container) {
 		container.clock,
 	);
 	const updateHandout = new UpdateHandoutUseCase(repo);
-	const deleteHandout = new DeleteHandoutUseCase(repo);
 	const listHandouts = new ListHandoutsUseCase(repo);
 
 	const allowedOrigins = corsOriginsFor(container.env);
@@ -147,10 +123,11 @@ export function createCatalogRoutes(container: Container) {
 			throw new TrackNotFoundError();
 		}
 		await requireOwnedModule(track.moduleId, ownerId);
+		return track;
 	};
 
 	return new Elysia({ prefix: "/api/v1/gm/modules" })
-		.use(authPlugin)
+		.use(container.authPlugin)
 		.onBeforeHandle(({ actor, request }) => {
 			if (!actor || actor.type !== "user" || actor.role !== "gm") {
 				throw new AuthRequiredError();
@@ -171,26 +148,25 @@ export function createCatalogRoutes(container: Container) {
 		})
 		.get("/", async ({ query, actor }) => {
 			return CursorPageResponse(ModuleDto).parse(
-				await listModules.execute({
+				await repo.listModules({
 					...parsePageQuery(query),
 					ownerId: requireGm(actor).userId,
 				}),
 			);
 		})
 		.get("/summaries", async () => {
-			return z
-				.array(ModuleSummaryDto)
-				.parse(await listModuleSummaries.execute());
+			return z.array(ModuleSummaryDto).parse(await repo.listModuleSummaries());
 		})
 		.get("/:id", async ({ params, actor }) => {
-			await requireOwnedModule(params.id, requireGm(actor).userId);
-			return ModuleDto.parse(await getModule.execute(params.id));
+			return ModuleDto.parse(
+				await requireOwnedModule(params.id, requireGm(actor).userId),
+			);
 		})
 		.patch("/:id", async ({ params, body, actor }) => {
 			await requireOwnedModule(params.id, requireGm(actor).userId);
 			const parsed = parseBody(UpdateModuleRequest, body);
 			await requireTheme(container, parsed.themeId);
-			return ModuleDto.parse(await updateModule.execute(params.id, parsed));
+			return ModuleDto.parse(await repo.updateModule(params.id, parsed));
 		})
 		.delete("/:id", async ({ params, actor }) => {
 			await requireOwnedModule(params.id, requireGm(actor).userId);
@@ -220,37 +196,32 @@ export function createCatalogRoutes(container: Container) {
 			);
 		})
 		.delete("/scenes/:id", async ({ params }) => {
-			await deleteScene.execute(params.id);
+			await repo.deleteScene(params.id);
 			return { success: true };
 		})
 		.post("/:id/tracks", async ({ params, body, actor }) => {
-			await requireOwnedModule(params.id, requireGm(actor).userId);
-			const parsed = parseBody(CreateTrackRequest, body);
-			return TrackDto.parse(
-				await createTrack.execute({
-					moduleId: params.id,
-					...parsed,
-				}),
+			const module = await requireOwnedModule(
+				params.id,
+				requireGm(actor).userId,
 			);
+			const parsed = parseBody(CreateTrackRequest, body);
+			return TrackDto.parse(await createTrack.execute(module, parsed));
 		})
 		.get("/:id/tracks", async ({ params, query, actor }) => {
 			await requireOwnedModule(params.id, requireGm(actor).userId);
 			return CursorPageResponse(TrackDto).parse(
-				await listTracks.execute(params.id, parsePageQuery(query)),
+				await repo.listTracksByModuleId(params.id, parsePageQuery(query)),
 			);
 		})
 		.patch("/tracks/:id", async ({ params, body, actor }) => {
-			await requireOwnedTrack(params.id, requireGm(actor).userId);
+			const track = await requireOwnedTrack(params.id, requireGm(actor).userId);
 			return TrackDto.parse(
-				await updateTrack.execute(
-					params.id,
-					parseBody(UpdateTrackRequest, body),
-				),
+				await updateTrack.execute(track, parseBody(UpdateTrackRequest, body)),
 			);
 		})
 		.delete("/tracks/:id", async ({ params, actor }) => {
 			await requireOwnedTrack(params.id, requireGm(actor).userId);
-			await deleteTrack.execute(params.id);
+			await repo.deleteTrack(params.id);
 			return { success: true };
 		})
 		.post("/:id/handouts", async ({ params, body }) => {
@@ -276,7 +247,7 @@ export function createCatalogRoutes(container: Container) {
 			);
 		})
 		.delete("/handouts/:id", async ({ params }) => {
-			await deleteHandout.execute(params.id);
+			await repo.deleteHandout(params.id);
 			return { success: true };
 		});
 }

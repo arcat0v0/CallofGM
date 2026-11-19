@@ -12,14 +12,7 @@ import {
 import { Elysia } from "elysia";
 import type { Container } from "@/bootstrap/container";
 import { corsOriginsFor } from "@/config/env";
-import { DrizzleCatalogRepository } from "@/modules/catalog";
-import { DrizzleCharactersRepository } from "@/modules/characters";
-import {
-	createAuthPlugin,
-	DrizzleIdentityRepository,
-	requireGm,
-} from "@/modules/identity";
-import { DrizzleSessionsRepository } from "@/modules/sessions";
+import { requireGm } from "@/modules/identity";
 import { validationFailed } from "@/platform/errors/validation";
 import { assertTrustedOrigin } from "@/platform/security/origin";
 import {
@@ -31,7 +24,6 @@ import {
 	SoftDeleteTemplateUseCase,
 	UpdateTemplateUseCase,
 } from "../application/use-cases";
-import { DrizzleTemplatesRepository } from "../infrastructure/drizzle-templates-repository";
 
 function toDto(
 	template: {
@@ -57,13 +49,13 @@ function toDto(
 }
 
 export function createTemplatesRoutes(container: Container) {
-	const repo = new DrizzleTemplatesRepository(container.db);
-	const catalog = new DrizzleCatalogRepository(container.db);
-	const characters = new DrizzleCharactersRepository(container.db);
-	const sessions = new DrizzleSessionsRepository(container.db);
-	const authPlugin = createAuthPlugin(
-		new DrizzleIdentityRepository(container.db),
-	);
+	const {
+		templatesRepo: repo,
+		catalogRepo: catalog,
+		charactersRepo: characters,
+		sessionsRepo: sessions,
+		authPlugin,
+	} = container;
 	const allowedOrigins = corsOriginsFor(container.env);
 
 	const createTemplate = new CreateTemplateUseCase(

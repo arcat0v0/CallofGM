@@ -177,7 +177,8 @@ function PlCharactersPage() {
 										<Pencil className="size-3.5" />
 										{t("common.edit")}
 									</Button>
-									{getRuleComponent(character.ruleId).supportsExcelImport ? (
+									{getRuleComponent(character.ruleId).capabilities
+										?.excelImport ? (
 										<Button
 											type="button"
 											variant="ghost"

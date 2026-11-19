@@ -54,7 +54,8 @@ export function CharacterProfileEditorDialog({
 	);
 	const backgroundIsDerived = rule.backgroundSource === "sheet";
 	const backgroundSummary = backgroundIsDerived
-		? (rule.serializeBackground?.(fullSheet, background) ?? background)
+		? (rule.capabilities?.sheetBackground?.serialize(fullSheet, background) ??
+			background)
 		: background;
 
 	useEffect(() => {
@@ -81,9 +82,7 @@ export function CharacterProfileEditorDialog({
 		if (saving || !canEditCharacter) {
 			return;
 		}
-		const sheetData = canEditCharacter
-			? rule.parseSheet(fullSheet)
-			: undefined;
+		const sheetData = canEditCharacter ? rule.parseSheet(fullSheet) : undefined;
 		if (canEditCharacter && (!sheetData || !sheetValid)) {
 			setShowValidation(true);
 			toast.error(t("characterCreation.ruleValidationSummary"));
@@ -92,7 +91,10 @@ export function CharacterProfileEditorDialog({
 		const serializedBackground =
 			sheetData === undefined
 				? background
-				: (rule.serializeBackground?.(sheetData, background) ?? background);
+				: (rule.capabilities?.sheetBackground?.serialize(
+						sheetData,
+						background,
+					) ?? background);
 		setSaving(true);
 		try {
 			const next = await api<CharacterDto>(
@@ -238,16 +240,16 @@ export function CharacterProfileEditorDialog({
 					<Button type="button" variant="tertiary" onClick={onClose}>
 						{t("common.close")}
 					</Button>
-						{canEditCharacter ? (
-							<Button
-								type="button"
-								variant="primary"
-								disabled={saving || !name.trim()}
-								onClick={() => void save()}
-							>
-								{t("common.save")}
-							</Button>
-						) : null}
+					{canEditCharacter ? (
+						<Button
+							type="button"
+							variant="primary"
+							disabled={saving || !name.trim()}
+							onClick={() => void save()}
+						>
+							{t("common.save")}
+						</Button>
+					) : null}
 				</DialogFooter>
 			</DialogContent>
 		</Dialog>

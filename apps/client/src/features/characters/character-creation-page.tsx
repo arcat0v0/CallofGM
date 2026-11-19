@@ -290,7 +290,8 @@ export function CharacterCreationPageView({
 		}
 		setWarningConfirmOpen(false);
 		const serializedBackground =
-			rule.serializeBackground?.(parsed, background) ?? background;
+			rule.capabilities?.sheetBackground?.serialize(parsed, background) ??
+			background;
 		setPending(true);
 		setErrorMessage("");
 		try {

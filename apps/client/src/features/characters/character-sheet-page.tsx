@@ -164,16 +164,15 @@ function CharacterSheetView({
 	const portraitUrl = mediaUrl(defaultPortrait?.portraitAssetId);
 	const backgroundIsDerived = rule.backgroundSource === "sheet";
 	const backgroundSummary = backgroundIsDerived
-		? (rule.serializeBackground?.(fullSheet, background) ?? background)
+		? (rule.capabilities?.sheetBackground?.serialize(fullSheet, background) ??
+			background)
 		: background;
 
 	async function save() {
 		if (saving || !canEditCharacter) {
 			return;
 		}
-		const sheetData = canEditCharacter
-			? rule.parseSheet(fullSheet)
-			: undefined;
+		const sheetData = canEditCharacter ? rule.parseSheet(fullSheet) : undefined;
 		if (canEditCharacter && (!sheetData || !sheetValid)) {
 			setShowValidation(true);
 			toast.error(t("characterCreation.ruleValidationSummary"));
@@ -182,7 +181,10 @@ function CharacterSheetView({
 		const serializedBackground =
 			sheetData === undefined
 				? background
-				: (rule.serializeBackground?.(sheetData, background) ?? background);
+				: (rule.capabilities?.sheetBackground?.serialize(
+						sheetData,
+						background,
+					) ?? background);
 		setSaving(true);
 		try {
 			const next = await api<CharacterDto>(
@@ -256,16 +258,11 @@ function CharacterSheetView({
 							<Badge variant="soft" tone="default" size="sm">
 								{t(character.kind === "npc" ? "common.npc" : "common.pc")}
 							</Badge>
-							{overview?.profession ? (
-								<Badge variant="soft" tone="default" size="sm">
-									{overview.profession}
+							{overview.map(({ label, value }) => (
+								<Badge key={label} variant="soft" tone="default" size="sm">
+									{value}
 								</Badge>
-							) : null}
-							{overview?.era ? (
-								<Badge variant="soft" tone="default" size="sm">
-									{overview.era}
-								</Badge>
-							) : null}
+							))}
 							<span className="text-foreground-tertiary font-mono text-label-small">
 								{t("characterSheet.version", { version })}
 							</span>
@@ -353,9 +350,7 @@ function CharacterSheetView({
 										<span className="text-md-on-surface-variant text-label-medium">
 											{t("characterProfile.name")}
 										</span>
-										<p className="text-body-large text-foreground">
-											{name}
-										</p>
+										<p className="text-body-large text-foreground">{name}</p>
 									</div>
 								)}
 								<div className="flex min-w-0 flex-col gap-1.5">

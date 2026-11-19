@@ -34,13 +34,13 @@ test("natural twenty and one do not force ability or save results", async () => 
 	const failure = await rule.resolveCheck(
 		character,
 		"ability:cha",
-		{ dc: 20 },
+		{ options: { dc: 20 } },
 		runtime,
 	);
 	const success = await rule.resolveCheck(
 		character,
 		"save:str",
-		{ dc: 6 },
+		{ options: { dc: 6 } },
 		runtime,
 	);
 	expect(failure.result).toMatchObject({
@@ -65,14 +65,19 @@ test("a shield blocks two-handed weapons before rolling, and disadvantage source
 		[11, 4, 6],
 	);
 	await expect(
-		rule.resolveCheck(character, "attack:greatsword", { dc: 10 }, runtime),
+		rule.resolveCheck(
+			character,
+			"attack:greatsword",
+			{ options: { dc: 10 } },
+			runtime,
+		),
 	).rejects.toThrow("A shield occupies one hand");
 	character.sheet.shield = false;
 	character.state.conditions = ["poisoned"];
 	const { result } = await rule.resolveCheck(
 		character,
 		"attack:greatsword",
-		{ mode: "advantage", dc: 10 },
+		{ options: { mode: "advantage", dc: 10 } },
 		runtime,
 	);
 	expect(result).toMatchObject({

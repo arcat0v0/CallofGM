@@ -23,4 +23,5 @@ export {
 	UnbanFingerprintHandler,
 	UnkickPlayerHandler,
 } from "./application/commands";
+export type { ModerationRepository } from "./application/ports";
 export { DrizzleModerationRepository } from "./infrastructure/drizzle-moderation-repository";
