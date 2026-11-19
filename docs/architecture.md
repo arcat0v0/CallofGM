@@ -149,7 +149,8 @@ BgmState = { trackId, playing, volume, mode: off|single|list|shuffle, seekOffset
 - GM 获得完整管理列表，已加入成员获得对等列表，未加入的非 GM 只获得人数与自身可用状态。OB 默认 listen-only，授权与 GM 静音在同一 claim 的重连/主动离开再入间保留；替换、释放、踢出清除。阶段、回溯与撤销通过事件投递后的刷新重算 `canSpeak`，已结束团关闭整个语音开启。
 - 浏览器按权威状态在发送端停止/禁用采集与轨道，并在接收端 mute、pause、disable 对应远端轨道。服务端不能约束相互串通的客户端再次转发已经收到的媒体，语音不是对恶意合谋参与者的保密通道。
 - `VoiceController` 在本地保存音频偏好并管理采集、麦克风测试及按键说话。采集链读取音轨报告的实际约束，使用 48 kHz AudioWorklet 运行 RNNoise WASM，并支持噪声门与 Web Audio 压限。RNNoise 生效时请求关闭浏览器降噪，增强处理不可用时使用可用的浏览器采集与处理。通话发送与本地测试使用同一套采集处理逻辑，回听仅连接本机音频输出。
-- 按键说话由客户端按发言权限及按住状态控制发送轨道。松开、窗口失焦或页面隐藏时关闭发送，显式停止采集、离开语音或失去发言权限时释放通话采集资源。
+- 按键说话由客户端按发言权限及按住状态控制发送轨道。松开按键、窗口失焦或页面隐藏时，发送轨道静音，麦克风采集保持就绪。用户关闭麦克风、离开语音或失去发言权限时，客户端释放采集资源。
+- WebRTC 优先协商单声道 Opus。浏览器支持时，RTP 发送端设置 32 kbps 码率上限。DTX（不连续传输）与带内 FEC（前向纠错）取决于浏览器能力和协商结果。
 - ICE 配置默认空，浏览器可直接尝试 host candidate。`VOICE_STUN_URLS` 配置逗号分隔 STUN；`VOICE_TURN_URLS` 与 `VOICE_TURN_REST_SECRET` 成对配置独立 TURN，服务端按 `VOICE_TURN_TTL_SECONDS`（默认 600）生成 coturn REST 用户名与 HMAC-SHA1 临时凭据，仅向已加入成员下发。长期 REST secret 仅存在服务端环境，不下发前端。
 
 ### 曲目来源与平台接口
