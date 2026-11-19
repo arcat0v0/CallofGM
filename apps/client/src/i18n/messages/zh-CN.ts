@@ -844,7 +844,7 @@ export const zhCN: Record<string, string> = {
 	"play.actions": "桌上行动",
 	"voice.title": "语音",
 	"voice.description":
-		"加入后先收听。只有点击开启麦克风后，浏览器才会请求麦克风权限。",
+		"加入后先收听。开始发言或测试麦克风时，浏览器可能会请求麦克风权限。",
 	"voice.currentSection": "当前语音",
 	"voice.roomSettings": "房间设置",
 	"voice.roomClosedHint": "开放语音房间后，团内成员即可加入通话与收听。",
@@ -912,7 +912,7 @@ export const zhCN: Record<string, string> = {
 	"voice.audio.processing.rnnoise": "RNNoise 处理中",
 	"voice.audio.processing.fallback": "已回退到浏览器处理",
 	"voice.audio.fallbackHint":
-		"深度降噪未能启动，当前使用浏览器音频处理。可关闭深度降噪后重试。",
+		"部分已开启的增强处理不可用，当前使用可用的音频处理。",
 	"voice.audio.speakingMode": "说话模式",
 	"voice.audio.continuousMode": "普通切换",
 	"voice.audio.pushToTalkMode": "按键说话",

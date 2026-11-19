@@ -457,7 +457,7 @@ describe("voice audio settings UI", () => {
 
 	test("fallback and browser-decided constraints are reported without false enabled states", () => {
 		const { section } = renderAudioSettings({
-			audioSettings: { deepNoiseSuppression: true },
+			audioSettings: { noiseGate: true },
 			audioProcessing: "fallback",
 			appliedAudioConstraints: {
 				echoCancellation: null,
@@ -469,7 +469,7 @@ describe("voice audio settings UI", () => {
 		expect(within(section).getByText("已回退到浏览器处理")).toBeTruthy();
 		expect(
 			within(section).getByText(
-				"深度降噪未能启动，当前使用浏览器音频处理。可关闭深度降噪后重试。",
+				"部分已开启的增强处理不可用，当前使用可用的音频处理。",
 			),
 		).toBeTruthy();
 		const echoRow = within(section).getByRole("switch", {
@@ -487,9 +487,7 @@ describe("voice audio settings UI", () => {
 			within(noiseRow as HTMLElement).getByText("实际：关闭"),
 		).toBeTruthy();
 		expect(
-			within(section).getByText(
-				"开启后由 RNNoise 替代浏览器降噪；浏览器降噪开关会保留你的偏好设置。",
-			),
-		).toBeTruthy();
+			within(section).queryByText(/RNNoise 替代浏览器降噪/),
+		).toBeNull();
 	});
 });
