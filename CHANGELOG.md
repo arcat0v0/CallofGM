@@ -30,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `tracks` 与 `template_tracks` 增加曲目来源及平台元数据；`0005_lazy_xorn` 将历史曲目迁移为 `upload`，保留媒体引用和软删除状态，平台曲目的 `audio_asset_id` 可空。
 - 服务端统一规则检定入口，将理智、幸运与成长作为独立能力，并将团状态机、BGM 状态、音乐平台适配及持久化职责收口。
 - 前端按规则注册表渲染人物卡与检定界面，实时 Store 改为业务切片并保留 `usePlayStore` 入口。
+- `bun dev` 的 Vite 前端监听 `0.0.0.0:15633`。从局域网地址登录时，将该访问地址加入后端的 `CORS_ORIGINS`。
 
 ### Fixed
 
