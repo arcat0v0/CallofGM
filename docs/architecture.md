@@ -152,6 +152,7 @@ BgmState = { trackId, playing, volume, mode: off|single|list|shuffle, seekOffset
 - 按键说话由客户端按发言权限及按住状态控制发送轨道。松开按键、窗口失焦或页面隐藏时，发送轨道静音，麦克风采集保持就绪。用户关闭麦克风、离开语音或失去发言权限时，客户端释放采集资源。
 - WebRTC 优先协商单声道 Opus。浏览器支持时，RTP 发送端设置 32 kbps 码率上限。DTX（不连续传输）与带内 FEC（前向纠错）取决于浏览器能力和协商结果。
 - ICE 配置默认空，浏览器可直接尝试 host candidate。`VOICE_STUN_URLS` 配置逗号分隔 STUN；`VOICE_TURN_URLS` 与 `VOICE_TURN_REST_SECRET` 成对配置独立 TURN，服务端按 `VOICE_TURN_TTL_SECONDS`（默认 600）生成 coturn REST 用户名与 HMAC-SHA1 临时凭据，仅向已加入成员下发。长期 REST secret 仅存在服务端环境，不下发前端。
+- 语音弱网、WS-only 中断与切网的隔离 Chromium 复验方法、实测证据和边界见 [WebRTC 语音弱网与切网验证](voice-network-testing.md)。
 
 ### 曲目来源与平台接口
 

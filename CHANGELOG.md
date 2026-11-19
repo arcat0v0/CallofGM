@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 语音支持本地麦克风测试与回听、可配置的按键说话，以及说话人悬浮窗和独立成员音量。
 - 语音传输优先协商单声道 Opus，支持时将发送端码率上限设为 32 kbps。DTX 与带内 FEC 取决于浏览器能力和协商结果。
 
+### Tests
+
+- 使用隔离双 Chromium、network namespace、合成音频与 RTP/RMS 采样验证语音基线、真实 UDP 损伤、五次双路径切换及 WS-only 重连；明确 CDP 页面网络条件未形成 RTP 弱网证据，实体无线切换、RNNoise 弱网对照与主观听感仍未覆盖。详见 [语音弱网与切网验证](docs/voice-network-testing.md)。
+
 ## [0.1.0] - 2026-11-19
 
 发布验证使用 Bun `1.4.4`。Docker 构建与运行使用 Bun `1.3.14`。
