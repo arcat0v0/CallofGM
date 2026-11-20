@@ -15,6 +15,7 @@ const buttonVariants = cva(
 				outline: "border border-border bg-transparent text-accent",
 				ghost: "text-accent",
 				danger: "bg-danger text-danger-foreground text-label-large-emph",
+				warning: "bg-warning text-warning-foreground text-label-large-emph",
 				dangerSoft: "bg-danger-soft text-danger-soft-foreground",
 				tertiary: "bg-default text-default-foreground",
 				filled: "bg-accent text-accent-foreground",

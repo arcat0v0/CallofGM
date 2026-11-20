@@ -37,7 +37,10 @@ import { ChatEmptyState } from "@/features/chat/chat-empty-state";
 import { ChatMessageCard } from "@/features/chat/chat-message-card";
 import { ChatPanelHeader } from "@/features/chat/chat-panel-header";
 import { MessageList } from "@/features/chat/message-list";
-import { DiceTray } from "@/features/session-live/dice-tray";
+import {
+	DiceTray,
+	keepEscapeForFilledInput,
+} from "@/features/session-live/dice-tray";
 import { t } from "@/i18n";
 import { sessionStatusLabel } from "@/i18n/labels";
 import { expressionLabel, initialsOf } from "@/lib/format";
@@ -424,6 +427,7 @@ function GmChatPanel({
 								align="start"
 								side="top"
 								className="bg-md-surface-container-high w-80"
+								onEscapeKeyDown={keepEscapeForFilledInput}
 							>
 								<DiceTray
 									gm

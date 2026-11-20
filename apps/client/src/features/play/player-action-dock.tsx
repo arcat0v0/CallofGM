@@ -30,7 +30,10 @@ import {
 } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
 import { CharacterSheetPanel } from "@/features/session-live/character-sheet-panel";
-import { DiceTray } from "@/features/session-live/dice-tray";
+import {
+	DiceTray,
+	keepEscapeForFilledInput,
+} from "@/features/session-live/dice-tray";
 import { HandoutLibrary } from "@/features/session-live/handout-library";
 import { PresenceList } from "@/features/session-live/presence-list";
 import type { VoiceController } from "@/features/voice/voice-controller";
@@ -193,6 +196,7 @@ function PlayerActionDock({
 						side="bottom"
 						sideOffset={12}
 						className="stage-glass shadow-overlay w-[400px] rounded-xl p-4"
+								onEscapeKeyDown={keepEscapeForFilledInput}
 					>
 						<div className="flex flex-col gap-3">
 							<PanelHeading
