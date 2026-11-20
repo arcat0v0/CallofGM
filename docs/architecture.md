@@ -160,6 +160,8 @@ BgmState = { trackId, playing, volume, mode: off|single|list|shuffle, seekOffset
 - `PUT /api/v1/sessions/:id/voice-diagnostics/consent`、`POST .../revoke` 与 `POST .../samples` 复用现有 actor、Origin 和版本约定。`VoiceService` 的内存同意表绑定当前开启、active 已加入成员与 `roomId + memberId`；成员离开、连接注销、席位失效、新成员 ID 和新开启都会使旧同意失效。上传还必须匹配已登记的 consentVersion 与 acceptedAt，服务端独立记录 receivedAt，数据库写失败不返回成功。
 - `GET /api/v1/gm/sessions/:id/voice-diagnostics?limit=1..200` 仅归属 GM 可读，按 receivedAt 与插入顺序最新优先，返回结构化原始 RTC 指标和事件，不返回 actor 名称、账户 ID 或 IP；admin 没有额外权限。撤销只阻止新批次，历史报告仍可导出。
 - 迁移 `0009_flashy_bloodscream` 新增 `voice_diagnostic_reports`：`session_id`、`room_id`、`member_id`、同意版本与时间、接收时间、完整最小化 `payload_json` 和 `deleted_at`。不保存音频、聊天、IP、SDP、ICE 地址、设备名、设备 ID 或浏览器指纹；同意本身不入库，报告遵循软删除，不做自动物理清理。
+- 客户端默认不启动诊断计时器或上传；明确同意并注册当前 `roomId + memberId` 后，按 5 秒逐 peer 采样、15 秒批量上报。样本使用 RTP 累计值差分与 transport 选中 candidate pair 的白名单元数据，不读取或保存地址；远端 RMS 复用现有 `VoiceActivityMonitor`。页面隐藏/离开只在同意仍有效时尝试 keepalive flush。
+- 样本 HTTP 失败仅在同一 member 内进行有界重试并保留有界队列；member 离开、变化或 room 切换会清空待传队列，不承诺跨 member 保留。WS open 在 socket、成员与同意就绪后只记录一次，WS close 的 `state` 记录 numeric close code，不记录 reason。当前诊断不采集 codec、Opus DTX/FEC 或 sender encoding 细节，这些是后续协议扩展前无法由报告判断的限制。
 
 ### 曲目来源与平台接口
 

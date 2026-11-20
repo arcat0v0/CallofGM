@@ -57,6 +57,7 @@ class PeerConnection {
 function fixture(
 	initiator: boolean,
 	onRemoteTrack?: (track: MediaStreamTrack | null) => void,
+	diagnostics?: ConstructorParameters<typeof VoicePeer>[0]["diagnostics"],
 ) {
 	globalThis.RTCPeerConnection =
 		PeerConnection as unknown as typeof RTCPeerConnection;
@@ -67,6 +68,7 @@ function fixture(
 		send,
 		changed: () => {},
 		onRemoteTrack,
+		diagnostics,
 	});
 	peer = subject;
 	if (!created) throw new Error("missing peer connection");
@@ -182,6 +184,39 @@ describe("voice peer", () => {
 		expect(output?.volume).toBe(0);
 		subject.close();
 		expect(trackEvents).toEqual([track as unknown as MediaStreamTrack, null]);
+	});
+
+	test("reports only connection metadata through the diagnostics callback", () => {
+		jest.useFakeTimers();
+		try {
+			const setConnection = mock(() => {});
+			const setRemoteTrack = mock(() => {});
+			const recordEvent = mock(() => {});
+			const { subject, connection } = fixture(true, undefined, {
+				setConnection,
+				setRemoteTrack,
+				recordEvent,
+			});
+			expect(setConnection).toHaveBeenCalledWith(connection);
+			connection.connectionState = "disconnected";
+			connection.onconnectionstatechange?.();
+			expect(recordEvent).toHaveBeenCalledWith(
+				"peer-state",
+				"disconnected",
+				"new",
+			);
+			jest.advanceTimersByTime(4_000);
+			expect(recordEvent).toHaveBeenCalledWith(
+				"ice-restart",
+				"requested",
+				"disconnected",
+			);
+			subject.close();
+			expect(setConnection).toHaveBeenLastCalledWith(null);
+			expect(setRemoteTrack).toHaveBeenLastCalledWith(null);
+		} finally {
+			jest.useRealTimers();
+		}
 	});
 });
 

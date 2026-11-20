@@ -484,3 +484,100 @@ describe("voice membership and media lifetime", () => {
 		expect(samples.at(-1)).toEqual({ level: 0, detected: false });
 	});
 });
+
+describe("voice diagnostics consent lifecycle", () => {
+	test("registers only after opt-in and re-registers a new member on rejoin", async () => {
+		const nativeFetch = globalThis.fetch;
+		const fetchMock = mock(async (_input: RequestInfo | URL, _init?: RequestInit) => ({
+			ok: true,
+		}) as Response);
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+		try {
+			const { controller, connect, state, join } = fixture(
+				undefined,
+				"session-diagnostics",
+			);
+			join();
+			connect();
+			expect(fetchMock).not.toHaveBeenCalled();
+			expect(controller.getSnapshot().diagnosticsConsent).toBe(false);
+			await controller.setDiagnosticsConsent(true);
+			expect(controller.getSnapshot().diagnosticsStatus).toBe("active");
+			const firstRegistration = fetchMock.mock.calls[0];
+			expect(String(firstRegistration?.[0])).toContain(
+				"/api/v1/sessions/session-diagnostics/voice-diagnostics/consent",
+			);
+			const firstBody = JSON.parse(String(firstRegistration?.[1]?.body)) as {
+				acceptedAt: string;
+				memberId: string;
+			};
+			expect(firstBody.memberId).toBe(self.id);
+
+			controller.disconnect(true, 1006);
+			const closeUpload = fetchMock.mock.calls.find(([input]) =>
+				String(input).endsWith("/voice-diagnostics/samples"),
+			);
+			const closeEvents = JSON.parse(String(closeUpload?.[1]?.body)) as {
+				events: Array<{ kind: string; state: string | null }>;
+			};
+			expect(
+				closeEvents.events.filter((event) => event.kind === "ws-open"),
+			).toHaveLength(1);
+			expect(
+				closeEvents.events.find((event) => event.kind === "ws-close")?.state,
+			).toBe("1006");
+			connect();
+			state(waiting);
+			const rejoinedSelf = {
+				...self,
+				id: "00000000-0000-4000-8000-000000000099",
+			};
+			state({
+				...joined,
+				selfId: rejoinedSelf.id,
+				members: [rejoinedSelf, remote],
+			});
+			await Promise.resolve();
+			const registrations = fetchMock.mock.calls.filter(([input]) =>
+				String(input).endsWith("/voice-diagnostics/consent"),
+			);
+			expect(registrations).toHaveLength(2);
+			const reconnectedBody = JSON.parse(
+				String(registrations[1]?.[1]?.body),
+			) as { acceptedAt: string; memberId: string };
+			expect(reconnectedBody.memberId).toBe(rejoinedSelf.id);
+			expect(reconnectedBody.acceptedAt).toBe(firstBody.acceptedAt);
+
+			await controller.setDiagnosticsConsent(false);
+			expect(controller.getSnapshot().diagnosticsConsent).toBe(false);
+			expect(controller.getSnapshot().diagnosticsStatus).toBe("disabled");
+			expect(
+				fetchMock.mock.calls.some(([input]) =>
+					String(input).endsWith("/voice-diagnostics/revoke"),
+				),
+			).toBe(true);
+			controller.disconnect(false);
+		} finally {
+			globalThis.fetch = nativeFetch;
+		}
+	});
+
+	test("restores only the current consent version without uploading before join", () => {
+		localStorage.setItem(
+			"cogm.voiceDiagnosticsConsent",
+			JSON.stringify({ consentVersion: 2, acceptedAt: "2026-11-20T08:00:00.000Z" }),
+		);
+		const outdated = fixture(undefined, "session-diagnostics");
+		expect(outdated.controller.getSnapshot().diagnosticsConsent).toBe(false);
+		outdated.controller.disconnect(false);
+
+		localStorage.setItem(
+			"cogm.voiceDiagnosticsConsent",
+			JSON.stringify({ consentVersion: 1, acceptedAt: "2026-11-20T08:00:00.000Z" }),
+		);
+		const current = fixture(undefined, "session-diagnostics");
+		expect(current.controller.getSnapshot().diagnosticsConsent).toBe(true);
+		expect(current.controller.getSnapshot().diagnosticsStatus).toBe("pending");
+		current.controller.disconnect(false);
+	});
+});

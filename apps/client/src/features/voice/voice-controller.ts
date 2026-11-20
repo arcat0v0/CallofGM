@@ -6,7 +6,13 @@ import {
 	voiceProtocolVersion,
 } from "@cogm/shared";
 import { normalizeLocalVolume } from "@/lib/local-volume";
-import { readVoiceMemberVolumes, writeVoiceMemberVolumes } from "@/lib/storage";
+import {
+	clearVoiceDiagnosticsConsent,
+	readVoiceDiagnosticsConsent,
+	readVoiceMemberVolumes,
+	writeVoiceDiagnosticsConsent,
+	writeVoiceMemberVolumes,
+} from "@/lib/storage";
 import { randomUuid } from "@/lib/uuid";
 import {
 	DEFAULT_VOICE_AUDIO_SETTINGS,
@@ -25,6 +31,10 @@ export type { VoiceAudioSettings } from "./voice-audio-settings";
 
 import { VoiceActivityMonitor, VoiceMicTester } from "./voice-activity";
 import { VoicePeer } from "./voice-peer";
+import {
+	VoiceDiagnostics,
+	type VoiceDiagnosticsStatus,
+} from "./voice-diagnostics";
 
 type VoiceCommand = {
 	[Kind in VoiceClientMessage["type"]]: Pick<
@@ -68,9 +78,12 @@ export type VoiceSnapshot = {
 	memberVolumes: Record<string, number>;
 	speakerPopupOpen: boolean;
 	error: string | null;
+	diagnosticsConsent: boolean;
+	diagnosticsStatus: VoiceDiagnosticsStatus;
 };
 export type VoiceActivityMonitorLike = {
 	setTrack: (key: string, input: MediaStream | MediaStreamTrack | null) => void;
+	getRms?: (key: string) => number | null;
 	setAllowed: (allowed: ReadonlySet<string>) => void;
 	resume: () => void;
 	clear: () => void;
@@ -121,6 +134,8 @@ const INITIAL: VoiceSnapshot = {
 	memberVolumes: {},
 	speakerPopupOpen: true,
 	error: null,
+	diagnosticsConsent: false,
+	diagnosticsStatus: "disabled",
 };
 
 function speakerKey(member: Pick<VoiceMember, "role" | "name">): string {
@@ -193,6 +208,9 @@ export class VoiceController {
 	private micGeneration = 0;
 	private micTestGeneration = 0;
 	private failedPeers = 0;
+	private readonly diagnostics: VoiceDiagnostics;
+	private wsOpen = false;
+	private wsOpenEventRecorded = false;
 
 	constructor(options: VoiceOptions = {}) {
 		this.options = options;
@@ -229,6 +247,24 @@ export class VoiceController {
 		this.micTester = options.createMicTester
 			? options.createMicTester(onMicSample)
 			: new VoiceMicTester(onMicSample);
+		const diagnosticsConsent = readVoiceDiagnosticsConsent();
+		this.diagnostics = new VoiceDiagnostics({
+			sessionId: this.sessionId,
+			consent: diagnosticsConsent,
+			getRemoteRms: (peerMemberId) => this.monitor.getRms?.(peerMemberId) ?? null,
+			getLocalState: () => ({
+				localMicState: this.snapshot.mic,
+				audioProcessing: this.snapshot.audioProcessing,
+			}),
+			onStatus: (diagnosticsStatus) => this.patch({ diagnosticsStatus }),
+		});
+		if (diagnosticsConsent) {
+			this.snapshot = {
+				...this.snapshot,
+				diagnosticsConsent: true,
+				diagnosticsStatus: "pending",
+			};
+		}
 		this.attachBrowserHandlers();
 	}
 
@@ -236,6 +272,7 @@ export class VoiceController {
 		if (this.sessionId === sessionId) return;
 		this.sessionId = sessionId;
 		this.savedVolumes = readVoiceMemberVolumes(sessionId);
+		this.diagnostics.setSessionId(sessionId);
 	}
 
 	getSnapshot = (): VoiceSnapshot => this.snapshot;
@@ -246,22 +283,67 @@ export class VoiceController {
 	};
 
 	private patch(patch: Partial<VoiceSnapshot>): void {
+		const previous = this.snapshot;
 		this.snapshot = { ...this.snapshot, ...patch };
+		if (this.diagnostics) {
+			if (previous.mic !== this.snapshot.mic) {
+				this.diagnostics.recordEvent("mic-state", this.snapshot.mic, previous.mic);
+			}
+			if (
+				previous.audioProcessing !== this.snapshot.audioProcessing &&
+				this.snapshot.audioProcessing === "fallback"
+			) {
+				this.diagnostics.recordEvent(
+					"processing-fallback",
+					"fallback",
+					previous.audioProcessing,
+				);
+			}
+			if (previous.audioSettings.deviceId !== this.snapshot.audioSettings.deviceId) {
+				this.diagnostics.recordEvent("device-changed", "changed");
+			}
+		}
 		for (const listener of this.listeners) listener();
+	}
+
+	private syncDiagnosticsWsOpen(): void {
+		if (
+			!this.wsOpen ||
+			this.wsOpenEventRecorded ||
+			!this.snapshot.member ||
+			!this.snapshot.diagnosticsConsent
+		) {
+			return;
+		}
+		this.diagnostics.recordEvent("ws-open", "open");
+		this.wsOpenEventRecorded = true;
 	}
 
 	connect(transport: VoiceTransport): void {
 		this.transport = transport;
 		this.attachBrowserHandlers();
 		if (this.snapshot.link === "offline") this.patch({ link: "connecting" });
+		if (!this.wsOpen) {
+			this.wsOpen = true;
+			this.wsOpenEventRecorded = false;
+		}
+		this.syncDiagnosticsWsOpen();
 		void this.refreshAudioDevices();
 	}
 
-	disconnect(retry: boolean): void {
+	disconnect(retry: boolean, closeCode?: number): void {
 		this.rejoinRoom = retry
 			? (this.snapshot.member && this.snapshot.state?.roomId) || this.rejoinRoom
 			: null;
 		this.transport = null;
+		this.diagnostics.recordEvent(
+			"ws-close",
+			closeCode === undefined ? "closed" : String(closeCode),
+		);
+		this.wsOpen = false;
+		this.wsOpenEventRecorded = false;
+		void this.diagnostics.flush(true);
+		void this.diagnostics.setMembership(null, null);
 		this.unwantedMember = null;
 		this.clearPending();
 		this.stopMicTest();
@@ -269,6 +351,7 @@ export class VoiceController {
 		if (!retry) {
 			this.monitor.close();
 			this.detachBrowserHandlers();
+			this.diagnostics.close();
 		}
 		this.patch({
 			link: retry ? "reconnecting" : "offline",
@@ -325,6 +408,7 @@ export class VoiceController {
 				? (state.members.find((item) => item.id === state.selfId) ?? null)
 				: null;
 		if (!member && previous.member) this.clearMedia();
+		if (!member) void this.diagnostics.setMembership(null, null);
 		if (previous.member?.canSpeak && !member?.canSpeak) this.stopMic();
 		if (member && requestedMembership) this.clearPending();
 		if (!state.selfId) this.unwantedMember = null;
@@ -340,6 +424,14 @@ export class VoiceController {
 			...(member ? {} : { speakingIds: [], memberVolumes: {} }),
 		});
 		if (member) {
+			void this.diagnostics.setMembership(
+				state.roomId,
+				member.id,
+				previous.link === "reconnecting" || this.rejoinRoom === state.roomId
+					? "voice-rejoin"
+					: "voice-join",
+			);
+			this.syncDiagnosticsWsOpen();
 			this.syncPeers(state, member.id);
 		}
 		this.applyTrackState();
@@ -390,6 +482,14 @@ export class VoiceController {
 							this.monitor.setTrack(item.id, track);
 							this.syncActivityAllowed();
 						},
+					diagnostics: {
+						setConnection: (connection) =>
+							this.diagnostics.setPeerConnection(item.id, connection),
+						setRemoteTrack: (track) =>
+							this.diagnostics.setPeerRemoteTrack(item.id, track),
+						recordEvent: (kind, state, previousState) =>
+							this.diagnostics.recordEvent(kind, state, previousState, item.id),
+					},
 					};
 					peer = this.options.createPeer
 						? this.options.createPeer(options)
@@ -524,6 +624,7 @@ export class VoiceController {
 			memberVolumes: {},
 		});
 		this.request({ type: "voice:leave", payload: {} });
+		void this.diagnostics.setMembership(null, null);
 	}
 
 	configure(
@@ -1085,6 +1186,24 @@ export class VoiceController {
 		this.setSpeakerPopupOpen(!this.snapshot.speakerPopupOpen);
 	}
 
+	async setDiagnosticsConsent(consented: boolean): Promise<void> {
+		if (!consented) {
+			clearVoiceDiagnosticsConsent();
+			this.patch({ diagnosticsConsent: false, diagnosticsStatus: "disabled" });
+			this.wsOpenEventRecorded = false;
+			await this.diagnostics.setConsent(false);
+			return;
+		}
+		const consent = readVoiceDiagnosticsConsent() ?? {
+			consentVersion: 1 as const,
+			acceptedAt: new Date().toISOString(),
+		};
+		writeVoiceDiagnosticsConsent(consent);
+		this.patch({ diagnosticsConsent: true, diagnosticsStatus: "pending" });
+		await this.diagnostics.setConsent(true, consent.acceptedAt);
+		this.syncDiagnosticsWsOpen();
+	}
+
 	private clearMedia(): void {
 		this.stopMic();
 		this.monitor.clear();
@@ -1094,3 +1213,4 @@ export class VoiceController {
 		this.failedPeers = 0;
 	}
 }
+

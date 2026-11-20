@@ -491,3 +491,65 @@ describe("voice audio settings UI", () => {
 		).toBeNull();
 	});
 });
+
+describe("voice diagnostics consent UI", () => {
+	test("requires an explicit dialog acceptance before enabling diagnostics", async () => {
+		const { controller } = createVoiceFixture(false);
+		const setDiagnosticsConsent = mock(async (_consented: boolean) => {});
+		const voice = Object.create(controller) as VoiceController;
+		Object.assign(voice, { setDiagnosticsConsent });
+		const view = render(
+			<VoicePanelBody voice={voice} snapshot={controller.getSnapshot()} />,
+		);
+
+		const toggle = view.getByRole("switch", { name: "语音诊断" });
+		expect(toggle.getAttribute("aria-checked")).toBe("false");
+		fireEvent.click(toggle);
+		const dialog = view.getByRole("dialog", { name: "语音诊断说明" });
+		expect(within(dialog).getByText(/网络延迟、抖动、丢包/)).toBeTruthy();
+		expect(within(dialog).getByText(/不上传音频内容、聊天记录/)).toBeTruthy();
+		expect(within(dialog).getByText(/IP 地址、SDP、ICE candidates/)).toBeTruthy();
+		expect(within(dialog).getByText(/历史记录会保留/)).toBeTruthy();
+		expect(within(dialog).getByText(/仅在加入当前语音房间后/)).toBeTruthy();
+		expect(setDiagnosticsConsent).not.toHaveBeenCalled();
+
+		await act(async () => {
+			fireEvent.click(within(dialog).getByRole("button", { name: "同意并开启" }));
+		});
+		expect(setDiagnosticsConsent).toHaveBeenCalledTimes(1);
+		expect(setDiagnosticsConsent).toHaveBeenCalledWith(true);
+		controller.disconnect(false);
+	});
+
+	test("decline keeps diagnostics off and revoke does not ask again", async () => {
+		const { controller } = createVoiceFixture(false);
+		const setDiagnosticsConsent = mock(async (_consented: boolean) => {});
+		const voice = Object.create(controller) as VoiceController;
+		Object.assign(voice, { setDiagnosticsConsent });
+		const view = render(
+			<VoicePanelBody voice={voice} snapshot={controller.getSnapshot()} />,
+		);
+		fireEvent.click(view.getByRole("switch", { name: "语音诊断" }));
+		fireEvent.click(view.getByRole("button", { name: "拒绝" }));
+		expect(view.queryByRole("dialog")).toBeNull();
+		expect(setDiagnosticsConsent).not.toHaveBeenCalled();
+		expect(
+			view.getByRole("switch", { name: "语音诊断" }).getAttribute("aria-checked"),
+		).toBe("false");
+
+		view.rerender(
+			<VoicePanelBody
+				voice={voice}
+				snapshot={{
+					...controller.getSnapshot(),
+					diagnosticsConsent: true,
+					diagnosticsStatus: "active",
+				}}
+			/>,
+		);
+		fireEvent.click(view.getByRole("switch", { name: "语音诊断" }));
+		await waitFor(() => expect(setDiagnosticsConsent).toHaveBeenCalledWith(false));
+		expect(view.queryByRole("dialog")).toBeNull();
+		controller.disconnect(false);
+	});
+});

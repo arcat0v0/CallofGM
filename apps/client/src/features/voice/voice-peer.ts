@@ -7,12 +7,23 @@ const MAX_RESTARTS = 2;
 
 type PeerHealth = "connecting" | "connected" | "failed";
 
+export type VoicePeerDiagnostics = {
+	setConnection: (connection: RTCPeerConnection | null) => void;
+	setRemoteTrack: (track: MediaStreamTrack | null) => void;
+	recordEvent: (
+		kind: "peer-state" | "ice-restart",
+		state: string,
+		previousState: string | null,
+	) => void;
+};
+
 type VoicePeerOptions = {
 	initiator: boolean;
 	iceServers: RTCIceServer[];
 	send: (signal: VoiceSignal) => void;
 	changed: () => void;
 	onRemoteTrack?: (track: MediaStreamTrack | null) => void;
+	diagnostics?: VoicePeerDiagnostics;
 };
 
 function audioOnly(sdp: string): boolean {
@@ -193,6 +204,7 @@ export class VoicePeer {
 	private readonly opus = detectOpusCapabilities();
 	private opusSenderConfigured = false;
 	health: PeerHealth = "connecting";
+	private diagnosticsConnectionState: RTCPeerConnectionState = "new";
 	playbackBlocked = false;
 
 	constructor(options: VoicePeerOptions) {
@@ -201,6 +213,7 @@ export class VoicePeer {
 			iceServers: options.iceServers,
 		});
 		this.connection = connection;
+		options.diagnostics?.setConnection(connection);
 		connection.onicecandidate = ({ candidate }) => {
 			if (!this.closed && candidate?.candidate) {
 				const {
@@ -421,6 +434,7 @@ export class VoicePeer {
 		}
 		this.output.srcObject = new MediaStream([track]);
 		this.options.onRemoteTrack?.(track);
+		this.options.diagnostics?.setRemoteTrack(track);
 		this.updatePlayback();
 	}
 
@@ -470,8 +484,12 @@ export class VoicePeer {
 	}
 
 	private connectionChanged(): void {
-		if (this.closed) return;
+		const previousState = this.diagnosticsConnectionState;
 		const state = this.connection.connectionState;
+		this.diagnosticsConnectionState = state;
+		if (previousState !== state) {
+			this.options.diagnostics?.recordEvent("peer-state", state, previousState);
+		}
 		if (state === "connected") {
 			clearTimeout(this.timer);
 			this.restarts = 0;
@@ -494,6 +512,11 @@ export class VoicePeer {
 			this.restarts += 1;
 			this.setHealth("connecting");
 			this.connection.restartIce();
+			this.options.diagnostics?.recordEvent(
+				"ice-restart",
+				"requested",
+				this.connection.connectionState,
+			);
 			this.armRecovery(CONNECTION_TIMEOUT);
 		}, delay);
 	}
@@ -508,6 +531,8 @@ export class VoicePeer {
 		this.closed = true;
 		clearTimeout(this.timer);
 		this.candidates = [];
+		this.options.diagnostics?.setRemoteTrack(null);
+		this.options.diagnostics?.setConnection(null);
 		this.options.onRemoteTrack?.(null);
 		this.remoteTrack?.stop();
 		this.remoteTrack = null;

@@ -846,6 +846,30 @@ export const zhCN: Record<string, string> = {
 	"voice.description":
 		"加入后先收听。开始发言或测试麦克风时，浏览器可能会请求麦克风权限。",
 	"voice.currentSection": "当前语音",
+	"voice.diagnostics.title": "语音诊断",
+	"voice.diagnostics.summary": "明确同意后采集必要的 RTC 连接指标",
+	"voice.diagnostics.status.disabled": "未开启，不会采集或上传诊断数据。",
+	"voice.diagnostics.status.pending":
+		"已保存本机同意偏好；仅在加入当前语音房间后注册并采集。",
+	"voice.diagnostics.status.registering": "正在为当前语音成员注册诊断同意…",
+	"voice.diagnostics.status.active": "正在采集并上传必要连接指标，不包含音频内容。",
+	"voice.diagnostics.status.error":
+		"诊断服务暂时不可用；仅当前语音成员的有界队列会重试，满后丢弃最旧数据。",
+	"voice.diagnostics.dialogTitle": "语音诊断说明",
+	"voice.diagnostics.dialogDescription":
+		"请确认你理解采集范围。拒绝或关闭此窗口都会保持语音诊断关闭。",
+	"voice.diagnostics.collected":
+		"采集数据：网络延迟、抖动、丢包、码率、数据包与字节区间增量、candidate 类型与协议白名单值、连接状态、远端轨道状态与音量 RMS、本地麦克风及音频处理状态。",
+	"voice.diagnostics.purpose":
+		"用途：定位语音卡顿、断线与弱网问题，并由主持人导出对应诊断报告。",
+	"voice.diagnostics.excluded":
+		"不上传音频内容、聊天记录、IP 地址、SDP、ICE candidates、设备 ID 或标签、浏览器指纹、人物名，也不收集自由文本详情。",
+	"voice.diagnostics.retention":
+		"历史记录会保留；撤销只停止新的采集与上传，不删除已经上传的历史数据。",
+	"voice.diagnostics.membership":
+		"仅在加入当前语音房间后向服务端注册并传输；未加入时只保存本机偏好。撤销后不再发送排队中的数据。",
+	"voice.diagnostics.decline": "拒绝",
+	"voice.diagnostics.accept": "同意并开启",
 	"voice.roomSettings": "房间设置",
 	"voice.roomClosedHint": "开放语音房间后，团内成员即可加入通话与收听。",
 	"voice.roomOpenHint": "点击「加入并收听」即可进入语音频道。",

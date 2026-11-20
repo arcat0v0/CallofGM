@@ -174,6 +174,17 @@ export class VoiceActivityMonitor {
 		this.emitIfChanged(this.computeSpeaking(Date.now()));
 	}
 
+	getRms(key: string): number | null {
+		const entry = this.sources.get(key);
+		if (!entry || this.context?.state !== "running") return null;
+		try {
+			entry.analyser.getByteTimeDomainData(entry.buffer);
+			return computeRms(entry.buffer);
+		} catch {
+			return null;
+		}
+	}
+
 	sampleNow(now = Date.now()): string[] {
 		const next = this.computeSpeaking(now);
 		this.emitIfChanged(next);

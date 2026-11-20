@@ -15,6 +15,14 @@ import { Alert, AlertContent, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "@/components/ui/dialog";
+import {
 	Select,
 	SelectContent,
 	SelectGroup,
@@ -751,6 +759,102 @@ function VoiceAudioSettingsSection({
 	);
 }
 
+function VoiceDiagnosticsSection({
+	voice,
+	snapshot,
+}: {
+	voice: VoiceController;
+	snapshot: VoiceSnapshot;
+}) {
+	const [dialogOpen, setDialogOpen] = useState(false);
+	const [saving, setSaving] = useState(false);
+	const statusKey = snapshot.diagnosticsConsent
+		? snapshot.diagnosticsStatus === "pending" && snapshot.member
+			? "registering"
+			: snapshot.diagnosticsStatus
+		: "disabled";
+
+	return (
+		<section
+			aria-label={t("voice.diagnostics.title")}
+			className="bg-md-surface-container-low flex flex-col gap-2 rounded-xl px-4 py-3"
+		>
+			<div className="flex min-w-0 items-center justify-between gap-3">
+				<div className="flex min-w-0 flex-col gap-0.5">
+					<span className="text-md-on-surface text-label-large">
+						{t("voice.diagnostics.title")}
+					</span>
+					<span className="text-md-on-surface-variant text-body-small">
+						{t("voice.diagnostics.summary")}
+					</span>
+				</div>
+				<Switch
+					checked={snapshot.diagnosticsConsent}
+					disabled={saving}
+					aria-label={t("voice.diagnostics.title")}
+					onCheckedChange={(checked) => {
+						if (checked) {
+							setDialogOpen(true);
+							return;
+						}
+						setSaving(true);
+						void voice.setDiagnosticsConsent(false).finally(() => setSaving(false));
+					}}
+				/>
+			</div>
+			<p
+				role="status"
+				className="text-md-on-surface-variant text-body-small"
+			>
+				{t(`voice.diagnostics.status.${statusKey}`)}
+			</p>
+			<Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+				<DialogContent className="max-w-lg p-4 sm:p-6">
+					<DialogHeader>
+						<DialogTitle>{t("voice.diagnostics.dialogTitle")}</DialogTitle>
+						<DialogDescription>
+							{t("voice.diagnostics.dialogDescription")}
+						</DialogDescription>
+					</DialogHeader>
+					<div className="text-md-on-surface-variant flex flex-col gap-3 text-body-medium">
+						<p>{t("voice.diagnostics.collected")}</p>
+						<p>{t("voice.diagnostics.purpose")}</p>
+						<p>{t("voice.diagnostics.excluded")}</p>
+						<p>{t("voice.diagnostics.retention")}</p>
+						<p>{t("voice.diagnostics.membership")}</p>
+					</div>
+					<DialogFooter>
+						<Button
+							type="button"
+							variant="tertiary"
+							disabled={saving}
+							onClick={() => setDialogOpen(false)}
+						>
+							{t("voice.diagnostics.decline")}
+						</Button>
+						<Button
+							type="button"
+							variant="primary"
+							disabled={saving}
+							onClick={async () => {
+								setSaving(true);
+								try {
+									await voice.setDiagnosticsConsent(true);
+									setDialogOpen(false);
+								} finally {
+									setSaving(false);
+								}
+							}}
+						>
+							{t("voice.diagnostics.accept")}
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+		</section>
+	);
+}
+
 export function VoicePanelBody({
 	voice,
 	snapshot,
@@ -985,6 +1089,8 @@ export function VoicePanelBody({
 					</section>
 
 					<VoiceAudioSettingsSection voice={voice} snapshot={snapshot} />
+
+					<VoiceDiagnosticsSection voice={voice} snapshot={snapshot} />
 
 					<VoiceMicTestCard voice={voice} snapshot={snapshot} />
 

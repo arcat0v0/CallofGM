@@ -166,7 +166,7 @@ export function useSessionConnection(
 							}
 							return;
 						}
-						voice.disconnect(!usePlayStore.getState().terminal);
+						voice.disconnect(!usePlayStore.getState().terminal, code);
 						scheduleReconnect();
 					},
 				});
