@@ -12,11 +12,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GM 与玩家语音面板新增本地麦克风选择、浏览器音频约束、RNNoise 深度降噪、噪声门和压限器，显示实际应用状态与处理回退提示。
 - 语音支持本地麦克风测试与回听、可配置的按键说话，以及说话人悬浮窗和独立成员音量。
 - 语音传输优先协商单声道 Opus，支持时将发送端码率上限设为 32 kbps。DTX 与带内 FEC 取决于浏览器能力和协商结果。
-- 新增明确 opt-in、可撤销的语音 RTC 诊断上传与归属 GM 报告导出；同意绑定当前语音成员，撤销保留历史，数据不含音频、聊天、IP、SDP/ICE 地址或设备/指纹标识。新增 `0009_flashy_bloodscream` 软删除报告表迁移。
+- 语音面板可在明确同意后记录本地 RTC 诊断，并下载 JSON。默认关闭，停止后仍可下载本标签页的日志。诊断不上报，旧上传及 GM 后台导出接口已移除。已发布的数据库迁移及旧报告记录原样保留。
 
 ### Tests
 
 - 使用隔离双 Chromium、network namespace、合成音频与 RTP/RMS 采样验证语音基线、真实 UDP 损伤、五次双路径切换及 WS-only 重连；明确 CDP 页面网络条件未形成 RTP 弱网证据，实体无线切换、RNNoise 弱网对照与主观听感仍未覆盖。详见 [语音弱网与切网验证](docs/voice-network-testing.md)。
+- 用两个隔离 Chromium 和真实 WebRTC 验证本地诊断的同意、拒绝、停止、重连、刷新与 JSON 下载。两端诊断 HTTP 请求及 WS 帧均为 0。服务端集成测试确认旧接口均返回 404，历史报告行保持原样。
 
 ## [0.1.0] - 2026-11-19
 

@@ -156,12 +156,10 @@ BgmState = { trackId, playing, volume, mode: off|single|list|shuffle, seekOffset
 
 ### 语音诊断与隐私
 
-- `packages/shared/src/voice-diagnostics.ts` 定义严格的同意、样本、事件、批次与 GM 报告 zod 契约。单批样本和事件各最多 256 条，样本 HTTP 请求体上限 512 KiB；候选类型/协议与 RTC 状态使用白名单，额外字段、非有限或负指标、非整数增量均拒绝。
-- `PUT /api/v1/sessions/:id/voice-diagnostics/consent`、`POST .../revoke` 与 `POST .../samples` 复用现有 actor、Origin 和版本约定。`VoiceService` 的内存同意表绑定当前开启、active 已加入成员与 `roomId + memberId`；成员离开、连接注销、席位失效、新成员 ID 和新开启都会使旧同意失效。上传还必须匹配已登记的 consentVersion 与 acceptedAt，服务端独立记录 receivedAt，数据库写失败不返回成功。
-- `GET /api/v1/gm/sessions/:id/voice-diagnostics?limit=1..200` 仅归属 GM 可读，按 receivedAt 与插入顺序最新优先，返回结构化原始 RTC 指标和事件，不返回 actor 名称、账户 ID 或 IP；admin 没有额外权限。撤销只阻止新批次，历史报告仍可导出。
-- 迁移 `0009_flashy_bloodscream` 新增 `voice_diagnostic_reports`：`session_id`、`room_id`、`member_id`、同意版本与时间、接收时间、完整最小化 `payload_json` 和 `deleted_at`。不保存音频、聊天、IP、SDP、ICE 地址、设备名、设备 ID 或浏览器指纹；同意本身不入库，报告遵循软删除，不做自动物理清理。
-- 客户端默认不启动诊断计时器或上传；明确同意并注册当前 `roomId + memberId` 后，按 5 秒逐 peer 采样、15 秒批量上报。样本使用 RTP 累计值差分与 transport 选中 candidate pair 的白名单元数据，不读取或保存地址；远端 RMS 复用现有 `VoiceActivityMonitor`。页面隐藏/离开只在同意仍有效时尝试 keepalive flush。
-- 样本 HTTP 失败仅在同一 member 内进行有界重试并保留有界队列；member 离开、变化或 room 切换会清空待传队列，不承诺跨 member 保留。WS open 在 socket、成员与同意就绪后只记录一次，WS close 的 `state` 记录 numeric close code，不记录 reason。当前诊断不采集 codec、Opus DTX/FEC 或 sender encoding 细节，这些是后续协议扩展前无法由报告判断的限制。
+- 语音诊断只由客户端记录。`VoiceController` 在明确同意且已加入语音时启用采集，每 5 秒用浏览器的 `RTCPeerConnection.getStats()` 对各 peer 采样。指标取 RTP 累计值差分、当前选中候选对的类型与协议，并复用 `VoiceActivityMonitor` 的远端 RMS。状态事件采用预定义值，WS 关闭只记录数字代码。SDP、ICE 地址、音频内容、账号和设备标识不进入日志。
+- 记录与导出均在浏览器内完成。当前团的日志保存在标签页 `sessionStorage`，最多保留 240 条样本和 128 条事件，到达上限时淘汰最早的记录。存储不可用时使用页面内存。同团 WS 重连换发成员 ID 后仍使用原日志，采样基线重新建立。刷新同一标签页会恢复日志供导出，采集开关回到关闭状态。切换到另一团会清除前一团的日志。
+- 下载由语音面板生成 JSON 文件 `cogm-voice-diagnostics.json`。诊断没有 HTTP 或 WS 消息、服务端同意登记或 GM 后台导出。
+- 已发布迁移 `0009_flashy_bloodscream` 与 `voice_diagnostic_reports` 表原样保留。Drizzle 继续导出历史表定义，以避免后续生成迁移时把该表识别为待删除。运行时不读写该表，旧记录无应用访问入口。
 
 ### 曲目来源与平台接口
 
