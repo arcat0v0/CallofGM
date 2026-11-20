@@ -6,7 +6,6 @@ import {
 	VoiceClientMessage,
 	VoiceServerMessage,
 } from "@cogm/shared";
-import { createVoiceDiagnosticsRoutes } from "./voice-diagnostics-routes";
 import { Elysia } from "elysia";
 import type { Container } from "@/bootstrap/container";
 import {
@@ -65,7 +64,7 @@ export function createRealtimeRoutes(container: Container) {
 		snapshotBuilder,
 	} = container;
 
-	return new Elysia().use(createVoiceDiagnosticsRoutes(container)).use(authPlugin).ws("/api/v1/sessions/:id/ws", {
+	return new Elysia().use(authPlugin).ws("/api/v1/sessions/:id/ws", {
 		idleTimeout: 30,
 		async beforeHandle(context) {
 			const {

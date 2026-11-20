@@ -41,7 +41,6 @@ import {
 	SessionEventBus,
 	SessionHistoryRecorder,
 	VoiceService,
-	DrizzleVoiceDiagnosticsRepository,
 } from "@/modules/realtime";
 import {
 	DrizzleSessionsRepository,
@@ -110,7 +109,6 @@ export class Container {
 	readonly connectionRegistry: ConnectionRegistry;
 	readonly eventRingBuffer: EventRingBuffer;
 	readonly voiceService: VoiceService;
-	readonly voiceDiagnosticsRepo: DrizzleVoiceDiagnosticsRepository;
 	readonly presenceService: PresenceService;
 	readonly historyRecorder: SessionHistoryRecorder;
 	readonly sessionEventBus: SessionEventBus;
@@ -168,7 +166,6 @@ export class Container {
 			this.connectionRegistry,
 			this.env,
 		);
-		this.voiceDiagnosticsRepo = new DrizzleVoiceDiagnosticsRepository(this.db);
 		this.eventRingBuffer = new EventRingBuffer();
 		this.presenceService = new PresenceService(
 			this.db,
