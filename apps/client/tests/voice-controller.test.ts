@@ -1,18 +1,18 @@
 import { afterEach, describe, expect, mock, test } from "bun:test";
 import type { VoiceClientMessage, VoiceMember, VoiceState } from "@cogm/shared";
 import {
+	computeRms,
+	micTestLevelFromRms,
+	VoiceActivityMonitor,
+	VoiceMicTester,
+} from "@/features/voice/voice-activity";
+import {
 	isVoiceMemberSpeaking,
 	type VoiceActivityMonitorLike,
 	VoiceController,
 	type VoiceMicTesterLike,
 } from "@/features/voice/voice-controller";
 import type { VoicePeer } from "@/features/voice/voice-peer";
-import {
-	computeRms,
-	micTestLevelFromRms,
-	VoiceActivityMonitor,
-	VoiceMicTester,
-} from "@/features/voice/voice-activity";
 
 const self: VoiceMember = {
 	id: "00000000-0000-4000-8000-000000000001",
@@ -124,6 +124,7 @@ function fixture(
 
 afterEach(() => {
 	localStorage.clear();
+	sessionStorage.clear();
 });
 
 describe("voice membership and media lifetime", () => {
@@ -485,48 +486,35 @@ describe("voice membership and media lifetime", () => {
 	});
 });
 
-describe("voice diagnostics consent lifecycle", () => {
-	test("registers only after opt-in and re-registers a new member on rejoin", async () => {
+describe("local voice diagnostics lifecycle", () => {
+	test("ignores prior upload consent and makes no fetch across opt-in, reconnect and stop", () => {
+		localStorage.setItem(
+			"cogm.voiceDiagnosticsConsent",
+			JSON.stringify({
+				consentVersion: 1,
+				acceptedAt: "2026-11-20T08:00:00.000Z",
+			}),
+		);
 		const nativeFetch = globalThis.fetch;
-		const fetchMock = mock(async (_input: RequestInfo | URL, _init?: RequestInit) => ({
-			ok: true,
-		}) as Response);
-		globalThis.fetch = fetchMock as unknown as typeof fetch;
+		const fetchMock = mock(async () => {
+			throw new Error("Diagnostics must stay local");
+		});
+		globalThis.fetch = Object.assign(fetchMock, {
+			preconnect: nativeFetch.preconnect,
+		});
+		const { controller, connect, state, join } = fixture(
+			undefined,
+			"session-diagnostics",
+		);
 		try {
-			const { controller, connect, state, join } = fixture(
-				undefined,
-				"session-diagnostics",
-			);
 			join();
-			connect();
-			expect(fetchMock).not.toHaveBeenCalled();
 			expect(controller.getSnapshot().diagnosticsConsent).toBe(false);
-			await controller.setDiagnosticsConsent(true);
-			expect(controller.getSnapshot().diagnosticsStatus).toBe("active");
-			const firstRegistration = fetchMock.mock.calls[0];
-			expect(String(firstRegistration?.[0])).toContain(
-				"/api/v1/sessions/session-diagnostics/voice-diagnostics/consent",
-			);
-			const firstBody = JSON.parse(String(firstRegistration?.[1]?.body)) as {
-				acceptedAt: string;
-				memberId: string;
-			};
-			expect(firstBody.memberId).toBe(self.id);
-
+			expect(localStorage.getItem("cogm.voiceDiagnosticsConsent")).toBeNull();
+			expect(controller.getDiagnosticsExport()).toBeNull();
+			controller.setDiagnosticsConsent(true);
 			controller.disconnect(true, 1006);
-			const closeUpload = fetchMock.mock.calls.find(([input]) =>
-				String(input).endsWith("/voice-diagnostics/samples"),
-			);
-			const closeEvents = JSON.parse(String(closeUpload?.[1]?.body)) as {
-				events: Array<{ kind: string; state: string | null }>;
-			};
-			expect(
-				closeEvents.events.filter((event) => event.kind === "ws-open"),
-			).toHaveLength(1);
-			expect(
-				closeEvents.events.find((event) => event.kind === "ws-close")?.state,
-			).toBe("1006");
 			connect();
+			state(waiting);
 			state(waiting);
 			const rejoinedSelf = {
 				...self,
@@ -537,47 +525,24 @@ describe("voice diagnostics consent lifecycle", () => {
 				selfId: rejoinedSelf.id,
 				members: [rejoinedSelf, remote],
 			});
-			await Promise.resolve();
-			const registrations = fetchMock.mock.calls.filter(([input]) =>
-				String(input).endsWith("/voice-diagnostics/consent"),
-			);
-			expect(registrations).toHaveLength(2);
-			const reconnectedBody = JSON.parse(
-				String(registrations[1]?.[1]?.body),
-			) as { acceptedAt: string; memberId: string };
-			expect(reconnectedBody.memberId).toBe(rejoinedSelf.id);
-			expect(reconnectedBody.acceptedAt).toBe(firstBody.acceptedAt);
-
-			await controller.setDiagnosticsConsent(false);
-			expect(controller.getSnapshot().diagnosticsConsent).toBe(false);
-			expect(controller.getSnapshot().diagnosticsStatus).toBe("disabled");
-			expect(
-				fetchMock.mock.calls.some(([input]) =>
-					String(input).endsWith("/voice-diagnostics/revoke"),
-				),
-			).toBe(true);
+			controller.setDiagnosticsConsent(false);
+			const report = controller.getDiagnosticsExport();
+			controller.leave();
 			controller.disconnect(false);
+			expect(controller.getSnapshot().diagnosticsConsent).toBe(false);
+			expect(controller.getDiagnosticsExport()).toBe(report);
+			expect(JSON.parse(report ?? "null")).toMatchObject({
+				events: [
+					{ kind: "ws-open", memberId: self.id },
+					{ kind: "ws-close", memberId: self.id, state: 1006 },
+					{ kind: "voice-rejoin", memberId: rejoinedSelf.id },
+					{ kind: "ws-open", memberId: rejoinedSelf.id },
+				],
+			});
+			expect(fetchMock).not.toHaveBeenCalled();
 		} finally {
+			controller.disconnect(false);
 			globalThis.fetch = nativeFetch;
 		}
-	});
-
-	test("restores only the current consent version without uploading before join", () => {
-		localStorage.setItem(
-			"cogm.voiceDiagnosticsConsent",
-			JSON.stringify({ consentVersion: 2, acceptedAt: "2026-11-20T08:00:00.000Z" }),
-		);
-		const outdated = fixture(undefined, "session-diagnostics");
-		expect(outdated.controller.getSnapshot().diagnosticsConsent).toBe(false);
-		outdated.controller.disconnect(false);
-
-		localStorage.setItem(
-			"cogm.voiceDiagnosticsConsent",
-			JSON.stringify({ consentVersion: 1, acceptedAt: "2026-11-20T08:00:00.000Z" }),
-		);
-		const current = fixture(undefined, "session-diagnostics");
-		expect(current.controller.getSnapshot().diagnosticsConsent).toBe(true);
-		expect(current.controller.getSnapshot().diagnosticsStatus).toBe("pending");
-		current.controller.disconnect(false);
 	});
 });

@@ -2,6 +2,7 @@ import type { VoiceMember } from "@cogm/shared";
 import {
 	AudioLines,
 	ChevronDown,
+	Download,
 	Headphones,
 	Mic,
 	MicOff,
@@ -767,12 +768,12 @@ function VoiceDiagnosticsSection({
 	snapshot: VoiceSnapshot;
 }) {
 	const [dialogOpen, setDialogOpen] = useState(false);
-	const [saving, setSaving] = useState(false);
-	const statusKey = snapshot.diagnosticsConsent
-		? snapshot.diagnosticsStatus === "pending" && snapshot.member
-			? "registering"
-			: snapshot.diagnosticsStatus
-		: "disabled";
+	const toggleRef = useRef<HTMLButtonElement>(null);
+	const statusKey = !snapshot.diagnosticsConsent
+		? "disabled"
+		: snapshot.member
+			? "active"
+			: "pending";
 
 	return (
 		<section
@@ -789,27 +790,55 @@ function VoiceDiagnosticsSection({
 					</span>
 				</div>
 				<Switch
+					ref={toggleRef}
 					checked={snapshot.diagnosticsConsent}
-					disabled={saving}
 					aria-label={t("voice.diagnostics.title")}
 					onCheckedChange={(checked) => {
 						if (checked) {
 							setDialogOpen(true);
 							return;
 						}
-						setSaving(true);
-						void voice.setDiagnosticsConsent(false).finally(() => setSaving(false));
+						voice.setDiagnosticsConsent(false);
 					}}
 				/>
 			</div>
-			<p
-				role="status"
-				className="text-md-on-surface-variant text-body-small"
-			>
+			<p role="status" className="text-md-on-surface-variant text-body-small">
 				{t(`voice.diagnostics.status.${statusKey}`)}
 			</p>
+			<Button
+				type="button"
+				variant="outline"
+				className="min-h-11 self-start"
+				disabled={!snapshot.hasDiagnosticsLog}
+				onClick={() => {
+					const json = voice.getDiagnosticsExport();
+					if (!json) return;
+					const url = URL.createObjectURL(
+						new Blob([json], { type: "application/json" }),
+					);
+					const link = document.createElement("a");
+					link.href = url;
+					link.download = "cogm-voice-diagnostics.json";
+					document.body.append(link);
+					try {
+						link.click();
+					} finally {
+						link.remove();
+						setTimeout(() => URL.revokeObjectURL(url), 0);
+					}
+				}}
+			>
+				<Download data-icon="inline-start" />
+				{t("voice.diagnostics.export")}
+			</Button>
 			<Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-				<DialogContent className="max-w-lg p-4 sm:p-6">
+				<DialogContent
+					className="max-w-lg p-4 sm:p-6"
+					onCloseAutoFocus={(event) => {
+						event.preventDefault();
+						toggleRef.current?.focus();
+					}}
+				>
 					<DialogHeader>
 						<DialogTitle>{t("voice.diagnostics.dialogTitle")}</DialogTitle>
 						<DialogDescription>
@@ -818,8 +847,7 @@ function VoiceDiagnosticsSection({
 					</DialogHeader>
 					<div className="text-md-on-surface-variant flex flex-col gap-3 text-body-medium">
 						<p>{t("voice.diagnostics.collected")}</p>
-						<p>{t("voice.diagnostics.purpose")}</p>
-						<p>{t("voice.diagnostics.excluded")}</p>
+						<p>{t("voice.diagnostics.identifiers")}</p>
 						<p>{t("voice.diagnostics.retention")}</p>
 						<p>{t("voice.diagnostics.membership")}</p>
 					</div>
@@ -827,7 +855,6 @@ function VoiceDiagnosticsSection({
 						<Button
 							type="button"
 							variant="tertiary"
-							disabled={saving}
 							onClick={() => setDialogOpen(false)}
 						>
 							{t("voice.diagnostics.decline")}
@@ -835,15 +862,9 @@ function VoiceDiagnosticsSection({
 						<Button
 							type="button"
 							variant="primary"
-							disabled={saving}
-							onClick={async () => {
-								setSaving(true);
-								try {
-									await voice.setDiagnosticsConsent(true);
-									setDialogOpen(false);
-								} finally {
-									setSaving(false);
-								}
+							onClick={() => {
+								voice.setDiagnosticsConsent(true);
+								setDialogOpen(false);
 							}}
 						>
 							{t("voice.diagnostics.accept")}

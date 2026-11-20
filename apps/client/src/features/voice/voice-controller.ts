@@ -6,13 +6,7 @@ import {
 	voiceProtocolVersion,
 } from "@cogm/shared";
 import { normalizeLocalVolume } from "@/lib/local-volume";
-import {
-	clearVoiceDiagnosticsConsent,
-	readVoiceDiagnosticsConsent,
-	readVoiceMemberVolumes,
-	writeVoiceDiagnosticsConsent,
-	writeVoiceMemberVolumes,
-} from "@/lib/storage";
+import { readVoiceMemberVolumes, writeVoiceMemberVolumes } from "@/lib/storage";
 import { randomUuid } from "@/lib/uuid";
 import {
 	DEFAULT_VOICE_AUDIO_SETTINGS,
@@ -30,11 +24,8 @@ import {
 export type { VoiceAudioSettings } from "./voice-audio-settings";
 
 import { VoiceActivityMonitor, VoiceMicTester } from "./voice-activity";
+import { VoiceDiagnostics } from "./voice-diagnostics";
 import { VoicePeer } from "./voice-peer";
-import {
-	VoiceDiagnostics,
-	type VoiceDiagnosticsStatus,
-} from "./voice-diagnostics";
 
 type VoiceCommand = {
 	[Kind in VoiceClientMessage["type"]]: Pick<
@@ -54,6 +45,7 @@ export type MicTestState =
 type PendingCommand = {
 	message: VoiceClientMessage;
 	timer: ReturnType<typeof setTimeout>;
+	rejoining: boolean;
 };
 export type VoiceSnapshot = {
 	link: VoiceLink;
@@ -79,7 +71,7 @@ export type VoiceSnapshot = {
 	speakerPopupOpen: boolean;
 	error: string | null;
 	diagnosticsConsent: boolean;
-	diagnosticsStatus: VoiceDiagnosticsStatus;
+	hasDiagnosticsLog: boolean;
 };
 export type VoiceActivityMonitorLike = {
 	setTrack: (key: string, input: MediaStream | MediaStreamTrack | null) => void;
@@ -135,7 +127,7 @@ const INITIAL: VoiceSnapshot = {
 	speakerPopupOpen: true,
 	error: null,
 	diagnosticsConsent: false,
-	diagnosticsStatus: "disabled",
+	hasDiagnosticsLog: false,
 };
 
 function speakerKey(member: Pick<VoiceMember, "role" | "name">): string {
@@ -247,24 +239,17 @@ export class VoiceController {
 		this.micTester = options.createMicTester
 			? options.createMicTester(onMicSample)
 			: new VoiceMicTester(onMicSample);
-		const diagnosticsConsent = readVoiceDiagnosticsConsent();
 		this.diagnostics = new VoiceDiagnostics({
 			sessionId: this.sessionId,
-			consent: diagnosticsConsent,
-			getRemoteRms: (peerMemberId) => this.monitor.getRms?.(peerMemberId) ?? null,
+			getRemoteRms: (peerMemberId) =>
+				this.monitor.getRms?.(peerMemberId) ?? null,
 			getLocalState: () => ({
 				localMicState: this.snapshot.mic,
 				audioProcessing: this.snapshot.audioProcessing,
 			}),
-			onStatus: (diagnosticsStatus) => this.patch({ diagnosticsStatus }),
+			onLogAvailable: () => this.patch({ hasDiagnosticsLog: true }),
 		});
-		if (diagnosticsConsent) {
-			this.snapshot = {
-				...this.snapshot,
-				diagnosticsConsent: true,
-				diagnosticsStatus: "pending",
-			};
-		}
+		this.snapshot.hasDiagnosticsLog = this.diagnostics.hasLog;
 		this.attachBrowserHandlers();
 	}
 
@@ -273,6 +258,11 @@ export class VoiceController {
 		this.sessionId = sessionId;
 		this.savedVolumes = readVoiceMemberVolumes(sessionId);
 		this.diagnostics.setSessionId(sessionId);
+		this.wsOpenEventRecorded = false;
+		this.patch({
+			diagnosticsConsent: false,
+			hasDiagnosticsLog: this.diagnostics.hasLog,
+		});
 	}
 
 	getSnapshot = (): VoiceSnapshot => this.snapshot;
@@ -285,9 +275,13 @@ export class VoiceController {
 	private patch(patch: Partial<VoiceSnapshot>): void {
 		const previous = this.snapshot;
 		this.snapshot = { ...this.snapshot, ...patch };
-		if (this.diagnostics) {
+		if (this.snapshot.diagnosticsConsent) {
 			if (previous.mic !== this.snapshot.mic) {
-				this.diagnostics.recordEvent("mic-state", this.snapshot.mic, previous.mic);
+				this.diagnostics.recordEvent(
+					"mic-state",
+					this.snapshot.mic,
+					previous.mic,
+				);
 			}
 			if (
 				previous.audioProcessing !== this.snapshot.audioProcessing &&
@@ -299,7 +293,9 @@ export class VoiceController {
 					previous.audioProcessing,
 				);
 			}
-			if (previous.audioSettings.deviceId !== this.snapshot.audioSettings.deviceId) {
+			if (
+				previous.audioSettings.deviceId !== this.snapshot.audioSettings.deviceId
+			) {
 				this.diagnostics.recordEvent("device-changed", "changed");
 			}
 		}
@@ -336,14 +332,10 @@ export class VoiceController {
 			? (this.snapshot.member && this.snapshot.state?.roomId) || this.rejoinRoom
 			: null;
 		this.transport = null;
-		this.diagnostics.recordEvent(
-			"ws-close",
-			closeCode === undefined ? "closed" : String(closeCode),
-		);
+		this.diagnostics.recordEvent("ws-close", closeCode ?? null);
 		this.wsOpen = false;
 		this.wsOpenEventRecorded = false;
-		void this.diagnostics.flush(true);
-		void this.diagnostics.setMembership(null, null);
+		this.diagnostics.setMembership(null, null);
 		this.unwantedMember = null;
 		this.clearPending();
 		this.stopMicTest();
@@ -364,7 +356,7 @@ export class VoiceController {
 			speakingIds: [],
 			pushToTalkActive: false,
 			memberVolumes: {},
-			...(retry ? {} : { speakerPopupOpen: true }),
+			...(retry ? {} : { speakerPopupOpen: true, diagnosticsConsent: false }),
 			error: null,
 		});
 	}
@@ -394,6 +386,7 @@ export class VoiceController {
 	private applyState(state: VoiceState): void {
 		const previous = this.snapshot;
 		const expectedJoin = this.pending?.message;
+		const rejoining = this.pending?.rejoining;
 		const requestedMembership =
 			expectedJoin?.type === "voice:join" &&
 			expectedJoin.payload.roomId === state.roomId;
@@ -407,8 +400,8 @@ export class VoiceController {
 			(requestedMembership || continuous)
 				? (state.members.find((item) => item.id === state.selfId) ?? null)
 				: null;
+		if (!member) this.diagnostics.setMembership(null, null);
 		if (!member && previous.member) this.clearMedia();
-		if (!member) void this.diagnostics.setMembership(null, null);
 		if (previous.member?.canSpeak && !member?.canSpeak) this.stopMic();
 		if (member && requestedMembership) this.clearPending();
 		if (!state.selfId) this.unwantedMember = null;
@@ -424,10 +417,10 @@ export class VoiceController {
 			...(member ? {} : { speakingIds: [], memberVolumes: {} }),
 		});
 		if (member) {
-			void this.diagnostics.setMembership(
+			this.diagnostics.setMembership(
 				state.roomId,
 				member.id,
-				previous.link === "reconnecting" || this.rejoinRoom === state.roomId
+				expectedJoin?.type === "voice:join" && rejoining
 					? "voice-rejoin"
 					: "voice-join",
 			);
@@ -438,7 +431,8 @@ export class VoiceController {
 		this.syncActivityAllowed();
 		const rejoinRoom = this.rejoinRoom;
 		this.rejoinRoom = null;
-		if (rejoinRoom && state.roomId === rejoinRoom && !state.selfId) this.join();
+		if (rejoinRoom && state.roomId === rejoinRoom && !state.selfId)
+			this.joinVoice(true);
 	}
 
 	private syncPeers(state: VoiceState, ownId: string): void {
@@ -482,14 +476,19 @@ export class VoiceController {
 							this.monitor.setTrack(item.id, track);
 							this.syncActivityAllowed();
 						},
-					diagnostics: {
-						setConnection: (connection) =>
-							this.diagnostics.setPeerConnection(item.id, connection),
-						setRemoteTrack: (track) =>
-							this.diagnostics.setPeerRemoteTrack(item.id, track),
-						recordEvent: (kind, state, previousState) =>
-							this.diagnostics.recordEvent(kind, state, previousState, item.id),
-					},
+						diagnostics: {
+							setConnection: (connection) =>
+								this.diagnostics.setPeerConnection(item.id, connection),
+							setRemoteTrack: (track) =>
+								this.diagnostics.setPeerRemoteTrack(item.id, track),
+							recordEvent: (kind, state, previousState) =>
+								this.diagnostics.recordEvent(
+									kind,
+									state,
+									previousState,
+									item.id,
+								),
+						},
 					};
 					peer = this.options.createPeer
 						? this.options.createPeer(options)
@@ -573,7 +572,7 @@ export class VoiceController {
 		return this.transport(message) ? message : null;
 	}
 
-	private request(command: VoiceCommand): void {
+	private request(command: VoiceCommand, rejoining = false): void {
 		if (this.pending) return;
 		const message = this.send(command);
 		if (!message) {
@@ -584,7 +583,7 @@ export class VoiceController {
 			this.clearPending();
 			this.patch({ pending: null, error: "TIMEOUT" });
 		}, REQUEST_TIMEOUT);
-		this.pending = { timer, message };
+		this.pending = { timer, message, rejoining };
 		this.patch({ pending: command.type, error: null });
 	}
 
@@ -595,6 +594,10 @@ export class VoiceController {
 	}
 
 	join(): void {
+		this.joinVoice(false);
+	}
+
+	private joinVoice(rejoining: boolean): void {
 		const { state, member } = this.snapshot;
 		if (!state?.available || !state.enabled || !state.roomId || member) return;
 		if (!this.options.createPeer && typeof RTCPeerConnection === "undefined") {
@@ -603,7 +606,10 @@ export class VoiceController {
 		}
 		this.stopMicTest();
 		this.monitor.resume();
-		this.request({ type: "voice:join", payload: { roomId: state.roomId } });
+		this.request(
+			{ type: "voice:join", payload: { roomId: state.roomId } },
+			rejoining,
+		);
 	}
 
 	leave(): void {
@@ -611,6 +617,7 @@ export class VoiceController {
 		if (!member) return;
 		this.rejoinRoom = null;
 		this.unwantedMember = member.id;
+		this.diagnostics.setMembership(null, null);
 		this.clearPending();
 		this.stopMicTest();
 		this.clearMedia();
@@ -624,7 +631,6 @@ export class VoiceController {
 			memberVolumes: {},
 		});
 		this.request({ type: "voice:leave", payload: {} });
-		void this.diagnostics.setMembership(null, null);
 	}
 
 	configure(
@@ -1186,22 +1192,16 @@ export class VoiceController {
 		this.setSpeakerPopupOpen(!this.snapshot.speakerPopupOpen);
 	}
 
-	async setDiagnosticsConsent(consented: boolean): Promise<void> {
-		if (!consented) {
-			clearVoiceDiagnosticsConsent();
-			this.patch({ diagnosticsConsent: false, diagnosticsStatus: "disabled" });
-			this.wsOpenEventRecorded = false;
-			await this.diagnostics.setConsent(false);
+	setDiagnosticsConsent(consented: boolean): void {
+		if (!this.sessionId || this.snapshot.diagnosticsConsent === consented)
 			return;
-		}
-		const consent = readVoiceDiagnosticsConsent() ?? {
-			consentVersion: 1 as const,
-			acceptedAt: new Date().toISOString(),
-		};
-		writeVoiceDiagnosticsConsent(consent);
-		this.patch({ diagnosticsConsent: true, diagnosticsStatus: "pending" });
-		await this.diagnostics.setConsent(true, consent.acceptedAt);
-		this.syncDiagnosticsWsOpen();
+		this.diagnostics.setConsent(consented);
+		this.patch({ diagnosticsConsent: consented });
+		if (consented) this.syncDiagnosticsWsOpen();
+	}
+
+	getDiagnosticsExport(): string | null {
+		return this.diagnostics.exportJson();
 	}
 
 	private clearMedia(): void {
@@ -1213,4 +1213,3 @@ export class VoiceController {
 		this.failedPeers = 0;
 	}
 }
-

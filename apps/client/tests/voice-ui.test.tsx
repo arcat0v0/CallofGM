@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { beforeEach, describe, expect, mock, spyOn, test } from "bun:test";
 import type { VoiceMember, VoiceState } from "@cogm/shared";
 import {
 	act,
@@ -7,6 +7,7 @@ import {
 	waitFor,
 	within,
 } from "@testing-library/react";
+import { useSyncExternalStore } from "react";
 import { GmToolProvider } from "../src/features/gm-console/gm-tool-context";
 import { GmToolDock } from "../src/features/gm-console/gm-tool-dock";
 import { PlayerActionDock } from "../src/features/play/player-action-dock";
@@ -492,64 +493,94 @@ describe("voice audio settings UI", () => {
 	});
 });
 
-describe("voice diagnostics consent UI", () => {
-	test("requires an explicit dialog acceptance before enabling diagnostics", async () => {
-		const { controller } = createVoiceFixture(false);
-		const setDiagnosticsConsent = mock(async (_consented: boolean) => {});
-		const voice = Object.create(controller) as VoiceController;
-		Object.assign(voice, { setDiagnosticsConsent });
-		const view = render(
-			<VoicePanelBody voice={voice} snapshot={controller.getSnapshot()} />,
-		);
+function ConnectedVoicePanel({ voice }: { voice: VoiceController }) {
+	const snapshot = useSyncExternalStore(voice.subscribe, voice.getSnapshot);
+	return <VoicePanelBody voice={voice} snapshot={snapshot} />;
+}
 
-		const toggle = view.getByRole("switch", { name: "语音诊断" });
-		expect(toggle.getAttribute("aria-checked")).toBe("false");
-		fireEvent.click(toggle);
-		const dialog = view.getByRole("dialog", { name: "语音诊断说明" });
-		expect(within(dialog).getByText(/网络延迟、抖动、丢包/)).toBeTruthy();
-		expect(within(dialog).getByText(/不上传音频内容、聊天记录/)).toBeTruthy();
-		expect(within(dialog).getByText(/IP 地址、SDP、ICE candidates/)).toBeTruthy();
-		expect(within(dialog).getByText(/历史记录会保留/)).toBeTruthy();
-		expect(within(dialog).getByText(/仅在加入当前语音房间后/)).toBeTruthy();
-		expect(setDiagnosticsConsent).not.toHaveBeenCalled();
-
-		await act(async () => {
-			fireEvent.click(within(dialog).getByRole("button", { name: "同意并开启" }));
+describe("local voice diagnostics UI", () => {
+	test("requires explicit acceptance and downloads the stopped log after same-tab reload", async () => {
+		sessionStorage.clear();
+		const sessionId = "session-diagnostics-ui";
+		const { controller, joinRoom } = createVoiceFixture(false);
+		controller.setSessionId(sessionId);
+		const downloads: { filename: string; href: string }[] = [];
+		const anchorClick = spyOn(
+			HTMLAnchorElement.prototype,
+			"click",
+		).mockImplementation(function (this: HTMLAnchorElement) {
+			downloads.push({ filename: this.download, href: this.href });
 		});
-		expect(setDiagnosticsConsent).toHaveBeenCalledTimes(1);
-		expect(setDiagnosticsConsent).toHaveBeenCalledWith(true);
-		controller.disconnect(false);
-	});
+		const createUrl = spyOn(URL, "createObjectURL");
+		const revokeUrl = spyOn(URL, "revokeObjectURL");
+		const view = render(<ConnectedVoicePanel voice={controller} />);
+		try {
+			act(() => joinRoom());
+			const toggle = view.getByRole("switch", { name: "语音诊断" });
+			const exportButton = view.getByRole("button", { name: "导出诊断日志" });
+			expect(toggle.getAttribute("aria-checked")).toBe("false");
+			expect(exportButton.hasAttribute("disabled")).toBe(true);
+			fireEvent.click(toggle);
+			const dialog = view.getByRole("dialog", { name: "语音诊断说明" });
+			expect(dialog.textContent).toMatch(/RMS/);
+			expect(dialog.textContent).toMatch(/不发送到服务器/);
+			fireEvent.click(within(dialog).getByRole("button", { name: "拒绝" }));
+			expect(toggle.getAttribute("aria-checked")).toBe("false");
+			fireEvent.click(toggle);
+			fireEvent.keyDown(view.getByRole("dialog"), { key: "Escape" });
+			expect(view.queryByRole("dialog")).toBeNull();
+			expect(toggle.getAttribute("aria-checked")).toBe("false");
+			expect(exportButton.hasAttribute("disabled")).toBe(true);
+			fireEvent.click(toggle);
+			fireEvent.click(view.getByRole("button", { name: "同意并开启" }));
+			expect(toggle.getAttribute("aria-checked")).toBe("true");
+			expect(exportButton.hasAttribute("disabled")).toBe(false);
+			fireEvent.click(toggle);
+			act(() => controller.leave());
+			expect(toggle.getAttribute("aria-checked")).toBe("false");
+			expect(exportButton.hasAttribute("disabled")).toBe(false);
+			expect(downloads).toEqual([]);
+			view.unmount();
+			controller.disconnect(false);
 
-	test("decline keeps diagnostics off and revoke does not ask again", async () => {
-		const { controller } = createVoiceFixture(false);
-		const setDiagnosticsConsent = mock(async (_consented: boolean) => {});
-		const voice = Object.create(controller) as VoiceController;
-		Object.assign(voice, { setDiagnosticsConsent });
-		const view = render(
-			<VoicePanelBody voice={voice} snapshot={controller.getSnapshot()} />,
-		);
-		fireEvent.click(view.getByRole("switch", { name: "语音诊断" }));
-		fireEvent.click(view.getByRole("button", { name: "拒绝" }));
-		expect(view.queryByRole("dialog")).toBeNull();
-		expect(setDiagnosticsConsent).not.toHaveBeenCalled();
-		expect(
-			view.getByRole("switch", { name: "语音诊断" }).getAttribute("aria-checked"),
-		).toBe("false");
-
-		view.rerender(
-			<VoicePanelBody
-				voice={voice}
-				snapshot={{
-					...controller.getSnapshot(),
-					diagnosticsConsent: true,
-					diagnosticsStatus: "active",
-				}}
-			/>,
-		);
-		fireEvent.click(view.getByRole("switch", { name: "语音诊断" }));
-		await waitFor(() => expect(setDiagnosticsConsent).toHaveBeenCalledWith(false));
-		expect(view.queryByRole("dialog")).toBeNull();
-		controller.disconnect(false);
+			const { controller: reloaded } = createVoiceFixture(false);
+			try {
+				reloaded.setSessionId(sessionId);
+				const restored = render(<ConnectedVoicePanel voice={reloaded} />);
+				expect(
+					restored
+						.getByRole("switch", { name: "语音诊断" })
+						.getAttribute("aria-checked"),
+				).toBe("false");
+				fireEvent.click(restored.getByRole("button", { name: "导出诊断日志" }));
+				expect(downloads).toEqual([
+					{
+						filename: "cogm-voice-diagnostics.json",
+						href: expect.stringMatching(/^blob:/),
+					},
+				]);
+				const [blob] = createUrl.mock.calls[0] ?? [];
+				if (!(blob instanceof Blob)) throw new Error("Expected a JSON Blob");
+				expect(blob.type).toBe("application/json");
+				const json = await blob.text();
+				expect(JSON.parse(json ?? "null")).toMatchObject({
+					schemaVersion: 1,
+					events: [{ kind: "ws-open", roomId, memberId: selfMember.id }],
+					samples: [],
+				});
+				await waitFor(() =>
+					expect(revokeUrl).toHaveBeenCalledWith(downloads[0]?.href),
+				);
+			} finally {
+				act(() => reloaded.disconnect(false));
+			}
+		} finally {
+			view.unmount();
+			controller.disconnect(false);
+			anchorClick.mockRestore();
+			createUrl.mockRestore();
+			revokeUrl.mockRestore();
+			sessionStorage.clear();
+		}
 	});
 });

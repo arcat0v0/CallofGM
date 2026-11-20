@@ -7,13 +7,13 @@ const MAX_RESTARTS = 2;
 
 type PeerHealth = "connecting" | "connected" | "failed";
 
-export type VoicePeerDiagnostics = {
+type VoicePeerDiagnostics = {
 	setConnection: (connection: RTCPeerConnection | null) => void;
 	setRemoteTrack: (track: MediaStreamTrack | null) => void;
 	recordEvent: (
 		kind: "peer-state" | "ice-restart",
-		state: string,
-		previousState: string | null,
+		state: RTCPeerConnectionState | "requested",
+		previousState: RTCPeerConnectionState | null,
 	) => void;
 };
 

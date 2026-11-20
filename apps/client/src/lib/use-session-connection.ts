@@ -138,27 +138,27 @@ export function useSessionConnection(
 						socket = null;
 						setConnected(false);
 						if (code === SessionCloseCode.kicked) {
-							voice.disconnect(false);
+							voice.disconnect(false, code);
 							setTerminal("kicked");
 							return;
 						}
 						if (code === SessionCloseCode.claimReplaced) {
-							voice.disconnect(false);
+							voice.disconnect(false, code);
 							setTerminal("replaced");
 							return;
 						}
 						if (code === SessionCloseCode.seatReleased) {
-							voice.disconnect(false);
+							voice.disconnect(false, code);
 							setTerminal("released");
 							return;
 						}
 						if (code === SessionCloseCode.loginRevoked) {
-							voice.disconnect(false);
+							voice.disconnect(false, code);
 							setTerminal("unavailable");
 							return;
 						}
 						if (code === 1001 && reason === SESSION_ENDED_REASON) {
-							voice.disconnect(false);
+							voice.disconnect(false, code);
 							markEnded();
 							if (!reopenedAfterEnd) {
 								reopenedAfterEnd = true;

@@ -1,23 +1,72 @@
-import type {
-	VoiceDiagnosticsBatch,
-	VoiceDiagnosticsConsent,
-	VoiceDiagnosticsEvent,
-	VoiceDiagnosticsSample,
-} from "@cogm/shared";
+type MicState = "off" | "requesting" | "on" | "denied" | "unavailable";
+type AudioProcessing = "idle" | "starting" | "native" | "rnnoise" | "fallback";
+type LocalDiagnosticsState = {
+	localMicState: MicState;
+	audioProcessing: AudioProcessing;
+};
+type Membership = { roomId: string; memberId: string };
+type CandidateType = (typeof CANDIDATE_TYPES)[number] | "unknown";
+type CandidateProtocol = "udp" | "tcp" | "unknown";
+type VoiceDiagnosticsSample = Membership &
+	LocalDiagnosticsState & {
+		at: string;
+		peerMemberId: string;
+		rttMs: number | null;
+		jitterMs: number | null;
+		availableOutgoingBitrate: number | null;
+		packetsReceivedDelta: number;
+		packetsLostDelta: number;
+		packetsSentDelta: number;
+		bytesReceivedDelta: number;
+		bytesSentDelta: number;
+		concealmentEventsDelta: number;
+		concealedSamplesDelta: number;
+		localCandidateType: CandidateType;
+		localCandidateProtocol: CandidateProtocol;
+		remoteCandidateType: CandidateType;
+		remoteCandidateProtocol: CandidateProtocol;
+		connectionState: RTCPeerConnectionState;
+		iceConnectionState: RTCIceConnectionState;
+		signalingState: RTCSignalingState;
+		remoteTrackMuted: boolean;
+		remoteTrackEnabled: boolean;
+		remoteTrackReadyState: MediaStreamTrackState | null;
+		remoteRms: number | null;
+	};
+type EventKind =
+	| "peer-state"
+	| "ice-restart"
+	| "ws-open"
+	| "ws-close"
+	| "voice-join"
+	| "voice-rejoin"
+	| "mic-state"
+	| "processing-fallback"
+	| "device-changed";
+type EventState =
+	| RTCPeerConnectionState
+	| MicState
+	| AudioProcessing
+	| "requested"
+	| "open"
+	| "joined"
+	| "rejoined"
+	| "changed";
+type VoiceDiagnosticsEvent = Membership & {
+	at: string;
+	kind: EventKind;
+	peerMemberId: string | null;
+	state: EventState | number | null;
+	previousState: EventState | null;
+};
+type VoiceDiagnosticsExport = {
+	schemaVersion: 1;
+	samples: VoiceDiagnosticsSample[];
+	events: VoiceDiagnosticsEvent[];
+};
 
-export type VoiceDiagnosticsStatus = "disabled" | "pending" | "active" | "error";
-export type VoiceDiagnosticsEventKind = VoiceDiagnosticsEvent["kind"];
-
-type ConsentPreference = Pick<
-	VoiceDiagnosticsConsent,
-	"consentVersion" | "acceptedAt"
->;
-type LocalDiagnosticsState = Pick<
-	VoiceDiagnosticsSample,
-	"localMicState" | "audioProcessing"
->;
 type PeerDiagnostics = {
-	connection: RTCPeerConnection | null;
+	connection: RTCPeerConnection;
 	remoteTrack: MediaStreamTrack | null;
 	previous: RTCStatsCounters | null;
 };
@@ -30,31 +79,18 @@ type RTCStatsCounters = {
 	concealmentEvents: number | null;
 	concealedSamples: number | null;
 };
-type PendingBatch = {
-	body: VoiceDiagnosticsBatch;
-	attempts: number;
-};
-
-export type VoiceDiagnosticsOptions = {
+type VoiceDiagnosticsOptions = {
 	sessionId: string | null;
-	consent?: ConsentPreference | null;
-	fetch?: typeof fetch;
 	now?: () => Date;
 	getRemoteRms?: (peerMemberId: string) => number | null;
 	getLocalState?: () => LocalDiagnosticsState;
-	onStatus?: (status: VoiceDiagnosticsStatus) => void;
-	sampleIntervalMs?: number;
-	flushIntervalMs?: number;
-	maxQueuedSamples?: number;
-	maxQueuedEvents?: number;
-	maxFlushAttempts?: number;
+	onLogAvailable?: () => void;
 };
 
-const DEFAULT_SAMPLE_INTERVAL = 5_000;
-const DEFAULT_FLUSH_INTERVAL = 15_000;
-const DEFAULT_MAX_QUEUED_SAMPLES = 240;
-const DEFAULT_MAX_QUEUED_EVENTS = 128;
-const DEFAULT_MAX_FLUSH_ATTEMPTS = 3;
+const SAMPLE_INTERVAL = 5_000;
+const MAX_SAMPLES = 240;
+const MAX_EVENTS = 128;
+const LOG_KEY = "cogm.voiceDiagnosticsLog";
 const CANDIDATE_TYPES = ["host", "srflx", "prflx", "relay"] as const;
 
 function finiteMetric(value: unknown): number | null {
@@ -80,7 +116,16 @@ function statsRecord(value: unknown): Record<string, unknown> | null {
 		: null;
 }
 
-function candidateType(value: unknown): VoiceDiagnosticsSample["localCandidateType"] {
+function statsById(
+	report: RTCStatsReport,
+	id: unknown,
+): Record<string, unknown> | null {
+	return typeof id === "string" ? statsRecord(report.get(id)) : null;
+}
+
+function candidateType(
+	value: unknown,
+): VoiceDiagnosticsSample["localCandidateType"] {
 	return typeof value === "string" &&
 		(CANDIDATE_TYPES as readonly string[]).includes(value)
 		? (value as (typeof CANDIDATE_TYPES)[number])
@@ -94,210 +139,121 @@ function candidateProtocol(
 }
 
 export class VoiceDiagnostics {
-	private readonly fetchImpl: typeof fetch;
 	private readonly now: () => Date;
-	private readonly getRemoteRms: (peerMemberId: string) => number | null;
-	private readonly getLocalState: () => LocalDiagnosticsState;
-	private readonly onStatus: ((status: VoiceDiagnosticsStatus) => void) | undefined;
-	private readonly sampleIntervalMs: number;
-	private readonly flushIntervalMs: number;
-	private readonly maxQueuedSamples: number;
-	private readonly maxQueuedEvents: number;
-	private readonly maxFlushAttempts: number;
 	private sessionId: string | null;
-	private consent: ConsentPreference | null;
-	private roomId: string | null = null;
-	private memberId: string | null = null;
-	private registeredKey: string | null = null;
+	private consent = false;
+	private membership: Membership | null = null;
 	private generation = 0;
-	private sampleTimer: ReturnType<typeof setInterval> | null = null;
-	private flushTimer: ReturnType<typeof setInterval> | null = null;
+	private sampleTimer: Timer | undefined;
 	private sampling = false;
-	private inFlight: PendingBatch | null = null;
-	private readonly batches: PendingBatch[] = [];
-	private currentSamples: VoiceDiagnosticsSample[] = [];
-	private currentEvents: VoiceDiagnosticsEvent[] = [];
+	private log: VoiceDiagnosticsExport = {
+		schemaVersion: 1,
+		samples: [],
+		events: [],
+	};
 	private readonly peers = new Map<string, PeerDiagnostics>();
-	status: VoiceDiagnosticsStatus;
 
-	constructor(options: VoiceDiagnosticsOptions) {
+	constructor(private readonly options: VoiceDiagnosticsOptions) {
 		this.sessionId = options.sessionId;
-		this.consent = options.consent ?? null;
-		this.fetchImpl = options.fetch ?? globalThis.fetch.bind(globalThis);
 		this.now = options.now ?? (() => new Date());
-		this.getRemoteRms = options.getRemoteRms ?? (() => null);
-		this.getLocalState =
-			options.getLocalState ??
-			(() => ({ localMicState: "off", audioProcessing: "idle" }));
-		this.onStatus = options.onStatus;
-		this.sampleIntervalMs = options.sampleIntervalMs ?? DEFAULT_SAMPLE_INTERVAL;
-		this.flushIntervalMs = options.flushIntervalMs ?? DEFAULT_FLUSH_INTERVAL;
-		this.maxQueuedSamples = Math.min(
-			256,
-			Math.max(1, options.maxQueuedSamples ?? DEFAULT_MAX_QUEUED_SAMPLES),
-		);
-		this.maxQueuedEvents = Math.min(
-			256,
-			Math.max(1, options.maxQueuedEvents ?? DEFAULT_MAX_QUEUED_EVENTS),
-		);
-		this.maxFlushAttempts = Math.max(
-			1,
-			options.maxFlushAttempts ?? DEFAULT_MAX_FLUSH_ATTEMPTS,
-		);
-		this.status = this.consent ? "pending" : "disabled";
-		if (typeof window !== "undefined") {
-			window.addEventListener("pagehide", this.onPageHide);
-			document.addEventListener("visibilitychange", this.onVisibilityChange);
-		}
+		if (this.sessionId) this.restoreLog(this.sessionId);
 	}
 
-	get consented(): boolean {
-		return this.consent !== null;
+	get hasLog(): boolean {
+		return this.log.samples.length > 0 || this.log.events.length > 0;
 	}
 
-	private setStatus(status: VoiceDiagnosticsStatus): void {
-		if (this.status === status) return;
-		this.status = status;
-		this.onStatus?.(status);
+	exportJson(): string | null {
+		return this.hasLog ? JSON.stringify(this.log) : null;
 	}
 
-	private endpoint(kind: "consent" | "revoke" | "samples"): string {
-		return `/api/v1/sessions/${encodeURIComponent(this.sessionId ?? "")}/voice-diagnostics/${kind}`;
+	private restoreLog(sessionId: string): void {
+		try {
+			localStorage.removeItem("cogm.voiceDiagnosticsConsent");
+		} catch {}
+		try {
+			const raw = sessionStorage.getItem(LOG_KEY);
+			if (!raw) return;
+			const stored = JSON.parse(raw) as {
+				sessionId: string;
+				log: VoiceDiagnosticsExport;
+			};
+			if (stored?.sessionId !== sessionId) {
+				sessionStorage.removeItem(LOG_KEY);
+				return;
+			}
+			const log = stored.log;
+			if (
+				log?.schemaVersion === 1 &&
+				Array.isArray(log.samples) &&
+				log.samples.length <= MAX_SAMPLES &&
+				Array.isArray(log.events) &&
+				log.events.length <= MAX_EVENTS
+			) {
+				this.log.samples = log.samples;
+				this.log.events = log.events;
+			}
+		} catch {}
 	}
 
-	private activeConsent(): VoiceDiagnosticsConsent | null {
-		if (!this.consent || !this.roomId || !this.memberId) return null;
-		return {
-			roomId: this.roomId,
-			memberId: this.memberId,
-			consentVersion: this.consent.consentVersion,
-			acceptedAt: this.consent.acceptedAt,
-		};
+	private persistLog(wasEmpty: boolean): void {
+		try {
+			sessionStorage.setItem(
+				LOG_KEY,
+				JSON.stringify({ sessionId: this.sessionId, log: this.log }),
+			);
+		} catch {}
+		if (wasEmpty) this.options.onLogAvailable?.();
 	}
 
-	private canUpload(): boolean {
-		return Boolean(
-			this.sessionId &&
-				this.registeredKey === `${this.roomId}:${this.memberId}` &&
-				this.activeConsent(),
-		);
-	}
-
-	private clearTimers(): void {
-		if (this.sampleTimer) clearInterval(this.sampleTimer);
-		if (this.flushTimer) clearInterval(this.flushTimer);
-		this.sampleTimer = null;
-		this.flushTimer = null;
-	}
-
-	private startTimers(): void {
-		if (!this.canUpload() || this.sampleTimer || this.flushTimer) return;
-		this.sampleTimer = setInterval(() => {
-			void this.sampleNow();
-		}, this.sampleIntervalMs);
-		this.flushTimer = setInterval(() => {
-			void this.flush();
-		}, this.flushIntervalMs);
-	}
-
-	private clearPending(): void {
-		this.batches.length = 0;
-		this.currentSamples = [];
-		this.currentEvents = [];
-		this.inFlight = null;
+	private resetSampling(): void {
+		this.generation += 1;
+		this.sampling = false;
+		clearInterval(this.sampleTimer);
+		this.sampleTimer = undefined;
 		for (const peer of this.peers.values()) peer.previous = null;
+		if (this.sessionId && this.consent && this.membership) {
+			this.sampleTimer = setInterval(() => {
+				void this.sampleNow();
+			}, SAMPLE_INTERVAL);
+		}
 	}
 
 	setSessionId(sessionId: string | null): void {
 		if (this.sessionId === sessionId) return;
-		this.generation += 1;
+		const previous = this.sessionId;
 		this.sessionId = sessionId;
-		this.registeredKey = null;
-		this.clearTimers();
-		this.clearPending();
-		this.setStatus(this.consent ? "pending" : "disabled");
-	}
-
-	async setConsent(consented: boolean, acceptedAt?: string): Promise<void> {
-		if (!consented) {
-			const consent = this.activeConsent();
-			const sessionId = this.sessionId;
-			this.generation += 1;
-			this.consent = null;
-			this.registeredKey = null;
-			this.clearTimers();
-			this.clearPending();
-			this.setStatus("disabled");
-			if (!consent || !sessionId) return;
+		this.close();
+		this.log = { schemaVersion: 1, samples: [], events: [] };
+		if (previous) {
 			try {
-				await this.fetchImpl(this.endpoint("revoke"), {
-					method: "POST",
-					credentials: "include",
-					keepalive: true,
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ roomId: consent.roomId, memberId: consent.memberId }),
-				});
+				sessionStorage.removeItem(LOG_KEY);
 			} catch {}
-			return;
+		} else if (sessionId) {
+			this.restoreLog(sessionId);
 		}
-		if (!this.consent) {
-			this.consent = {
-				consentVersion: 1,
-				acceptedAt: acceptedAt ?? this.now().toISOString(),
-			};
-		}
-		this.setStatus(this.canUpload() ? "active" : "pending");
-		await this.register();
 	}
 
-	async setMembership(
+	setConsent(consented: boolean): void {
+		if (this.consent === consented) return;
+		this.consent = consented;
+		this.resetSampling();
+	}
+
+	setMembership(
 		roomId: string | null,
 		memberId: string | null,
 		kind?: "voice-join" | "voice-rejoin",
-	): Promise<void> {
-		const nextRoom = roomId && memberId ? roomId : null;
-		const nextMember = roomId && memberId ? memberId : null;
-		if (this.roomId === nextRoom && this.memberId === nextMember) {
-			await this.register();
+	): void {
+		if (
+			(this.membership?.roomId ?? null) === roomId &&
+			(this.membership?.memberId ?? null) === memberId
+		)
 			return;
-		}
-		this.generation += 1;
-		this.roomId = nextRoom;
-		this.memberId = nextMember;
-		this.registeredKey = null;
-		this.clearTimers();
-		this.clearPending();
-		for (const peer of this.peers.values()) peer.previous = null;
-		this.setStatus(this.consent ? "pending" : "disabled");
-		if (kind && nextRoom && nextMember) {
+		this.membership = roomId && memberId ? { roomId, memberId } : null;
+		this.resetSampling();
+		if (kind && this.membership) {
 			this.recordEvent(kind, kind === "voice-rejoin" ? "rejoined" : "joined");
-		}
-		await this.register();
-	}
-
-	private async register(): Promise<void> {
-		const consent = this.activeConsent();
-		if (!consent || !this.sessionId || this.canUpload()) return;
-		const generation = this.generation;
-		const key = `${consent.roomId}:${consent.memberId}`;
-		this.setStatus("pending");
-		try {
-			const response = await this.fetchImpl(this.endpoint("consent"), {
-				method: "PUT",
-				credentials: "include",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify(consent),
-			});
-			if (generation !== this.generation || !this.consent) return;
-			if (!response.ok) {
-				this.setStatus("error");
-				return;
-			}
-			this.registeredKey = key;
-			this.setStatus("active");
-			this.startTimers();
-		} catch {
-			if (generation === this.generation && this.consent) this.setStatus("error");
 		}
 	}
 
@@ -309,10 +265,9 @@ export class VoiceDiagnostics {
 			this.peers.delete(peerMemberId);
 			return;
 		}
-		const existing = this.peers.get(peerMemberId);
 		this.peers.set(peerMemberId, {
 			connection,
-			remoteTrack: existing?.remoteTrack ?? null,
+			remoteTrack: this.peers.get(peerMemberId)?.remoteTrack ?? null,
 			previous: null,
 		});
 	}
@@ -326,96 +281,88 @@ export class VoiceDiagnostics {
 	}
 
 	recordEvent(
-		kind: VoiceDiagnosticsEventKind,
-		state: string | null = null,
-		previousState: string | null = null,
+		kind: EventKind,
+		state: EventState | number | null = null,
+		previousState: EventState | null = null,
 		peerMemberId: string | null = null,
 	): void {
-		if (!this.consent || !this.roomId || !this.memberId) return;
-		this.currentEvents.push({
+		if (!this.sessionId || !this.consent || !this.membership) return;
+		const wasEmpty = !this.hasLog;
+		const events = this.log.events;
+		if (events.length === MAX_EVENTS) events.shift();
+		events.push({
+			...this.membership,
 			at: this.now().toISOString(),
 			kind,
 			peerMemberId,
-			state: state?.slice(0, 64) ?? null,
-			previousState: previousState?.slice(0, 64) ?? null,
+			state,
+			previousState,
 		});
-		this.trimQueue();
+		this.persistLog(wasEmpty);
 	}
 
 	async sampleNow(): Promise<void> {
-		if (!this.canUpload() || this.sampling) return;
+		const membership = this.membership;
+		if (
+			!this.sessionId ||
+			!this.consent ||
+			!membership ||
+			this.sampling ||
+			this.peers.size === 0
+		)
+			return;
 		this.sampling = true;
 		const generation = this.generation;
 		const at = this.now().toISOString();
-		const peers = [...this.peers.entries()].filter(
-			(entry): entry is [string, PeerDiagnostics & { connection: RTCPeerConnection }] =>
-				entry[1].connection !== null,
-		);
 		try {
-			await Promise.all(
-				peers.map(async ([peerMemberId, peer]) => {
-					let report: RTCStatsReport;
+			const reports = await Promise.all(
+				Array.from(this.peers, async ([id, peer]) => {
 					try {
-						report = await peer.connection.getStats();
+						return { id, peer, report: await peer.connection.getStats() };
 					} catch {
-						return;
+						return null;
 					}
-					if (
-						generation !== this.generation ||
-						this.peers.get(peerMemberId) !== peer ||
-						!this.canUpload()
-					) {
-						return;
-					}
-					const sample = this.createSample(at, peerMemberId, peer, report);
-					this.currentSamples.push(sample);
-					this.trimQueue();
 				}),
 			);
+			if (generation !== this.generation) return;
+			const wasEmpty = !this.hasLog;
+			const samples = this.log.samples;
+			let changed = false;
+			for (const entry of reports) {
+				if (!entry || this.peers.get(entry.id) !== entry.peer) continue;
+				if (samples.length === MAX_SAMPLES) samples.shift();
+				samples.push(
+					this.createSample(membership, at, entry.id, entry.peer, entry.report),
+				);
+				changed = true;
+			}
+			if (changed) this.persistLog(wasEmpty);
 		} finally {
-			this.sampling = false;
+			if (generation === this.generation) this.sampling = false;
 		}
 	}
 
 	private createSample(
+		membership: Membership,
 		at: string,
 		peerMemberId: string,
-		peer: PeerDiagnostics & { connection: RTCPeerConnection },
+		peer: PeerDiagnostics,
 		report: RTCStatsReport,
 	): VoiceDiagnosticsSample {
-		const records: Record<string, unknown>[] = [];
-		report.forEach((value) => {
+		let transport: Record<string, unknown> | null = null;
+		let inbound: Record<string, unknown> | null = null;
+		let outbound: Record<string, unknown> | null = null;
+		for (const value of report.values()) {
 			const record = statsRecord(value);
-			if (record) records.push(record);
-		});
-		const byId = new Map(
-			records
-				.filter((record) => typeof record.id === "string")
-				.map((record) => [record.id as string, record]),
-		);
-		const transport = records.find((record) => record.type === "transport");
-		const pairId = transport?.selectedCandidatePairId;
-		const pair = typeof pairId === "string" ? byId.get(pairId) : undefined;
-		const localCandidateId = pair?.localCandidateId;
-		const remoteCandidateId = pair?.remoteCandidateId;
-		const local =
-			typeof localCandidateId === "string"
-				? byId.get(localCandidateId)
-				: undefined;
-		const remote =
-			typeof remoteCandidateId === "string"
-				? byId.get(remoteCandidateId)
-				: undefined;
-		const inbound = records.find(
-			(record) =>
-				record.type === "inbound-rtp" &&
-				(record.kind === "audio" || record.mediaType === "audio"),
-		);
-		const outbound = records.find(
-			(record) =>
-				record.type === "outbound-rtp" &&
-				(record.kind === "audio" || record.mediaType === "audio"),
-		);
+			if (!record) continue;
+			if (record.type === "transport") transport ??= record;
+			if (record.kind !== "audio" && record.mediaType !== "audio") continue;
+			if (record.type === "inbound-rtp") inbound ??= record;
+			if (record.type === "outbound-rtp") outbound ??= record;
+		}
+		const pair = statsById(report, transport?.selectedCandidatePairId);
+		const local = statsById(report, pair?.localCandidateId);
+		const remote = statsById(report, pair?.remoteCandidateId);
 		const next: RTCStatsCounters = {
 			packetsReceived: counter(inbound?.packetsReceived),
 			packetsLost: counter(inbound?.packetsLost),
@@ -429,12 +376,10 @@ export class VoiceDiagnostics {
 		peer.previous = next;
 		const roundTripTime = finiteMetric(pair?.currentRoundTripTime);
 		const jitter = finiteMetric(inbound?.jitter);
-		let remoteRms: number | null = null;
-		try {
-			remoteRms = this.getRemoteRms(peerMemberId);
-		} catch {}
-		const localState = this.getLocalState();
+		const remoteRms = finiteMetric(this.options.getRemoteRms?.(peerMemberId));
+		const localState = this.options.getLocalState?.();
 		return {
+			...membership,
 			at,
 			peerMemberId,
 			rttMs: roundTripTime === null ? null : roundTripTime * 1000,
@@ -444,8 +389,14 @@ export class VoiceDiagnostics {
 				next.packetsReceived,
 				previous?.packetsReceived ?? null,
 			),
-			packetsLostDelta: counterDelta(next.packetsLost, previous?.packetsLost ?? null),
-			packetsSentDelta: counterDelta(next.packetsSent, previous?.packetsSent ?? null),
+			packetsLostDelta: counterDelta(
+				next.packetsLost,
+				previous?.packetsLost ?? null,
+			),
+			packetsSentDelta: counterDelta(
+				next.packetsSent,
+				previous?.packetsSent ?? null,
+			),
 			bytesReceivedDelta: counterDelta(
 				next.bytesReceived,
 				previous?.bytesReceived ?? null,
@@ -470,98 +421,15 @@ export class VoiceDiagnostics {
 			remoteTrackEnabled: peer.remoteTrack?.enabled ?? false,
 			remoteTrackReadyState: peer.remoteTrack?.readyState ?? null,
 			remoteRms,
-			localMicState: localState.localMicState,
-			audioProcessing: localState.audioProcessing,
+			localMicState: localState?.localMicState ?? "off",
+			audioProcessing: localState?.audioProcessing ?? "idle",
 		};
 	}
 
-	private trimQueue(): void {
-		let sampleCount =
-			this.currentSamples.length +
-			this.batches.reduce((count, batch) => count + batch.body.samples.length, 0);
-		while (sampleCount > this.maxQueuedSamples) {
-			const batch = this.batches.find((item) => item.body.samples.length > 0);
-			if (batch) batch.body.samples.shift();
-			else this.currentSamples.shift();
-			sampleCount -= 1;
-		}
-		let eventCount =
-			this.currentEvents.length +
-			this.batches.reduce((count, batch) => count + batch.body.events.length, 0);
-		while (eventCount > this.maxQueuedEvents) {
-			const batch = this.batches.find((item) => item.body.events.length > 0);
-			if (batch) batch.body.events.shift();
-			else this.currentEvents.shift();
-			eventCount -= 1;
-		}
-		for (let index = this.batches.length - 1; index >= 0; index -= 1) {
-			const body = this.batches[index]?.body;
-			if (body && body.samples.length === 0 && body.events.length === 0) {
-				this.batches.splice(index, 1);
-			}
-		}
-	}
-
-	async flush(keepalive = false): Promise<void> {
-		if (!this.canUpload() || this.inFlight) return;
-		const consent = this.activeConsent();
-		if (!consent) return;
-		if (this.currentSamples.length > 0 || this.currentEvents.length > 0) {
-			this.batches.push({
-				body: {
-					schemaVersion: 1,
-					consent,
-					samples: this.currentSamples,
-					events: this.currentEvents,
-				},
-				attempts: 0,
-			});
-			this.currentSamples = [];
-			this.currentEvents = [];
-		}
-		const pending = this.batches.shift();
-		if (!pending) return;
-		pending.attempts += 1;
-		this.inFlight = pending;
-		const generation = this.generation;
-		try {
-			const response = await this.fetchImpl(this.endpoint("samples"), {
-				method: "POST",
-				credentials: "include",
-				keepalive,
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify(pending.body),
-			});
-			if (generation !== this.generation) return;
-			if (!response.ok) throw new Error("Diagnostics upload failed");
-			this.setStatus("active");
-		} catch {
-			if (generation !== this.generation) return;
-			if (pending.attempts < this.maxFlushAttempts) this.batches.unshift(pending);
-			this.setStatus("error");
-		} finally {
-			if (this.inFlight === pending) this.inFlight = null;
-		}
-	}
-
-	private readonly onPageHide = (): void => {
-		void this.flush(true);
-	};
-
-	private readonly onVisibilityChange = (): void => {
-		if (document.hidden) void this.flush(true);
-	};
-
 	close(): void {
-		this.generation += 1;
-		this.clearTimers();
-		this.clearPending();
+		this.consent = false;
+		this.membership = null;
 		this.peers.clear();
-		this.registeredKey = null;
-		this.setStatus(this.consent ? "pending" : "disabled");
-		if (typeof window !== "undefined") {
-			window.removeEventListener("pagehide", this.onPageHide);
-			document.removeEventListener("visibilitychange", this.onVisibilityChange);
-		}
+		this.resetSampling();
 	}
 }

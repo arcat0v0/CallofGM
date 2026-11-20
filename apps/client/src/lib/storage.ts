@@ -1,5 +1,3 @@
-import type { VoiceDiagnosticsConsent } from "@cogm/shared";
-
 import { LOCAL_VOLUME_DEFAULT, normalizeLocalVolume } from "./local-volume";
 
 export const PLAYER_ID_KEY = "cogm.playerId";
@@ -8,12 +6,6 @@ export const LOCAL_VOLUME_KEY = "cogm.localVolume";
 export const LOCAL_MUTED_KEY = "cogm.localMuted";
 export const PLAY_DISPLAY_KEY = "cogm.playDisplay";
 export const VOICE_MEMBER_VOLUMES_PREFIX = "cogm.voiceMemberVolumes.";
-export const VOICE_DIAGNOSTICS_CONSENT_KEY = "cogm.voiceDiagnosticsConsent";
-
-export type StoredVoiceDiagnosticsConsent = Pick<
-	VoiceDiagnosticsConsent,
-	"consentVersion" | "acceptedAt"
->;
 
 export type PlayDisplayKey =
 	| "sceneInfo"
@@ -171,39 +163,4 @@ export function writeVoiceMemberVolumes(
 	} catch {
 		// Ignore quota errors on local preference persistence.
 	}
-}
-
-export function readVoiceDiagnosticsConsent(): StoredVoiceDiagnosticsConsent | null {
-	if (typeof localStorage === "undefined") return null;
-	try {
-		const raw = localStorage.getItem(VOICE_DIAGNOSTICS_CONSENT_KEY);
-		if (!raw) return null;
-		const value = JSON.parse(raw) as Record<string, unknown>;
-		if (
-			value.consentVersion !== 1 ||
-			typeof value.acceptedAt !== "string" ||
-			!Number.isFinite(Date.parse(value.acceptedAt))
-		) {
-			return null;
-		}
-		return { consentVersion: 1, acceptedAt: value.acceptedAt };
-	} catch {
-		return null;
-	}
-}
-
-export function writeVoiceDiagnosticsConsent(
-	consent: StoredVoiceDiagnosticsConsent,
-): void {
-	if (typeof localStorage === "undefined") return;
-	try {
-		localStorage.setItem(VOICE_DIAGNOSTICS_CONSENT_KEY, JSON.stringify(consent));
-	} catch {}
-}
-
-export function clearVoiceDiagnosticsConsent(): void {
-	if (typeof localStorage === "undefined") return;
-	try {
-		localStorage.removeItem(VOICE_DIAGNOSTICS_CONSENT_KEY);
-	} catch {}
 }
