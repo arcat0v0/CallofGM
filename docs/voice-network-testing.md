@@ -115,6 +115,17 @@ nft 计数器确认实际 UDP drop：配置 2% 档两端为 18/17 包，10% 档�
 - 当前策略仍是每个恢复周期最多两次 ICE restart：断线后有 4 秒宽限，重启连接超时为 15 秒。修复允许新的 `disconnected`/`failed` 事件开启后续恢复周期，但不能保证所有持续断网或路径永久消失都能恢复；若再无状态事件，仍可能停留在 failed，必须由真实场景继续观察。
 - `VoiceController.disconnect(true)` 会清理 peer、采集与发送轨道，再自动重入相同 `roomId`。验收必须分别检查“不手动重新加入房间”和“用户显式重新启用 mic 后恢复发送”，不得把后者写成自动恢复。
 
+## 玩家端诊断同意与 export 实测
+
+2026-11-20 使用隔离本地 Bun 服务、临时 SQLite/账号和两个独立 Chromium `157.0.8103.79` profile 验收生产客户端。GM 与 PL 分别使用 440 Hz、660 Hz 的单声道 48 kHz 合成音频；客户端先由 `bunx --bun vite build` 完成生产构建，再由本地服务托管。未连接生产服务，临时账号、数据库、音频、浏览器和 profile 均在验收后清理。
+
+- GM 开启语音，双方真实加入并开启麦克风。加入后及额外等待 16 秒期间，GM/PL 的 `voice-diagnostics` 请求均为 0；PL 打开说明并点击「拒绝」后仍为 0。
+- PL 同意后，真实 `PUT /api/v1/sessions/:id/voice-diagnostics/consent` 于 `06:52:34.815Z` 返回 200。未手动调用采集或 flush，经过自然 5 秒采样与 15 秒上传周期，`POST .../samples` 于 `06:52:49.859Z` 返回 200。
+- GM 在页面内执行真实 `GET /api/v1/gm/sessions/:id/voice-diagnostics?limit=200`，返回 200 和 1 份 PL member 报告，含 2 个 RTC 样本。两个样本均有正远端 RMS；candidate 为 `host/udp`；区间 `packetsReceivedDelta` 与 `packetsSentDelta` 最大值均为 253。导出不含地址、设备字段、SDP、浏览器指纹、人物名或自由文本 detail，且未出现 IPv4 值。
+- PL 撤销后，`POST .../revoke` 于 `06:52:52.987Z` 返回 200。再等待 18 秒，PL 没有新的 samples POST；GM 于 `06:53:10.992Z` 再次 GET export 仍返回 200，报告总数及该 member 的报告 ID 集合与撤销前完全一致，没有新报告。
+
+本次采集证明真实浏览器中的同意门禁、自然计时器、RTP/candidate/RMS 上传、GM export 和撤销停止新数据，不代表弱网质量或主观听感验收。
+
 ## 尚未覆盖
 
 - 实体汽车、高铁中的 Wi-Fi/蜂窝无线切换，物理麦克风与扬声器、跨设备、跨公网 NAT，以及这些环境中的主观听感均未实测。
