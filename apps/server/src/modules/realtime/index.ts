@@ -27,6 +27,7 @@ export { checkVisibility, type VisibilityScope } from "./domain/visibility";
 export { type BufferedEvent, EventRingBuffer } from "./event-ring-buffer";
 export { DrizzleActiveClaimLookup } from "./infrastructure/drizzle-active-claim-lookup";
 export { DrizzleVoiceSessionStore } from "./infrastructure/drizzle-voice-session-store";
+export { DrizzleVoiceDiagnosticsRepository } from "./infrastructure/drizzle-voice-diagnostics-repository";
 export { PresenceService } from "./presence-service";
 export { SessionCommandExecutor } from "./session-command-executor";
 export { SessionEventBus, type StagedEvents } from "./session-event-bus";
@@ -34,4 +35,5 @@ export {
 	createRealtimeRoutes as routes,
 	createRealtimeRoutes,
 } from "./transport/ws-handler";
+export { createVoiceDiagnosticsRoutes } from "./transport/voice-diagnostics-routes";
 export { VoiceService } from "./voice-service";

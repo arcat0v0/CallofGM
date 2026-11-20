@@ -1,5 +1,6 @@
 import { createHmac } from "node:crypto";
 import {
+	type VoiceDiagnosticsConsent,
 	type VoiceClientMessage,
 	type VoiceIceServer,
 	type VoiceMember,
@@ -33,6 +34,7 @@ interface VoiceRoom {
 	id: string;
 	members: Map<string, RuntimeVoiceMember>;
 	moderation: Map<string, VoiceModeration>;
+	diagnosticsConsents: Map<string, VoiceDiagnosticsConsent>;
 }
 
 interface VoiceIdentity {
@@ -52,8 +54,7 @@ export class VoiceService {
 		private readonly env: Env,
 	) {
 		this.connectionRegistry.onUnregister((connection) => {
-			const room = this.rooms.get(connection.sessionId);
-			if (!room?.members.delete(connection.connectionId)) return;
+			if (!this.removeMember(connection.sessionId, connection.connectionId)) return;
 			void this.enqueue(connection.sessionId, () =>
 				this.broadcast(connection.sessionId),
 			).catch(() => undefined);
@@ -89,9 +90,7 @@ export class VoiceService {
 						await this.join(current, message.requestId, message.payload.roomId);
 						break;
 					case "voice:leave":
-						this.rooms
-							.get(current.sessionId)
-							?.members.delete(current.connectionId);
+						this.removeMember(current.sessionId, current.connectionId);
 						this.reply(current, message.requestId, true);
 						await this.broadcast(current.sessionId);
 						break;
@@ -143,11 +142,79 @@ export class VoiceService {
 					if (!valid) {
 						room.members.delete(connectionId);
 						room.moderation.delete(member.claimId);
+						room.diagnosticsConsents.delete(member.id);
 					}
 				}
 			}
 			await this.broadcast(sessionId, session);
 		});
+	}
+
+	async registerDiagnosticsConsent(
+		actor: ActorContext,
+		sessionId: string,
+		consent: VoiceDiagnosticsConsent,
+	): Promise<boolean> {
+		try {
+			return await this.enqueue(sessionId, async () => {
+				const { room, member } = await this.requireDiagnosticsMember(
+					actor,
+					sessionId,
+					consent.roomId,
+					consent.memberId,
+				);
+				room.diagnosticsConsents.set(member.id, consent);
+				return true;
+			});
+		} catch (error) {
+			if (error instanceof VoiceError) return false;
+			throw error;
+		}
+	}
+
+	async revokeDiagnosticsConsent(
+		actor: ActorContext,
+		sessionId: string,
+		roomId: string,
+		memberId: string,
+	): Promise<boolean> {
+		try {
+			return await this.enqueue(sessionId, async () => {
+				const { room, member } = await this.requireDiagnosticsMember(
+					actor,
+					sessionId,
+					roomId,
+					memberId,
+				);
+				room.diagnosticsConsents.delete(member.id);
+				return true;
+			});
+		} catch (error) {
+			if (error instanceof VoiceError) return false;
+			throw error;
+		}
+	}
+
+	async getDiagnosticsConsent(
+		actor: ActorContext,
+		sessionId: string,
+		roomId: string,
+		memberId: string,
+	): Promise<VoiceDiagnosticsConsent | null> {
+		try {
+			return await this.enqueue(sessionId, async () => {
+				const { room, member } = await this.requireDiagnosticsMember(
+					actor,
+					sessionId,
+					roomId,
+					memberId,
+				);
+				return room.diagnosticsConsents.get(member.id) ?? null;
+			});
+		} catch (error) {
+			if (error instanceof VoiceError) return null;
+			throw error;
+		}
 	}
 
 	private async join(
@@ -218,6 +285,7 @@ export class VoiceService {
 						id: crypto.randomUUID(),
 						members: new Map(),
 						moderation: new Map(),
+						diagnosticsConsents: new Map(),
 					});
 				}
 			} else {
@@ -428,7 +496,9 @@ export class VoiceService {
 		return result;
 	}
 
-	private async requireIdentity(connection: ActiveConnection): Promise<{
+	private async requireIdentity(
+		connection: Pick<ActiveConnection, "actor" | "sessionId">,
+	): Promise<{
 		session: VoiceSession;
 		identity: VoiceIdentity;
 	}> {
@@ -465,6 +535,42 @@ export class VoiceService {
 				canManage: false,
 			},
 		};
+	}
+
+	private async requireDiagnosticsMember(
+		actor: ActorContext,
+		sessionId: string,
+		roomId: string,
+		memberId: string,
+	): Promise<{ room: VoiceRoom; member: RuntimeVoiceMember }> {
+		const { session, identity } = await this.requireIdentity({ actor, sessionId });
+		const room = this.rooms.get(sessionId);
+		const member = [...(room?.members.values() ?? [])].find(
+			(candidate) => candidate.id === memberId,
+		);
+		const connection = member
+			? this.connectionRegistry.getConnection(member.connectionId)
+			: undefined;
+		if (
+			!new SessionLifecycle(session).isVoiceAvailable() ||
+			!room ||
+			room.id !== roomId ||
+			!member ||
+			member.claimId !== identity.claimId ||
+			connection?.state !== "active" ||
+			connection.sessionId !== sessionId
+		) {
+			throw new VoiceError("VOICE_DIAGNOSTICS_FORBIDDEN");
+		}
+		return { room, member };
+	}
+
+	private removeMember(sessionId: string, connectionId: string): boolean {
+		const room = this.rooms.get(sessionId);
+		const member = room?.members.get(connectionId);
+		if (!room || !member || !room.members.delete(connectionId)) return false;
+		room.diagnosticsConsents.delete(member.id);
+		return true;
 	}
 
 	private claimHolder(actor: ActorContext) {

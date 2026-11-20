@@ -22,5 +22,6 @@ export * from "./stage";
 export * from "./templates";
 export * from "./themes";
 export * from "./version";
+export * from "./voice-diagnostics";
 export * from "./voice";
 export * from "./websocket";

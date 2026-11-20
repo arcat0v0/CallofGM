@@ -154,6 +154,13 @@ BgmState = { trackId, playing, volume, mode: off|single|list|shuffle, seekOffset
 - ICE 配置默认空，浏览器可直接尝试 host candidate。`VOICE_STUN_URLS` 配置逗号分隔 STUN；`VOICE_TURN_URLS` 与 `VOICE_TURN_REST_SECRET` 成对配置独立 TURN，服务端按 `VOICE_TURN_TTL_SECONDS`（默认 600）生成 coturn REST 用户名与 HMAC-SHA1 临时凭据，仅向已加入成员下发。长期 REST secret 仅存在服务端环境，不下发前端。
 - 语音弱网、WS-only 中断与切网的隔离 Chromium 复验方法、实测证据和边界见 [WebRTC 语音弱网与切网验证](voice-network-testing.md)。
 
+### 语音诊断与隐私
+
+- `packages/shared/src/voice-diagnostics.ts` 定义严格的同意、样本、事件、批次与 GM 报告 zod 契约。单批样本和事件各最多 256 条，样本 HTTP 请求体上限 512 KiB；候选类型/协议与 RTC 状态使用白名单，额外字段、非有限或负指标、非整数增量均拒绝。
+- `PUT /api/v1/sessions/:id/voice-diagnostics/consent`、`POST .../revoke` 与 `POST .../samples` 复用现有 actor、Origin 和版本约定。`VoiceService` 的内存同意表绑定当前开启、active 已加入成员与 `roomId + memberId`；成员离开、连接注销、席位失效、新成员 ID 和新开启都会使旧同意失效。上传还必须匹配已登记的 consentVersion 与 acceptedAt，服务端独立记录 receivedAt，数据库写失败不返回成功。
+- `GET /api/v1/gm/sessions/:id/voice-diagnostics?limit=1..200` 仅归属 GM 可读，按 receivedAt 与插入顺序最新优先，返回结构化原始 RTC 指标和事件，不返回 actor 名称、账户 ID 或 IP；admin 没有额外权限。撤销只阻止新批次，历史报告仍可导出。
+- 迁移 `0009_flashy_bloodscream` 新增 `voice_diagnostic_reports`：`session_id`、`room_id`、`member_id`、同意版本与时间、接收时间、完整最小化 `payload_json` 和 `deleted_at`。不保存音频、聊天、IP、SDP、ICE 地址、设备名、设备 ID 或浏览器指纹；同意本身不入库，报告遵循软删除，不做自动物理清理。
+
 ### 曲目来源与平台接口
 
 - `OfficialMusicService` 按平台选择适配器。适配器解析引用并实现平台 API 和音频主机策略，`MusicHttpClient` 统一执行超时、重定向、Range 和流大小限制。
