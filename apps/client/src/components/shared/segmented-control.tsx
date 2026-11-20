@@ -49,9 +49,10 @@ function SegmentedControl<T extends string>({
 						onClick={() => onValueChange(option.value)}
 						className={cn(
 							"h-8 flex-1 rounded-full px-4",
+							"disabled:opacity-60",
 							selected
-								? "bg-segment font-semibold text-segment-foreground shadow-tab hover:bg-segment"
-								: "bg-transparent font-medium text-foreground-secondary hover:bg-surface-hover",
+								? "bg-segment font-semibold text-segment-foreground shadow-tab hover:bg-segment disabled:bg-segment! disabled:text-segment-foreground!"
+								: "bg-transparent font-medium text-foreground-secondary hover:bg-surface-hover disabled:bg-transparent! disabled:text-foreground-secondary!",
 							itemClassName,
 						)}
 					>

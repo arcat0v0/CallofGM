@@ -21,10 +21,15 @@ function SplitButton({
 	children,
 	menu,
 	menuLabel = "更多操作",
+	groupClassName,
 	...props
-}: ComponentProps<typeof Button> & { menu: ReactNode; menuLabel?: string }) {
+}: ComponentProps<typeof Button> & {
+	menu: ReactNode;
+	menuLabel?: string;
+	groupClassName?: string;
+}) {
 	return (
-		<ButtonGroup aria-label={menuLabel}>
+		<ButtonGroup aria-label={menuLabel} className={groupClassName}>
 			<Button {...props}>{children}</Button>
 			<DropdownMenu>
 				<DropdownMenuTrigger asChild>

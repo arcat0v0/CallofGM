@@ -216,16 +216,56 @@ describe("sound panel hierarchy and states", () => {
 	test("empty playback stays compact and exposes only one close action", () => {
 		seed({ bgm: null, catalogTracks: [] });
 		const view = renderPanel();
-		expect(view.getByText("当前播放")).toBeTruthy();
-		expect(view.getByRole("tab", { name: "选择曲目" })).toBeTruthy();
+		expect(view.getByRole("region", { name: "当前播放" })).toBeTruthy();
+		expect(view.getByRole("region", { name: "模组曲库" })).toBeTruthy();
 		expect(view.getByText("还没有正在播放的曲目")).toBeTruthy();
 		expect(view.queryByRole("slider", { name: "播放进度" })).toBeNull();
+		expect(view.getByRole("slider", { name: "全团 BGM 音量" })).toBeTruthy();
+		expect(view.getByRole("radiogroup", { name: "播放模式" })).toBeTruthy();
 		expect(view.queryByRole("button", { name: "暂停" })).toBeNull();
 		expect(view.queryByRole("button", { name: "完成" })).toBeNull();
 		expect(view.getAllByRole("button", { name: "关闭" })).toHaveLength(1);
+		expect(view.getByText("曲库还是空的")).toBeTruthy();
+		expect(view.queryByRole("searchbox", { name: "搜索模组曲目" })).toBeNull();
+		expect(view.getAllByRole("button", { name: "添加平台曲目" })).toHaveLength(
+			1,
+		);
+	});
+
+	test("volume can be preset before any track plays while fade waits for a track", () => {
+		seed({ bgm: null });
+		const view = renderPanel();
+		expect(view.getByRole("radio", { name: "单曲循环" })).toBeTruthy();
+		expect(
+			view
+				.getByRole("slider", { name: "全团 BGM 音量" })
+				.hasAttribute("data-disabled"),
+		).toBe(false);
+		expect(
+			view.getByRole("button", { name: "淡出至无声" }).hasAttribute("disabled"),
+		).toBe(true);
+	});
+
+	test("offline and local playback failure are reflected in the status line", () => {
+		seed({ connected: false });
+		const offline = renderPanel();
+		expect(offline.getByText("断线前的状态，可能已过期")).toBeTruthy();
+		expect(offline.queryByText("正在向全团同步")).toBeNull();
+		offline.unmount();
+		seed({
+			audioPlaybackStatus: "error",
+			audioPlaybackError: "音频加载或播放失败，请检查网络后重试",
+		});
+		const failed = renderPanel();
+		expect(failed.getByText("正在向全团同步 · 本机播放失败")).toBeTruthy();
+	});
+
+	test("a channel without tracks explains itself beside the other channel", () => {
+		seed({ catalogTracks: tracks.filter((track) => track.type === "se") });
+		const view = renderPanel();
 		expect(view.getByText("模组中还没有背景音乐")).toBeTruthy();
-		expect(view.getByText("模组中还没有即兴音效")).toBeTruthy();
-		expect(view.queryByRole("combobox", { name: "淡入淡出时长" })).toBeNull();
+		expect(view.getByRole("button", { name: "播放音效：开门声" })).toBeTruthy();
+		expect(view.queryByText("模组中还没有即兴音效")).toBeNull();
 	});
 
 	test("current track, progress and playback state are readable", () => {
@@ -251,14 +291,40 @@ describe("sound panel hierarchy and states", () => {
 			expect(view.getByRole("radio", { name })).toBeTruthy();
 		}
 		expect(view.queryByRole("switch", { name: "循环当前曲目" })).toBeNull();
-		fireEvent.mouseDown(view.getByRole("tab", { name: "播放设置" }), {
+		expect(view.getByText("当前曲目结束后停止播放。")).toBeTruthy();
+		expect(view.queryByText("单曲播放")).toBeNull();
+		expect(view.queryByRole("tab")).toBeNull();
+		expect(view.getByRole("button", { name: "淡入淡出时长" })).toBeTruthy();
+		expect(view.getByRole("button", { name: "淡出至无声" })).toBeTruthy();
+		expect(view.queryByRole("button", { name: "淡入" })).toBeNull();
+	});
+
+	test("fade uses the chosen duration and offers fading back in when silent", async () => {
+		const view = renderPanel();
+		fireEvent.pointerDown(view.getByRole("button", { name: "淡入淡出时长" }), {
 			button: 0,
 			ctrlKey: false,
 		});
-		expect(view.queryByText("单曲播放")).toBeNull();
-		expect(view.getByRole("combobox", { name: "淡入淡出时长" })).toBeTruthy();
-		expect(view.getByRole("button", { name: "淡出至无声" })).toBeTruthy();
-		expect(view.queryByRole("button", { name: "淡入" })).toBeNull();
+		fireEvent.click(await view.findByRole("menuitemradio", { name: "2.0 秒" }));
+		await waitFor(() => expect(view.queryByRole("menu")).toBeNull());
+		fireEvent.click(view.getByRole("button", { name: "淡出至无声" }));
+		expect(sent).toEqual([
+			{
+				type: "audio:bgm",
+				payload: {
+					action: "volume",
+					volume: 0,
+					transitionMs: 2000,
+					expectedVersion: 4,
+				},
+			},
+		]);
+		act(() =>
+			usePlayStore.setState({ bgm: bgm({ volume: 0, version: 5 }) }),
+		);
+		expect(
+			await view.findByRole("button", { name: "淡入至 64%" }),
+		).toBeTruthy();
 	});
 
 	test("mode selection waits for the broadcast and keeps current progress", () => {
@@ -292,10 +358,7 @@ describe("sound panel hierarchy and states", () => {
 
 	test("library opens adding in a separate named dialog", async () => {
 		const view = renderPanel();
-		expect(
-			view.getByRole("tab", { name: "选择曲目" }).getAttribute("aria-selected"),
-		).toBe("true");
-		expect(view.getByRole("slider", { name: "全团音量" })).toBeTruthy();
+		expect(view.getByRole("slider", { name: "全团 BGM 音量" })).toBeTruthy();
 		expect(view.queryByRole("switch", { name: "循环当前曲目" })).toBeNull();
 		expect(view.queryByRole("textbox", { name: "搜索歌曲" })).toBeNull();
 		fireEvent.click(view.getByRole("button", { name: "添加平台曲目" }));
@@ -306,7 +369,7 @@ describe("sound panel hierarchy and states", () => {
 		expect(view.container.contains(dialog)).toBe(false);
 		fireEvent.click(within(dialog).getByRole("button", { name: "关闭" }));
 		await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
-		expect(view.getByRole("slider", { name: "全团音量" })).toBeTruthy();
+		expect(view.getByRole("slider", { name: "全团 BGM 音量" })).toBeTruthy();
 	});
 
 	test("library filters both channels by name and artist, then clears a missing match", () => {
@@ -348,16 +411,7 @@ describe("sound panel hierarchy and states", () => {
 		});
 		fireEvent.click(within(dialog).getByRole("button", { name: "关闭" }));
 		await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
-		fireEvent.mouseDown(view.getByRole("tab", { name: "播放设置" }), {
-			button: 0,
-			ctrlKey: false,
-		});
-		expect(view.queryByRole("searchbox", { name: "搜索模组曲目" })).toBeNull();
-		expect(view.getByRole("slider", { name: "全团音量" })).toBeTruthy();
-		fireEvent.mouseDown(view.getByRole("tab", { name: "选择曲目" }), {
-			button: 0,
-			ctrlKey: false,
-		});
+		expect(view.getByRole("slider", { name: "全团 BGM 音量" })).toBeTruthy();
 		expect(
 			(
 				view.getByRole("searchbox", {
@@ -424,6 +478,26 @@ describe("sound panel hierarchy and states", () => {
 		expect(sent[1]).toEqual({
 			type: "audio:se",
 			payload: { trackId: "se-door" },
+		});
+	});
+
+	test("the current row pauses or resumes, and restarting is a separate action", () => {
+		const view = renderPanel();
+		expect(view.queryByRole("button", { name: "播放曲目：雨夜车站" })).toBeNull();
+		fireEvent.click(view.getByRole("button", { name: "暂停：雨夜车站" }));
+		expect(sent[0]?.payload).toMatchObject({ action: "pause" });
+		act(() =>
+			usePlayStore.setState({ bgm: bgm({ playing: false, version: 5 }) }),
+		);
+		expect(
+			view.getByRole("button", { name: "继续播放：雨夜车站" }),
+		).toBeTruthy();
+		fireEvent.click(view.getByRole("button", { name: "从头播放曲目：雨夜车站" }));
+		expect(sent[1]?.payload).toEqual({
+			action: "play",
+			expectedVersion: 5,
+			trackId: "track-a",
+			restart: true,
 		});
 	});
 

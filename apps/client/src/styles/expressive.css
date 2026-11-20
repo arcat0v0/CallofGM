@@ -159,7 +159,8 @@
 		font-size: var(--text-label-large);
 		font-weight: var(--text-label-large--font-weight);
 	}
-	[data-slot="button-group"] > [data-button],
+	[data-slot="button-group"]
+		> :is([data-button], [data-slot="dropdown-menu-trigger"]),
 	[data-slot="toggle-group"] > [data-slot="toggle-group-item"] {
 		--m3-connected-radius: var(--radius-connected);
 		--m3-connected-outer: calc(
@@ -169,7 +170,8 @@
 		border-radius: var(--m3-connected-radius);
 		min-width: var(--spacing-m3-touch);
 	}
-	[data-slot="button-group"] > [data-button]:active,
+	[data-slot="button-group"]
+		> :is([data-button], [data-slot="dropdown-menu-trigger"]):active,
 	[data-slot="toggle-group"] > [data-slot="toggle-group-item"]:active {
 		--m3-connected-radius: var(--radius-connected-pressed);
 	}
