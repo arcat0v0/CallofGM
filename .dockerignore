@@ -4,5 +4,6 @@ apps/*/node_modules
 packages/*/node_modules
 apps/client/dist
 data
+.dev-https
 *.log
 .env*

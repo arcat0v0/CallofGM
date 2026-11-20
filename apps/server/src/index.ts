@@ -17,7 +17,11 @@ try {
 
 const app = createApp(container);
 
-const server = app.listen(container.env.PORT, () => {
+const listenTarget = container.env.HOST
+	? { port: container.env.PORT, hostname: container.env.HOST }
+	: container.env.PORT;
+
+const server = app.listen(listenTarget, () => {
 	console.log(
 		`CoGM server running at http://${app.server?.hostname}:${app.server?.port}`,
 	);

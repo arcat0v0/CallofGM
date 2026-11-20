@@ -18,6 +18,7 @@ import { t } from "@/i18n";
 import { api, mediaUrl } from "@/lib/api";
 import { errorText } from "@/lib/errors";
 import { expressionLabel } from "@/lib/format";
+import { randomUuid } from "@/lib/uuid";
 
 export type PortraitBasePath = "/gm/characters" | "/pl/characters";
 
@@ -81,7 +82,7 @@ export function ExpressionManager({
 			const previewUrl = URL.createObjectURL(file);
 			activePreviewUrls.current.add(previewUrl);
 			return {
-				id: crypto.randomUUID(),
+				id: randomUuid(),
 				file,
 				name: file.name.replace(/\.[^.]+$/, ""),
 				previewUrl,

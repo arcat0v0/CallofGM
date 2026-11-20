@@ -3,6 +3,10 @@ import { parseCorsOrigins } from "@/platform/security/origin";
 
 const EnvSchema = z
 	.object({
+		HOST: z
+			.string()
+			.optional()
+			.transform((value) => value?.trim() || undefined),
 		PORT: z.coerce.number().int().default(15632),
 		NODE_ENV: z
 			.enum(["development", "production", "test"])

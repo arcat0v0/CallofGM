@@ -9,6 +9,7 @@
   ],
   "scripts": {
     "dev": "bun run --filter '*' dev",
+    "dev:https": "bun run scripts/dev-https.ts",
     "dev:client": "bun run --cwd apps/client dev",
     "dev:server": "bun run --cwd apps/server dev",
     "release:check": "bun run scripts/release/check.ts",
@@ -17,7 +18,7 @@
     "typecheck": "bun run --cwd packages/shared typecheck && bun run --cwd packages/theme-sdk typecheck && bun run --cwd packages/theme-cli typecheck && bun run --cwd apps/server typecheck && bun run --cwd apps/client typecheck",
     "audit": "bun audit --audit-level=high",
     "verify:deps": "bun install --frozen-lockfile && bun audit --audit-level=high && bun run typecheck",
-    "test": "bun run --cwd packages/shared test && bun run --cwd apps/server test && bun run --cwd apps/client test && bun run --cwd packages/theme-cli test && bun test scripts/release",
+    "test": "bun run --cwd packages/shared test && bun run --cwd apps/server test && bun run --cwd apps/client test && bun run --cwd packages/theme-cli test && bun test scripts",
     "check:boundaries": "bun run --cwd apps/server check:boundaries && bun run --cwd apps/client check:boundaries",
     "db:generate": "bun run --cwd apps/server db:generate",
     "db:migrate": "bun run --cwd apps/server db:migrate",

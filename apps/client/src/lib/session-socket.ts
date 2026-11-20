@@ -7,6 +7,7 @@ import {
 } from "@cogm/shared";
 import { t } from "@/i18n";
 import { getFingerprint } from "./fingerprint";
+import { randomUuid } from "./uuid";
 
 export type SessionSocket = {
 	sendCommand: (type: ClientCommandType, payload: unknown) => string;
@@ -115,7 +116,7 @@ export async function connectSession(
 	};
 
 	const sendCommand = (type: ClientCommandType, payload: unknown): string => {
-		const commandId = crypto.randomUUID();
+		const commandId = randomUuid();
 		const command: ClientCommand = {
 			protocolVersion: 1,
 			commandId,

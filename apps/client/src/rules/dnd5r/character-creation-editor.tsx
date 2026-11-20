@@ -29,6 +29,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { t } from "@/i18n";
+import { randomUuid } from "@/lib/uuid";
 import type { RuleCreationEditorProps } from "../types";
 import { DndAbilityBuilder } from "./ability-builder";
 import { DndCatalogPicker, DndSourceCredit } from "./catalog-picker";
@@ -920,7 +921,7 @@ function DndEditor({
 										customAttacks: [
 											...sheet.customAttacks,
 											{
-												id: `custom-${crypto.randomUUID()}`,
+												id: `custom-${randomUuid()}`,
 												name: attackName.trim(),
 												damage: { count: 1, sides: 6, type: "bludgeoning" },
 												ability: "str",
@@ -1161,7 +1162,7 @@ function DndEditor({
 									resources: [
 										...sheet.resources,
 										{
-											id: `custom-${crypto.randomUUID()}`,
+											id: `custom-${randomUuid()}`,
 											name: resourceName.trim(),
 											max: 1,
 											recharge: "manual",

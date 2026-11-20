@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
+import { randomUuid } from "@/lib/uuid";
 
 type Sheet = coc7e.Coc7eCharacterSheet;
 type BgKey = coc7e.Coc7eBackgroundFieldKey;
@@ -76,7 +77,7 @@ export function Coc7eBackgroundTab({
 		updatePartners([
 			...partners,
 			{
-				id: crypto.randomUUID(),
+				id: randomUuid(),
 				characterId: null,
 				name: "",
 				note: "",

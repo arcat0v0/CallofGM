@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { t } from "@/i18n";
 import { formatStamp } from "@/lib/format";
+import { randomUuid } from "@/lib/uuid";
 
 type Sheet = coc7e.Coc7eCharacterSheet;
 type Experience = coc7e.Coc7eExperienceEntry;
@@ -137,7 +138,7 @@ export function Coc7eExperienceTab({
 							size="sm"
 							onClick={() =>
 								addExperience({
-									id: crypto.randomUUID(),
+									id: randomUuid(),
 									title: t("characterCreation.experienceSourceManual"),
 									sourceType: "manual",
 									refKind: null,
@@ -186,7 +187,7 @@ export function Coc7eExperienceTab({
 											disabled={claimed}
 											onClick={() =>
 												addExperience({
-													id: crypto.randomUUID(),
+													id: randomUuid(),
 													title: cand.title,
 													sourceType: "record",
 													refKind: cand.refKind,
@@ -246,7 +247,7 @@ export function Coc7eExperienceTab({
 											disabled={claimed}
 											onClick={() =>
 												addExperience({
-													id: crypto.randomUUID(),
+													id: randomUuid(),
 													title: record.sessionName || label,
 													sourceType: "session_phase",
 													refKind: "phase",
