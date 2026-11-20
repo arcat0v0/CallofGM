@@ -467,8 +467,11 @@
 	[data-slot="tabs-trigger"][data-state="active"] {
 		background: transparent;
 		color: var(--color-md-on-primary-container);
-		box-shadow: none;
 		font-weight: var(--text-label-large-emph--font-weight);
+	}
+	/* Keep the keyboard focus ring: Radix auto-activates the focused tab. */
+	[data-slot="tabs-trigger"][data-state="active"]:not(:focus-visible) {
+		box-shadow: none;
 	}
 	[data-slot="tabs-content"] {
 		animation: m3-fade-in var(--duration-standard-fast-effects)

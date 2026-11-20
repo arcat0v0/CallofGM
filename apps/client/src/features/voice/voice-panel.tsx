@@ -1,7 +1,6 @@
 import type { VoiceMember } from "@cogm/shared";
 import {
 	AudioLines,
-	ChevronDown,
 	Download,
 	Headphones,
 	Mic,
@@ -11,10 +10,14 @@ import {
 	Volume2,
 	VolumeX,
 } from "lucide-react";
-import { useEffect, useId, useRef, useState } from "react";
+import { type ReactNode, type Ref, useEffect, useId, useRef, useState } from "react";
+import { SegmentedControl } from "@/components/shared/segmented-control";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { Alert, AlertContent, AlertDescription } from "@/components/ui/alert";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import {
 	Dialog,
 	DialogContent,
@@ -31,10 +34,12 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
+import { Progress } from "@/components/ui/progress";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { t, translateOr } from "@/i18n";
+import { initialsOf } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import {
 	isVoiceMemberSpeaking,
@@ -71,7 +76,7 @@ export function VoiceStatusDot({
 			className={cn(
 				"shrink-0 rounded-full transition-colors",
 				speaking
-					? "bg-md-primary animate-pulse"
+					? "bg-md-primary motion-safe:animate-pulse"
 					: canSpeak
 						? "bg-md-outline-variant"
 						: "bg-md-error/60",
@@ -140,6 +145,14 @@ export function SpeakerVolumeControl({
 	);
 }
 
+/** The mic is open and actually sending audio (push-to-talk armed is not live). */
+function micTransmitting(snapshot: VoiceSnapshot): boolean {
+	return (
+		snapshot.mic === "on" &&
+		(!snapshot.audioSettings.pushToTalk || snapshot.pushToTalkActive)
+	);
+}
+
 function VoiceMemberCard({
 	item,
 	isSelf,
@@ -160,82 +173,107 @@ function VoiceMemberCard({
 	voice: VoiceController;
 }) {
 	const showVolume = joined && !isSelf;
+	const canGrant = manage && item.role === "ob";
+	// Observers without a speak grant cannot use a mic, so muting them is moot.
+	const canMute = manage && item.role !== "gm" && item.canSpeak !== false;
+	const canUnmute = manage && item.role !== "gm" && item.muted;
 
 	return (
 		<li
 			className={cn(
-				"flex flex-col gap-2.5 rounded-xl p-3 transition-[background-color,box-shadow] duration-150 ease-standard-fast-effects",
+				"flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2 rounded-xl p-3 transition-[background-color,box-shadow] duration-150 ease-standard-fast-effects",
 				speaking
 					? "bg-md-primary-container/35 ring-1 ring-md-primary/60"
 					: "bg-md-surface-container",
 			)}
 		>
-			<div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
-				<div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-					<VoiceStatusDot
-						speaking={speaking}
-						canSpeak={item.canSpeak}
-						className="size-2.5"
-					/>
+			<Avatar
+				size="sm"
+				aria-hidden="true"
+				className={cn(
+					"transition-colors",
+					speaking
+						? "bg-md-primary text-md-on-primary"
+						: "bg-md-surface-container-highest text-md-on-surface-variant",
+				)}
+			>
+				<AvatarFallback className="text-title-small-emph text-inherit">
+					{initialsOf(item.name)}
+				</AvatarFallback>
+			</Avatar>
+			<div className="flex min-w-32 flex-1 flex-col gap-1">
+				<div className="flex min-w-0 items-center gap-2">
 					<span
 						className="text-md-on-surface min-w-0 truncate text-title-small-emph"
 						title={item.name}
 					>
 						{item.name}
 					</span>
-					<Badge variant="soft" size="sm">
-						{t(`voice.role.${item.role}`)}
-					</Badge>
 					{isSelf ? (
 						<Badge variant="soft" tone="accent" size="sm">
 							{t("voice.self")}
 						</Badge>
 					) : null}
+				</div>
+				<div className="flex flex-wrap items-center gap-1.5">
+					{item.role !== "pc" ? (
+						<Badge variant="soft" size="sm">
+							{t(`voice.role.${item.role}`)}
+						</Badge>
+					) : null}
 					{speaking ? (
 						<Badge variant="soft" tone="accent" size="sm">
+							<AudioLines
+								className="size-3 motion-safe:animate-pulse"
+								aria-hidden="true"
+							/>
 							{t("voice.speaking")}
 						</Badge>
 					) : null}
-					{!item.canSpeak ? (
-						<Badge variant="tertiary" size="sm">
+					{!item.canSpeak && (item.muted || item.role !== "ob") ? (
+						<Badge
+							variant="soft"
+							tone={item.muted ? "danger" : "default"}
+							size="sm"
+						>
+							<MicOff className="size-3" aria-hidden="true" />
 							{t(item.muted ? "voice.moderatorMuted" : "voice.listenOnly")}
 						</Badge>
 					) : null}
 				</div>
-				{manage && item.role !== "gm" ? (
-					<div className="flex flex-wrap gap-1.5">
-						{item.role === "ob" ? (
-							<Button
-								type="button"
-								variant={item.speakGranted ? "tonal" : "tertiary"}
-								size="xs"
-								className={cn(
-									"min-h-9",
-									!item.speakGranted && "bg-md-surface-container-highest",
-								)}
-								disabled={busy}
-								aria-label={t(
-									item.speakGranted ? "voice.revokeFor" : "voice.grantFor",
-									{ name: item.name },
-								)}
-								onClick={() =>
-									voice.moderate({
-										memberId: item.id,
-										speakGranted: !item.speakGranted,
-									})
-								}
-							>
-								{t(item.speakGranted ? "voice.revoke" : "voice.grant")}
-							</Button>
-						) : null}
+			</div>
+			{showVolume ? (
+				<div className="order-last w-full @2xl:order-none @2xl:w-60">
+					<SpeakerVolumeControl member={item} volume={volume} voice={voice} />
+				</div>
+			) : null}
+			{canGrant || canMute || canUnmute ? (
+				<div className="ml-auto flex flex-wrap justify-end gap-1.5 @2xl:min-w-44 @2xl:flex-nowrap">
+					{canGrant ? (
 						<Button
 							type="button"
-							variant={item.muted ? "dangerSoft" : "tertiary"}
-							size="xs"
-							className={cn(
-								"min-h-9",
-								!item.muted && "bg-md-surface-container-highest",
+							variant={item.speakGranted ? "tertiary" : "tonal"}
+							size="sm"
+							disabled={busy}
+							aria-label={t(
+								item.speakGranted ? "voice.revokeFor" : "voice.grantFor",
+								{ name: item.name },
 							)}
+							onClick={() =>
+								voice.moderate({
+									memberId: item.id,
+									speakGranted: !item.speakGranted,
+								})
+							}
+						>
+							{t(item.speakGranted ? "voice.revoke" : "voice.grant")}
+						</Button>
+					) : null}
+					{canMute || canUnmute ? (
+						<Button
+							type="button"
+							variant={item.muted ? "tonal" : "tertiary"}
+							size="sm"
 							disabled={busy}
 							aria-label={t(item.muted ? "voice.unmuteFor" : "voice.muteFor", {
 								name: item.name,
@@ -246,13 +284,16 @@ function VoiceMemberCard({
 						>
 							{t(item.muted ? "voice.unmute" : "voice.mute")}
 						</Button>
-					</div>
-				) : null}
-			</div>
-			{showVolume ? (
-				<SpeakerVolumeControl member={item} volume={volume} voice={voice} />
+					) : null}
+				</div>
 			) : null}
 		</li>
+	);
+}
+
+function SubsectionTitle({ children }: { children: ReactNode }) {
+	return (
+		<h4 className="text-md-on-surface-variant text-label-large">{children}</h4>
 	);
 }
 
@@ -266,17 +307,16 @@ function VoiceMicTestCard({
 	const { mic, micTest, micTestLevel, micTestDetected, micTestLoopback } =
 		snapshot;
 	const busyWithLiveMic = mic === "on" || mic === "requesting";
+	const active = micTest === "active";
 
 	return (
 		<section
 			aria-label={t("voice.micTestTitle")}
-			className="bg-md-surface-container-low flex flex-col gap-3 rounded-xl p-4"
+			className="flex min-w-0 flex-col gap-2.5"
 		>
-			<div className="flex flex-wrap items-center justify-between gap-2">
-				<h3 className="text-md-on-surface text-title-small-emph">
-					{t("voice.micTestTitle")}
-				</h3>
-				{micTest === "active" ? (
+			<div className="flex items-center justify-between gap-2">
+				<SubsectionTitle>{t("voice.micTestTitle")}</SubsectionTitle>
+				{active ? (
 					<Badge
 						variant="soft"
 						tone={micTestDetected ? "accent" : "default"}
@@ -299,101 +339,89 @@ function VoiceMicTestCard({
 				</Alert>
 			) : null}
 
-			{micTest === "active" ? (
-				<>
-					<div className="flex items-center gap-3">
-						<div
-							role="progressbar"
-							aria-label={t("voice.micTestLevel")}
-							aria-valuemin={0}
-							aria-valuemax={100}
-							aria-valuenow={micTestLevel}
-							className="bg-md-surface-container-highest h-3 min-w-0 flex-1 overflow-hidden rounded-full"
-						>
-							<div
-								className={cn(
-									"h-full rounded-full transition-[width,background-color] duration-75",
-									micTestDetected ? "bg-md-primary" : "bg-md-secondary",
-								)}
-								style={{ width: `${micTestLevel}%` }}
+			<div className="bg-md-surface-container flex min-w-0 flex-col gap-3 rounded-lg p-3">
+				{active ? (
+					<>
+						<div className="flex items-center gap-3">
+							<Progress
+								aria-label={t("voice.micTestLevel")}
+								value={micTestLevel}
+								className="min-w-0 flex-1"
 							/>
+							<span className="text-md-on-surface-variant w-10 shrink-0 text-right font-mono text-label-small tabular-nums">
+								{micTestLevel}%
+							</span>
 						</div>
-						<span className="text-md-on-surface-variant w-10 shrink-0 text-right font-mono text-label-small tabular-nums">
-							{micTestLevel}%
-						</span>
-					</div>
-					<div className="grid grid-cols-2 gap-2">
-						<Button
-							type="button"
-							variant={micTestLoopback ? "primary" : "tertiary"}
-							size="sm"
-							className={cn(
-								"min-h-10 w-full",
-								!micTestLoopback && "bg-md-surface-container-highest",
-							)}
-							onClick={() => voice.toggleMicTestLoopback()}
-						>
-							{micTestLoopback ? (
-								<Volume2 data-icon="inline-start" />
-							) : (
-								<VolumeX data-icon="inline-start" />
-							)}
+						<div className="grid grid-cols-2 gap-2">
+							<Button
+								type="button"
+								variant={micTestLoopback ? "primary" : "tertiary"}
+								size="sm"
+								className="w-full"
+								onClick={() => voice.toggleMicTestLoopback()}
+							>
+								{micTestLoopback ? (
+									<Volume2 data-icon="inline-start" />
+								) : (
+									<VolumeX data-icon="inline-start" />
+								)}
+								{t(
+									micTestLoopback
+										? "voice.micTestLoopbackOn"
+										: "voice.micTestLoopbackOff",
+								)}
+							</Button>
+							<Button
+								type="button"
+								variant="tertiary"
+								size="sm"
+								className="w-full"
+								onClick={() => voice.stopMicTest()}
+							>
+								{t("voice.micTestStop")}
+							</Button>
+						</div>
+						<p className="text-md-on-surface-variant text-body-small">
+							{t("voice.micTestLoopbackHint")}
+						</p>
+					</>
+				) : (
+					<>
+						<p className="text-md-on-surface-variant text-body-small">
 							{t(
-								micTestLoopback
-									? "voice.micTestLoopbackOn"
-									: "voice.micTestLoopbackOff",
+								busyWithLiveMic
+									? "voice.micTestBusyHint"
+									: "voice.micTestDescription",
 							)}
-						</Button>
-						<Button
-							type="button"
-							variant="tertiary"
-							size="sm"
-							className="bg-md-surface-container-highest min-h-10 w-full"
-							onClick={() => voice.stopMicTest()}
-						>
-							{t("voice.micTestStop")}
-						</Button>
-					</div>
-					<p className="text-md-on-surface-variant text-body-small">
-						{t("voice.micTestLoopbackHint")}
-					</p>
-				</>
-			) : (
-				<>
-					<p className="text-md-on-surface-variant text-body-small">
-						{t(
-							busyWithLiveMic
-								? "voice.micTestBusyHint"
-								: "voice.micTestDescription",
+						</p>
+						{micTest === "requesting" ? (
+							<Button
+								type="button"
+								variant="tertiary"
+								size="sm"
+								className="w-full"
+								onClick={() => voice.stopMicTest()}
+							>
+								{t("voice.micTestCancel")}
+							</Button>
+						) : (
+							<Button
+								type="button"
+								variant="tertiary"
+								size="sm"
+								className="w-full"
+								disabled={busyWithLiveMic}
+								onClick={() => {
+									void voice.startMicTest();
+								}}
+							>
+								<Mic data-icon="inline-start" />
+								{t("voice.micTestStart")}
+							</Button>
 						)}
-					</p>
-					{micTest === "requesting" ? (
-						<Button
-							type="button"
-							variant="tertiary"
-							size="sm"
-							className="bg-md-surface-container-highest min-h-10 w-full"
-							onClick={() => voice.stopMicTest()}
-						>
-							{t("voice.micTestCancel")}
-						</Button>
-					) : (
-						<Button
-							type="button"
-							variant="tertiary"
-							size="sm"
-							className="bg-md-surface-container-highest min-h-10 w-full"
-							disabled={busyWithLiveMic}
-							onClick={() => {
-								void voice.startMicTest();
-							}}
-						>
-							<Mic data-icon="inline-start" />
-							{t("voice.micTestStart")}
-						</Button>
-					)}
-				</>
-			)}
+					</>
+				)}
+			</div>
 		</section>
 	);
 }
@@ -403,56 +431,124 @@ type AudioProcessingSetting = Exclude<
 	"deviceId" | "pushToTalk" | "pushToTalkKey"
 >;
 
+/** Row in a grouped settings list: label + hint on the left, switch on the right. */
+function SwitchRow({
+	label,
+	hint,
+	hintTone = "default",
+	checked,
+	onCheckedChange,
+	switchRef,
+	children,
+}: {
+	label: string;
+	hint?: string;
+	hintTone?: "default" | "notice";
+	checked: boolean;
+	onCheckedChange: (checked: boolean) => void;
+	switchRef?: Ref<HTMLButtonElement>;
+	children?: ReactNode;
+}) {
+	const id = useId();
+	const hintId = useId();
+	return (
+		<div className="flex min-w-0 flex-col gap-2 px-3 py-2.5">
+			<div className="flex min-w-0 items-center justify-between gap-3">
+				<div className="flex min-w-0 flex-1 flex-col gap-0.5">
+					<label
+						htmlFor={id}
+						className="text-md-on-surface cursor-pointer text-label-large"
+					>
+						{label}
+					</label>
+					{hint ? (
+						<span
+							id={hintId}
+							className={cn(
+								"text-body-small",
+								hintTone === "notice"
+									? "text-warning"
+									: "text-md-on-surface-variant",
+							)}
+						>
+							{hint}
+						</span>
+					) : null}
+				</div>
+				<Switch
+					ref={switchRef}
+					id={id}
+					size="sm"
+					checked={checked}
+					aria-label={label}
+					aria-describedby={hint ? hintId : undefined}
+					onCheckedChange={onCheckedChange}
+				/>
+			</div>
+			{children}
+		</div>
+	);
+}
+
+function SwitchList({ children }: { children: ReactNode }) {
+	return (
+		<div className="bg-md-surface-container divide-md-outline-variant/30 flex flex-col divide-y overflow-hidden rounded-lg">
+			{children}
+		</div>
+	);
+}
+
 function VoiceProcessingSwitch({
 	voice,
 	settings,
 	setting,
 	label,
+	hint,
 	applied,
 }: {
 	voice: VoiceController;
 	settings: VoiceAudioSettings;
 	setting: AudioProcessingSetting;
 	label: string;
+	hint?: string;
 	applied?: boolean | null;
 }) {
-	const id = useId();
-	const descriptionId = useId();
-	const appliedKey =
-		applied === null
-			? "voice.audio.appliedAutomatic"
-			: applied
-				? "voice.audio.appliedOn"
-				: "voice.audio.appliedOff";
-
+	const checked = settings[setting];
+	// Only surface the browser-reported state when it disagrees with the
+	// request: matching or unreported values are just noise.
+	const mismatch = typeof applied === "boolean" && applied !== checked;
 	return (
-		<div className="bg-md-surface-container flex min-w-0 items-center justify-between gap-3 rounded-lg px-3 py-2.5">
-			<div className="flex min-w-0 flex-1 flex-col gap-0.5">
-				<label
-					htmlFor={id}
-					className="text-md-on-surface cursor-pointer text-label-large"
-				>
-					{label}
-				</label>
-				{applied !== undefined ? (
-					<span
-						id={descriptionId}
-						className="text-md-on-surface-variant text-body-small"
-					>
-						{t("voice.audio.appliedValue", { state: t(appliedKey) })}
-					</span>
-				) : null}
-			</div>
-			<Switch
-				id={id}
-				size="sm"
-				checked={settings[setting]}
-				aria-label={label}
-				aria-describedby={applied !== undefined ? descriptionId : undefined}
-				onCheckedChange={(checked) => {
-					void voice.updateAudioSettings({ [setting]: checked });
-				}}
-			/>
+		<SwitchRow
+			label={label}
+			hint={
+				mismatch
+					? t("voice.audio.appliedMismatch", {
+							state: t(
+								applied ? "voice.audio.appliedOn" : "voice.audio.appliedOff",
+							),
+						})
+					: hint
+			}
+			hintTone={mismatch ? "notice" : "default"}
+			checked={checked}
+			onCheckedChange={(next) => {
+				void voice.updateAudioSettings({ [setting]: next });
+			}}
+		/>
+	);
+}
+
+function VoiceSwitchGroup({
+	title,
+	children,
+}: {
+	title: string;
+	children: ReactNode;
+}) {
+	return (
+		<div role="group" aria-label={title} className="flex min-w-0 flex-col gap-2">
+			<SubsectionTitle>{title}</SubsectionTitle>
+			<SwitchList>{children}</SwitchList>
 		</div>
 	);
 }
@@ -514,6 +610,11 @@ function PushToTalkButton({
 		>
 			<Mic data-icon="inline-start" />
 			{t("voice.audio.pushToTalkHold")}
+			<span aria-hidden="true" className="text-label-medium opacity-90">
+				{snapshot.audioSettings.pushToTalkKey === "Space"
+					? t("voice.audio.keySpace")
+					: snapshot.audioSettings.pushToTalkKey.replace(/^Key/, "")}
+			</span>
 		</Button>
 	);
 }
@@ -529,6 +630,9 @@ function VoiceAudioSettingsSection({
 	const deviceId = useId();
 	const keyId = useId();
 	const { audioSettings, audioDevices, audioProcessing } = snapshot;
+	// Before capture starts nothing has been applied yet, so there is no
+	// browser-reported state to compare against.
+	const reported = audioProcessing !== "idle";
 	const devices = audioDevices.filter(
 		(device) => device.deviceId && device.deviceId !== "default",
 	);
@@ -543,81 +647,22 @@ function VoiceAudioSettingsSection({
 	return (
 		<section
 			aria-label={t("voice.audio.settingsTitle")}
-			className="bg-md-surface-container-low flex min-w-0 flex-col gap-3 rounded-xl p-4"
+			className="bg-md-surface-container-low flex min-w-0 flex-col gap-4 rounded-xl p-4"
 		>
 			<div className="flex flex-wrap items-center justify-between gap-2">
-				<h3 className="text-md-on-surface text-title-small-emph">
+				<h3 className="text-md-on-surface text-title-medium-emph">
 					{t("voice.audio.settingsTitle")}
 				</h3>
-				<Badge
-					variant="soft"
-					tone={audioProcessing === "fallback" ? "warning" : "default"}
-					size="sm"
-					role="status"
-				>
-					{t(`voice.audio.processing.${audioProcessing}`)}
-				</Badge>
-			</div>
-
-			<div className="flex min-w-0 items-end gap-2">
-				<div className="flex min-w-0 flex-1 flex-col gap-1.5">
-					<label
-						htmlFor={deviceId}
-						className="text-md-on-surface-variant text-label-medium"
+				{audioProcessing !== "idle" ? (
+					<Badge
+						variant="soft"
+						tone={audioProcessing === "fallback" ? "warning" : "default"}
+						size="sm"
+						role="status"
 					>
-						{t("voice.audio.microphone")}
-					</label>
-					<Select
-						value={audioSettings.deviceId}
-						onValueChange={(value) => {
-							void voice.updateAudioSettings({ deviceId: value });
-						}}
-					>
-						<SelectTrigger
-							id={deviceId}
-							aria-label={t("voice.audio.microphone")}
-							className="min-w-0"
-						>
-							<SelectValue />
-						</SelectTrigger>
-						<SelectContent position="popper" align="start">
-							<SelectGroup>
-								<SelectItem value="default">
-									{t("voice.audio.defaultDevice")}
-								</SelectItem>
-								{selectedDeviceMissing ? (
-									<SelectItem value={audioSettings.deviceId}>
-										{t("voice.audio.unavailableDevice")}
-									</SelectItem>
-								) : null}
-								{devices.map((device) => (
-									<SelectItem key={device.deviceId} value={device.deviceId}>
-										{device.label.trim() || t("voice.audio.unnamedDevice")}
-									</SelectItem>
-								))}
-							</SelectGroup>
-						</SelectContent>
-					</Select>
-				</div>
-				<Button
-					type="button"
-					variant="tertiary"
-					size="icon-sm"
-					className="bg-md-surface-container-highest shrink-0"
-					disabled={refreshing}
-					aria-label={t("voice.audio.refreshDevices")}
-					onClick={async () => {
-						if (refreshing) return;
-						setRefreshing(true);
-						try {
-							await voice.refreshAudioDevices();
-						} finally {
-							setRefreshing(false);
-						}
-					}}
-				>
-					<RefreshCw className={cn(refreshing && "animate-spin")} />
-				</Button>
+						{t(`voice.audio.processing.${audioProcessing}`)}
+					</Badge>
+				) : null}
 			</div>
 
 			{audioProcessing === "fallback" ? (
@@ -628,139 +673,204 @@ function VoiceAudioSettingsSection({
 				</Alert>
 			) : null}
 
-			<div className="grid min-w-0 gap-2 sm:grid-cols-2">
-				<VoiceProcessingSwitch
-					voice={voice}
-					settings={audioSettings}
-					setting="echoCancellation"
-					label={t("voice.audio.echoCancellation")}
-					applied={snapshot.appliedAudioConstraints.echoCancellation}
-				/>
-				<VoiceProcessingSwitch
-					voice={voice}
-					settings={audioSettings}
-					setting="noiseSuppression"
-					label={t("voice.audio.noiseSuppression")}
-					applied={snapshot.appliedAudioConstraints.noiseSuppression}
-				/>
-				<VoiceProcessingSwitch
-					voice={voice}
-					settings={audioSettings}
-					setting="autoGainControl"
-					label={t("voice.audio.autoGainControl")}
-					applied={snapshot.appliedAudioConstraints.autoGainControl}
-				/>
-				<VoiceProcessingSwitch
-					voice={voice}
-					settings={audioSettings}
-					setting="deepNoiseSuppression"
-					label={t("voice.audio.deepNoiseSuppression")}
-				/>
-				<VoiceProcessingSwitch
-					voice={voice}
-					settings={audioSettings}
-					setting="noiseGate"
-					label={t("voice.audio.noiseGate")}
-				/>
-				<VoiceProcessingSwitch
-					voice={voice}
-					settings={audioSettings}
-					setting="compressor"
-					label={t("voice.audio.compressor")}
-				/>
-			</div>
-
-			{audioSettings.deepNoiseSuppression ? (
-				<p className="text-md-on-surface-variant text-body-small">
-					{t("voice.audio.deepNoiseSuppressionHint")}
-				</p>
-			) : null}
-
-			<div className="bg-md-surface-container flex flex-col gap-3 rounded-lg p-3">
-				<div className="flex items-center justify-between gap-3">
-					<span className="text-md-on-surface text-label-large">
-						{t("voice.audio.speakingMode")}
-					</span>
-					{audioSettings.pushToTalk ? (
-						<span
-							role="status"
-							className="text-md-on-surface-variant text-label-medium"
+			<div className="grid min-w-0 items-start gap-5 @2xl:grid-cols-2 @2xl:gap-6">
+				<div className="flex min-w-0 flex-col gap-5">
+					<div className="flex min-w-0 flex-col gap-2">
+						<label
+							htmlFor={deviceId}
+							className="text-md-on-surface-variant text-label-large"
 						>
-							{t(
-								snapshot.pushToTalkActive
-									? "voice.audio.pushToTalkActive"
-									: "voice.audio.pushToTalkInactive",
-							)}
-						</span>
-					) : null}
-				</div>
-				<ToggleGroup
-					type="single"
-					variant="outline"
-					size="sm"
-					spacing={1}
-					value={audioSettings.pushToTalk ? "ptt" : "continuous"}
-					aria-label={t("voice.audio.speakingMode")}
-					className="grid w-full grid-cols-2"
-					onValueChange={(value) => {
-						if (!value) return;
-						void voice.updateAudioSettings({ pushToTalk: value === "ptt" });
-					}}
-				>
-					<ToggleGroupItem value="continuous" className="min-h-10">
-						{t("voice.audio.continuousMode")}
-					</ToggleGroupItem>
-					<ToggleGroupItem value="ptt" className="min-h-10">
-						{t("voice.audio.pushToTalkMode")}
-					</ToggleGroupItem>
-				</ToggleGroup>
-
-				{audioSettings.pushToTalk ? (
-					<>
-						<div className="flex min-w-0 flex-col gap-1.5">
-							<label
-								htmlFor={keyId}
-								className="text-md-on-surface-variant text-label-medium"
-							>
-								{t("voice.audio.pushToTalkKey")}
-							</label>
+							{t("voice.audio.microphone")}
+						</label>
+						<div className="flex min-w-0 items-center gap-2">
 							<Select
-								value={audioSettings.pushToTalkKey}
+								value={audioSettings.deviceId}
 								onValueChange={(value) => {
-									void voice.updateAudioSettings({ pushToTalkKey: value });
+									void voice.updateAudioSettings({ deviceId: value });
 								}}
 							>
 								<SelectTrigger
-									id={keyId}
-									aria-label={t("voice.audio.pushToTalkKey")}
+									id={deviceId}
+									aria-label={t("voice.audio.microphone")}
+									className="min-w-0 flex-1"
 								>
 									<SelectValue />
 								</SelectTrigger>
 								<SelectContent position="popper" align="start">
 									<SelectGroup>
-										<SelectItem value="Space">
-											{t("voice.audio.keySpace")}
+										<SelectItem value="default">
+											{t("voice.audio.defaultDevice")}
 										</SelectItem>
-										<SelectItem value="KeyV">V</SelectItem>
-										<SelectItem value="KeyB">B</SelectItem>
+										{selectedDeviceMissing ? (
+											<SelectItem value={audioSettings.deviceId}>
+												{t("voice.audio.unavailableDevice")}
+											</SelectItem>
+										) : null}
+										{devices.map((device) => (
+											<SelectItem key={device.deviceId} value={device.deviceId}>
+												{device.label.trim() || t("voice.audio.unnamedDevice")}
+											</SelectItem>
+										))}
 									</SelectGroup>
 								</SelectContent>
 							</Select>
+							<IconButton
+								type="button"
+								variant="tertiary"
+								size="sm"
+								disabled={refreshing}
+								aria-label={t("voice.audio.refreshDevices")}
+								onClick={async () => {
+									if (refreshing) return;
+									setRefreshing(true);
+									try {
+										await voice.refreshAudioDevices();
+									} finally {
+										setRefreshing(false);
+									}
+								}}
+							>
+								<RefreshCw className={cn(refreshing && "animate-spin")} />
+							</IconButton>
 						</div>
-						<p className="text-md-on-surface-variant text-body-small">
-							{t("voice.audio.pushToTalkHint")}
-						</p>
-						{snapshot.member ? (
-							<PushToTalkButton voice={voice} snapshot={snapshot} />
+					</div>
+
+					<VoiceMicTestCard voice={voice} snapshot={snapshot} />
+
+					<div className="flex min-w-0 flex-col gap-2">
+						<div className="flex items-center justify-between gap-3">
+							<SubsectionTitle>{t("voice.audio.speakingMode")}</SubsectionTitle>
+							{audioSettings.pushToTalk && snapshot.member?.canSpeak ? (
+								<span className="text-md-on-surface-variant text-label-medium">
+									{t(
+										snapshot.pushToTalkActive
+											? "voice.audio.pushToTalkActive"
+											: "voice.audio.pushToTalkInactive",
+									)}
+								</span>
+							) : null}
+						</div>
+						<SegmentedControl
+							aria-label={t("voice.audio.speakingMode")}
+							value={audioSettings.pushToTalk ? "ptt" : "continuous"}
+							options={[
+								{ value: "continuous", label: t("voice.audio.continuousMode") },
+								{ value: "ptt", label: t("voice.audio.pushToTalkMode") },
+							]}
+							onValueChange={(value) => {
+								void voice.updateAudioSettings({ pushToTalk: value === "ptt" });
+							}}
+						/>
+						{audioSettings.pushToTalk ? (
+							<div className="bg-md-surface-container flex min-w-0 flex-col gap-3 rounded-lg p-3">
+								<div className="flex min-w-0 items-center justify-between gap-3">
+									<label
+										htmlFor={keyId}
+										className="text-md-on-surface shrink-0 text-label-large whitespace-nowrap"
+									>
+										{t("voice.audio.pushToTalkKey")}
+									</label>
+									<Select
+										value={audioSettings.pushToTalkKey}
+										onValueChange={(value) => {
+											void voice.updateAudioSettings({ pushToTalkKey: value });
+										}}
+									>
+										<SelectTrigger
+											id={keyId}
+											aria-label={t("voice.audio.pushToTalkKey")}
+											className="w-32 min-w-0"
+										>
+											<SelectValue />
+										</SelectTrigger>
+										<SelectContent position="popper" align="end">
+											<SelectGroup>
+												<SelectItem value="Space">
+													{t("voice.audio.keySpace")}
+												</SelectItem>
+												<SelectItem value="KeyV">V</SelectItem>
+												<SelectItem value="KeyB">B</SelectItem>
+											</SelectGroup>
+										</SelectContent>
+									</Select>
+								</div>
+								<p className="text-md-on-surface-variant text-body-small">
+									{t(
+										snapshot.member?.canSpeak
+											? "voice.audio.pushToTalkHint"
+											: !snapshot.member
+												? "voice.audio.pushToTalkHintJoin"
+												: snapshot.member.muted
+													? "voice.audio.pushToTalkHintMuted"
+													: "voice.audio.pushToTalkHintGrant",
+									)}
+								</p>
+							</div>
 						) : null}
-					</>
-				) : null}
+					</div>
+				</div>
+
+				<div className="flex min-w-0 flex-col gap-5">
+					<VoiceSwitchGroup title={t("voice.audio.groupBrowser")}>
+						<VoiceProcessingSwitch
+							voice={voice}
+							settings={audioSettings}
+							setting="echoCancellation"
+							label={t("voice.audio.echoCancellation")}
+							hint={t("voice.audio.echoCancellationHint")}
+							applied={reported ? snapshot.appliedAudioConstraints.echoCancellation : undefined}
+						/>
+						<VoiceProcessingSwitch
+							voice={voice}
+							settings={audioSettings}
+							setting="noiseSuppression"
+							label={t("voice.audio.noiseSuppression")}
+							hint={t("voice.audio.noiseSuppressionHint")}
+							applied={reported ? snapshot.appliedAudioConstraints.noiseSuppression : undefined}
+						/>
+						<VoiceProcessingSwitch
+							voice={voice}
+							settings={audioSettings}
+							setting="autoGainControl"
+							label={t("voice.audio.autoGainControl")}
+							hint={t("voice.audio.autoGainControlHint")}
+							applied={reported ? snapshot.appliedAudioConstraints.autoGainControl : undefined}
+						/>
+					</VoiceSwitchGroup>
+					<VoiceSwitchGroup title={t("voice.audio.groupEnhanced")}>
+						<VoiceProcessingSwitch
+							voice={voice}
+							settings={audioSettings}
+							setting="deepNoiseSuppression"
+							label={t("voice.audio.deepNoiseSuppression")}
+							hint={t(
+								audioSettings.deepNoiseSuppression
+									? "voice.audio.deepNoiseSuppressionHint"
+									: "voice.audio.deepNoiseSuppressionOffHint",
+							)}
+						/>
+						<VoiceProcessingSwitch
+							voice={voice}
+							settings={audioSettings}
+							setting="noiseGate"
+							label={t("voice.audio.noiseGate")}
+							hint={t("voice.audio.noiseGateHint")}
+						/>
+						<VoiceProcessingSwitch
+							voice={voice}
+							settings={audioSettings}
+							setting="compressor"
+							label={t("voice.audio.compressor")}
+							hint={t("voice.audio.compressorHint")}
+						/>
+					</VoiceSwitchGroup>
+				</div>
 			</div>
 		</section>
 	);
 }
 
-function VoiceDiagnosticsSection({
+function VoiceDiagnosticsRow({
 	voice,
 	snapshot,
 }: {
@@ -776,61 +886,50 @@ function VoiceDiagnosticsSection({
 			: "pending";
 
 	return (
-		<section
-			aria-label={t("voice.diagnostics.title")}
-			className="bg-md-surface-container-low flex flex-col gap-2 rounded-xl px-4 py-3"
+		<SwitchRow
+			label={t("voice.diagnostics.title")}
+			hint={t("voice.diagnostics.summary")}
+			checked={snapshot.diagnosticsConsent}
+			switchRef={toggleRef}
+			onCheckedChange={(checked) => {
+				if (checked) {
+					setDialogOpen(true);
+					return;
+				}
+				voice.setDiagnosticsConsent(false);
+			}}
 		>
-			<div className="flex min-w-0 items-center justify-between gap-3">
-				<div className="flex min-w-0 flex-col gap-0.5">
-					<span className="text-md-on-surface text-label-large">
-						{t("voice.diagnostics.title")}
-					</span>
-					<span className="text-md-on-surface-variant text-body-small">
-						{t("voice.diagnostics.summary")}
-					</span>
-				</div>
-				<Switch
-					ref={toggleRef}
-					checked={snapshot.diagnosticsConsent}
-					aria-label={t("voice.diagnostics.title")}
-					onCheckedChange={(checked) => {
-						if (checked) {
-							setDialogOpen(true);
-							return;
+			<div className="flex flex-wrap items-center justify-between gap-2">
+				<p role="status" className="text-md-on-surface-variant text-body-small">
+					{t(`voice.diagnostics.status.${statusKey}`)}
+				</p>
+				<Button
+					type="button"
+					variant="outline"
+					size="sm"
+					disabled={!snapshot.hasDiagnosticsLog}
+					onClick={() => {
+						const json = voice.getDiagnosticsExport();
+						if (!json) return;
+						const url = URL.createObjectURL(
+							new Blob([json], { type: "application/json" }),
+						);
+						const link = document.createElement("a");
+						link.href = url;
+						link.download = "cogm-voice-diagnostics.json";
+						document.body.append(link);
+						try {
+							link.click();
+						} finally {
+							link.remove();
+							setTimeout(() => URL.revokeObjectURL(url), 0);
 						}
-						voice.setDiagnosticsConsent(false);
 					}}
-				/>
+				>
+					<Download data-icon="inline-start" />
+					{t("voice.diagnostics.export")}
+				</Button>
 			</div>
-			<p role="status" className="text-md-on-surface-variant text-body-small">
-				{t(`voice.diagnostics.status.${statusKey}`)}
-			</p>
-			<Button
-				type="button"
-				variant="outline"
-				className="min-h-11 self-start"
-				disabled={!snapshot.hasDiagnosticsLog}
-				onClick={() => {
-					const json = voice.getDiagnosticsExport();
-					if (!json) return;
-					const url = URL.createObjectURL(
-						new Blob([json], { type: "application/json" }),
-					);
-					const link = document.createElement("a");
-					link.href = url;
-					link.download = "cogm-voice-diagnostics.json";
-					document.body.append(link);
-					try {
-						link.click();
-					} finally {
-						link.remove();
-						setTimeout(() => URL.revokeObjectURL(url), 0);
-					}
-				}}
-			>
-				<Download data-icon="inline-start" />
-				{t("voice.diagnostics.export")}
-			</Button>
 			<Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
 				<DialogContent
 					className="max-w-lg p-4 sm:p-6"
@@ -872,9 +971,446 @@ function VoiceDiagnosticsSection({
 					</DialogFooter>
 				</DialogContent>
 			</Dialog>
+		</SwitchRow>
+	);
+}
+
+function VoiceMoreSection({
+	voice,
+	snapshot,
+}: {
+	voice: VoiceController;
+	snapshot: VoiceSnapshot;
+}) {
+	return (
+		<section
+			aria-label={t("voice.moreTitle")}
+			className="bg-md-surface-container-low flex min-w-0 flex-col gap-3 rounded-xl p-4"
+		>
+			<h3 className="text-md-on-surface text-title-medium-emph">
+				{t("voice.moreTitle")}
+			</h3>
+			<SwitchList>
+				{snapshot.member ? (
+					<SwitchRow
+						label={t("voice.speakerPopupSwitch")}
+						hint={t("voice.speakerPopupHint")}
+						checked={snapshot.speakerPopupOpen}
+						onCheckedChange={(checked) =>
+							voice.setSpeakerPopupOpen(Boolean(checked))
+						}
+					/>
+				) : null}
+				<VoiceDiagnosticsRow voice={voice} snapshot={snapshot} />
+			</SwitchList>
 		</section>
 	);
 }
+
+function VoiceRoomSettings({
+	voice,
+	snapshot,
+}: {
+	voice: VoiceController;
+	snapshot: VoiceSnapshot;
+}) {
+	const { state, pending } = snapshot;
+	const [confirmOpen, setConfirmOpen] = useState(false);
+	// While closed, the limit and the open action live together in the hero.
+	if (!state?.canManage || !state.enabled) return null;
+
+	return (
+		<section
+			aria-label={t("voice.roomSettings")}
+			className="bg-md-surface-container-low flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-xl p-3 pl-4"
+		>
+			<div className="flex min-w-0 flex-col gap-0.5">
+				<h3 className="text-md-on-surface text-title-small-emph">
+					{t("voice.roomSettings")}
+				</h3>
+				<p className="text-md-on-surface-variant text-body-small">
+					{t("voice.limitLockedHint", { limit: state.limit })}
+				</p>
+			</div>
+			<Button
+				type="button"
+				variant="tertiary"
+				size="sm"
+				className="hover:text-danger"
+				disabled={pending !== null}
+				onClick={() => setConfirmOpen(true)}
+			>
+				{t("voice.closeRoom")}
+			</Button>
+			<ConfirmDialog
+				open={confirmOpen}
+				onOpenChange={setConfirmOpen}
+				icon={PhoneOff}
+				title={t("voice.closeRoomConfirmTitle")}
+				description={t("voice.closeRoomConfirmDescription", {
+					count: state.memberCount,
+				})}
+				confirmLabel={t("voice.closeRoom")}
+				onConfirm={() => {
+					setConfirmOpen(false);
+					voice.configure({ enabled: false });
+				}}
+			/>
+		</section>
+	);
+}
+
+function VoiceLimitSelect({
+	voice,
+	snapshot,
+}: {
+	voice: VoiceController;
+	snapshot: VoiceSnapshot;
+}) {
+	const { state, pending } = snapshot;
+	const limitId = useId();
+	if (!state) return null;
+	return (
+		<div className="flex items-center gap-2">
+			<label
+				htmlFor={limitId}
+				className="text-md-on-surface-variant text-label-large"
+			>
+				{t("voice.limit")}
+			</label>
+			<Select
+				value={String(state.limit)}
+				disabled={!state.available || pending !== null}
+				onValueChange={(value) => voice.configure({ limit: Number(value) })}
+			>
+				<SelectTrigger
+					id={limitId}
+					aria-label={t("voice.limit")}
+					className="w-28"
+				>
+					<SelectValue />
+				</SelectTrigger>
+				<SelectContent position="popper" align="end">
+					<SelectGroup>
+						{Array.from(
+							{ length: state.maxLimit - 1 },
+							(_, index) => index + 2,
+						).map((limit) => (
+							<SelectItem
+								key={limit}
+								value={String(limit)}
+								disabled={limit < state.memberCount}
+							>
+								{t("voice.limitOption", { limit })}
+							</SelectItem>
+						))}
+					</SelectGroup>
+				</SelectContent>
+			</Select>
+		</div>
+	);
+}
+
+function VoiceHero({
+	voice,
+	snapshot,
+	activeSpeakers,
+}: {
+	voice: VoiceController;
+	snapshot: VoiceSnapshot;
+	activeSpeakers: VoiceMember[];
+}) {
+	const {
+		state,
+		member,
+		pending,
+		mic,
+		audioSettings,
+		playbackMuted,
+		peerConnecting,
+	} = snapshot;
+	const status = voiceStatusKey(snapshot);
+	const roomFull = !!state && state.memberCount >= state.limit;
+	const MicIcon = mic === "on" ? Mic : MicOff;
+	const PlaybackIcon = playbackMuted ? VolumeX : Volume2;
+	const speaking = activeSpeakers.length > 0;
+	const canOpen = !!state?.canManage && !state.enabled && state.available;
+	const linkReady = snapshot.link === "ready";
+	const supportingId = useId();
+
+	let supporting: string;
+	let reason: string | null = null;
+	if (member) {
+		if (!member.canSpeak) {
+			reason = t(
+				member.muted
+					? "voice.mutedHint"
+					: member.role === "ob"
+						? "voice.listenHintObserver"
+						: "voice.listenHint",
+			);
+		}
+		if (playbackMuted) {
+			// While paused nobody is audible, so "nobody is speaking" would lie.
+			supporting = t("voice.playbackPausedHint");
+		} else if (speaking) {
+			supporting = t("voice.speakingSummary", {
+				names: activeSpeakers.map((item) => item.name).join("、"),
+			});
+		} else if (peerConnecting > 0) {
+			supporting = t("voice.peersConnecting", { count: peerConnecting });
+		} else {
+			supporting = t("voice.nobodySpeaking");
+		}
+	} else if (!linkReady) {
+		supporting = t("voice.linkWaitHint");
+	} else if (!state?.available) {
+		supporting = t("voice.unavailableHint");
+	} else if (state.enabled && roomFull) {
+		supporting = t("voice.fullHint");
+	} else if (state.enabled) {
+		supporting = t("voice.roomOpenHint");
+	} else {
+		supporting = t(
+			state?.canManage ? "voice.roomClosedHint" : "voice.roomClosedWaitHint",
+		);
+	}
+
+	return (
+		<section
+			aria-label={t("voice.currentSection")}
+			className={cn(
+				"relative flex flex-wrap items-center gap-x-4 gap-y-3 rounded-2xl p-4 transition-colors",
+				member
+					? "bg-md-primary-container/25 ring-1 ring-md-primary/30"
+					: "bg-md-surface-container-low",
+			)}
+		>
+			<div
+				className={cn(
+					"flex min-w-56 flex-1 items-center gap-3.5",
+					member && "pr-12 @2xl:pr-0",
+				)}
+			>
+				<span
+					className={cn(
+						"grid size-12 shrink-0 place-items-center rounded-full transition-colors",
+						speaking
+							? "bg-md-primary text-md-on-primary"
+							: member
+								? "bg-md-primary-container text-md-on-primary-container"
+								: "bg-md-surface-container-highest text-md-on-surface-variant",
+					)}
+				>
+					{speaking ? (
+						<AudioLines
+							className="size-6 motion-safe:animate-pulse"
+							aria-hidden="true"
+						/>
+					) : (
+						<Headphones className="size-6" aria-hidden="true" />
+					)}
+				</span>
+				<div className="flex min-w-0 flex-1 flex-col gap-0.5">
+					<div role="status" className="flex flex-wrap items-baseline gap-x-2">
+						<span className="text-md-on-surface text-title-medium-emph">
+							{t(status)}
+						</span>
+						{state ? (
+							<span className="text-md-on-surface-variant text-label-medium tabular-nums">
+								{t("voice.count", {
+									count: state.memberCount,
+									limit: state.limit,
+								})}
+							</span>
+						) : null}
+						{member && playbackMuted ? (
+							<Badge variant="soft" tone="warning" size="sm">
+								<VolumeX className="size-3" aria-hidden="true" />
+								{t("voice.playbackPausedBadge")}
+							</Badge>
+						) : null}
+						{member && micTransmitting(snapshot) ? (
+							<Badge variant="soft" tone="accent" size="sm">
+								<Mic className="size-3" aria-hidden="true" />
+								{t("voice.micLive")}
+							</Badge>
+						) : member && mic === "on" ? (
+							<Badge variant="soft" tone="warning" size="sm">
+								<Mic className="size-3" aria-hidden="true" />
+								{t("voice.pttArmed")}
+							</Badge>
+						) : null}
+					</div>
+					<p className="text-md-on-surface-variant text-body-small">
+						{supporting}
+					</p>
+					{reason ? (
+						<p
+							id={supportingId}
+							className="text-md-tertiary text-body-small"
+						>
+							{reason}
+						</p>
+					) : null}
+				</div>
+			</div>
+
+			{member ? (
+				<div className="flex w-full items-center gap-2 @2xl:w-auto">
+					<Button
+						type="button"
+						variant={
+							audioSettings.pushToTalk
+								? "tertiary"
+								: micTransmitting(snapshot)
+									? "primary"
+									: "tonal"
+						}
+						size="sm"
+						className="min-w-0 flex-1 px-2 @2xl:flex-none @2xl:px-4"
+						disabled={!member.canSpeak}
+						aria-describedby={member.canSpeak ? undefined : supportingId}
+						onClick={(event) => {
+							void voice.toggleMic();
+							// A focused button swallows the push-to-talk hotkey (Space).
+							if (audioSettings.pushToTalk) event.currentTarget.blur();
+						}}
+					>
+						<MicIcon data-icon="inline-start" />
+						{t(
+							audioSettings.pushToTalk
+								? mic === "requesting"
+									? "voice.audio.pushToTalkMicCancel"
+									: mic === "on"
+										? "voice.audio.pushToTalkMicOff"
+										: "voice.audio.pushToTalkMicOn"
+								: mic === "on"
+									? "voice.micOff"
+									: mic === "requesting"
+										? "voice.micCancel"
+										: "voice.micOn",
+						)}
+					</Button>
+					<Button
+						type="button"
+						variant={playbackMuted ? "tonal" : "tertiary"}
+						size="sm"
+						className="min-w-0 flex-1 px-2 @2xl:flex-none @2xl:px-4"
+						onClick={(event) => {
+							voice.togglePlayback();
+							if (audioSettings.pushToTalk) event.currentTarget.blur();
+						}}
+					>
+						<PlaybackIcon data-icon="inline-start" />
+						{t(playbackMuted ? "voice.playbackOn" : "voice.playbackOff")}
+					</Button>
+				</div>
+			) : state?.enabled && state.available ? (
+				<Button
+					type="button"
+					variant="primary"
+					size="sm"
+					className="w-full @2xl:w-auto"
+					disabled={roomFull || pending !== null || !linkReady}
+					onClick={() => voice.join()}
+				>
+					{t("voice.join")}
+				</Button>
+			) : canOpen ? (
+				<div className="flex w-full flex-wrap items-center justify-between gap-3 @2xl:w-auto">
+					<VoiceLimitSelect voice={voice} snapshot={snapshot} />
+					<Button
+						type="button"
+						variant="primary"
+						size="sm"
+						className="w-full @2xl:w-auto"
+						disabled={pending !== null || !linkReady}
+						onClick={() => voice.configure({ enabled: true })}
+					>
+						{t("voice.openRoom")}
+					</Button>
+				</div>
+			) : null}
+			{member ? (
+				<div className="absolute top-3 right-3 @2xl:static">
+					<IconButton
+						type="button"
+						variant="tertiary"
+						size="sm"
+						className="text-danger"
+						aria-label={t("voice.leave")}
+						title={t("voice.leave")}
+						onClick={() => voice.leave()}
+					>
+						<PhoneOff />
+					</IconButton>
+				</div>
+			) : null}
+			{member?.canSpeak && audioSettings.pushToTalk ? (
+				<div className="basis-full">
+					<PushToTalkButton voice={voice} snapshot={snapshot} />
+				</div>
+			) : null}
+		</section>
+	);
+}
+
+function VoiceMembersView({
+	voice,
+	snapshot,
+	activeSpeakers,
+}: {
+	voice: VoiceController;
+	snapshot: VoiceSnapshot;
+	activeSpeakers: VoiceMember[];
+}) {
+	const { state, member, pending, memberVolumes } = snapshot;
+	const hasMembers = !!state && state.members.length > 0;
+
+	return (
+		<div className="flex min-w-0 flex-col gap-4">
+			<VoiceRoomSettings voice={voice} snapshot={snapshot} />
+			{hasMembers ? (
+				<ul
+					aria-label={t("voice.members")}
+					className="flex min-w-0 flex-col gap-2"
+				>
+					{state.members.map((item) => (
+						<VoiceMemberCard
+							key={item.id}
+							item={item}
+							isSelf={member?.id === item.id}
+							joined={member !== null}
+							speaking={activeSpeakers.some((s) => s.id === item.id)}
+							volume={memberVolumes[item.id] ?? 100}
+							manage={state.canManage}
+							busy={pending !== null}
+							voice={voice}
+						/>
+					))}
+				</ul>
+			) : snapshot.link !== "ready" ? null : (
+				<div className="bg-md-surface-container-low flex flex-col items-center gap-2 rounded-xl px-6 py-8 text-center">
+					<Headphones
+						className="text-md-on-surface-variant size-7"
+						strokeWidth={1.5}
+						aria-hidden="true"
+					/>
+					<p className="text-md-on-surface-variant text-body-medium">
+						{t(
+							state?.enabled && !member && !state.canManage
+								? "voice.membersJoinHint"
+								: "voice.membersEmpty",
+						)}
+					</p>
+				</div>
+			)}
+		</div>
+	);
+}
+
+type VoiceView = "members" | "settings";
 
 export function VoicePanelBody({
 	voice,
@@ -883,36 +1419,38 @@ export function VoicePanelBody({
 	voice: VoiceController;
 	snapshot: VoiceSnapshot;
 }) {
-	const limitId = useId();
+	// A closed, empty room has no members to show; start where the user can
+	// still do something useful (set up the mic) unless they run the room.
+	const [view, setView] = useState<VoiceView>(() =>
+		snapshot.state &&
+		!snapshot.state.enabled &&
+		!snapshot.state.canManage &&
+		!snapshot.member
+			? "settings"
+			: "members",
+	);
 	useEffect(() => {
 		return () => {
 			voice.stopMicTest();
 		};
 	}, [voice]);
-	const {
-		state,
-		member,
-		pending,
-		mic,
-		audioSettings,
-		playbackMuted,
-		playbackBlocked,
-		peerConnecting,
-		peerFailed,
-		memberVolumes,
-		speakerPopupOpen,
-		error,
-	} = snapshot;
-	const status = voiceStatusKey(snapshot);
-	const roomFull = !!state && state.memberCount >= state.limit;
-	const MicIcon = mic === "on" ? Mic : MicOff;
-	const PlaybackIcon = playbackMuted ? VolumeX : Volume2;
+	// Leaving the settings view unmounts the mic test card: release the mic.
+	useEffect(() => {
+		if (view !== "settings") voice.stopMicTest();
+	}, [view, voice]);
+	const { state, mic, playbackBlocked, peerFailed, error } = snapshot;
 	const activeSpeakers = (state?.members ?? []).filter((item) =>
 		isVoiceMemberSpeaking(snapshot, item),
 	);
 
 	return (
-		<div className="flex min-w-0 flex-col gap-4">
+		<div className="@container flex min-w-0 flex-col gap-4">
+			<VoiceHero
+				voice={voice}
+				snapshot={snapshot}
+				activeSpeakers={activeSpeakers}
+			/>
+
 			{error ? (
 				<Alert variant="danger">
 					<AlertContent>
@@ -937,8 +1475,7 @@ export function VoicePanelBody({
 					<Button
 						type="button"
 						variant="tertiary"
-						size="xs"
-						className="bg-md-surface-container-highest min-h-9 shrink-0"
+						size="sm"
 						onClick={() => voice.retryPlayback()}
 					>
 						{t("voice.retryPlayback")}
@@ -955,316 +1492,38 @@ export function VoicePanelBody({
 				</Alert>
 			) : null}
 
-			<div className="grid min-w-0 items-start gap-5 md:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] md:gap-6">
-				<div className="flex min-w-0 flex-col gap-4 md:sticky md:top-0">
-					<section
-						aria-label={t("voice.currentSection")}
-						className="flex flex-col gap-3"
-					>
-						<h3 className="text-md-on-surface text-title-medium-emph">
-							{t("voice.currentSection")}
-						</h3>
-						<div
-							className={cn(
-								"flex flex-col gap-3.5 rounded-xl p-4",
-								member
-									? "bg-md-surface-container"
-									: "bg-md-surface-container-low",
-							)}
-						>
-							<div className="flex items-center justify-between gap-3">
-								<div className="flex min-w-0 flex-1 items-center gap-3">
-									<span
-										className={cn(
-											"grid size-10 shrink-0 place-items-center rounded-full",
-											activeSpeakers.length > 0
-												? "bg-md-primary-container text-md-on-primary-container"
-												: "bg-md-surface-container-highest text-md-on-surface-variant",
-										)}
-									>
-										{activeSpeakers.length > 0 ? (
-											<AudioLines
-												className="size-5 animate-pulse"
-												aria-hidden="true"
-											/>
-										) : (
-											<Headphones className="size-5" aria-hidden="true" />
-										)}
-									</span>
-									<div className="flex min-w-0 flex-1 flex-col gap-0.5">
-										<div
-											role="status"
-											className="flex flex-wrap items-center gap-2"
-										>
-											<Badge
-												tone={member ? "accent" : "default"}
-												variant="soft"
-											>
-												{t(status)}
-											</Badge>
-											{state ? (
-												<span className="text-md-on-surface-variant text-label-medium tabular-nums">
-													{t("voice.count", {
-														count: state.memberCount,
-														limit: state.limit,
-													})}
-												</span>
-											) : null}
-										</div>
-										{member && peerConnecting > 0 ? (
-											<span className="text-md-on-surface-variant text-body-small">
-												{t("voice.peersConnecting", { count: peerConnecting })}
-											</span>
-										) : !member ? (
-											<p className="text-md-on-surface-variant text-body-small">
-												{t(
-													state?.enabled
-														? "voice.roomOpenHint"
-														: "voice.roomClosedHint",
-												)}
-											</p>
-										) : null}
-									</div>
-								</div>
-								{member ? (
-									<Button
-										type="button"
-										variant="tertiary"
-										size="xs"
-										className="bg-md-surface-container-highest text-md-on-surface-variant hover:text-danger h-9 shrink-0 px-3"
-										onClick={() => voice.leave()}
-									>
-										<PhoneOff className="size-4" aria-hidden="true" />
-										{t("voice.leave")}
-									</Button>
-								) : null}
-							</div>
-
-							{member ? (
-								<>
-									<div className="grid grid-cols-2 gap-2.5">
-										<Button
-											type="button"
-											variant={mic === "on" ? "primary" : "tonal"}
-											size="sm"
-											className="min-h-11 w-full"
-											disabled={!member.canSpeak}
-											onClick={() => {
-												void voice.toggleMic();
-											}}
-										>
-											<MicIcon data-icon="inline-start" />
-											{t(
-												audioSettings.pushToTalk
-													? mic === "requesting"
-														? "voice.audio.pushToTalkMicCancel"
-														: mic === "on"
-															? "voice.audio.pushToTalkMicOff"
-															: "voice.audio.pushToTalkMicOn"
-													: mic === "on"
-														? "voice.micOff"
-														: mic === "requesting"
-															? "voice.micCancel"
-															: "voice.micOn",
-											)}
-										</Button>
-										<Button
-											type="button"
-											variant={playbackMuted ? "dangerSoft" : "tertiary"}
-											size="sm"
-											className={cn(
-												"min-h-11 w-full",
-												!playbackMuted && "bg-md-surface-container-highest",
-											)}
-											onClick={() => voice.togglePlayback()}
-										>
-											<PlaybackIcon data-icon="inline-start" />
-											{t(
-												playbackMuted
-													? "voice.playbackOn"
-													: "voice.playbackOff",
-											)}
-										</Button>
-									</div>
-									{!member.canSpeak ? (
-										<p className="text-md-on-surface-variant text-body-small">
-											{t(
-												member.muted ? "voice.mutedHint" : "voice.listenHint",
-											)}
-										</p>
-									) : null}
-								</>
-							) : state?.enabled && state.available ? (
-								<Button
-									type="button"
-									variant="primary"
-									size="sm"
-									className="min-h-11 w-full"
-									disabled={roomFull || pending !== null}
-									onClick={() => voice.join()}
-								>
-									{t("voice.join")}
-								</Button>
-							) : null}
-						</div>
-					</section>
-
-					<VoiceAudioSettingsSection voice={voice} snapshot={snapshot} />
-
-					<VoiceDiagnosticsSection voice={voice} snapshot={snapshot} />
-
-					<VoiceMicTestCard voice={voice} snapshot={snapshot} />
-
-					{member ? (
-						<div className="bg-md-surface-container-low flex items-center justify-between gap-3 rounded-xl px-4 py-3">
-							<div className="flex min-w-0 flex-col gap-0.5">
-								<span className="text-md-on-surface text-label-large">
-									{t("voice.speakerPopupSwitch")}
-								</span>
-								<span className="text-md-on-surface-variant text-body-small">
-									{t("voice.speakerPopupHint")}
-								</span>
-							</div>
-							<Switch
-								checked={speakerPopupOpen}
-								aria-label={t("voice.speakerPopupSwitch")}
-								onCheckedChange={(checked) =>
-									voice.setSpeakerPopupOpen(Boolean(checked))
-								}
-							/>
-						</div>
-					) : null}
-
-					{state?.canManage ? (
-						<section
-							aria-label={t("voice.roomSettings")}
-							className="bg-md-surface-container-low flex flex-col gap-3 rounded-xl p-4"
-						>
-							<h3 className="text-md-on-surface text-title-small-emph">
-								{t("voice.roomSettings")}
-							</h3>
-							<Select
-								value={String(state.limit)}
-								disabled={
-									state.enabled || !state.available || pending !== null
-								}
-								onValueChange={(value) =>
-									voice.configure({ limit: Number(value) })
-								}
-							>
-								<SelectTrigger
-									id={limitId}
-									aria-label={t("voice.limit")}
-									className="bg-md-surface-container-high border-field-border text-md-on-surface focus-visible:border-field-border-focus focus-visible:ring-focus-ring/35 flex h-auto w-full min-w-0 flex-col items-start justify-center gap-0.5 rounded-lg border px-3 py-2 text-left shadow-[inset_0_1px_0_#ffffff0a] transition-[background-color,border-color,box-shadow] duration-200 ease-standard-fast-effects hover:border-field-border-hover focus-visible:ring-4 [&>svg]:hidden"
-								>
-									<span className="text-md-on-surface-variant text-label-small">
-										{t("voice.limit")}
-									</span>
-									<span className="text-md-on-surface flex w-full min-w-0 items-center justify-between gap-2 text-label-large">
-										<SelectValue />
-										<ChevronDown className="text-md-on-surface-variant size-4 shrink-0" />
-									</span>
-								</SelectTrigger>
-								<SelectContent
-									position="popper"
-									align="start"
-									sideOffset={6}
-									className="bg-md-surface-container-highest border-md-outline-variant/60 min-w-[var(--radix-select-trigger-width)] w-[var(--radix-select-trigger-width)] border"
-								>
-									<SelectGroup>
-										{Array.from(
-											{ length: state.maxLimit - 1 },
-											(_, index) => index + 2,
-										).map((limit) => (
-											<SelectItem
-												key={limit}
-												value={String(limit)}
-												disabled={limit < state.memberCount}
-											>
-												{t("voice.limitOption", { limit })}
-											</SelectItem>
-										))}
-									</SelectGroup>
-								</SelectContent>
-							</Select>
-							<Button
-								type="button"
-								variant={state.enabled ? "tertiary" : "primary"}
-								size="sm"
-								className={cn(
-									"min-h-11 w-full",
-									state.enabled && "bg-md-surface-container-highest",
-								)}
-								disabled={
-									(!state.enabled && !state.available) || pending !== null
-								}
-								onClick={() => voice.configure({ enabled: !state.enabled })}
-							>
-								{t(state.enabled ? "voice.closeRoom" : "voice.openRoom")}
-							</Button>
-						</section>
-					) : null}
-				</div>
-
-				<section
-					aria-label={t("voice.members")}
-					className="flex min-w-0 flex-col gap-3"
+			<Tabs
+				value={view}
+				onValueChange={(next) => setView(next as VoiceView)}
+				className="gap-4"
+			>
+				<TabsList
+					aria-label={t("voice.tab.label")}
+					className="w-full @2xl:w-72"
 				>
-					<div className="flex flex-wrap items-center justify-between gap-2">
-						<div className="flex items-center gap-2">
-							<h3 className="text-md-on-surface text-title-medium-emph">
-								{t("voice.members")}
-							</h3>
-							{state && state.members.length > 0 ? (
-								<span className="text-md-on-surface-variant font-mono text-label-medium tabular-nums">
-									{state.members.length}
-								</span>
-							) : null}
-						</div>
-						{activeSpeakers.length > 0 ? (
-							<Badge variant="soft" tone="accent" size="sm">
-								{t("voice.speakingSummary", {
-									names: activeSpeakers.map((item) => item.name).join("、"),
-								})}
-							</Badge>
-						) : null}
-					</div>
-					{state && state.members.length > 0 ? (
-						<ul
-							aria-label={t("voice.members")}
-							className="flex max-h-[min(48dvh,380px)] flex-col gap-2 overflow-y-auto pr-0.5"
-						>
-							{state.members.map((item) => (
-								<VoiceMemberCard
-									key={item.id}
-									item={item}
-									isSelf={member?.id === item.id}
-									joined={member !== null}
-									speaking={isVoiceMemberSpeaking(snapshot, item)}
-									volume={memberVolumes[item.id] ?? 100}
-									manage={state.canManage}
-									busy={pending !== null}
-									voice={voice}
-								/>
-							))}
-						</ul>
-					) : (
-						<div className="bg-md-surface-container-low flex items-center gap-3 rounded-xl p-4">
-							<Headphones
-								className="text-md-on-surface-variant size-5 shrink-0"
-								aria-hidden="true"
-							/>
-							<p className="text-md-on-surface-variant text-body-medium">
-								{t(
-									state?.enabled && !member && !state.canManage
-										? "voice.membersJoinHint"
-										: "voice.membersEmpty",
-								)}
-							</p>
-						</div>
-					)}
-				</section>
-			</div>
+					<TabsTrigger value="members">
+						{state?.members.length
+							? t("voice.tab.membersCount", { count: state.members.length })
+							: t("voice.tab.members")}
+					</TabsTrigger>
+					<TabsTrigger value="settings">{t("voice.tab.settings")}</TabsTrigger>
+				</TabsList>
+				<TabsContent value="members" tabIndex={-1}>
+					<VoiceMembersView
+						voice={voice}
+						snapshot={snapshot}
+						activeSpeakers={activeSpeakers}
+					/>
+				</TabsContent>
+				<TabsContent
+					value="settings"
+					tabIndex={-1}
+					className="flex flex-col gap-4"
+				>
+					<VoiceAudioSettingsSection voice={voice} snapshot={snapshot} />
+					<VoiceMoreSection voice={voice} snapshot={snapshot} />
+				</TabsContent>
+			</Tabs>
 		</div>
 	);
 }

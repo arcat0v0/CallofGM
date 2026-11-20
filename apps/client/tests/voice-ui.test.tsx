@@ -156,6 +156,11 @@ beforeEach(() => {
 	});
 });
 
+function openSettings(scope: Pick<ReturnType<typeof within>, "getByRole">) {
+	// Radix tabs activate on mousedown rather than click.
+	fireEvent.mouseDown(scope.getByRole("tab", { name: "设置" }), { button: 0 });
+}
+
 function renderAudioSettings(overrides: Record<string, unknown> = {}) {
 	const { controller, joinRoom } = createVoiceFixture(true);
 	joinRoom();
@@ -199,6 +204,7 @@ function renderAudioSettings(overrides: Record<string, unknown> = {}) {
 		...snapshotOverrides,
 	} as VoiceSnapshot;
 	const view = render(<VoicePanelBody voice={voice} snapshot={snapshot} />);
+	openSettings(view);
 	return {
 		view,
 		section: view.getByRole("region", { name: "麦克风与音频处理" }),
@@ -353,6 +359,7 @@ describe("voice panel & speaker popup UI", () => {
 
 		fireEvent.click(view.getByRole("button", { name: "语音" }));
 		const panel = view.getByRole("region", { name: "语音" });
+		openSettings(within(panel));
 
 		await act(async () => {
 			fireEvent.click(within(panel).getByRole("button", { name: "测试麦克风" }));
@@ -437,7 +444,8 @@ describe("voice audio settings UI", () => {
 			pushToTalkKey: "KeyV",
 		});
 
-		const hold = within(section).getByRole("button", { name: "按住说话" });
+		// The hold button lives on the status card, not in the settings section.
+		const hold = view.getByRole("button", { name: "按住说话" });
 		fireEvent.pointerDown(hold, { button: 0 });
 		expect(setPushToTalkActive).toHaveBeenLastCalledWith(true);
 		fireEvent.pointerUp(hold);
@@ -454,6 +462,52 @@ describe("voice audio settings UI", () => {
 		fireEvent.pointerDown(hold, { button: 0 });
 		view.unmount();
 		expect(setPushToTalkActive).toHaveBeenLastCalledWith(false);
+	});
+
+	test("armed push-to-talk is not reported as a live microphone", () => {
+		const armed = renderAudioSettings({
+			audioSettings: { pushToTalk: true },
+			mic: "on",
+			pushToTalkActive: false,
+		});
+		expect(armed.view.queryByText("麦克风已开启")).toBeNull();
+		expect(armed.view.getAllByText("按键说话待命").length).toBeGreaterThan(0);
+		armed.view.unmount();
+
+		const held = renderAudioSettings({
+			audioSettings: { pushToTalk: true },
+			mic: "on",
+			pushToTalkActive: true,
+		});
+		expect(held.view.getAllByText("麦克风已开启").length).toBeGreaterThan(0);
+		expect(held.view.queryByText("按键说话待命")).toBeNull();
+	});
+
+	test("leave button only exists once the user has joined", () => {
+		const { controller, joinRoom } = createVoiceFixture(false);
+		const view = render(<ConnectedVoicePanel voice={controller} />);
+		expect(view.queryByRole("button", { name: "离开语音" })).toBeNull();
+		act(() => joinRoom());
+		expect(view.getByRole("button", { name: "离开语音" })).toBeTruthy();
+		view.unmount();
+		controller.disconnect(false);
+	});
+
+	test("closing the voice room asks for confirmation first", async () => {
+		const { controller } = createVoiceFixture(true);
+		const configure = mock(() => {});
+		const voice = Object.create(controller) as VoiceController;
+		Object.assign(voice, { configure });
+		const view = render(
+			<VoicePanelBody voice={voice} snapshot={controller.getSnapshot()} />,
+		);
+		fireEvent.click(view.getByRole("button", { name: "关闭语音房间" }));
+		expect(configure).not.toHaveBeenCalled();
+		const dialog = await view.findByRole("alertdialog");
+		fireEvent.click(
+			within(dialog).getByRole("button", { name: "关闭语音房间" }),
+		);
+		expect(configure).toHaveBeenCalledWith({ enabled: false });
 	});
 
 	test("fallback and browser-decided constraints are reported without false enabled states", () => {
@@ -481,11 +535,15 @@ describe("voice audio settings UI", () => {
 		}).parentElement;
 		expect(echoRow).not.toBeNull();
 		expect(noiseRow).not.toBeNull();
+		// Browser-decided (null) constraints keep the plain hint instead of
+		// claiming a state the browser never reported.
 		expect(
-			within(echoRow as HTMLElement).getByText("实际：由浏览器/设备决定"),
-		).toBeTruthy();
+			within(echoRow as HTMLElement).queryByText(/实际/),
+		).toBeNull();
 		expect(
-			within(noiseRow as HTMLElement).getByText("实际：关闭"),
+			within(noiseRow as HTMLElement).getByText(
+				"浏览器未按设置应用（实际：关闭）",
+			),
 		).toBeTruthy();
 		expect(
 			within(section).queryByText(/RNNoise 替代浏览器降噪/),
@@ -516,6 +574,7 @@ describe("local voice diagnostics UI", () => {
 		const view = render(<ConnectedVoicePanel voice={controller} />);
 		try {
 			act(() => joinRoom());
+			openSettings(view);
 			const toggle = view.getByRole("switch", { name: "语音诊断" });
 			const exportButton = view.getByRole("button", { name: "导出诊断日志" });
 			expect(toggle.getAttribute("aria-checked")).toBe("false");
@@ -547,6 +606,7 @@ describe("local voice diagnostics UI", () => {
 			try {
 				reloaded.setSessionId(sessionId);
 				const restored = render(<ConnectedVoicePanel voice={reloaded} />);
+				openSettings(restored);
 				expect(
 					restored
 						.getByRole("switch", { name: "语音诊断" })
