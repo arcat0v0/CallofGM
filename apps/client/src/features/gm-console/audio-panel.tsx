@@ -89,12 +89,15 @@ function AudioPanel({ onClose }: { onClose: () => void }) {
 	const playbackError = usePlayStore((state) => state.audioPlaybackError);
 	const retryPlayback = usePlayStore((state) => state.retryAudioPlayback);
 	const [fadeMs, setFadeMs] = useState("1000");
-	const lastAudibleVolume = useRef(displayVolume > 0 ? displayVolume : 80);
+	const committedVolume = Math.round(bgm?.volume ?? 100);
+	const lastAudibleVolume = useRef(
+		committedVolume > 0 ? committedVolume : 80,
+	);
 	const hasCurrent = Boolean(bgm?.trackId);
 	const playing = Boolean(bgm?.playing);
 	const mode = bgm?.mode ?? "single";
-	const controlsDisabled = !connected || !snapshotReady || commandPending;
-	const currentDisabled = controlsDisabled || !hasCurrent;
+	const offlineDisabled = !connected || !snapshotReady;
+	const currentOfflineDisabled = offlineDisabled || !hasCurrent;
 	const silent = displayVolume <= 0;
 	const fadeLabel = t(
 		FADE_OPTIONS.find((option) => option.value === fadeMs)?.labelKey ??
@@ -102,15 +105,32 @@ function AudioPanel({ onClose }: { onClose: () => void }) {
 	);
 
 	useEffect(() => {
-		if (displayVolume > 0) {
-			lastAudibleVolume.current = displayVolume;
+		if (committedVolume > 0) {
+			lastAudibleVolume.current = committedVolume;
 		}
-	}, [displayVolume]);
+	}, [committedVolume]);
+
+	function toggleMute() {
+		if (offlineDisabled || commandPending) {
+			return;
+		}
+		const volume = silent ? lastAudibleVolume.current : 0;
+		commitVolume(volume, 0);
+	}
 
 	function toggleFade() {
+		if (currentOfflineDisabled || commandPending) {
+			return;
+		}
 		const volume = silent ? lastAudibleVolume.current : 0;
 		sendBgm("volume", { volume, transitionMs: Number(fadeMs) });
 	}
+
+	const muteLabel = silent
+		? t("gm.workbench.unmuteBgmToVolume", {
+				volume: lastAudibleVolume.current,
+			})
+		: t("gm.workbench.muteBgm");
 
 	const title = current?.name ?? bgm?.name ?? t("gm.console.audioNone");
 	const meta = [
@@ -265,7 +285,8 @@ function AudioPanel({ onClose }: { onClose: () => void }) {
 									variant="tertiary"
 									size="icon-sm"
 									aria-label={t("gm.workbench.previousTrackAction")}
-									disabled={controlsDisabled || bgmTracks.length < 2}
+									aria-disabled={commandPending || undefined}
+									disabled={offlineDisabled || bgmTracks.length < 2}
 									onClick={previous}
 								>
 									<SkipBack />
@@ -279,7 +300,8 @@ function AudioPanel({ onClose }: { onClose: () => void }) {
 											? t("gm.console.audioPause")
 											: t("gm.console.audioPlay")
 									}
-									disabled={currentDisabled}
+									aria-disabled={commandPending || undefined}
+									disabled={currentOfflineDisabled}
 									onClick={togglePlay}
 								>
 									{playing ? <Pause /> : <Play />}
@@ -289,7 +311,8 @@ function AudioPanel({ onClose }: { onClose: () => void }) {
 									variant="tertiary"
 									size="icon-sm"
 									aria-label={t("gm.workbench.nextTrackAction")}
-									disabled={controlsDisabled || bgmTracks.length < 2}
+									aria-disabled={commandPending || undefined}
+									disabled={offlineDisabled || bgmTracks.length < 2}
 									onClick={next}
 								>
 									<SkipForward />
@@ -309,14 +332,16 @@ function AudioPanel({ onClose }: { onClose: () => void }) {
 								min={0}
 								max={Math.max(durationMs, 1)}
 								playing={playing}
-								disabled={currentDisabled || durationMs <= 0}
+								disabled={currentOfflineDisabled || durationMs <= 0}
 								aria-label={t("gm.console.progressAria")}
 								aria-valuetext={t("gm.workbench.progressValue", {
 									position: formatDurationMmSs(displayPosition),
 									duration: formatDurationMmSs(durationMs),
 								})}
 								className="min-w-0 flex-1"
-								onValueChange={(value) => setSeekDraft(value[0] ?? 0)}
+								onValueChange={(value) => {
+									if (!commandPending) setSeekDraft(value[0] ?? 0);
+								}}
 								onValueCommit={(value) => seek(value[0] ?? 0)}
 							/>
 							<span className="text-md-on-surface-variant w-11 shrink-0 text-right font-mono text-label-medium tabular-nums">
@@ -336,24 +361,36 @@ function AudioPanel({ onClose }: { onClose: () => void }) {
 
 					<Separator className="bg-md-outline-variant/40" />
 							<div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
-								<div className="flex min-w-56 flex-1 items-center gap-3">
-									<span className="text-md-on-surface-variant flex shrink-0 items-center gap-1.5 text-label-large">
+								<div className="flex min-w-56 flex-1 items-center gap-2">
+									<Button
+										type="button"
+										variant="ghost"
+										size="xs"
+										disabled={offlineDisabled}
+										aria-disabled={commandPending || undefined}
+										aria-label={muteLabel}
+										title={muteLabel}
+										className="-ml-2.5 cursor-pointer gap-1.5 px-2.5 text-md-on-surface-variant hover:text-md-on-surface disabled:bg-transparent! disabled:opacity-40"
+										onClick={toggleMute}
+									>
 										{silent ? (
 											<VolumeX className="size-5" aria-hidden="true" />
 										) : (
 											<Volume1 className="size-5" aria-hidden="true" />
 										)}
 										{t("gm.workbench.bgmVolumeShort")}
-									</span>
+									</Button>
 									<Slider
 										value={[displayVolume]}
 										min={0}
 										max={100}
-										disabled={controlsDisabled}
+										disabled={offlineDisabled}
 										aria-label={t("gm.workbench.groupVolume")}
 										aria-valuetext={`${displayVolume}%`}
 										className="min-w-24 flex-1"
-										onValueChange={(value) => setVolumeDraft(value[0] ?? 0)}
+										onValueChange={(value) => {
+											if (!commandPending) setVolumeDraft(value[0] ?? 0);
+										}}
 										onValueCommit={(value) => commitVolume(value[0] ?? 0)}
 									/>
 									<span
@@ -369,7 +406,8 @@ function AudioPanel({ onClose }: { onClose: () => void }) {
 									size="xs"
 									groupClassName="@max-md:flex @max-md:w-full"
 									className="@max-md:flex-1"
-									disabled={currentDisabled}
+									disabled={currentOfflineDisabled}
+									aria-disabled={commandPending || undefined}
 									onClick={toggleFade}
 									title={t("gm.workbench.fadeHint")}
 									aria-label={
@@ -420,11 +458,14 @@ function AudioPanel({ onClose }: { onClose: () => void }) {
 									className="w-full gap-1 bg-md-surface-container-highest"
 									itemClassName="min-h-10 px-3 [&_svg]:size-4"
 									onValueChange={(nextMode) => {
-										if (nextMode !== mode) sendBgm("mode", { mode: nextMode });
+										if (!commandPending && nextMode !== mode) {
+											sendBgm("mode", { mode: nextMode });
+										}
 									}}
 									options={PLAYBACK_MODES.map(({ value, icon: Icon }) => ({
 										value,
-										disabled: controlsDisabled,
+										disabled: offlineDisabled,
+										ariaDisabled: commandPending || undefined,
 										label: (
 											<>
 												<Icon aria-hidden="true" />
@@ -444,7 +485,8 @@ function AudioPanel({ onClose }: { onClose: () => void }) {
 				<AudioLibrary
 					currentTrackId={bgm?.trackId ?? null}
 					playing={playing}
-					controlsDisabled={controlsDisabled}
+					controlsDisabled={offlineDisabled}
+					commandPending={commandPending}
 					playTrack={playTrack}
 					togglePlay={togglePlay}
 				/>

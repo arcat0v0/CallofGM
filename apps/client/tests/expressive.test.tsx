@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
+import { render as renderDom, waitFor } from "@testing-library/react";
 import { AlertDialog as AlertDialogPrimitive } from "radix-ui";
 import { renderToStaticMarkup } from "react-dom/server";
+import { SegmentedControl } from "../src/components/shared/segmented-control";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -190,5 +192,50 @@ describe("Expressive component semantics", () => {
 			expect(shape.path).toContain("C");
 			expect(shape.path).not.toMatch(/NaN|Infinity/);
 		}
+	});
+	test("segmented control slides a selection indicator when aria-checked moves", async () => {
+		const view = renderDom(
+			<SegmentedControl
+				value="all"
+				onValueChange={() => undefined}
+				options={[
+					{ value: "all", label: "全部" },
+					{ value: "pc", label: "PC" },
+					{ value: "npc", label: "NPC" },
+				]}
+			/>,
+		);
+		const group = view.getByRole("radiogroup");
+		Object.defineProperties(group, {
+			offsetWidth: { value: 300, configurable: true },
+			offsetHeight: { value: 40, configurable: true },
+			clientWidth: { value: 300, configurable: true },
+			clientHeight: { value: 40, configurable: true },
+		});
+		group.getBoundingClientRect = () => new DOMRect(0, 0, 300, 40);
+		const radios = view.getAllByRole("radio");
+		radios[0]!.getBoundingClientRect = () => new DOMRect(4, 4, 96, 32);
+		radios[1]!.getBoundingClientRect = () => new DOMRect(102, 4, 96, 32);
+		radios[2]!.getBoundingClientRect = () => new DOMRect(200, 4, 96, 32);
+
+		view.rerender(
+			<SegmentedControl
+				value="pc"
+				onValueChange={() => undefined}
+				options={[
+					{ value: "all", label: "全部" },
+					{ value: "pc", label: "PC" },
+					{ value: "npc", label: "NPC" },
+				]}
+			/>,
+		);
+		const indicator = group.querySelector(
+			'[data-slot="selection-indicator"]',
+		) as HTMLElement | null;
+		expect(indicator).toBeTruthy();
+		await waitFor(() => {
+			expect(indicator?.style.left).toBe("102px");
+			expect(indicator?.style.right).toBe("102px");
+		});
 	});
 });

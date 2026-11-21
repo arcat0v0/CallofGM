@@ -2203,6 +2203,8 @@ export const zhCN: Record<string, string> = {
 	"gm.workbench.fadeDuration": "淡入淡出时长",
 	"gm.workbench.fadeOutToSilence": "淡出至无声",
 	"gm.workbench.fadeInToVolume": "淡入至 {volume}%",
+	"gm.workbench.muteBgm": "静音全团 BGM",
+	"gm.workbench.unmuteBgmToVolume": "开启全团 BGM 至 {volume}%",
 	"gm.workbench.fadeFast": "0.5 秒",
 	"gm.workbench.fadeNormal": "1.0 秒",
 	"gm.workbench.fadeSlow": "2.0 秒",

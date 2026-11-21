@@ -242,8 +242,23 @@ describe("sound panel hierarchy and states", () => {
 				.hasAttribute("data-disabled"),
 		).toBe(false);
 		expect(
+			view.getByRole("button", { name: "静音全团 BGM" }).hasAttribute("disabled"),
+		).toBe(false);
+		expect(
 			view.getByRole("button", { name: "淡出至无声" }).hasAttribute("disabled"),
 		).toBe(true);
+		fireEvent.click(view.getByRole("button", { name: "静音全团 BGM" }));
+		expect(sent).toEqual([
+			{
+				type: "audio:bgm",
+				payload: {
+					action: "volume",
+					volume: 0,
+					transitionMs: 0,
+					expectedVersion: 0,
+				},
+			},
+		]);
 	});
 
 	test("offline and local playback failure are reflected in the status line", () => {
@@ -327,6 +342,87 @@ describe("sound panel hierarchy and states", () => {
 		).toBeTruthy();
 	});
 
+	test("clicking the BGM volume button immediately mutes and unmutes", async () => {
+		const view = renderPanel();
+		const muteButton = view.getByRole("button", { name: "静音全团 BGM" });
+		expect(muteButton.textContent).toContain("BGM 音量");
+		expect(view.getByText("64%")).toBeTruthy();
+
+		fireEvent.click(muteButton);
+		expect(sent).toEqual([
+			{
+				type: "audio:bgm",
+				payload: {
+					action: "volume",
+					volume: 0,
+					transitionMs: 0,
+					expectedVersion: 4,
+				},
+			},
+		]);
+		expect(view.getByText("0%")).toBeTruthy();
+		expect(
+			view
+				.getByRole("button", { name: "开启全团 BGM 至 64%" })
+				.getAttribute("aria-disabled"),
+		).toBe("true");
+		expect(
+			view.getByRole("button", { name: "暂停" }).hasAttribute("disabled"),
+		).toBe(false);
+		expect(
+			view
+				.getByRole("slider", { name: "播放进度" })
+				.hasAttribute("data-disabled"),
+		).toBe(false);
+		expect(
+			view
+				.getByRole("button", { name: "播放曲目：旧宅回声" })
+				.hasAttribute("disabled"),
+		).toBe(false);
+		fireEvent.click(view.getByRole("button", { name: "开启全团 BGM 至 64%" }));
+		expect(sent).toHaveLength(1);
+		expect(view.getByText("0%")).toBeTruthy();
+
+		act(() =>
+			usePlayStore.setState({ bgm: bgm({ volume: 0, version: 5 }) }),
+		);
+		const unmuteButton = await view.findByRole("button", {
+			name: "开启全团 BGM 至 64%",
+		});
+		expect(unmuteButton.getAttribute("aria-disabled")).toBeNull();
+
+		fireEvent.click(unmuteButton);
+		expect(sent[1]).toEqual({
+			type: "audio:bgm",
+			payload: {
+				action: "volume",
+				volume: 64,
+				transitionMs: 0,
+				expectedVersion: 5,
+			},
+		});
+		expect(view.getByText("64%")).toBeTruthy();
+	});
+
+	test("volume button restores fallback volume when initially muted", () => {
+		seed({ bgm: bgm({ volume: 0 }) });
+		const view = renderPanel();
+		fireEvent.click(
+			view.getByRole("button", { name: "开启全团 BGM 至 80%" }),
+		);
+		expect(sent).toEqual([
+			{
+				type: "audio:bgm",
+				payload: {
+					action: "volume",
+					volume: 80,
+					transitionMs: 0,
+					expectedVersion: 4,
+				},
+			},
+		]);
+	});
+
 	test("mode selection waits for the broadcast and keeps current progress", () => {
 		const view = renderPanel();
 		fireEvent.click(view.getByRole("radio", { name: "单曲循环" }));
@@ -344,8 +440,12 @@ describe("sound panel hierarchy and states", () => {
 				.getAttribute("aria-checked"),
 		).toBe("true");
 		expect(
-			view.getByRole("radio", { name: "随机播放" }).hasAttribute("disabled"),
-		).toBe(true);
+			view
+				.getByRole("radio", { name: "随机播放" })
+				.getAttribute("aria-disabled"),
+		).toBe("true");
+		fireEvent.click(view.getByRole("radio", { name: "列表循环" }));
+		expect(sent).toHaveLength(1);
 		act(() =>
 			usePlayStore.setState({ bgm: bgm({ mode: "shuffle", version: 5 }) }),
 		);
@@ -366,6 +466,10 @@ describe("sound panel hierarchy and states", () => {
 		expect(
 			within(dialog).getByRole("textbox", { name: "搜索歌曲" }),
 		).toBeTruthy();
+		const panelSection = within(dialog).getByRole("region", {
+			name: "添加平台曲目",
+		});
+		expect(panelSection.parentElement?.className).not.toContain("mask-b-from");
 		expect(view.container.contains(dialog)).toBe(false);
 		fireEvent.click(within(dialog).getByRole("button", { name: "关闭" }));
 		await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
@@ -522,6 +626,9 @@ describe("sound panel hierarchy and states", () => {
 			view.getByRole("button", { name: "暂停" }).hasAttribute("disabled"),
 		).toBe(true);
 		expect(
+			view.getByRole("button", { name: "静音全团 BGM" }).hasAttribute("disabled"),
+		).toBe(true);
+		expect(
 			view
 				.getByRole("button", { name: "播放音效：开门声" })
 				.hasAttribute("disabled"),
@@ -558,16 +665,22 @@ describe("BGM command behavior", () => {
 		const view = renderPanel();
 		fireEvent.click(view.getByRole("button", { name: "暂停" }));
 		expect(
-			view.getByRole("button", { name: "下一首" }).hasAttribute("disabled"),
-		).toBe(true);
+			view.getByRole("button", { name: "下一首" }).getAttribute("aria-disabled"),
+		).toBe("true");
+		fireEvent.click(view.getByRole("button", { name: "下一首" }));
+		expect(sent).toHaveLength(1);
 		act(() => {
 			usePlayStore.setState({ bgm: bgm({ playing: false, version: 5 }) });
 		});
 		await waitFor(() =>
 			expect(
-				view.getByRole("button", { name: "下一首" }).hasAttribute("disabled"),
-			).toBe(false),
+				view
+					.getByRole("button", { name: "下一首" })
+					.getAttribute("aria-disabled"),
+			).toBeNull(),
 		);
+		fireEvent.click(view.getByRole("button", { name: "下一首" }));
+		expect(sent).toHaveLength(2);
 	});
 
 	test("a rejected BGM command restores controls and shows the error inline", async () => {
@@ -587,8 +700,10 @@ describe("BGM command behavior", () => {
 			),
 		);
 		expect(
-			view.getByRole("button", { name: "下一首" }).hasAttribute("disabled"),
-		).toBe(false);
+			view.getByRole("button", { name: "下一首" }).getAttribute("aria-disabled"),
+		).toBeNull();
+		fireEvent.click(view.getByRole("button", { name: "下一首" }));
+		expect(sent).toHaveLength(2);
 	});
 });
 

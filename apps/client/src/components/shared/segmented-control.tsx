@@ -1,11 +1,13 @@
 import type * as React from "react";
 import { Button } from "@/components/ui/button";
+import { SelectionIndicator } from "@/components/ui/selection-indicator";
 import { cn } from "@/lib/utils";
 
 type SegmentedOption<T extends string> = {
 	value: T;
 	label: React.ReactNode;
 	disabled?: boolean;
+	ariaDisabled?: boolean;
 };
 
 type SegmentedControlProps<T extends string> = Omit<
@@ -28,13 +30,18 @@ function SegmentedControl<T extends string>({
 }: SegmentedControlProps<T>) {
 	return (
 		<div
+			data-slot="segmented-control"
 			role="radiogroup"
 			className={cn(
-				"flex items-center gap-0.5 rounded-full bg-surface-tertiary p-1",
+				"relative isolate flex items-center gap-0.5 rounded-full bg-surface-tertiary p-1",
 				className,
 			)}
 			{...props}
 		>
+			<SelectionIndicator
+				selector='[role="radio"][aria-checked="true"]'
+				axis="horizontal"
+			/>
 			{options.map((option) => {
 				const selected = option.value === value;
 				return (
@@ -43,16 +50,17 @@ function SegmentedControl<T extends string>({
 						type="button"
 						role="radio"
 						aria-checked={selected}
+						aria-disabled={option.ariaDisabled || undefined}
 						disabled={option.disabled}
 						variant="tertiary"
 						size="sm"
 						onClick={() => onValueChange(option.value)}
 						className={cn(
-							"h-8 flex-1 rounded-full px-4",
-							"disabled:opacity-60",
+							"relative z-1 h-8 flex-1 rounded-full bg-transparent px-4",
+							"disabled:bg-transparent! disabled:opacity-60",
 							selected
-								? "bg-segment font-semibold text-segment-foreground shadow-tab hover:bg-segment disabled:bg-segment! disabled:text-segment-foreground!"
-								: "bg-transparent font-medium text-foreground-secondary hover:bg-surface-hover disabled:bg-transparent! disabled:text-foreground-secondary!",
+								? "font-semibold text-segment-foreground hover:bg-transparent disabled:text-segment-foreground!"
+								: "font-medium text-foreground-secondary hover:bg-surface-hover disabled:text-foreground-secondary!",
 							itemClassName,
 						)}
 					>

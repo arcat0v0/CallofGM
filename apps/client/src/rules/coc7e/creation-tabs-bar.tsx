@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { SelectionIndicator } from "@/components/ui/selection-indicator";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 import {
@@ -33,10 +34,15 @@ export function Coc7eCreationTabsBar({
 
 	return (
 		<div
+			data-slot="creation-tabs-bar"
 			role="tablist"
 			aria-label={t("characterCreation.tabsNav")}
-			className="border-md-outline-variant/40 bg-md-surface-container-low flex w-full gap-1.5 overflow-x-auto rounded-2xl border p-1.5 lg:grid lg:grid-cols-7 lg:overflow-visible"
+			className="relative isolate border-md-outline-variant/40 bg-md-surface-container-low flex w-full gap-1.5 overflow-x-auto rounded-2xl border p-1.5 lg:grid lg:grid-cols-7 lg:overflow-visible"
 		>
+			<SelectionIndicator
+				selector='[role="tab"][aria-selected="true"]'
+				axis="horizontal"
+			/>
 			{COC7E_TAB_ORDER.map((tab) => {
 				const active = activeTab === tab.id;
 				const count = validation.tabCounts[tab.id];
@@ -58,9 +64,9 @@ export function Coc7eCreationTabsBar({
 						}
 						onClick={() => onSelectTab(tab.id)}
 						className={cn(
-							"flex min-h-[44px] min-w-[96px] shrink-0 items-center justify-between gap-2 rounded-xl px-3 py-2 text-left transition-colors duration-200 ease-standard lg:min-w-0",
+							"relative z-1 flex min-h-[44px] min-w-[96px] shrink-0 items-center justify-between gap-2 rounded-xl px-3 py-2 text-left transition-colors duration-200 ease-standard lg:min-w-0",
 							active
-								? "bg-md-primary-container text-md-on-primary-container"
+								? "text-md-on-primary-container"
 								: "text-foreground-secondary hover:bg-md-surface-container hover:text-foreground",
 						)}
 					>

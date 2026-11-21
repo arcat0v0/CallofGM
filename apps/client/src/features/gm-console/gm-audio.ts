@@ -66,14 +66,18 @@ function useBgmPlayback() {
 	const setVolumeDraft = (value: number | null) =>
 		setVolumeDraftState({ signature: volumeSignature, value });
 
+	const bgmPlaying = Boolean(bgm?.playing);
+	const bgmStartedAtMs = bgm?.startedAtMs ?? 0;
+	const bgmSeekOffsetMs = bgm?.seekOffsetMs ?? 0;
+
 	useEffect(() => {
 		setNow(Date.now());
-		if (!bgm?.playing || durationMs <= 0) {
+		if (!bgmPlaying || durationMs <= 0) {
 			return;
 		}
 		const id = window.setInterval(() => setNow(Date.now()), 250);
 		return () => window.clearInterval(id);
-	}, [bgm, durationMs]);
+	}, [bgmPlaying, bgmSeekOffsetMs, bgmStartedAtMs, durationMs]);
 
 	useEffect(() => {
 		if (pendingCommandId && lastRejection?.commandId === pendingCommandId) {
@@ -142,6 +146,9 @@ function useBgmPlayback() {
 	}
 
 	function seek(positionMs: number) {
+		if (!connected || !snapshotReady || pendingCommandId) {
+			return;
+		}
 		const seekOffsetMs = Math.round(positionMs);
 		setSeekDraft(seekOffsetMs);
 		if (!sendBgm("seek", { seekOffsetMs })) {
@@ -149,10 +156,18 @@ function useBgmPlayback() {
 		}
 	}
 
-	function commitVolume(volume: number) {
+	function commitVolume(volume: number, transitionMs?: number) {
+		if (!connected || !snapshotReady || pendingCommandId) {
+			return;
+		}
 		const nextVolume = Math.round(volume);
 		setVolumeDraft(nextVolume);
-		if (!sendBgm("volume", { volume: nextVolume })) {
+		if (
+			!sendBgm("volume", {
+				volume: nextVolume,
+				...(transitionMs === undefined ? {} : { transitionMs }),
+			})
+		) {
 			setVolumeDraft(null);
 		}
 	}

@@ -38,8 +38,9 @@ import { usePlayStore } from "@/stores/play-store";
 import { trackSourceLabel } from "./gm-audio";
 import { MusicSourcePanel } from "./music-source-panel";
 
-const SCROLL_AREA =
-	"overflow-y-auto overscroll-contain [scrollbar-width:thin] [scrollbar-color:var(--color-scrollbar)_transparent] md:mask-b-from-[calc(100%-2rem)]";
+const SCROLL_BASE =
+	"overflow-y-auto overscroll-contain [scrollbar-width:thin] [scrollbar-color:var(--color-scrollbar)_transparent]";
+const SCROLL_AREA = `${SCROLL_BASE} md:mask-b-from-[calc(100%-2rem)]`;
 
 function LibrarySection({
 	label,
@@ -80,12 +81,14 @@ function AudioLibrary({
 	currentTrackId,
 	playing,
 	controlsDisabled,
+	commandPending = false,
 	playTrack,
 	togglePlay,
 }: {
 	currentTrackId: string | null;
 	playing: boolean;
 	controlsDisabled: boolean;
+	commandPending?: boolean;
 	playTrack: (trackId: string, restart?: boolean) => void;
 	togglePlay: () => void;
 }) {
@@ -246,6 +249,7 @@ function AudioLibrary({
 														aria-label={label}
 														title={label}
 														aria-current={active ? "true" : undefined}
+														aria-disabled={commandPending || undefined}
 														disabled={controlsDisabled}
 														onClick={() =>
 															active ? togglePlay() : playTrack(track.id)
@@ -304,6 +308,7 @@ function AudioLibrary({
 															className="text-accent-soft-foreground hover:bg-md-on-surface/8 absolute! top-1/2 right-1.5 size-9 -translate-y-1/2 disabled:bg-transparent! disabled:opacity-60"
 															aria-label={restartLabel}
 															title={restartLabel}
+															aria-disabled={commandPending || undefined}
 															disabled={controlsDisabled}
 															onClick={() => playTrack(track.id, true)}
 														>
@@ -379,7 +384,7 @@ function AudioLibrary({
 						</DialogDescription>
 					</DialogHeader>
 					<div
-						className={cn("min-h-0 pr-1", SCROLL_AREA)}
+						className={cn("min-h-0 pb-1.5 pr-1", SCROLL_BASE)}
 					>
 						<MusicSourcePanel
 							moduleId={moduleId}

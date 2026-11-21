@@ -38,7 +38,13 @@ function SelectionIndicator({
 			}
 			const container = parent.getBoundingClientRect();
 			const box = target.getBoundingClientRect();
-			if (!container.width || !container.height) return;
+			if (
+				!container.width ||
+				!container.height ||
+				!parent.offsetWidth ||
+				!parent.offsetHeight
+			)
+				return;
 			const scaleX = container.width / parent.offsetWidth;
 			const scaleY = container.height / parent.offsetHeight;
 			const left =
@@ -87,7 +93,13 @@ function SelectionIndicator({
 		});
 		observer.observe(parent, {
 			attributes: true,
-			attributeFilter: ["data-state", "aria-current", "data-orientation"],
+			attributeFilter: [
+				"data-state",
+				"aria-current",
+				"aria-checked",
+				"aria-selected",
+				"data-orientation",
+			],
 			childList: true,
 			subtree: true,
 		});
