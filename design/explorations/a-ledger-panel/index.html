@@ -1,0 +1,1040 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>人物管理 · CoGM — 方向 A：台账 × 仪表面板</title>
+<style>
+@property --p { syntax: "<number>"; inherits: true; initial-value: 0; }
+@property --rs { syntax: "<number>"; inherits: true; initial-value: 1; }
+
+:root {
+  --surface: #12140e;
+  --surface-container-lowest: #0d0f09;
+  --surface-container-low: #1a1c16;
+  --surface-container: #1e2019;
+  --surface-container-high: #292b23;
+  --surface-container-highest: #33362e;
+  --on-surface: #e2e3d8;
+  --on-surface-variant: #c5c8b9;
+  --outline: #8f9285;
+  --outline-variant: #45483d;
+  --primary: #b4d087;
+  --on-primary: #223600;
+  --primary-container: #374d13;
+  --on-primary-container: #d0eda1;
+  --secondary: #56d6f5;
+  --tertiary: #bac3ff;
+  --error: #ffb4a6;
+  --error-container: #900d00;
+  --warning: #f0c11c;
+  --success: #8ed88b;
+
+  --r-xs: 4px; --r-sm: 8px; --r-md: 12px; --r-lg: 16px; --r-xl: 28px; --r-full: 9999px;
+  --font-sans: system-ui, "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
+
+  --t-display-l: 3.5625rem; --t-display-m: 2.8125rem; --t-display-s: 2.25rem;
+  --t-headline-l: 2rem; --t-headline-m: 1.75rem; --t-headline-s: 1.5rem;
+  --t-title-l: 1.375rem; --t-title-m: 1rem; --t-title-s: 0.875rem;
+  --t-body-l: 1rem; --t-body-m: 0.875rem; --t-body-s: 0.75rem;
+  --t-label-l: 0.875rem; --t-label-m: 0.75rem; --t-label-s: 0.6875rem;
+
+  --hair: 1px solid var(--outline-variant);
+  --focus: 2px solid var(--secondary);
+  --step: steps(6, end);
+  --sweep: 240ms;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  background: var(--surface);
+  color: var(--on-surface);
+  font-family: var(--font-sans);
+  font-size: var(--t-body-m);
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+}
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; }
+.mono, .num, .fig, .tick-l { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+svg.i { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+svg.i.s { width: 16px; height: 16px; }
+:focus-visible { outline: var(--focus); outline-offset: 2px; }
+
+/* ---------- shell ---------- */
+.shell { display: flex; height: 100vh; height: 100dvh; }
+.rail {
+  width: 96px; flex: none; background: var(--surface);
+  display: flex; flex-direction: column; align-items: center; padding: 16px 0 16px;
+}
+.logo { width: 40px; height: 40px; border-radius: var(--r-full); background: var(--primary-container); color: var(--on-primary-container); display: grid; place-items: center; margin-bottom: 24px; }
+.logo svg { width: 22px; height: 22px; }
+.rail nav { display: flex; flex-direction: column; gap: 8px; }
+.rail-item {
+  width: 80px; padding: 4px 0 6px; border: 0; background: none; border-radius: var(--r-sm);
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  color: var(--on-surface-variant); font-size: 12px; line-height: 16px; text-decoration: none;
+}
+.rail-item .pill { width: 56px; height: 32px; border-radius: var(--r-full); display: grid; place-items: center; }
+.rail-item:hover .pill { background: var(--surface-container-high); }
+.rail-item[aria-current="page"] { color: var(--on-surface); font-weight: 600; }
+.rail-item[aria-current="page"] .pill { background: var(--primary-container); color: var(--on-primary-container); }
+.rail-foot { margin-top: auto; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.avatar { width: 40px; height: 40px; border-radius: var(--r-full); background: var(--primary-container); color: var(--on-primary-container); display: grid; place-items: center; font-weight: 600; font-size: 14px; letter-spacing: .02em; }
+.icon-btn { width: 40px; height: 40px; border: 0; background: none; color: var(--on-surface-variant); border-radius: var(--r-full); display: grid; place-items: center; }
+.icon-btn:hover { background: var(--surface-container-high); color: var(--on-surface); }
+
+.page {
+  flex: 1; min-width: 0; background: var(--surface-container-low);
+  border-top-left-radius: var(--r-lg); display: flex; flex-direction: column; overflow: hidden;
+}
+
+/* ---------- top bar ---------- */
+.topbar {
+  flex: none; height: 64px; display: flex; align-items: center; gap: 16px;
+  padding: 0 24px; border-bottom: var(--hair);
+}
+.title { display: flex; align-items: baseline; gap: 12px; margin-right: auto; min-width: 0; }
+.title h1 { margin: 0; font-size: var(--t-title-l); font-weight: 600; letter-spacing: .01em; white-space: nowrap; }
+.title .rule-name { font-size: var(--t-label-m); color: var(--on-surface-variant); white-space: nowrap; }
+.title .rule-name .mono { color: var(--outline); margin-right: 6px; }
+
+.search { position: relative; width: 248px; }
+.search svg { position: absolute; left: 10px; top: 8px; color: var(--outline); pointer-events: none; }
+.search input {
+  width: 100%; height: 32px; padding: 0 32px 0 34px; border: var(--hair); border-radius: var(--r-xs);
+  background: var(--surface-container-lowest); color: var(--on-surface); font-size: var(--t-body-m);
+}
+.search input::placeholder { color: var(--outline); }
+.search input:hover { border-color: var(--outline); }
+.search input:focus-visible { outline: var(--focus); outline-offset: 0; border-color: transparent; }
+.search kbd {
+  position: absolute; right: 8px; top: 7px; font-family: var(--font-mono); font-size: var(--t-label-s); line-height: 16px;
+  padding: 0 5px; border: var(--hair); border-radius: 2px; color: var(--outline);
+}
+.search input:not(:placeholder-shown) + kbd { display: none; }
+.search .clear { position: absolute; right: 4px; top: 4px; width: 24px; height: 24px; border: 0; background: none; color: var(--outline); border-radius: 2px; display: none; place-items: center; }
+.search input:not(:placeholder-shown) ~ .clear { display: grid; }
+.search .clear:hover { color: var(--on-surface); background: var(--surface-container-high); }
+
+.seg { display: flex; border: var(--hair); border-radius: var(--r-xs); overflow: hidden; height: 32px; }
+.seg button {
+  border: 0; background: none; padding: 0 12px; display: flex; align-items: center; gap: 6px;
+  color: var(--on-surface-variant); font-size: var(--t-label-l); white-space: nowrap;
+}
+.seg button + button { border-left: var(--hair); }
+.seg button .mono { font-size: var(--t-label-s); color: var(--outline); }
+.seg button:hover { background: var(--surface-container-high); color: var(--on-surface); }
+.seg button[aria-pressed="true"] { background: var(--surface-container-highest); color: var(--on-surface); box-shadow: inset 0 -2px 0 var(--on-surface); }
+.seg button[aria-pressed="true"] .mono { color: var(--on-surface-variant); }
+.seg button:focus-visible { outline-offset: -2px; }
+
+.vr { width: 1px; height: 24px; background: var(--outline-variant); }
+
+.btn {
+  height: 32px; padding: 0 12px; border-radius: var(--r-xs); border: var(--hair);
+  background: none; color: var(--on-surface); display: inline-flex; align-items: center; gap: 8px;
+  font-size: var(--t-label-l); font-weight: 500; white-space: nowrap;
+}
+.btn:hover { background: var(--surface-container-high); border-color: var(--outline); }
+.btn:active { background: var(--surface-container-highest); }
+.btn.tonal { background: var(--primary-container); color: var(--on-primary-container); border-color: transparent; }
+.btn.tonal:hover { background: color-mix(in srgb, var(--primary-container) 86%, var(--on-primary-container)); }
+.btn.filled { background: var(--primary); color: var(--on-primary); border-color: transparent; font-weight: 600; }
+.btn.filled:hover { background: color-mix(in srgb, var(--primary) 88%, var(--on-surface)); }
+.btn.square { width: 32px; padding: 0; justify-content: center; }
+.btn.ghost { border-color: transparent; color: var(--on-surface-variant); }
+.btn.ghost:hover { color: var(--on-surface); border-color: transparent; }
+
+/* ---------- work area ---------- */
+.work { flex: 1; min-height: 0; display: grid; grid-template-columns: 600px minmax(0, 1fr); }
+.roster { overflow: auto; border-right: var(--hair); scrollbar-gutter: stable; }
+.panel { overflow: auto; background: var(--surface); scrollbar-gutter: stable; }
+[data-scroll] { scrollbar-width: thin; scrollbar-color: var(--outline-variant) transparent; }
+
+.sec-head {
+  display: flex; align-items: baseline; gap: 12px; height: 40px; padding: 16px 16px 0;
+}
+.sec-head h2 { margin: 0; font-size: var(--t-title-s); font-weight: 600; letter-spacing: .04em; }
+.sec-head .mono { font-size: var(--t-label-s); color: var(--outline); letter-spacing: .04em; }
+.sec-head .aside { margin-left: auto; display: flex; align-items: baseline; gap: 8px; font-size: var(--t-label-m); color: var(--on-surface-variant); }
+.link-btn { border: 0; background: none; padding: 0 2px; color: var(--on-surface-variant); font-size: var(--t-label-m); text-decoration: underline; text-decoration-color: var(--outline-variant); text-underline-offset: 3px; border-radius: 2px; }
+.link-btn:hover { color: var(--on-surface); text-decoration-color: var(--on-surface); }
+
+/* ---------- ledger ---------- */
+.ledger { width: 100%; border-collapse: collapse; table-layout: fixed; margin-top: 8px; }
+.ledger col.c-thumb { width: 52px; }
+.ledger col.c-n { width: 44px; }
+.ledger col.c-w { width: 52px; }
+.ledger col.c-spark { width: 104px; }
+.ledger thead th {
+  height: 32px; padding: 0; font-weight: 400; text-align: right; vertical-align: middle;
+  border-top: var(--hair); border-bottom: var(--hair); background: var(--surface-container-low);
+  position: sticky; top: 0; z-index: 2;
+}
+.ledger thead th.l { text-align: left; }
+.ledger thead th:first-child { padding-left: 16px; }
+.sort {
+  border: 0; background: none; height: 32px; padding: 0 8px; display: inline-flex; align-items: center; gap: 4px;
+  font-family: var(--font-mono); font-size: var(--t-label-s); letter-spacing: .06em; color: var(--outline);
+}
+th.l .sort { padding-left: 0; font-family: var(--font-sans); font-size: var(--t-label-m); letter-spacing: .02em; }
+.sort:hover { color: var(--on-surface); }
+.sort .arr { width: 8px; display: inline-block; text-align: center; color: var(--outline-variant); }
+.sort:hover .arr { color: var(--outline); }
+th[aria-sort="ascending"] .sort, th[aria-sort="descending"] .sort { color: var(--on-surface); }
+th[aria-sort="ascending"] .arr, th[aria-sort="descending"] .arr { color: var(--on-surface); }
+.ledger th .static { display: inline-block; padding: 0 16px 0 8px; font-family: var(--font-mono); font-size: var(--t-label-s); letter-spacing: .06em; color: var(--outline); }
+
+.ledger .grp td {
+  height: 28px; padding: 0 16px; vertical-align: bottom; padding-bottom: 4px;
+  font-size: var(--t-label-m); color: var(--on-surface-variant); border-bottom: var(--hair);
+}
+.ledger .grp .mono { color: var(--outline); font-size: var(--t-label-s); margin-left: 8px; }
+
+.row { position: relative; }
+.row td { height: 44px; padding: 0; border-bottom: 1px solid color-mix(in srgb, var(--outline-variant) 55%, transparent); vertical-align: middle; }
+.row td.num { text-align: right; padding-right: 8px; font-size: var(--t-body-m); color: var(--on-surface-variant); }
+.row td.num .sub { color: var(--outline); font-size: var(--t-label-s); }
+.row td.c-thumb { padding-left: 16px; }
+.row:hover td { background: var(--surface-container); }
+.row.sel td { background: var(--surface-container-high); }
+.row.sel td:first-child { box-shadow: inset 2px 0 0 var(--primary); }
+.row.sel td.num { color: var(--on-surface); }
+.row.peer td { background: var(--surface-container); }
+
+.row-btn {
+  display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 1px;
+  width: 100%; height: 44px; padding: 0 8px 0 0; border: 0; background: none; text-align: left; min-width: 0;
+}
+.row-btn::after { content: ""; position: absolute; inset: 0; z-index: 1; }
+.row-btn:focus-visible { outline: none; }
+.row-btn:focus-visible::after { outline: var(--focus); outline-offset: -2px; }
+.row-btn .nm { font-size: var(--t-body-m); font-weight: 500; color: var(--on-surface); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row.sel .row-btn .nm { color: var(--primary); }
+.row-btn .meta { font-size: var(--t-label-m); color: var(--on-surface-variant); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.row-btn .meta .mono { font-size: var(--t-label-s); }
+.row-btn .muted, .muted { color: var(--outline); }
+.row-btn .mstats { display: none; }
+
+.thumb {
+  position: relative; display: block; width: 28px; height: 36px; border: var(--hair); border-radius: 2px; overflow: hidden;
+  background: var(--surface-container-lowest);
+}
+.thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 12%; }
+.thumb.nop img, .frame.nop img { display: none; }
+.thumb.nop::before, .thumb.nop::after { content: ""; position: absolute; left: 50%; top: 50%; width: 10px; height: 1px; background: var(--outline-variant); transform: translate(-50%, -50%) rotate(45deg); }
+.thumb.nop::after { transform: translate(-50%, -50%) rotate(-45deg); }
+
+.spark { display: block; margin-left: 8px; }
+.spark .b { fill: var(--outline); }
+.spark .bl { fill: var(--outline-variant); }
+.spark .ref { stroke: var(--outline-variant); stroke-width: 1; stroke-dasharray: 1 2; }
+.row:hover .spark .b { fill: var(--on-surface-variant); }
+.row.sel .spark .b { fill: var(--primary); }
+.row.sel .spark .bl { fill: var(--on-primary-container); opacity: .6; }
+
+.off-row td { padding: 10px 16px; font-size: var(--t-label-m); color: var(--outline); }
+.off-row .mono { font-size: var(--t-label-s); margin-left: 6px; }
+.empty-row td { padding: 24px 16px; color: var(--on-surface-variant); font-size: var(--t-body-m); border-bottom: var(--hair); }
+.empty-row .mono { color: var(--outline); }
+
+/* ---------- star chart ---------- */
+.star { padding-bottom: 16px; }
+.star-head { margin-top: 8px; }
+.star-body { display: grid; grid-template-columns: 264px minmax(0, 1fr); gap: 24px; padding: 8px 16px 0; align-items: start; }
+.radar { width: 264px; height: 264px; display: block; overflow: visible; }
+.radar .ring { fill: none; stroke: var(--outline-variant); stroke-width: 1; }
+.radar .ring.mid { stroke: var(--outline); stroke-opacity: .55; stroke-dasharray: 2 3; }
+.radar .spoke { stroke: var(--outline-variant); stroke-width: 1; }
+.radar .ghost { fill: none; stroke: var(--outline-variant); stroke-width: 1; }
+.radar .ghost.hot { stroke: var(--on-surface-variant); stroke-dasharray: 3 2; stroke-width: 1.25; }
+.radar .cur { fill: color-mix(in srgb, var(--primary) 12%, transparent); stroke: var(--primary); stroke-width: 1.5; stroke-linejoin: round; }
+.radar .vx { fill: var(--primary); }
+.radar .ax { font-family: var(--font-mono); font-size: 10px; letter-spacing: .06em; fill: var(--outline); }
+.radar .axv { font-family: var(--font-mono); font-size: 10px; fill: var(--on-surface); font-variant-numeric: tabular-nums; }
+.radar .rl { font-family: var(--font-mono); font-size: 9px; fill: var(--outline-variant); }
+.radar .shape { transform-origin: 132px 132px; transform: scale(var(--rs)); animation: grow var(--sweep) var(--step) both; }
+@keyframes grow { from { --rs: 0; } }
+
+.cmp { font-size: var(--t-label-m); }
+.cmp-head { display: flex; justify-content: space-between; color: var(--outline); font-family: var(--font-mono); font-size: var(--t-label-s); letter-spacing: .06em; padding-bottom: 6px; border-bottom: var(--hair); }
+.cmp-row { display: grid; grid-template-columns: 34px 1fr 26px 70px 30px; align-items: center; height: 22px; gap: 4px; }
+.cmp-row .ab { font-family: var(--font-mono); font-size: var(--t-label-s); color: var(--outline); letter-spacing: .04em; }
+.cmp-row .zh { color: var(--on-surface-variant); }
+.cmp-row .v { font-family: var(--font-mono); font-variant-numeric: tabular-nums; text-align: right; color: var(--on-surface); }
+.pips { display: flex; gap: 2px; justify-content: flex-end; }
+.pips i { width: 6px; height: 6px; border: 1px solid var(--outline-variant); }
+.pips i.on { background: var(--on-surface); border-color: var(--on-surface); }
+.cmp-row .rk { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: var(--t-label-s); color: var(--outline); text-align: right; }
+.kin { margin-top: 12px; padding-top: 8px; border-top: var(--hair); display: grid; gap: 4px; }
+.kin-row { display: grid; grid-template-columns: 34px 1fr auto; align-items: center; gap: 8px; min-height: 24px; }
+.kin-row .ab { font-size: var(--t-label-m); color: var(--outline); }
+.kin-btn { border: 0; background: none; padding: 2px 4px; margin-left: -4px; text-align: left; color: var(--on-surface); border-radius: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--t-label-l); }
+.kin-btn:hover { background: var(--surface-container-high); }
+.kin-row .d { font-family: var(--font-mono); font-size: var(--t-label-s); color: var(--outline); font-variant-numeric: tabular-nums; }
+.legend { display: flex; gap: 12px; font-size: var(--t-label-m); color: var(--on-surface-variant); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.legend i { width: 16px; height: 0; border-top: 1.5px solid var(--primary); }
+.legend i.g { border-top: 1px solid var(--outline); opacity: .6; }
+.legend i.h { border-top: 1.25px dashed var(--on-surface-variant); }
+
+/* ---------- instrument panel ---------- */
+.panel-in { padding: 24px 32px 40px; max-width: 880px; }
+.back { display: none; }
+.ident { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 24px; }
+.frame {
+  position: relative; width: 180px; height: 240px; border: var(--hair); border-radius: 2px; overflow: hidden;
+  background: var(--surface-container-lowest);
+}
+.frame img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.frame .blank { display: none; }
+.frame.nop .blank { display: flex; position: absolute; inset: 0; flex-direction: column; align-items: center; justify-content: center; gap: 12px; }
+.frame.nop .blank svg.x { position: absolute; inset: 0; width: 100%; height: 100%; }
+.frame.nop .blank svg.x line { stroke: var(--outline-variant); stroke-width: 1; }
+.frame .crop { position: absolute; width: 10px; height: 10px; border-color: var(--outline); border-style: solid; border-width: 0; }
+.frame .crop.tl { left: 6px; top: 6px; border-left-width: 1px; border-top-width: 1px; }
+.frame .crop.tr { right: 6px; top: 6px; border-right-width: 1px; border-top-width: 1px; }
+.frame .crop.bl { left: 6px; bottom: 6px; border-left-width: 1px; border-bottom-width: 1px; }
+.frame .crop.br { right: 6px; bottom: 6px; border-right-width: 1px; border-bottom-width: 1px; }
+.blank .btn { position: relative; background: var(--surface); }
+.blank .hint { position: relative; font-family: var(--font-mono); font-size: var(--t-label-s); color: var(--outline); background: var(--surface-container-lowest); padding: 0 4px; letter-spacing: .04em; }
+.caption { margin-top: 8px; display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: var(--t-label-s); color: var(--outline); letter-spacing: .04em; }
+
+.id-main { display: flex; flex-direction: column; min-width: 0; padding-bottom: 28px; }
+.top3 { margin-top: auto; }
+.top3-h { display: flex; align-items: baseline; gap: 8px; font-size: var(--t-label-m); color: var(--on-surface-variant); padding-bottom: 6px; border-bottom: var(--hair); }
+.top3-h .mono { font-size: var(--t-label-s); color: var(--outline); }
+.top3-g { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.t3 { padding: 6px 0 0 12px; min-width: 0; }
+.t3:first-child { padding-left: 0; }
+.t3 + .t3 { border-left: var(--hair); }
+.t3 .zh { display: block; font-size: var(--t-label-l); color: var(--on-surface); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.t3 .fg { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: var(--t-label-m); color: var(--on-surface-variant); white-space: nowrap; }
+.t3 .fg b { font-weight: 500; font-size: var(--t-title-m); color: var(--on-surface); margin-right: 6px; }
+.t3 .fg i { font-style: normal; color: var(--outline-variant); margin: 0 3px; }
+.id-top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; font-size: var(--t-label-m); color: var(--on-surface-variant); }
+.kind { font-family: var(--font-mono); font-size: var(--t-label-s); letter-spacing: .08em; color: var(--on-surface); }
+.kind span { font-family: var(--font-sans); letter-spacing: .02em; color: var(--on-surface-variant); margin-left: 6px; font-size: var(--t-label-m); }
+.stamp { font-family: var(--font-mono); font-size: var(--t-label-s); color: var(--outline); white-space: nowrap; }
+.id-main h2 { margin: 4px 0 0; font-size: var(--t-headline-m); line-height: 1.2; font-weight: 600; letter-spacing: .01em; }
+.id-meta { margin-top: 4px; font-size: var(--t-body-m); color: var(--on-surface-variant); }
+.id-meta .sep { color: var(--outline-variant); margin: 0 6px; }
+.actions { display: flex; gap: 8px; margin-top: 16px; position: relative; flex-wrap: wrap; }
+
+.menu {
+  position: absolute; top: 36px; z-index: 20; min-width: 184px; padding: 4px 0;
+  background: var(--surface-container-high); border: var(--hair); border-radius: var(--r-xs);
+  box-shadow: 0 8px 24px rgb(0 0 0 / .45);
+}
+.menu[hidden] { display: none; }
+.menu button { display: flex; align-items: center; gap: 10px; width: 100%; height: 36px; padding: 0 12px; border: 0; background: none; text-align: left; font-size: var(--t-label-l); }
+.menu button:hover, .menu button:focus-visible { background: var(--surface-container-highest); outline: none; }
+.menu hr { border: 0; border-top: var(--hair); margin: 4px 0; }
+.menu .danger { color: var(--error); }
+
+.readout { grid-column: 1 / -1; margin-top: 0; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); border-top: 1px solid var(--outline); border-bottom: var(--hair); }
+.ro { padding: 10px 0 10px 16px; min-width: 0; }
+.ro + .ro { border-left: var(--hair); }
+.ro:first-child { padding-left: 0; }
+.ro .lb { display: flex; gap: 4px; align-items: baseline; white-space: nowrap; }
+.ro .lb .mono { font-size: var(--t-label-s); letter-spacing: .06em; color: var(--on-surface-variant); }
+.ro .lb .zh { font-size: var(--t-label-m); color: var(--on-surface-variant); }
+.ro .val { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: var(--t-headline-l); line-height: 1.25; letter-spacing: -.02em; margin-top: 2px; white-space: nowrap; }
+.ro .val small { font-size: var(--t-label-m); color: var(--outline); letter-spacing: 0; margin-left: 1px; }
+.ro .note { font-family: var(--font-mono); font-size: var(--t-label-s); color: var(--outline); min-height: 16px; white-space: nowrap; }
+
+/* scales */
+.block { margin-top: 32px; }
+.block-head { display: flex; align-items: baseline; gap: 12px; padding-bottom: 8px; border-bottom: var(--hair); }
+.block-head h3 { margin: 0; font-size: var(--t-title-s); font-weight: 600; letter-spacing: .04em; }
+.block-head .mono { font-size: var(--t-label-s); color: var(--outline); letter-spacing: .04em; }
+.block-head .key { margin-left: auto; display: flex; gap: 14px; font-size: var(--t-label-s); color: var(--outline); font-family: var(--font-mono); white-space: nowrap; }
+.key .k { display: inline-flex; align-items: center; gap: 5px; }
+.key .k i { display: inline-block; width: 10px; height: 6px; }
+.key .k.z1 i { background: var(--zone-x); }
+.key .k.z2 i { background: var(--zone-h); }
+.key .k.z3 i { background: var(--zone-r); }
+
+.panel { --zone-r: var(--primary-container); --zone-h: color-mix(in srgb, var(--primary) 42%, var(--primary-container)); --zone-x: color-mix(in srgb, var(--primary) 70%, var(--primary-container)); }
+
+.scales { display: grid; grid-template-columns: 96px minmax(0, 1fr) 112px; column-gap: 16px; }
+.scales.sk { grid-template-columns: 88px minmax(0, 1fr) 84px; column-gap: 8px; }
+.s-label { display: flex; align-items: baseline; gap: 8px; min-width: 0; height: 28px; align-self: center; padding-top: 6px; }
+.s-label .ab { font-family: var(--font-mono); font-size: var(--t-label-s); letter-spacing: .06em; color: var(--outline); width: 32px; flex: none; }
+.s-label .zh { font-size: var(--t-body-m); color: var(--on-surface); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.scales.sk .s-label .zh { font-size: var(--t-label-l); }
+.fig { height: 28px; display: flex; align-items: center; justify-content: flex-end; gap: 0; font-size: var(--t-label-m); color: var(--outline); white-space: nowrap; padding-top: 2px; }
+.fig b { font-weight: 500; font-size: var(--t-body-m); color: var(--on-surface); width: 2.4ch; text-align: right; }
+.fig .h, .fig .x { width: 2.2ch; text-align: right; color: var(--on-surface-variant); }
+.fig .dot { width: 2.2ch; text-align: center; color: var(--outline-variant); }
+
+.ticks-row { height: 20px; position: relative; }
+.tick-l { position: absolute; bottom: 2px; font-size: 10px; color: var(--outline); transform: translateX(-50%); }
+.tick-l:first-child { transform: none; }
+.tick-l.end { transform: translateX(-100%); }
+.fig-head { height: 20px; display: flex; justify-content: flex-end; align-items: flex-end; padding-bottom: 2px; font-family: var(--font-mono); font-size: 10px; color: var(--outline); white-space: nowrap; }
+.fig-head span { width: 2.2ch; text-align: right; }
+.fig-head span.v { width: 2.4ch; }
+.fig-head span.dot { text-align: center; color: transparent; }
+
+.track { position: relative; height: 28px; --v: 0; --p: var(--v); animation: sweep var(--sweep) var(--step) both; }
+@keyframes sweep { from { --p: 0; } }
+.track .base { position: absolute; left: 0; right: 0; top: 18px; height: 1px; background: var(--outline-variant); }
+.track .tk { position: absolute; top: 19px; width: 1px; height: 3px; background: var(--outline-variant); }
+.track .tk.maj { height: 5px; background: var(--outline); }
+.track .zones { position: absolute; inset: 0; clip-path: inset(0 calc(100% - var(--p) / 99 * 100%) 0 0); }
+.track .z { position: absolute; top: 11px; height: 7px; }
+.track .z.x { background: var(--zone-x); }
+.track .z.h { background: var(--zone-h); }
+.track .z.r { background: var(--zone-r); }
+.track .notch { position: absolute; top: 9px; width: 1px; height: 14px; background: var(--surface); }
+.track .peer { position: absolute; top: 5px; width: 1px; height: 4px; background: var(--outline); opacity: .55; }
+.track .peer.hot { background: var(--on-surface); opacity: 1; height: 6px; top: 3px; }
+.track .ptr { position: absolute; top: 4px; width: 2px; height: 20px; margin-left: -1px; background: var(--primary); left: calc(var(--p) / 99 * 100%); }
+.track .ptr::before { content: ""; position: absolute; left: -3px; top: -3px; border: 4px solid transparent; border-top: 4px solid var(--primary); border-bottom: 0; }
+.s-row-sep { grid-column: 1 / -1; height: 0; border-top: 1px dashed var(--outline-variant); margin: 6px 0 2px; }
+
+.skills { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 32px; }
+.skills .tick-l.mid { display: none; }
+.foot-note { margin-top: 24px; font-size: var(--t-label-m); color: var(--outline); display: flex; gap: 16px; flex-wrap: wrap; }
+.foot-note .mono { font-size: var(--t-label-s); }
+
+/* ---------- dialog & toast ---------- */
+dialog {
+  border: var(--hair); border-radius: var(--r-sm); background: var(--surface-container-high); color: var(--on-surface);
+  padding: 24px; width: min(400px, calc(100vw - 32px)); box-shadow: 0 16px 48px rgb(0 0 0 / .5);
+}
+dialog::backdrop { background: rgb(13 15 9 / .7); }
+dialog h2 { margin: 0 0 8px; font-size: var(--t-title-m); font-weight: 600; }
+dialog p { margin: 0; color: var(--on-surface-variant); font-size: var(--t-body-m); }
+dialog .row-end { display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px; }
+.btn.danger { background: var(--error); color: #2d0400; border-color: transparent; font-weight: 600; }
+.btn.danger:hover { background: color-mix(in srgb, var(--error) 85%, var(--on-surface)); }
+.toast {
+  position: fixed; right: 24px; bottom: 24px; z-index: 40; max-width: 360px; padding: 10px 14px;
+  background: var(--surface-container-highest); color: var(--on-surface); border-left: 2px solid var(--on-surface);
+  border-radius: 0 var(--r-xs) var(--r-xs) 0; font-size: var(--t-label-l); box-shadow: 0 8px 24px rgb(0 0 0 / .45);
+}
+.toast[hidden] { display: none; }
+.toast .mono { color: var(--outline); font-size: var(--t-label-s); display: block; margin-top: 2px; }
+
+/* ---------- mobile (content ≈ 294px) ---------- */
+@media (max-width: 860px) {
+  .topbar { height: auto; flex-wrap: wrap; gap: 8px; padding: 16px 12px 12px; }
+  .title { flex: 1; margin-right: 0; flex-direction: column; gap: 2px; order: 0; }
+  .title h1 { font-size: var(--t-title-l); }
+  .title .rule-name { font-size: var(--t-label-s); }
+  .search { width: 100%; order: 3; }
+  .search kbd { display: none; }
+  .seg { flex: 1; order: 4; min-width: 0; }
+  .seg button { flex: 1; justify-content: center; padding: 0 4px; gap: 4px; }
+  .topbar .vr { display: none; }
+  .topbar .imp { order: 5; width: 32px; padding: 0; justify-content: center; }
+  .topbar .imp .t { display: none; }
+  .topbar .new { order: 1; align-self: flex-start; padding: 0 10px; gap: 4px; }
+  .topbar .new .t2 { display: none; }
+  .page[data-view="detail"] .topbar { display: none; }
+
+  .work { display: block; position: relative; }
+  .roster, .panel { position: absolute; inset: 0; border-right: 0; }
+  .panel { background: var(--surface-container-low); }
+  .page[data-view="list"] .panel { display: none; }
+  .page[data-view="detail"] .roster { display: none; }
+
+  .sec-head { padding: 12px 12px 0; height: auto; min-height: 32px; flex-wrap: wrap; row-gap: 4px; }
+  .sec-head .legend { margin-left: 0; width: 100%; }
+  .ledger col.c-n, .ledger col.c-w { width: 0; }
+  .ledger col.c-thumb { width: 44px; }
+  .ledger col.c-spark { width: 76px; }
+  .ledger .row td.num, .ledger th.n { padding: 0; font-size: 0; border-left: 0; overflow: hidden; }
+  .ledger th.n .sort { display: none; }
+  .ledger thead th:first-child { padding-left: 12px; }
+  .row td.c-thumb { padding-left: 12px; }
+  .row td { height: 60px; }
+  .row-btn { height: 60px; }
+  .row-btn .mstats { display: block; font-family: var(--font-mono); font-size: var(--t-label-s); color: var(--outline); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .row.sel .row-btn .mstats { color: var(--on-surface-variant); }
+  .spark { margin-left: 0; }
+  .ledger th .static { padding-right: 12px; padding-left: 0; white-space: nowrap; }
+  .ledger .grp td { padding: 0 12px 4px; }
+
+  .star-body { grid-template-columns: 1fr; padding: 8px 12px 0; justify-items: center; }
+  .cmp { width: 100%; }
+
+  .panel-in { padding: 8px 12px 32px; }
+  .back { display: flex; margin: 0 0 12px -6px; padding: 0 10px 0 6px; }
+  .top3 { display: none; }
+  .actions .btn.filled { flex: 1 1 100%; justify-content: center; }
+  .actions .btn[data-act="portrait"] { flex: 1; justify-content: center; }
+  .ident { grid-template-columns: 96px minmax(0, 1fr); gap: 12px; }
+  .frame { width: 96px; height: 128px; }
+  .frame .crop { width: 6px; height: 6px; }
+  .frame.nop .blank .btn { display: none; }
+  .caption { font-size: 10px; }
+  .caption .r { display: none; }
+  .id-main h2 { font-size: var(--t-headline-s); }
+  .id-top { flex-direction: column; gap: 2px; }
+  .id-meta { font-size: var(--t-label-m); }
+  .actions { grid-column: 1 / -1; }
+  .readout { grid-column: 1 / -1; grid-template-columns: repeat(12, minmax(0, 1fr)); margin-top: 16px; }
+  .ro { grid-column: span 3; }
+  .ro:nth-child(n+5) { grid-column: span 4; }
+  .ro:nth-child(5) { padding-left: 0; border-left: 0; }
+  .ro { padding: 8px 0 8px 8px; border-bottom: var(--hair); }
+  .ro:nth-child(1) { padding-left: 0; }
+  .ro .val { font-size: var(--t-title-l); }
+  .ro .lb .zh { display: none; }
+  .readout { border-bottom: 0; }
+
+  .block { margin-top: 24px; }
+  .block-head { flex-wrap: wrap; row-gap: 4px; }
+  .block-head .key { margin-left: 0; width: 100%; gap: 10px; }
+  .scales { grid-template-columns: 64px minmax(0, 1fr) 76px; column-gap: 8px; }
+  .scales.sk { grid-template-columns: 76px minmax(0, 1fr) 64px; }
+  .s-label { flex-direction: column; gap: 0; height: 32px; padding-top: 0; justify-content: center; }
+  .s-label .ab { font-size: 9px; }
+  .s-label .zh { font-size: var(--t-label-m); }
+  .scales.sk .s-label { flex-direction: row; justify-content: flex-start; align-items: center; }
+  .scales.sk .s-label .ab { display: none; }
+  .fig { font-size: 10px; }
+  .fig b { font-size: var(--t-label-m); }
+  .scales.sk .fig .dot, .scales.sk .fig .h, .scales.sk .fig .x { width: 2ch; }
+  .tick-l { font-size: 9px; }
+  .tick-l.mid { display: none; }
+  .fig-head { font-size: 9px; }
+  .skills { grid-template-columns: 1fr; }
+  .skills > .scales + .scales .ticks-row, .skills > .scales + .scales .fig-head, .skills > .scales + .scales .hd { display: none; }
+  .toast { left: 108px; right: 12px; bottom: 12px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .track, .radar .shape { animation: none; }
+}
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="rail" aria-label="主导航">
+    <div class="logo" aria-label="CoGM">
+      <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 3h7L21 8.5v7L15.5 21h-7L3 15.5v-7z"/><circle cx="12" cy="12" r="2.5"/></svg>
+    </div>
+    <nav>
+      <a class="rail-item" href="#"><span class="pill"><svg class="i" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>团</a>
+      <a class="rail-item" href="#"><span class="pill"><svg class="i" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></span>模组</a>
+      <a class="rail-item" href="#"><span class="pill"><svg class="i" viewBox="0 0 24 24"><rect width="18" height="7" x="3" y="3" rx="1"/><rect width="9" height="7" x="3" y="14" rx="1"/><rect width="5" height="7" x="16" y="14" rx="1"/></svg></span>模组模板</a>
+      <a class="rail-item" href="#" aria-current="page"><span class="pill"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/></svg></span>人物</a>
+      <a class="rail-item" href="#"><span class="pill"><svg class="i" viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></span>音乐</a>
+      <a class="rail-item" href="#"><span class="pill"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/></svg></span>黑名单</a>
+      <a class="rail-item" href="#"><span class="pill"><svg class="i" viewBox="0 0 24 24"><rect width="8" height="4" x="8" y="2" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></svg></span>审核</a>
+      <a class="rail-item" href="#"><span class="pill"><svg class="i" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg></span>回收站</a>
+    </nav>
+    <div class="rail-foot">
+      <div class="avatar" aria-label="当前账号 KP">KP</div>
+      <button class="icon-btn" type="button" aria-label="退出登录"><svg class="i" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg></button>
+    </div>
+  </aside>
+
+  <main class="page" id="page" data-view="list">
+    <header class="topbar">
+      <div class="title">
+        <h1>人物管理</h1>
+        <span class="rule-name"><span class="mono">CoC 7e</span>克苏鲁的呼唤 第7版</span>
+      </div>
+      <div class="search" role="search">
+        <svg class="i s" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <input id="q" type="search" placeholder="搜索人物…" aria-label="按姓名搜索人物" autocomplete="off">
+        <kbd>/</kbd>
+        <button class="clear" type="button" id="qclear" aria-label="清除搜索"><svg class="i s" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+      </div>
+      <div class="seg" role="group" aria-label="按类型筛选" id="seg"></div>
+      <span class="vr" aria-hidden="true"></span>
+      <button class="btn imp" type="button" data-act="import" aria-label="从 Excel 导入人物"><svg class="i s" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M8 13h2"/><path d="M14 13h2"/><path d="M8 17h2"/><path d="M14 17h2"/></svg><span class="t">导入</span></button>
+      <button class="btn tonal new" type="button" data-act="new"><svg class="i s" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></svg><span>新建<span class="t2">人物</span></span></button>
+    </header>
+
+    <div class="work">
+      <section class="roster" data-scroll aria-label="人物台账">
+        <div class="sec-head">
+          <h2>台账</h2>
+          <span class="mono" id="count"></span>
+          <div class="aside" id="sortnote"></div>
+        </div>
+        <table class="ledger" id="ledger">
+          <colgroup><col class="c-thumb"><col><col class="c-n"><col class="c-n"><col class="c-w"><col class="c-w"><col class="c-n"><col class="c-spark"></colgroup>
+          <thead><tr id="thead"></tr></thead>
+          <tbody id="tbody"></tbody>
+        </table>
+
+        <div class="star">
+          <div class="sec-head star-head">
+            <h2>星图</h2>
+            <span class="mono">八维形状 · 名册叠图</span>
+            <div class="aside legend" id="legend"></div>
+          </div>
+          <div class="star-body">
+            <svg class="radar" id="radar" viewBox="0 0 264 264" role="img" aria-label="八项属性雷达图"></svg>
+            <div class="cmp" id="cmp"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" data-scroll aria-label="人物卡概览" id="panel"></section>
+    </div>
+  </main>
+</div>
+
+<dialog id="confirm" aria-labelledby="cf-title">
+  <h2 id="cf-title">删除人物</h2>
+  <p id="cf-body"></p>
+  <div class="row-end">
+    <button class="btn" type="button" value="cancel" id="cf-cancel">取消</button>
+    <button class="btn danger" type="button" id="cf-ok">删除</button>
+  </div>
+</dialog>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script>
+const CHARACTERS = [
+ {"name":"艾琳·沃克","kind":"PC","occupation":"记者","age":28,"era":"1920s","attributes":{"str":45,"con":60,"siz":55,"dex":70,"app":65,"int":75,"pow":60,"edu":80,"luck":55},"skills":[["图书馆",70],["侦查",65],["说服",55],["心理学",50],["聆听",45],["闪避",45],["技艺(摄影)",40],["历史",35]],"hp":11,"mp":12,"san":60,"sanMax":99,"luck":55,"mov":8,"db":"0","build":0,"majorWound":5,"updatedAt":"2026-11-21T06:30:41.548Z"},
+ {"name":"托马斯·哈德维克","kind":"PC","occupation":"私家侦探","age":41,"era":"1920s","attributes":{"str":65,"con":70,"siz":60,"dex":55,"app":45,"int":70,"pow":50,"edu":65,"luck":40},"skills":[["侦查",75],["射击(手枪)",65],["格斗(斗殴)",60],["心理学",55],["潜行",50],["锁匠",45],["法律",30]],"hp":13,"mp":10,"san":50,"sanMax":99,"luck":40,"mov":7,"db":"+1d4","build":1,"majorWound":6,"updatedAt":"2026-11-21T06:30:41.554Z"},
+ {"name":"李文渊","kind":"PC","occupation":"古董商","age":52,"era":"1920s","attributes":{"str":40,"con":50,"siz":60,"dex":45,"app":55,"int":85,"pow":70,"edu":85,"luck":65},"skills":[["估价",80],["历史",70],["话术",60],["其他语言(拉丁语)",50],["神秘学",45],["考古学",40]],"hp":11,"mp":14,"san":70,"sanMax":99,"luck":65,"mov":5,"db":"0","build":0,"majorWound":5,"updatedAt":"2026-11-21T06:30:41.557Z"},
+ {"name":"玛格丽特·费恩","kind":"PC","occupation":"医生","age":35,"era":"1920s","attributes":{"str":50,"con":55,"siz":50,"dex":60,"app":70,"int":80,"pow":65,"edu":90,"luck":50},"skills":[["医学",75],["急救",70],["科学(药学)",55],["心理学",50],["说服",40]],"hp":10,"mp":13,"san":65,"sanMax":99,"luck":50,"mov":8,"db":"0","build":0,"majorWound":5,"updatedAt":"2026-11-21T06:30:41.560Z"},
+ {"name":"奥斯本教授","kind":"NPC","occupation":"教授","age":63,"era":"1920s","attributes":{"str":35,"con":40,"siz":55,"dex":40,"app":50,"int":90,"pow":75,"edu":95,"luck":30},"skills":[["图书馆",85],["历史",75],["神秘学",70],["其他语言(希腊语)",60],["克苏鲁神话",25]],"hp":9,"mp":15,"san":74,"sanMax":74,"luck":30,"mov":4,"db":"0","build":0,"majorWound":4,"updatedAt":"2026-11-21T06:30:41.562Z"},
+ {"name":"码头工人 杰克","kind":"NPC","occupation":"工人","age":30,"era":"1920s","attributes":{"str":80,"con":75,"siz":75,"dex":50,"app":40,"int":45,"pow":40,"edu":40,"luck":50},"skills":[["格斗(斗殴)",70],["恐吓",55],["攀爬",50],["投掷",45]],"hp":15,"mp":8,"san":40,"sanMax":99,"luck":50,"mov":8,"db":"+1d4","build":1,"majorWound":7,"updatedAt":"2026-11-21T06:30:41.566Z"},
+ {"name":"神秘女子","kind":"NPC","occupation":null,"age":null,"era":"1920s","attributes":{"str":50,"con":50,"siz":50,"dex":70,"app":85,"int":70,"pow":80,"edu":60,"luck":50},"skills":[["魅惑",80],["话术",65],["潜行",60]],"hp":10,"mp":16,"san":80,"sanMax":99,"luck":50,"mov":8,"db":"0","build":0,"majorWound":5,"updatedAt":"2026-11-21T06:30:41.569Z"},
+ {"name":"警长 柯林斯","kind":"NPC","occupation":"警探","age":47,"era":"1920s","attributes":{"str":60,"con":65,"siz":65,"dex":55,"app":50,"int":60,"pow":55,"edu":60,"luck":45},"skills":[["射击(手枪)",60],["侦查",55],["法律",50],["恐吓",50]],"hp":13,"mp":11,"san":55,"sanMax":99,"luck":45,"mov":6,"db":"+1d4","build":1,"majorWound":6,"updatedAt":"2026-11-21T06:30:41.572Z"}
+];
+const PORTRAITS = {
+  "艾琳·沃克": "../../assets/portrait-irene.png",
+  "托马斯·哈德维克": "../../assets/portrait-thomas.png",
+  "李文渊": "../../assets/portrait-li.png",
+  "玛格丽特·费恩": "../../assets/portrait-margaret.png",
+  "奥斯本教授": "../../assets/portrait-osborne.png"
+};
+const ATTRS = [
+  ["str", "STR", "力量"], ["con", "CON", "体质"], ["siz", "SIZ", "体型"], ["dex", "DEX", "敏捷"],
+  ["app", "APP", "外貌"], ["int", "INT", "智力"], ["pow", "POW", "意志"], ["edu", "EDU", "教育"]
+];
+const COLS = [
+  ["name", "人物", "l"], ["hp", "HP", "n", "生命值"], ["mp", "MP", "n", "魔法值"], ["san", "SAN", "w", "理智值"],
+  ["luck", "LUCK", "w", "幸运"], ["mov", "MOV", "n", "移动力"]
+];
+
+// characters get a stable id
+const DATA = CHARACTERS.map((c, i) => ({ ...c, id: i }));
+const state = { filter: "all", q: "", sort: null, dir: "desc", sel: 0, hover: null, view: "list" };
+
+const $ = (s, r = document) => r.querySelector(s);
+const esc = (s) => String(s).replace(/[&<>"]/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[m]));
+const pct = (v) => (Math.min(99, Math.max(0, v)) / 99 * 100).toFixed(3) + "%";
+const half = (v) => Math.floor(v / 2), fifth = (v) => Math.floor(v / 5);
+const eraLabel = (e) => /^(\d{4})s$/.test(e) ? e.slice(0, 4) + " 年代" : e;
+const fmtTime = (iso) => {
+  const p = new Intl.DateTimeFormat("zh-CN", { timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false }).formatToParts(new Date(iso));
+  const g = (t) => p.find((x) => x.type === t)?.value;
+  return `${g("year")}-${g("month")}-${g("day")} ${g("hour")}:${g("minute")}`;
+};
+const byId = (id) => DATA.find((c) => c.id === id);
+const occ = (c, withAge) => {
+  const o = c.occupation ? esc(c.occupation) : '<span class="muted">未填职业</span>';
+  if (!withAge) return o;
+  return c.age != null ? `${o} · <span class="mono">${c.age}</span>` : `${o} · <span class="muted">年龄未填</span>`;
+};
+const portraitImg = (c, cls) => {
+  const src = PORTRAITS[c.name];
+  return src ? `<img src="${src}" alt="" decoding="async" onerror="this.parentNode.classList.add('nop')">` : "";
+};
+const hasPortrait = (c) => !!PORTRAITS[c.name];
+
+/* ---------- visible rows ---------- */
+function visible() {
+  const q = state.q.trim().toLowerCase();
+  let rows = DATA.filter((c) => (state.filter === "all" || c.kind === state.filter) && (!q || c.name.toLowerCase().includes(q)));
+  if (state.sort) {
+    const k = state.sort, d = state.dir === "asc" ? 1 : -1;
+    rows = rows.slice().sort((a, b) => k === "name" ? a.name.localeCompare(b.name, "zh-CN") * d : ((a[k] - b[k]) * d || a.id - b.id));
+  }
+  return rows;
+}
+
+/* ---------- filter segment ---------- */
+function renderSeg() {
+  const n = { all: DATA.length, PC: DATA.filter((c) => c.kind === "PC").length, NPC: DATA.filter((c) => c.kind === "NPC").length };
+  $("#seg").innerHTML = [["all", "全部"], ["PC", "PC"], ["NPC", "NPC"]].map(([k, l]) =>
+    `<button type="button" data-f="${k}" aria-pressed="${state.filter === k}">${l}<span class="mono">${n[k]}</span></button>`).join("");
+}
+
+/* ---------- ledger ---------- */
+function sparkSVG(c, w) {
+  const H = 24, base = 21, top = 1, bw = 3, gap = 4;
+  const h = (v) => Math.max(1, Math.round(v / 99 * (base - top)));
+  const span = 1 + ATTRS.length * (bw + gap) + 3 + bw;
+  let x = 1, out = `<line class="ref" x1="0" x2="${span}" y1="${base - h(50)}.5" y2="${base - h(50)}.5"/>`;
+  ATTRS.forEach(([k]) => { const hh = h(c.attributes[k]); out += `<rect class="b" x="${x}" y="${base - hh}" width="${bw}" height="${hh}"/>`; x += bw + gap; });
+  x += 3;
+  const hl = h(c.attributes.luck);
+  out += `<rect class="bl" x="${x}" y="${base - hl}" width="${bw}" height="${hl}"/>`;
+  out += `<rect class="bl" x="0" y="${base + 1}" width="${x + bw}" height="1" opacity=".6"/>`;
+  return `<svg class="spark" width="${w}" height="${H}" viewBox="0 0 ${w} ${H}" aria-hidden="true">${out}</svg>`;
+}
+function sparkTitle(c) { return ATTRS.map(([k, ab]) => `${ab} ${c.attributes[k]}`).join(" · ") + ` · LUCK ${c.attributes.luck}`; }
+
+function renderHead() {
+  $("#thead").innerHTML = COLS.map(([k, label, t, zh], i) => {
+    const s = state.sort === k ? (state.dir === "asc" ? "ascending" : "descending") : "none";
+    const arr = state.sort === k ? (state.dir === "asc" ? "↑" : "↓") : "↕";
+    const btn = `<button type="button" class="sort" data-sort="${k}" ${zh ? `title="${zh}"` : ""}>${t === "l" ? "" : `<span class="arr" aria-hidden="true">${arr}</span>`}${label}${t === "l" ? ` <span class="arr" aria-hidden="true">${arr}</span>` : ""}</button>`;
+    return i === 0
+      ? `<th class="l" colspan="2" aria-sort="${s}">${btn}</th>`
+      : `<th class="n" aria-sort="${s}">${btn}</th>`;
+  }).join("") + `<th class="l"><span class="static" title="STR CON SIZ DEX APP INT POW EDU · LUCK">属性谱</span></th>`;
+  const sn = $("#sortnote");
+  if (state.sort) {
+    const lab = COLS.find((c) => c[0] === state.sort)[1];
+    sn.innerHTML = `<span>按 <span class="mono">${lab}</span> ${state.dir === "asc" ? "升序" : "降序"}</span><button type="button" class="link-btn" id="sortreset">恢复录入顺序</button>`;
+  } else sn.innerHTML = `<span class="muted">录入顺序</span>`;
+}
+
+function rowHTML(c) {
+  const sel = c.id === state.sel;
+  const sanSub = c.sanMax < 99 ? `<span class="sub">/${c.sanMax}</span>` : "";
+  return `<tr class="row${sel ? " sel" : ""}" data-id="${c.id}">
+    <td class="c-thumb"><span class="thumb${hasPortrait(c) ? "" : " nop"}">${portraitImg(c)}</span></td>
+    <td><button type="button" class="row-btn" data-id="${c.id}" aria-current="${sel ? "true" : "false"}">
+      <span class="nm">${esc(c.name)}</span>
+      <span class="meta">${occ(c, true)}</span>
+      <span class="mstats">HP ${c.hp} · MP ${c.mp} · SAN ${c.san}</span>
+    </button></td>
+    <td class="num">${c.hp}</td><td class="num">${c.mp}</td><td class="num">${c.san}${sanSub}</td>
+    <td class="num">${c.luck}</td><td class="num">${c.mov}</td>
+    <td title="${sparkTitle(c)}">${sparkSVG(c, 72)}</td>
+  </tr>`;
+}
+
+function renderLedger() {
+  const rows = visible();
+  $("#count").textContent = `${String(rows.length).padStart(2, "0")} / ${String(DATA.length).padStart(2, "0")}`;
+  renderHead();
+  if (!rows.length) {
+    $("#tbody").innerHTML = `<tr class="empty-row"><td colspan="8">没有名称包含「${esc(state.q)}」的人物 <span class="mono">· ${state.filter === "all" ? "全部" : state.filter}</span>　<button type="button" class="link-btn" id="emptyclear">清除搜索</button></td></tr>`;
+    return;
+  }
+  const groups = state.filter === "all" ? [["PC", "调查员"], ["NPC", "非玩家角色"]] : [[state.filter, state.filter === "PC" ? "调查员" : "非玩家角色"]];
+  $("#tbody").innerHTML = groups.map(([k, zh]) => {
+    const g = rows.filter((c) => c.kind === k);
+    if (!g.length) return "";
+    return `<tr class="grp"><td colspan="8">${zh}<span class="mono">${k} · ${g.length}</span></td></tr>` + g.map(rowHTML).join("");
+  }).join("");
+  const cur = byId(state.sel);
+  if (cur && !rows.some((c) => c.id === cur.id)) {
+    $("#tbody").innerHTML += `<tr class="off-row"><td colspan="8">面板仍显示 <button type="button" class="link-btn" id="showsel">${esc(cur.name)}</button><span class="mono">· 不在当前筛选结果中</span></td></tr>`;
+  }
+}
+function orderedVisible() {
+  const rows = visible();
+  const kinds = state.filter === "all" ? ["PC", "NPC"] : [state.filter];
+  return kinds.flatMap((k) => rows.filter((c) => c.kind === k));
+}
+
+/* ---------- star chart ---------- */
+const CX = 132, CY = 132, R = 92;
+const pt = (i, v) => { const a = -Math.PI / 2 + i * Math.PI / 4; const r = v / 99 * R; return [CX + r * Math.cos(a), CY + r * Math.sin(a)]; };
+const poly = (c) => ATTRS.map(([k], i) => pt(i, c.attributes[k]).map((n) => n.toFixed(1)).join(",")).join(" ");
+const dist = (a, b) => Math.sqrt(ATTRS.reduce((s, [k]) => s + (a.attributes[k] - b.attributes[k]) ** 2, 0) / ATTRS.length);
+
+function renderRadar() {
+  const c = byId(state.sel);
+  let s = "";
+  [20, 40, 60, 80, 99].forEach((v) => {
+    const p = ATTRS.map((_, i) => pt(i, v).map((n) => n.toFixed(1)).join(",")).join(" ");
+    s += `<polygon class="ring${v === 60 ? "" : ""}${v === 99 ? "" : ""}" points="${p}"${v === 99 ? ' stroke="var(--outline)" stroke-opacity=".7"' : ""}/>`;
+  });
+  // half-scale ring = 50, dashed (hard threshold reference)
+  s += `<polygon class="ring mid" points="${ATTRS.map((_, i) => pt(i, 50).map((n) => n.toFixed(1)).join(",")).join(" ")}"/>`;
+  ATTRS.forEach((_, i) => { const [x, y] = pt(i, 99); s += `<line class="spoke" x1="${CX}" y1="${CY}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}"/>`; });
+  [20, 50, 80].forEach((v) => { s += `<text class="rl" x="${CX + 3}" y="${(CY - v / 99 * R - 2).toFixed(1)}">${v}</text>`; });
+  DATA.filter((o) => o.id !== state.sel && o.id !== state.hover).forEach((o) => { s += `<polygon class="ghost" points="${poly(o)}"/>`; });
+  if (state.hover != null && state.hover !== state.sel && byId(state.hover)) s += `<polygon class="ghost hot" points="${poly(byId(state.hover))}"/>`;
+  if (c) {
+    s += `<g class="shape"><polygon class="cur" points="${poly(c)}"/>`;
+    ATTRS.forEach(([k], i) => { const [x, y] = pt(i, c.attributes[k]); s += `<rect class="vx" x="${(x - 2).toFixed(1)}" y="${(y - 2).toFixed(1)}" width="4" height="4"/>`; });
+    s += `</g>`;
+  }
+  ATTRS.forEach(([k, ab], i) => {
+    const a = -Math.PI / 2 + i * Math.PI / 4, r = R + 18;
+    const x = CX + r * Math.cos(a), y = CY + r * Math.sin(a);
+    const cos = Math.cos(a), anchor = Math.abs(cos) < 0.2 ? "middle" : cos > 0 ? "start" : "end";
+    const dy = Math.sin(a) < -0.9 ? -4 : Math.sin(a) > 0.9 ? 10 : 3;
+    s += `<text class="ax" x="${x.toFixed(1)}" y="${(y + dy - 5).toFixed(1)}" text-anchor="${anchor}">${ab}</text>`;
+    if (c) s += `<text class="axv" x="${x.toFixed(1)}" y="${(y + dy + 6).toFixed(1)}" text-anchor="${anchor}">${c.attributes[k]}</text>`;
+  });
+  $("#radar").innerHTML = s;
+}
+
+function renderCmp() {
+  const c = byId(state.sel);
+  if (!c) { $("#cmp").innerHTML = ""; $("#legend").innerHTML = ""; return; }
+  const N = DATA.length;
+  let h = `<div class="cmp-head"><span>属性 · 当前值</span><span>名册排位 /${N}</span></div>`;
+  ATTRS.forEach(([k, ab, zh]) => {
+    const v = c.attributes[k];
+    const rank = 1 + DATA.filter((o) => o.attributes[k] > v).length;
+    const pips = Array.from({ length: N }, (_, i) => `<i class="${i === rank - 1 ? "on" : ""}"></i>`).join("");
+    h += `<div class="cmp-row"><span class="ab">${ab}</span><span class="zh">${zh}</span><span class="v">${v}</span><span class="pips" aria-hidden="true">${pips}</span><span class="rk">${rank}/${N}</span></div>`;
+  });
+  const others = DATA.filter((o) => o.id !== c.id).map((o) => ({ o, d: dist(c, o) })).sort((a, b) => a.d - b.d);
+  if (others.length) {
+    const near = others[0], far = others[others.length - 1];
+    h += `<div class="kin">
+      <div class="kin-row"><span class="ab">形近</span><button type="button" class="kin-btn" data-pick="${near.o.id}" data-peer="${near.o.id}">${esc(near.o.name)}</button><span class="d" title="八项属性均方差">Δ ${near.d.toFixed(1)}</span></div>
+      <div class="kin-row"><span class="ab">形远</span><button type="button" class="kin-btn" data-pick="${far.o.id}" data-peer="${far.o.id}">${esc(far.o.name)}</button><span class="d" title="八项属性均方差">Δ ${far.d.toFixed(1)}</span></div>
+    </div>`;
+  }
+  $("#cmp").innerHTML = h;
+  const hov = state.hover != null && state.hover !== state.sel ? byId(state.hover) : null;
+  $("#legend").innerHTML = `<span><i></i>${esc(c.name)}</span>${hov ? `<span><i class="h"></i>${esc(hov.name)}</span>` : ""}<span><i class="g"></i>其余 ${DATA.length - 1 - (hov ? 1 : 0)} 名</span>`;
+}
+
+/* ---------- instrument panel ---------- */
+function trackHTML(v, peers, hotPeer) {
+  let t = `<span class="base"></span>`;
+  for (let k = 0; k <= 90; k += 10) t += `<i class="tk${k % 50 === 0 ? " maj" : ""}" style="left:${pct(k)}"></i>`;
+  t += `<i class="tk maj" style="left:calc(100% - 1px)"></i>`;
+  (peers || []).forEach((p) => { t += `<i class="peer${p.hot ? " hot" : ""}" style="left:${pct(p.v)}"></i>`; });
+  const x = fifth(v), hh = half(v);
+  t += `<span class="zones"><span class="z x" style="left:0;width:${pct(x)}"></span><span class="z h" style="left:${pct(x)};width:calc(${pct(hh)} - ${pct(x)})"></span><span class="z r" style="left:${pct(hh)};width:calc(${pct(v)} - ${pct(hh)})"></span></span>`;
+  t += `<i class="notch" style="left:${pct(x)}"></i><i class="notch" style="left:${pct(hh)}"></i>`;
+  t += `<span class="ptr"></span>`;
+  return `<div class="track" style="--v:${v}" aria-hidden="true">${t}</div>`;
+}
+function figHTML(v) {
+  return `<div class="fig" aria-label="数值 ${v}，困难 ${half(v)}，极难 ${fifth(v)}"><b>${v}</b><span class="dot">·</span><span class="h">${half(v)}</span><span class="dot">·</span><span class="x">${fifth(v)}</span></div>`;
+}
+function ticksHead(dense) {
+  let t = "";
+  for (let k = 0; k <= 90; k += 10) t += `<span class="tick-l${(k / 10) % 2 ? " odd" : ""}${k % 50 ? " mid" : ""}" style="left:${pct(k)}">${k}</span>`;
+  t += `<span class="tick-l end" style="left:100%">99</span>`;
+  return `<div class="hd"></div><div class="ticks-row" aria-hidden="true">${t}</div><div class="fig-head" aria-hidden="true"><span class="v">值</span><span class="dot">·</span><span>½</span><span class="dot">·</span><span>⅕</span></div>`;
+}
+
+function renderPanel() {
+  const c = byId(state.sel);
+  const P = $("#panel");
+  if (!c) { P.innerHTML = `<div class="panel-in"><p class="muted">未选择人物。</p></div>`; return; }
+  const hov = state.hover;
+  const peersFor = (k) => DATA.filter((o) => o.id !== c.id).map((o) => ({ v: o.attributes[k], hot: o.id === hov }));
+  const sanNote = c.sanMax < 99 ? `上限 ${c.sanMax}` : "上限 99";
+  const ro = [
+    ["HP", "生命", c.hp, `重伤 ${c.majorWound}`],
+    ["MP", "魔法", c.mp, ""],
+    ["SAN", "理智", c.san, sanNote],
+    ["LUCK", "幸运", c.luck, ""],
+    ["MOV", "移动", c.mov, ""],
+    ["DB", "伤害加值", String(c.db).toUpperCase(), ""],
+    ["BLD", "体格", c.build, ""]
+  ];
+  const portrait = hasPortrait(c)
+    ? `<div class="frame" id="frame">${portraitImg(c)}<div class="blank">${blankInner()}</div></div>
+       <div class="caption"><span>立绘 · 默认</span><span class="r">3:4</span></div>`
+    : `<div class="frame nop" id="frame"><div class="blank">${blankInner()}</div></div>
+       <div class="caption"><span>立绘 · 未设置</span><span class="r">3:4</span></div>`;
+
+  let chars = `<div class="scales">${ticksHead()}`;
+  ATTRS.forEach(([k, ab, zh]) => {
+    const v = c.attributes[k];
+    chars += `<div class="s-label"><span class="ab">${ab}</span><span class="zh">${zh}</span></div>${trackHTML(v, peersFor(k))}${figHTML(v)}`;
+  });
+  chars += `<div class="s-row-sep"></div>`;
+  chars += `<div class="s-label"><span class="ab">LUCK</span><span class="zh">幸运</span></div>${trackHTML(c.attributes.luck, peersFor("luck"))}${figHTML(c.attributes.luck)}`;
+  chars += `</div>`;
+
+  const sk = c.skills;
+  const mid = Math.ceil(sk.length / 2);
+  const col = (list) => `<div class="scales sk">${ticksHead()}${list.map(([n, v]) =>
+    `<div class="s-label"><span class="zh" title="${esc(n)}">${esc(n)}</span></div>${trackHTML(v)}${figHTML(v)}`).join("")}</div>`;
+
+  P.innerHTML = `<div class="panel-in">
+    <button type="button" class="btn ghost back" id="back"><svg class="i s" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>台账</button>
+    <div class="ident">
+      <div class="pcol">${portrait}</div>
+      <div class="id-main">
+        <div class="id-top"><span class="kind">${c.kind}<span>${c.kind === "PC" ? "调查员" : "非玩家角色"}</span></span><span class="stamp">更新 ${fmtTime(c.updatedAt)}</span></div>
+        <h2 id="pname">${esc(c.name)}</h2>
+        <div class="id-meta">${c.occupation ? esc(c.occupation) : '<span class="muted">未填职业</span>'}<span class="sep">/</span>${c.age != null ? `<span class="mono">${c.age}</span> 岁` : '<span class="muted">年龄未填</span>'}<span class="sep">/</span>${eraLabel(c.era)}</div>
+        <div class="actions">
+          <button type="button" class="btn filled" data-act="edit"><svg class="i s" viewBox="0 0 24 24"><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.4 2.6a1 1 0 0 1 3 3L12.4 14.6a2 2 0 0 1-.9.5l-2.9.8a.5.5 0 0 1-.6-.6l.8-2.9a2 2 0 0 1 .5-.9z"/></svg>编辑人物卡</button>
+          <button type="button" class="btn" data-act="portrait"><svg class="i s" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></svg>管理立绘</button>
+          <button type="button" class="btn square" id="more" aria-haspopup="menu" aria-expanded="false" aria-controls="menu" aria-label="更多操作"><svg class="i s" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
+          <div class="menu" id="menu" role="menu" hidden>
+            <button type="button" role="menuitem" data-act="xlsx"><svg class="i s" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M8 13h2"/><path d="M14 13h2"/><path d="M8 17h2"/><path d="M14 17h2"/></svg>从 Excel 更新…</button>
+            <hr>
+            <button type="button" role="menuitem" class="danger" data-act="delete"><svg class="i s" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>删除人物…</button>
+          </div>
+        </div>
+        <div class="top3">
+          <div class="top3-h">专长<span class="mono">投点最高 ${Math.min(3, sk.length)} / ${sk.length} · 值 ½ ⅕</span></div>
+          <div class="top3-g">${sk.slice(0, 3).map(([n, v]) => `<div class="t3"><span class="zh" title="${esc(n)}">${esc(n)}</span><span class="fg"><b>${v}</b>${half(v)}<i>·</i>${fifth(v)}</span></div>`).join("")}</div>
+        </div>
+      </div>
+      <div class="readout" role="list" aria-label="派生数值">
+        ${ro.map(([ab, zh, v, note]) => `<div class="ro" role="listitem"><div class="lb"><span class="mono">${ab}</span><span class="zh">${zh}</span></div><div class="val">${esc(v)}</div><div class="note">${note}</div></div>`).join("")}
+      </div>
+    </div>
+
+    <section class="block" aria-label="属性">
+      <div class="block-head"><h3>属性</h3><span class="mono">0–99 · 刻度 10</span>
+        <div class="key"><span class="k z1"><i></i>极难 ⅕</span><span class="k z2"><i></i>困难 ½</span><span class="k z3"><i></i>常规</span><span class="k" title="其余人物在该属性上的位置">┆ 名册</span></div>
+      </div>
+      ${chars}
+    </section>
+
+    <section class="block" aria-label="已投点技能">
+      <div class="block-head"><h3>技能</h3><span class="mono">已投点 ${sk.length} 项 · 由高到低</span></div>
+      <div class="skills">${col(sk.slice(0, mid))}${sk.length > mid ? col(sk.slice(mid)) : "<div></div>"}</div>
+    </section>
+
+    <div class="foot-note"><span>鉴定：骰值 ≤ 数值为成功，≤ ½ 为困难成功，≤ ⅕ 为极难成功。</span><span class="mono">规则 · 克苏鲁的呼唤 第7版</span></div>
+  </div>`;
+}
+function blankInner() {
+  return `<svg class="x" viewBox="0 0 180 240" preserveAspectRatio="none" aria-hidden="true"><line x1="0" y1="0" x2="180" y2="240"/><line x1="180" y1="0" x2="0" y2="240"/></svg>
+    <i class="crop tl"></i><i class="crop tr"></i><i class="crop bl"></i><i class="crop br"></i>
+    <span class="hint">无立绘</span>
+    <button type="button" class="btn" data-act="portrait">上传立绘</button>`;
+}
+
+/* ---------- peer highlight (hover) without re-sweeping ---------- */
+function setHover(id) {
+  if (state.hover === id) return;
+  state.hover = id;
+  document.querySelectorAll(".row").forEach((r) => r.classList.toggle("peer", id != null && +r.dataset.id === id && id !== state.sel));
+  renderRadarNoAnim();
+  renderCmp();
+  // update roster ticks in panel tracks
+  const c = byId(state.sel);
+  if (!c) return;
+  const others = DATA.filter((o) => o.id !== c.id);
+  document.querySelectorAll("#panel .scales:not(.sk) .track").forEach((tr, i) => {
+    tr.querySelectorAll(".peer").forEach((p, j) => p.classList.toggle("hot", others[j] && others[j].id === id));
+  });
+}
+function renderRadarNoAnim() {
+  renderRadar();
+  const g = $("#radar .shape");
+  if (g) g.style.animation = "none";
+}
+
+/* ---------- toast ---------- */
+let toastT;
+function toast(msg, sub) {
+  const t = $("#toast");
+  t.innerHTML = esc(msg) + (sub ? `<span class="mono">${esc(sub)}</span>` : "");
+  t.hidden = false;
+  clearTimeout(toastT);
+  toastT = setTimeout(() => (t.hidden = true), 2600);
+}
+
+/* ---------- select ---------- */
+function select(id, opts = {}) {
+  state.sel = id;
+  state.hover = null;
+  renderLedger();
+  renderPanel();
+  renderRadar();
+  renderCmp();
+  if (opts.focusRow) $(`.row-btn[data-id="${id}"]`)?.focus();
+  if (opts.open && matchMedia("(max-width: 860px)").matches) {
+    state.view = "detail";
+    $("#page").dataset.view = "detail";
+    $("#panel").scrollTop = 0;
+    $("#back")?.focus();
+  }
+}
+function renderAll() { renderSeg(); renderLedger(); renderPanel(); renderRadar(); renderCmp(); }
+
+/* ---------- events ---------- */
+document.addEventListener("click", (e) => {
+  const t = e.target.closest("button");
+  const menu = $("#menu");
+  if (menu && !menu.hidden && !e.target.closest("#menu") && !e.target.closest("#more")) closeMenu();
+  if (!t) return;
+  if (t.dataset.f) { state.filter = t.dataset.f; renderSeg(); renderLedger(); return; }
+  if (t.dataset.sort) {
+    const k = t.dataset.sort;
+    if (state.sort === k) state.dir = state.dir === "asc" ? "desc" : "asc";
+    else { state.sort = k; state.dir = k === "name" ? "asc" : "desc"; }
+    renderLedger(); return;
+  }
+  if (t.id === "showsel") { state.filter = "all"; state.q = ""; $("#q").value = ""; renderSeg(); renderLedger(); $(`.row-btn[data-id="${state.sel}"]`)?.focus(); return; }
+  if (t.id === "sortreset") { state.sort = null; renderLedger(); return; }
+  if (t.classList.contains("row-btn")) { select(+t.dataset.id, { open: true }); return; }
+  if (t.dataset.pick) { select(+t.dataset.pick); $(`.row-btn[data-id="${t.dataset.pick}"]`)?.scrollIntoView({ block: "nearest" }); return; }
+  if (t.id === "back") {
+    state.view = "list"; $("#page").dataset.view = "list";
+    $(`.row-btn[data-id="${state.sel}"]`)?.focus(); return;
+  }
+  if (t.id === "qclear" || t.id === "emptyclear") { $("#q").value = ""; state.q = ""; renderLedger(); $("#q").focus(); return; }
+  if (t.id === "more") { menu.hidden ? openMenu() : closeMenu(); return; }
+  const c = byId(state.sel);
+  switch (t.dataset.act) {
+    case "new": toast("新建人物", "→ /gm/characters/new · 空白人物卡编辑器"); break;
+    case "import": toast("导入人物", "选择 .xlsx 人物卡 · 解析后进入预览"); break;
+    case "edit": toast(`编辑人物卡：${c.name}`, `→ /gm/characters/${c.id}/edit`); break;
+    case "portrait": toast(`管理立绘：${c.name}`, hasPortrait(c) ? "当前 1 张 · 默认" : "尚未上传"); break;
+    case "xlsx": closeMenu(); toast(`从 Excel 更新：${c.name}`, "选择 .xlsx · 覆盖前显示差异"); break;
+    case "delete":
+      closeMenu();
+      $("#cf-body").textContent = `「${c.name}」的人物卡将移入回收站。`;
+      $("#confirm").showModal(); $("#cf-cancel").focus(); break;
+  }
+});
+function openMenu() { const m = $("#menu"); m.hidden = false; $("#more").setAttribute("aria-expanded", "true"); m.querySelector("button").focus(); }
+function closeMenu() { const m = $("#menu"); if (!m) return; m.hidden = true; $("#more")?.setAttribute("aria-expanded", "false"); }
+$("#cf-cancel").addEventListener("click", () => $("#confirm").close());
+$("#cf-ok").addEventListener("click", () => {
+  const c = byId(state.sel);
+  const list = orderedVisible();
+  const idx = list.findIndex((x) => x.id === c.id);
+  DATA.splice(DATA.indexOf(c), 1);
+  $("#confirm").close();
+  const next = list[idx + 1] || list[idx - 1] || DATA[0];
+  renderSeg();
+  select(next ? next.id : null);
+  toast(`已删除「${c.name}」`, "已移入回收站");
+});
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "/" && document.activeElement !== $("#q") && !$("#confirm").open) { e.preventDefault(); $("#q").focus(); return; }
+  if (e.key === "Escape") {
+    if ($("#menu") && !$("#menu").hidden) { closeMenu(); $("#more").focus(); return; }
+    if (document.activeElement === $("#q") && $("#q").value) { $("#q").value = ""; state.q = ""; renderLedger(); return; }
+  }
+  const rb = e.target.closest?.(".row-btn");
+  if (rb && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
+    e.preventDefault();
+    const list = orderedVisible();
+    const i = list.findIndex((c) => c.id === +rb.dataset.id);
+    const n = list[i + (e.key === "ArrowDown" ? 1 : -1)];
+    if (n) select(n.id, { focusRow: true });
+  }
+  if (e.target.closest?.("#menu") && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
+    e.preventDefault();
+    const items = [...document.querySelectorAll("#menu button")];
+    const i = items.indexOf(document.activeElement);
+    items[(i + (e.key === "ArrowDown" ? 1 : -1) + items.length) % items.length].focus();
+  }
+});
+$("#q").addEventListener("input", (e) => { state.q = e.target.value; renderLedger(); });
+$("#tbody").addEventListener("pointerover", (e) => { const r = e.target.closest(".row"); setHover(r ? +r.dataset.id : null); });
+$("#tbody").addEventListener("pointerleave", () => setHover(null));
+$("#cmp").addEventListener("pointerover", (e) => { const b = e.target.closest("[data-peer]"); if (b) setHover(+b.dataset.peer); });
+$("#cmp").addEventListener("pointerleave", () => setHover(null));
+
+renderAll();
+</script>
+</body>
+</html>

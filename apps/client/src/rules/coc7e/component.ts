@@ -83,6 +83,7 @@ const statusWeight: Record<string, number> = {
 };
 
 export const coc7eComponent: RuleComponent = {
+	shortName: "CoC 7e",
 	metadata: {
 		id: "coc7e",
 		name: "克苏鲁的呼唤 7 版",

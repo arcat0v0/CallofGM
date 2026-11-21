@@ -20,6 +20,8 @@ import {
 	CursorPageQuery,
 	CursorPageResponse,
 	DecideReviewRequest,
+	GmCharacterLibraryQuery,
+	GmCharacterLibraryResponse,
 	GmPermanentFieldEditRequest,
 	ImportConfirmRequest,
 	LinkModuleCharacterRequest,
@@ -31,6 +33,7 @@ import {
 import { Elysia, t } from "elysia";
 import type { Container } from "@/bootstrap/container";
 import { corsOriginsFor } from "@/config/env";
+import { ModuleNotFoundError } from "@/modules/catalog";
 import { AuthRequiredError, requireGm } from "@/modules/identity";
 import { AddSessionCharacterUseCase } from "@/modules/sessions";
 import { AppError } from "@/platform/errors/app-error";
@@ -57,6 +60,7 @@ import {
 	ImportPreviewUseCase,
 	LinkModuleCharacterUseCase,
 	ListCharacterInvitesUseCase,
+	ListCharacterLibraryUseCase,
 	ListReviewsUseCase,
 	PreviewCharacterSyncUseCase,
 	RevokeCharacterInviteUseCase,
@@ -107,6 +111,7 @@ function toReviewDto(detail: CharacterReviewDetail) {
 export function createCharactersRoutes(container: Container) {
 	const { charactersRepo: repo, sessionsRepo, authPlugin } = container;
 
+	const listLibrary = new ListCharacterLibraryUseCase(repo);
 	const createCharacter = new CreateCharacterUseCase(
 		repo,
 		container.ruleRegistry,
@@ -256,13 +261,20 @@ export function createCharactersRoutes(container: Container) {
 				await repo.listCharacters(gm.userId, parsePageQuery(query)),
 			);
 		})
+		.get("/library", async ({ query, actor }) => {
+			const gm = requireGm(actor);
+			const parsed = parseBody(GmCharacterLibraryQuery, query ?? {});
+			return GmCharacterLibraryResponse.parse(
+				await listLibrary.execute({ gmUserId: gm.userId, query: parsed }),
+			);
+		})
 		.get("/:id", async ({ params: { id }, actor }) => {
 			const gm = requireGm(actor);
 			return CharacterDetailDto.parse(
 				await getCharacter.execute({
 					actorUserId: gm.userId,
 					characterId: id,
-					allowAnyOwner: true,
+					gmReadAccess: true,
 				}),
 			);
 		})
@@ -286,7 +298,6 @@ export function createCharactersRoutes(container: Container) {
 			await deleteCharacter.execute({
 				actorUserId: gm.userId,
 				characterId: id,
-				allowAnyOwner: true,
 			});
 			return { success: true };
 		})
@@ -296,7 +307,7 @@ export function createCharactersRoutes(container: Container) {
 				await getHistory.execute({
 					actorUserId: gm.userId,
 					characterId: id,
-					allowAnyOwner: true,
+					gmReadAccess: true,
 				}),
 			);
 		})
@@ -306,7 +317,7 @@ export function createCharactersRoutes(container: Container) {
 				await getSheetContext.execute({
 					actorUserId: gm.userId,
 					characterId: id,
-					allowAnyOwner: true,
+					gmReadAccess: true,
 				}),
 			);
 		})
@@ -467,7 +478,12 @@ export function createCharactersRoutes(container: Container) {
 			requireGm(actor);
 			writeGuard(request);
 		})
-		.get("/:id/characters", async ({ params, query }) => {
+		.get("/:id/characters", async ({ params, query, actor }) => {
+			const gm = requireGm(actor);
+			const module = await repo.findModule(params.id);
+			if (!module || module.ownerId !== gm.userId) {
+				throw new ModuleNotFoundError();
+			}
 			return CursorPageResponse(CharacterDto).parse(
 				await repo.listModuleCharacters(params.id, parsePageQuery(query)),
 			);

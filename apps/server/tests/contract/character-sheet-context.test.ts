@@ -17,6 +17,7 @@ import {
 	stopServer,
 	type TestContext,
 	type TestServer,
+	linkModuleCharacterDirect,
 } from "../helpers/setup";
 
 const PASSWORD = "pl-flow-password";
@@ -166,12 +167,7 @@ describe("Character sheet context and v2 sheet fields", () => {
 
 		// Link both PCs to the module and create a session
 		for (const characterId of [charA.id, charB.id]) {
-			const linkRes = await api(`/api/v1/gm/modules/${moduleId}/characters`, {
-				method: "POST",
-				token: ctx.gmToken,
-				body: JSON.stringify({ characterId }),
-			});
-			expect(linkRes.status).toBe(200);
+			await linkModuleCharacterDirect(ctx.container, moduleId, characterId);
 		}
 		const sessRes = await api("/api/v1/gm/sessions", {
 			method: "POST",

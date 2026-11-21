@@ -16,6 +16,7 @@ import {
 	stopServer,
 	type TestContext,
 	type TestServer,
+	linkModuleCharacterDirect,
 } from "../helpers/setup";
 
 const PASSWORD = "pl-flow-password";
@@ -443,12 +444,7 @@ describe("PL character ownership, versions and growth", () => {
 	test("结团成长确认：写入主卡并记录成长条目，重复确认被拒", async () => {
 		const character = await createPlCharacter("成长测试卡");
 
-		const link = await api(`/api/v1/gm/modules/${moduleId}/characters`, {
-			method: "POST",
-			token: ctx.gmToken,
-			body: JSON.stringify({ characterId: character.id }),
-		});
-		expect(link.status).toBe(200);
+		await linkModuleCharacterDirect(ctx.container, moduleId, character.id);
 
 		const sessionRes = await api("/api/v1/gm/sessions", {
 			method: "POST",
@@ -751,11 +747,7 @@ describe("PL character ownership, versions and growth", () => {
 
 	test("PL 只看到自己参团的团，且带席位与角色信息", async () => {
 		const character = await createPlCharacter("参团人物");
-		await api(`/api/v1/gm/modules/${moduleId}/characters`, {
-			method: "POST",
-			token: ctx.gmToken,
-			body: JSON.stringify({ characterId: character.id }),
-		});
+		await linkModuleCharacterDirect(ctx.container, moduleId, character.id);
 		const sessionRes = await api("/api/v1/gm/sessions", {
 			method: "POST",
 			token: ctx.gmToken,

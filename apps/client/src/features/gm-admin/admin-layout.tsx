@@ -101,7 +101,14 @@ export function adminNavCurrentKey(pathname: string): AdminNavKey | null {
 	return null;
 }
 
-function AdminLayout({ children }: { children: ReactNode }) {
+function AdminLayout({
+	children,
+	bleed = false,
+}: {
+	children: ReactNode;
+	/** 内容区去掉内边距，由页面自行铺满（多栏工作台类页面） */
+	bleed?: boolean;
+}) {
 	const navigate = useNavigate();
 	const pathname = useRouterState({
 		select: (state) => state.location.pathname,
@@ -135,7 +142,8 @@ function AdminLayout({ children }: { children: ReactNode }) {
 	const content = (
 		<main
 			className={cn(
-				"bg-md-surface-container-low min-w-0 flex-1 overflow-y-auto rounded-tl-2xl px-4 py-6 sm:px-6 md:px-10 md:py-9",
+				"bg-md-surface-container-low min-w-0 flex-1 overflow-y-auto rounded-tl-2xl",
+				!bleed && "px-4 py-6 sm:px-6 md:px-10 md:py-9",
 			)}
 		>
 			{children}

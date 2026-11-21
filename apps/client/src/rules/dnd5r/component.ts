@@ -54,6 +54,7 @@ const conditionWeight: Partial<
 > = { unconscious: 80, petrified: 75, incapacitated: 60 };
 
 export const dnd5rComponent: RuleComponent = {
+	shortName: "D&D 5e",
 	metadata: {
 		id: "dnd5r",
 		name: "Dungeons & Dragons 2024",
@@ -170,9 +171,10 @@ export const dnd5rComponent: RuleComponent = {
 						label: t("dnd5r.concept.class"),
 						value: `${classLabel(parsed)} · ${parsed.level}`,
 					},
+					{ label: t("dnd5r.concept.species"), value: speciesLabel(parsed) },
 					{
-						label: t("dnd5r.concept.species"),
-						value: `${speciesLabel(parsed)} · ${backgroundLabel(parsed)}`,
+						label: t("dnd5r.concept.background"),
+						value: backgroundLabel(parsed),
 					},
 				]
 			: [];

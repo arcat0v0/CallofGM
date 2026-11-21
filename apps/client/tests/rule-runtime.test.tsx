@@ -71,14 +71,39 @@ afterEach(() => {
 });
 
 test("GM character directory shows actual D&D summary metrics", async () => {
+	const libraryItem = {
+		id: character.id,
+		name: character.name,
+		kind: character.kind,
+		ruleId: character.ruleId,
+		ownerKind: "gm",
+		ownedByMe: true,
+		ownerName: null,
+		modules: [],
+		portraitAssetId: null,
+		expressionCount: 0,
+		updatedAt: Date.now(),
+	};
 	const fetcher = spyOn(globalThis, "fetch").mockImplementation(
 		Object.assign(
 			async (url: RequestInfo | URL) =>
 				Response.json(
-					String(url).includes("/gm/characters?")
-						? { items: [character], nextCursor: null }
+					String(url).includes("/gm/characters/library?")
+						? {
+								items: [libraryItem],
+								nextCursor: null,
+								total: 1,
+								facets: {
+									rules: [{ ruleId: character.ruleId, count: 1 }],
+									all: 1,
+									kinds: { pc: 0, npc: 1 },
+									owners: { gm: 1, pl: 0 },
+									modules: [],
+									unlinked: 1,
+								},
+							}
 						: String(url).endsWith(`/gm/characters/${character.id}`)
-							? character
+							? { ...character, portraits: [] }
 							: { gmThemeId: null },
 				),
 			{ preconnect: fetch.preconnect },
@@ -89,11 +114,16 @@ test("GM character directory shows actual D&D summary metrics", async () => {
 		const route = createRoute({
 			getParentRoute: () => root,
 			path: "/gm/characters",
+			validateSearch: CharactersRoute.options.validateSearch,
 			component: CharactersRoute.options.component,
 		});
 		const router = createRouter({
 			routeTree: root.addChildren([route]),
-			history: createMemoryHistory({ initialEntries: ["/gm/characters"] }),
+			history: createMemoryHistory({
+				initialEntries: [
+					`/gm/characters?rule=${character.ruleId}&sel=${character.id}`,
+				],
+			}),
 		});
 		const view = render(<RouterProvider router={router} />);
 		expect(await view.findByText("AC")).toBeTruthy();

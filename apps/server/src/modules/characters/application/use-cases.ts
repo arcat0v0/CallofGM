@@ -21,7 +21,11 @@ import {
 	StagingRecordNotFoundError,
 	StagingTargetMismatchError,
 } from "../domain/errors";
-import type { CharactersRepository } from "./ports";
+import type {
+	CharacterLibraryScope,
+	CharacterRecord,
+	CharactersRepository,
+} from "./ports";
 
 const STAGING_TTL_MS = 30 * 60 * 1000;
 const DEFAULT_OWNER_KIND = "gm";
@@ -30,6 +34,23 @@ function assertKind(kind: string): asserts kind is "pc" | "npc" {
 	if (kind !== "pc" && kind !== "npc") {
 		throw new InvalidKindError();
 	}
+}
+
+async function assertReadable(
+	repo: CharactersRepository,
+	character: CharacterRecord,
+	input: { actorUserId: string; gmReadAccess?: boolean },
+): Promise<void> {
+	if (character.ownerId === input.actorUserId) {
+		return;
+	}
+	if (
+		input.gmReadAccess &&
+		(await repo.gmHasReadAccess(input.actorUserId, character.id))
+	) {
+		return;
+	}
+	throw new CharacterNotFoundError();
 }
 
 function parseStagingErrors(errorsJson: string): unknown[] {
@@ -230,13 +251,12 @@ export class DeleteCharacterUseCase {
 	async execute(input: {
 		actorUserId: string;
 		characterId: string;
-		allowAnyOwner?: boolean;
 	}) {
 		const character = await this.repo.findCharacterById(input.characterId);
 		if (!character || character.deletedAt !== null) {
 			throw new CharacterNotFoundError();
 		}
-		if (!input.allowAnyOwner && character.ownerId !== input.actorUserId) {
+		if (character.ownerId !== input.actorUserId) {
 			throw new CharacterNotOwnedError();
 		}
 		await this.repo.softDeleteCharacter(character.id, this.clock.nowEpochMs());
@@ -250,15 +270,14 @@ export class GetCharacterUseCase {
 	async execute(input: {
 		actorUserId: string;
 		characterId: string;
-		allowAnyOwner?: boolean;
+		/** GM 只读：允许访问与其模组/团/审核相关的他人人物 */
+		gmReadAccess?: boolean;
 	}) {
 		const character = await this.repo.findCharacterById(input.characterId);
 		if (!character || character.deletedAt !== null) {
 			throw new CharacterNotFoundError();
 		}
-		if (!input.allowAnyOwner && character.ownerId !== input.actorUserId) {
-			throw new CharacterNotFoundError();
-		}
+		await assertReadable(this.repo, character, input);
 		const portraits = await this.repo.listPortraitsByCharacterId(character.id);
 		return { ...character, portraits };
 	}
@@ -270,15 +289,14 @@ export class GetCharacterHistoryUseCase {
 	async execute(input: {
 		actorUserId: string;
 		characterId: string;
-		allowAnyOwner?: boolean;
+		/** GM 只读：允许访问与其模组/团/审核相关的他人人物 */
+		gmReadAccess?: boolean;
 	}) {
 		const character = await this.repo.findCharacterById(input.characterId);
 		if (!character || character.deletedAt !== null) {
 			throw new CharacterNotFoundError();
 		}
-		if (!input.allowAnyOwner && character.ownerId !== input.actorUserId) {
-			throw new CharacterNotFoundError();
-		}
+		await assertReadable(this.repo, character, input);
 		const [versions, growth, audits] = await Promise.all([
 			this.repo.listVersions(character.id),
 			this.repo.listGrowth(character.id),
@@ -297,15 +315,14 @@ export class GetCharacterSheetContextUseCase {
 	async execute(input: {
 		actorUserId: string;
 		characterId: string;
-		allowAnyOwner?: boolean;
+		/** GM 只读：允许访问与其模组/团/审核相关的他人人物 */
+		gmReadAccess?: boolean;
 	}) {
 		const character = await this.repo.findCharacterById(input.characterId);
 		if (!character || character.deletedAt !== null) {
 			throw new CharacterNotFoundError();
 		}
-		if (!input.allowAnyOwner && character.ownerId !== input.actorUserId) {
-			throw new CharacterNotFoundError();
-		}
+		await assertReadable(this.repo, character, input);
 		const [companionRows, phaseRecords, growthRecords] = await Promise.all([
 			this.repo.listCharacterSessionCompanions(character.id),
 			this.repo.listCharacterSessionPhaseRecords(character.id),
@@ -834,6 +851,11 @@ export class LinkModuleCharacterUseCase {
 		if (!character || character.deletedAt !== null) {
 			throw new CharacterNotFoundError();
 		}
+		// 只能关联自有人物，或已经与该 GM 产生关系（模组/团/审核）的玩家人物
+		await assertReadable(this.repo, character, {
+			actorUserId: input.ownerId,
+			gmReadAccess: true,
+		});
 		if (character.ruleId !== module.ruleId) {
 			throw new AppError(
 				"CHARACTER_RULE_MISMATCH",
@@ -883,6 +905,161 @@ export class UnlinkModuleCharacterUseCase {
 			this.clock.nowEpochMs(),
 		);
 		return { success: true };
+	}
+}
+
+export type CharacterLibraryQuery = {
+	ruleId: string;
+	kind?: "pc" | "npc";
+	ownerKind?: "gm" | "pl";
+	moduleId?: string;
+	q?: string;
+	sort: "updated" | "name" | "portrait";
+	limit: number;
+	cursor?: string;
+};
+
+const libraryCollator = new Intl.Collator("zh-Hans-CN-u-co-pinyin", {
+	sensitivity: "base",
+	numeric: true,
+});
+
+/** 纯函数：在 GM 可见范围内过滤、排序、分页并计算分面计数（规则无关） */
+export function buildCharacterLibraryPage(
+	gmUserId: string,
+	scope: CharacterLibraryScope,
+	query: CharacterLibraryQuery,
+) {
+	const moduleById = new Map(scope.modules.map((module) => [module.id, module]));
+	const linksByCharacter = new Map<string, string[]>();
+	for (const link of scope.links) {
+		const list = linksByCharacter.get(link.characterId) ?? [];
+		if (!list.includes(link.moduleId)) {
+			list.push(link.moduleId);
+		}
+		linksByCharacter.set(link.characterId, list);
+	}
+	const portraitsByCharacter = new Map<
+		string,
+		CharacterLibraryScope["portraits"]
+	>();
+	for (const portrait of scope.portraits) {
+		const list = portraitsByCharacter.get(portrait.characterId) ?? [];
+		list.push(portrait);
+		portraitsByCharacter.set(portrait.characterId, list);
+	}
+	const ownerKindOf = (row: CharacterLibraryScope["characters"][number]) =>
+		row.ownerId === gmUserId ? "gm" : "pl";
+	const needle = query.q?.trim().toLocaleLowerCase("zh-CN") ?? "";
+	const inRule = scope.characters.filter((row) => row.ruleId === query.ruleId);
+	const matches = (
+		row: CharacterLibraryScope["characters"][number],
+		skip: "kind" | "owner" | "module" | null,
+	) => {
+		if (skip !== "kind" && query.kind && row.kind !== query.kind) {
+			return false;
+		}
+		if (skip !== "owner" && query.ownerKind && ownerKindOf(row) !== query.ownerKind) {
+			return false;
+		}
+		if (skip !== "module" && query.moduleId) {
+			const linked = linksByCharacter.get(row.id) ?? [];
+			if (query.moduleId === "none" ? linked.length > 0 : !linked.includes(query.moduleId)) {
+				return false;
+			}
+		}
+		if (needle && !row.name.toLocaleLowerCase("zh-CN").includes(needle)) {
+			return false;
+		}
+		return true;
+	};
+
+	const filtered = inRule.filter((row) => matches(row, null));
+	const hasPortrait = (id: string) =>
+		(portraitsByCharacter.get(id)?.length ?? 0) > 0 ? 1 : 0;
+	filtered.sort((a, b) =>
+		query.sort === "name"
+			? libraryCollator.compare(a.name, b.name) || a.id.localeCompare(b.id)
+			: (query.sort === "portrait" ? hasPortrait(b.id) - hasPortrait(a.id) : 0) ||
+				b.updatedAt - a.updatedAt ||
+				a.id.localeCompare(b.id),
+	);
+	const offset = query.cursor ? Number.parseInt(query.cursor, 10) : 0;
+	const pageRows = filtered.slice(offset, offset + query.limit);
+	const nextOffset = offset + pageRows.length;
+
+	const kindRows = inRule.filter((row) => matches(row, "kind"));
+	const ownerRows = inRule.filter((row) => matches(row, "owner"));
+	const moduleRows = inRule.filter((row) => matches(row, "module"));
+	const ruleCounts = new Map<string, number>();
+	for (const row of scope.characters) {
+		ruleCounts.set(row.ruleId, (ruleCounts.get(row.ruleId) ?? 0) + 1);
+	}
+
+	return {
+		items: pageRows.map((row) => {
+			const portraits = [...(portraitsByCharacter.get(row.id) ?? [])].sort(
+				(a, b) => a.sortOrder - b.sortOrder || a.createdAt - b.createdAt,
+			);
+			const cover = portraits.find((item) => item.isDefault === 1) ?? portraits[0];
+			const ownedByMe = row.ownerId === gmUserId;
+			return {
+				id: row.id,
+				name: row.name,
+				kind: row.kind,
+				ruleId: row.ruleId,
+				ownerKind: row.ownerKind,
+				ownedByMe,
+				ownerName: ownedByMe ? null : row.ownerName,
+				modules: (linksByCharacter.get(row.id) ?? [])
+					.map((id) => moduleById.get(id))
+					.filter((module) => module !== undefined)
+					.sort((a, b) => libraryCollator.compare(a.name, b.name))
+					.map((module) => ({ id: module.id, name: module.name })),
+				portraitAssetId: cover?.portraitAssetId ?? null,
+				expressionCount: portraits.length,
+				updatedAt: row.updatedAt,
+			};
+		}),
+		nextCursor: nextOffset < filtered.length ? String(nextOffset) : null,
+		total: filtered.length,
+		facets: {
+			rules: [...ruleCounts].map(([ruleId, count]) => ({ ruleId, count })),
+			all: moduleRows.length,
+			kinds: {
+				pc: kindRows.filter((row) => row.kind === "pc").length,
+				npc: kindRows.filter((row) => row.kind === "npc").length,
+			},
+			owners: {
+				gm: ownerRows.filter((row) => ownerKindOf(row) === "gm").length,
+				pl: ownerRows.filter((row) => ownerKindOf(row) === "pl").length,
+			},
+			modules: scope.modules
+				.filter((module) => module.ruleId === query.ruleId)
+				.sort(
+					(a, b) =>
+						libraryCollator.compare(a.name, b.name) || a.id.localeCompare(b.id),
+				)
+				.map((module) => ({
+					id: module.id,
+					name: module.name,
+					count: moduleRows.filter((row) =>
+						(linksByCharacter.get(row.id) ?? []).includes(module.id),
+					).length,
+				})),
+			unlinked: moduleRows.filter(
+				(row) => (linksByCharacter.get(row.id) ?? []).length === 0,
+			).length,
+		},
+	};
+}
+
+export class ListCharacterLibraryUseCase {
+	constructor(private readonly repo: CharactersRepository) {}
+
+	async execute(input: { gmUserId: string; query: CharacterLibraryQuery }) {
+		const scope = await this.repo.listLibraryScope(input.gmUserId);
+		return buildCharacterLibraryPage(input.gmUserId, scope, input.query);
 	}
 }
 

@@ -18,6 +18,7 @@ import {
 	stopServer,
 	type TestContext,
 	type TestServer,
+	linkModuleCharacterDirect,
 } from "../helpers/setup";
 
 const PASSWORD = "invite-flow-password";
@@ -642,12 +643,7 @@ describe("Invite, submit and review chain", () => {
 
 	test("团内同步：差异预览只列可同步字段，应用后主卡变化进入团内快照", async () => {
 		const character = await createPlCharacter("同步人物");
-		const link = await api(`/api/v1/gm/modules/${moduleId}/characters`, {
-			method: "POST",
-			token: ctx.gmToken,
-			body: JSON.stringify({ characterId: character.id }),
-		});
-		expect(link.status).toBe(200);
+		await linkModuleCharacterDirect(ctx.container, moduleId, character.id);
 
 		const sessionRes = await api("/api/v1/gm/sessions", {
 			method: "POST",
@@ -706,12 +702,7 @@ describe("Invite, submit and review chain", () => {
 
 	test("团内同步：数值变化重算上限、保留损失并拒绝过期版本", async () => {
 		const character = await createPlCharacter("同步数值人物");
-		const link = await api(`/api/v1/gm/modules/${moduleId}/characters`, {
-			method: "POST",
-			token: ctx.gmToken,
-			body: JSON.stringify({ characterId: character.id }),
-		});
-		expect(link.status).toBe(200);
+		await linkModuleCharacterDirect(ctx.container, moduleId, character.id);
 		const sessionRes = await api("/api/v1/gm/sessions", {
 			method: "POST",
 			token: ctx.gmToken,

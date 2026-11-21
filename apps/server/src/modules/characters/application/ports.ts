@@ -180,8 +180,38 @@ export interface CharacterSheetContextPhaseRow {
 	occurredAt: number;
 }
 
+/** GM 人物库的轻量范围数据（不含人物卡 JSON） */
+export interface CharacterLibraryScope {
+	characters: Array<{
+		id: string;
+		name: string;
+		kind: string;
+		ruleId: string;
+		ownerId: string;
+		ownerKind: string;
+		ownerName: string | null;
+		updatedAt: number;
+	}>;
+	/** 仅限该 GM 自有、未删除模组上的有效关联 */
+	links: Array<{ characterId: string; moduleId: string }>;
+	modules: Array<{ id: string; name: string; ruleId: string }>;
+	portraits: Array<{
+		characterId: string;
+		portraitAssetId: string;
+		isDefault: number;
+		sortOrder: number;
+		createdAt: number;
+	}>;
+}
+
 export interface CharactersRepository {
 	findCharacterById(id: string): Promise<CharacterRecord | null>;
+	/** GM 可见的人物库：自有人物 + 关联到其模组的玩家人物 */
+	listLibraryScope(gmUserId: string): Promise<CharacterLibraryScope>;
+	/**
+	 * GM 是否可只读访问该人物：自有，或经模组关联、团内参与、提交给该 GM 的审核而产生关系。
+	 */
+	gmHasReadAccess(gmUserId: string, characterId: string): Promise<boolean>;
 	saveCharacter(
 		character: Omit<CharacterRecord, "deletedAt"> & {
 			deletedAt?: number | null;

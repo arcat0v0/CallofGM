@@ -366,3 +366,75 @@ export const ConfirmGrowthRequest = z.object({
 		.min(1),
 });
 export type ConfirmGrowthRequest = z.infer<typeof ConfirmGrowthRequest>;
+
+/** GM 人物库：按规则浏览的轻量列表（不含人物卡 JSON，规则无关） */
+export const GmCharacterLibrarySort = z.enum(["updated", "name", "portrait"]);
+export type GmCharacterLibrarySort = z.infer<typeof GmCharacterLibrarySort>;
+
+export const GmCharacterLibraryQuery = z.object({
+	ruleId: RuleId,
+	kind: CharacterRole.optional(),
+	ownerKind: CharacterOwnerKind.optional(),
+	/** 模组 ID；`none` 表示未关联任何本人模组的人物 */
+	moduleId: z.string().trim().min(1).max(64).optional(),
+	q: z.string().trim().max(100).optional(),
+	sort: GmCharacterLibrarySort.default("updated"),
+	limit: z.coerce.number().int().min(1).max(200).default(100),
+	/** 不透明游标（当前实现为偏移量） */
+	cursor: z.string().regex(/^\d+$/).optional(),
+});
+export type GmCharacterLibraryQuery = z.infer<typeof GmCharacterLibraryQuery>;
+
+export const GmCharacterLibraryModuleRef = z.object({
+	id: z.string(),
+	name: z.string(),
+});
+export type GmCharacterLibraryModuleRef = z.infer<
+	typeof GmCharacterLibraryModuleRef
+>;
+
+export const GmCharacterLibraryItemDto = z.object({
+	id: z.string(),
+	name: z.string(),
+	kind: CharacterRole,
+	ruleId: RuleId,
+	ownerKind: CharacterOwnerKind,
+	/** 是否由当前 GM 持有；否则为玩家持有，只读 */
+	ownedByMe: z.boolean(),
+	/** 玩家持有时的玩家用户名 */
+	ownerName: z.string().nullable(),
+	modules: z.array(GmCharacterLibraryModuleRef),
+	portraitAssetId: z.string().nullable(),
+	expressionCount: z.number().int().min(0),
+	updatedAt: z.number().int(),
+});
+export type GmCharacterLibraryItemDto = z.infer<
+	typeof GmCharacterLibraryItemDto
+>;
+
+export const GmCharacterLibraryFacetCount = z.object({
+	id: z.string(),
+	name: z.string(),
+	count: z.number().int().min(0),
+});
+
+/** 分面计数：每个维度的计数按“其余已选条件”计算 */
+export const GmCharacterLibraryFacets = z.object({
+	rules: z.array(z.object({ ruleId: RuleId, count: z.number().int() })),
+	all: z.number().int(),
+	kinds: z.object({ pc: z.number().int(), npc: z.number().int() }),
+	owners: z.object({ gm: z.number().int(), pl: z.number().int() }),
+	modules: z.array(GmCharacterLibraryFacetCount),
+	unlinked: z.number().int(),
+});
+export type GmCharacterLibraryFacets = z.infer<typeof GmCharacterLibraryFacets>;
+
+export const GmCharacterLibraryResponse = z.object({
+	items: z.array(GmCharacterLibraryItemDto),
+	nextCursor: z.string().nullable(),
+	total: z.number().int().min(0),
+	facets: GmCharacterLibraryFacets,
+});
+export type GmCharacterLibraryResponse = z.infer<
+	typeof GmCharacterLibraryResponse
+>;

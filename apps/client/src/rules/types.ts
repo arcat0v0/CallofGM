@@ -149,6 +149,8 @@ export type LuckSpendOption = {
 
 export type RuleComponent = {
 	metadata: RuleMetadata;
+	/** 界面用短名（如 “CoC 7e”），用于规则切换等紧凑位置 */
+	shortName: string;
 	createEmptySheet: () => unknown;
 	creationEditor: (props: RuleCreationEditorProps) => ReactNode;
 	creationTitle?: () => string;

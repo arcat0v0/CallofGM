@@ -22,6 +22,7 @@ import type {
 	CharacterAuditRecord,
 	CharacterCreationRollRecord,
 	CharacterGrowthRecord,
+	CharacterLibraryScope,
 	CharacterInviteRecord,
 	CharacterReviewDetail,
 	CharacterReviewRecord,
@@ -57,6 +58,152 @@ export class DrizzleCharactersRepository implements CharactersRepository {
 			.where(eq(characters.id, id))
 			.limit(1);
 		return result[0] ?? null;
+	}
+
+	async listLibraryScope(gmUserId: string): Promise<CharacterLibraryScope> {
+		const gmModules = await this.db
+			.select({ id: modules.id, name: modules.name, ruleId: modules.ruleId })
+			.from(modules)
+			.where(and(eq(modules.ownerId, gmUserId), isNull(modules.deletedAt)))
+			.orderBy(asc(modules.createdAt), asc(modules.id));
+		const moduleIds = gmModules.map((module) => module.id);
+		const links =
+			moduleIds.length === 0
+				? []
+				: await this.db
+						.select({
+							characterId: moduleCharacters.characterId,
+							moduleId: moduleCharacters.moduleId,
+						})
+						.from(moduleCharacters)
+						.where(
+							and(
+								inArray(moduleCharacters.moduleId, moduleIds),
+								isNull(moduleCharacters.deletedAt),
+							),
+						)
+						.orderBy(asc(moduleCharacters.createdAt));
+		const linkedIds = [...new Set(links.map((link) => link.characterId))];
+		const rows = await this.db
+			.select({
+				id: characters.id,
+				name: characters.name,
+				kind: characters.kind,
+				ruleId: characters.ruleId,
+				ownerId: characters.ownerId,
+				ownerKind: characters.ownerKind,
+				ownerName: users.username,
+				updatedAt: characters.updatedAt,
+			})
+			.from(characters)
+			.innerJoin(users, eq(users.id, characters.ownerId))
+			.where(
+				and(
+					isNull(characters.deletedAt),
+					linkedIds.length === 0
+						? eq(characters.ownerId, gmUserId)
+						: or(
+								eq(characters.ownerId, gmUserId),
+								inArray(characters.id, linkedIds),
+							),
+				),
+			);
+		const scopedIds = new Set(rows.map((row) => row.id));
+		const portraitRows =
+			rows.length === 0
+				? []
+				: await this.db
+						.select({
+							characterId: characterPortraits.characterId,
+							portraitAssetId: characterPortraits.portraitAssetId,
+							isDefault: characterPortraits.isDefault,
+							sortOrder: characterPortraits.sortOrder,
+							createdAt: characterPortraits.createdAt,
+						})
+						.from(characterPortraits)
+						.innerJoin(
+							characters,
+							eq(characters.id, characterPortraits.characterId),
+						)
+						.where(
+							and(
+								isNull(characterPortraits.deletedAt),
+								isNull(characters.deletedAt),
+								linkedIds.length === 0
+									? eq(characters.ownerId, gmUserId)
+									: or(
+											eq(characters.ownerId, gmUserId),
+											inArray(characters.id, linkedIds),
+										),
+							),
+						);
+		return {
+			characters: rows.map((row) => ({
+				...row,
+				ownerName: row.ownerId === gmUserId ? null : row.ownerName,
+			})),
+			links: links.filter((link) => scopedIds.has(link.characterId)),
+			modules: gmModules,
+			portraits: portraitRows,
+		};
+	}
+
+	async gmHasReadAccess(
+		gmUserId: string,
+		characterId: string,
+	): Promise<boolean> {
+		const owned = await this.db
+			.select({ id: characters.id })
+			.from(characters)
+			.where(
+				and(eq(characters.id, characterId), eq(characters.ownerId, gmUserId)),
+			)
+			.limit(1);
+		if (owned.length > 0) {
+			return true;
+		}
+		const viaModule = await this.db
+			.select({ id: moduleCharacters.id })
+			.from(moduleCharacters)
+			.innerJoin(modules, eq(modules.id, moduleCharacters.moduleId))
+			.where(
+				and(
+					eq(moduleCharacters.characterId, characterId),
+					isNull(moduleCharacters.deletedAt),
+					eq(modules.ownerId, gmUserId),
+					isNull(modules.deletedAt),
+				),
+			)
+			.limit(1);
+		if (viaModule.length > 0) {
+			return true;
+		}
+		const viaSession = await this.db
+			.select({ id: sessionCharacters.id })
+			.from(sessionCharacters)
+			.innerJoin(sessionsTable, eq(sessionsTable.id, sessionCharacters.sessionId))
+			.where(
+				and(
+					eq(sessionCharacters.characterId, characterId),
+					eq(sessionsTable.ownerId, gmUserId),
+				),
+			)
+			.limit(1);
+		if (viaSession.length > 0) {
+			return true;
+		}
+		const viaReview = await this.db
+			.select({ id: characterReviews.id })
+			.from(characterReviews)
+			.where(
+				and(
+					eq(characterReviews.characterId, characterId),
+					eq(characterReviews.ownerId, gmUserId),
+					isNull(characterReviews.deletedAt),
+				),
+			)
+			.limit(1);
+		return viaReview.length > 0;
 	}
 
 	async saveCharacter(

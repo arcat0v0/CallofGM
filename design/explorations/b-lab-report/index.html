@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>人物管理 · CoGM</title>
+<style>
+:root {
+  color-scheme: dark;
+  --surface: #12140e;
+  --surface-container-lowest: #0d0f09;
+  --surface-container-low: #1a1c16;
+  --surface-container: #1e2019;
+  --surface-container-high: #292b23;
+  --surface-container-highest: #33362e;
+  --on-surface: #e2e3d8;
+  --on-surface-variant: #c5c8b9;
+  --outline: #8f9285;
+  --outline-variant: #45483d;
+  --primary: #b4d087;
+  --on-primary: #223600;
+  --primary-container: #374d13;
+  --on-primary-container: #d0eda1;
+  --secondary: #56d6f5;
+  --tertiary: #bac3ff;
+  --error: #ffb4a6;
+  --error-container: #900d00;
+  --warning: #f0c11c;
+  --success: #8ed88b;
+
+  /* semantic aliases */
+  --flag-high: var(--warning);
+  --flag-low: var(--secondary);
+  --ink: var(--on-surface);
+  --ink-2: var(--on-surface-variant);   /* small labels, codes, headers */
+  --ink-dim: var(--outline);            /* >=12px only, on #1e2019 or darker (5.2:1) */
+  --rule: var(--outline-variant);
+
+  --r-4: 4px; --r-8: 8px; --r-12: 12px; --r-16: 16px; --r-28: 28px; --r-full: 9999px;
+
+  --font-sans: system-ui, "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
+
+  --fs-headline-m: 1.75rem;
+  --fs-headline-s: 1.5rem;
+  --fs-title-page: 1.25rem;
+  --fs-title-m: 1rem;
+  --fs-title-s: .875rem;
+  --fs-body-m: .875rem;
+  --fs-body-s: .75rem;
+  --fs-label-m: .75rem;
+  --fs-label-s: .6875rem;
+
+  --rail-w: 96px;
+  --queue-w: 344px;
+
+  /* strict report grid */
+  --t-name: 120px; --t-code: 64px; --t-res: 56px; --t-flag: 24px; --t-ref: 56px; --t-diff: 56px;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; overflow: hidden; }
+body {
+  background: var(--surface); color: var(--ink); font-family: var(--font-sans);
+  font-size: var(--fs-body-m); line-height: 1.45; font-variant-numeric: tabular-nums; -webkit-font-smoothing: antialiased;
+}
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; }
+h1, h2, h3, p, figure, dl, dd, ol, ul { margin: 0; padding: 0; }
+ol, ul { list-style: none; }
+.mono { font-family: var(--font-mono); }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+svg.i { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+svg.i.sm { width: 16px; height: 16px; }
+svg.i.xs { width: 14px; height: 14px; }
+
+/* ---------- shell (global, unchanged) ---------- */
+.shell { display: flex; height: 100vh; height: 100dvh; }
+.rail { width: var(--rail-w); flex: none; background: var(--surface); display: flex; flex-direction: column; align-items: center; padding: 16px 0; gap: 4px; }
+.logo { width: 40px; height: 40px; border-radius: var(--r-full); background: var(--primary-container); color: var(--on-primary-container); display: grid; place-items: center; margin-bottom: 20px; }
+.logo svg { width: 22px; height: 22px; }
+.nav { display: flex; flex-direction: column; gap: 6px; }
+.nav a { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 80px; padding: 4px 0; text-decoration: none; color: var(--ink-2); font-size: var(--fs-label-m); border-radius: var(--r-12); }
+.nav a .pill { width: 56px; height: 32px; border-radius: var(--r-full); display: grid; place-items: center; transition: background-color .12s; }
+.nav a:hover .pill { background: var(--surface-container-high); }
+.nav a[aria-current="page"] { color: var(--ink); font-weight: 600; }
+.nav a[aria-current="page"] .pill { background: var(--primary-container); color: var(--on-primary-container); }
+.rail-foot { margin-top: auto; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.avatar { width: 40px; height: 40px; border-radius: var(--r-full); background: var(--primary-container); color: var(--on-primary-container); display: grid; place-items: center; font-size: var(--fs-label-m); font-weight: 700; letter-spacing: .04em; }
+.icon-btn { width: 40px; height: 40px; border-radius: var(--r-full); border: 0; background: transparent; color: var(--ink-2); display: grid; place-items: center; }
+.icon-btn:hover { background: var(--surface-container-high); color: var(--ink); }
+.main { flex: 1; min-width: 0; background: var(--surface-container-low); border-top-left-radius: var(--r-16); display: flex; flex-direction: column; overflow: hidden; }
+
+/* ---------- page header ---------- */
+.ph { display: flex; align-items: center; gap: 16px; padding: 14px 24px 14px 24px; flex: none; }
+.ph h1 { font-size: var(--fs-title-page); font-weight: 600; letter-spacing: .01em; white-space: nowrap; }
+.ph-rule { font-size: var(--fs-label-m); color: var(--ink-2); white-space: nowrap; }
+.ph-actions { margin-left: auto; display: flex; gap: 8px; }
+
+/* ---------- buttons ---------- */
+.btn {
+  height: 36px; padding: 0 14px 0 12px; border-radius: var(--r-8); border: 1px solid transparent;
+  display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-label-m); font-weight: 600;
+  white-space: nowrap; transition: background-color .12s, border-color .12s;
+}
+.btn-filled { background: var(--primary); color: var(--on-primary); }
+.btn-filled:hover { background: var(--on-primary-container); }
+.btn-outline { background: transparent; color: var(--ink); border-color: var(--rule); }
+.btn-outline:hover { background: var(--surface-container-high); border-color: var(--outline); }
+.btn-lime { background: transparent; color: var(--primary); border-color: var(--rule); }
+.btn-lime:hover { background: var(--surface-container-high); border-color: var(--primary); }
+.btn-ghost { background: transparent; color: var(--ink-2); }
+.btn-ghost:hover { background: var(--surface-container-high); color: var(--ink); }
+.btn-square { width: 36px; padding: 0; justify-content: center; }
+.btn-danger { background: var(--error-container); color: var(--ink); }
+.btn-danger:hover { border-color: var(--error); }
+.link { border: 0; background: none; padding: 0; color: var(--ink); text-decoration: underline; text-decoration-color: var(--rule); text-underline-offset: 3px; }
+.link:hover { text-decoration-color: var(--ink); }
+
+/* ---------- workspace ---------- */
+.work { flex: 1; min-height: 0; display: grid; grid-template-columns: var(--queue-w) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); border-top: 1px solid var(--rule); }
+
+/* ---------- queue (dense ledger) ---------- */
+.queue { display: flex; flex-direction: column; min-height: 0; }
+.q-head { padding: 12px 16px 12px 24px; display: flex; flex-direction: column; gap: 8px; flex: none; }
+.search { position: relative; }
+.search svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--ink-2); pointer-events: none; }
+.search input { width: 100%; height: 36px; border-radius: var(--r-8); border: 1px solid var(--rule); background: var(--surface-container-lowest); padding: 0 34px; font-size: var(--fs-body-m); }
+.search input::placeholder { color: var(--ink-dim); }
+.search input:hover { border-color: var(--outline); }
+.search input:focus-visible { outline: 2px solid var(--ink); outline-offset: 0; border-color: transparent; }
+.search kbd { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-family: var(--font-mono); font-size: var(--fs-label-s); color: var(--ink-2); border: 1px solid var(--rule); border-radius: var(--r-4); padding: 0 5px; line-height: 16px; }
+.seg { display: flex; border: 1px solid var(--rule); border-radius: var(--r-8); padding: 2px; gap: 2px; }
+.seg button { flex: 1; height: 30px; border: 0; border-radius: 6px; background: transparent; color: var(--ink-2); font-size: var(--fs-label-m); display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.seg button:hover { background: var(--surface-container-high); color: var(--ink); }
+.seg button[aria-pressed="true"] { background: var(--surface-container-highest); color: var(--ink); font-weight: 600; }
+.seg .n { font-family: var(--font-mono); font-size: var(--fs-label-s); color: var(--ink-2); font-weight: 400; }
+
+.q-scroll { position: relative; flex: 1; min-height: 0; overflow: auto; padding-bottom: 24px; scrollbar-width: thin; scrollbar-color: var(--rule) transparent; }
+.q-cols, .slip { display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; column-gap: 10px; padding-left: 24px; padding-right: 16px; }
+.q-cols { position: sticky; top: 0; z-index: 2; background: var(--surface-container-low); border-bottom: 1px solid var(--outline); height: 28px; align-items: center; font-size: var(--fs-label-s); color: var(--ink-2); letter-spacing: .04em; }
+.q-cols .r { text-align: right; }
+.slip {
+  width: 100%; height: 52px; text-align: left; border: 0; border-bottom: 1px solid var(--rule); background: transparent; color: inherit;
+  grid-template-rows: 20px 16px; align-content: center; row-gap: 1px; position: relative; transition: background-color .1s;
+}
+.slip:hover { background: var(--surface-container); }
+.slip:focus-visible { outline-offset: -2px; }
+.slip[aria-current="true"] { background: var(--surface-container); }
+.slip[aria-current="true"]::before { content: ""; position: absolute; left: 0; top: -1px; bottom: -1px; width: 3px; background: var(--primary); }
+.s-no { grid-row: 1; grid-column: 1; align-self: center; font-family: var(--font-mono); font-size: var(--fs-label-s); color: var(--ink-2); letter-spacing: .04em; }
+.slip[aria-current="true"] .s-no { color: var(--primary); font-weight: 600; }
+.s-name { grid-row: 1; grid-column: 2; align-self: center; font-size: var(--fs-title-s); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.s-vit { grid-row: 1; grid-column: 3; align-self: center; justify-self: end; display: grid; grid-template-columns: auto 2ch auto 2ch; column-gap: 4px; font-family: var(--font-mono); font-size: var(--fs-label-s); color: var(--ink-2); }
+.s-vit b { color: var(--ink); font-weight: 600; text-align: right; }
+.s-vit .k2 { margin-left: 8px; }
+.s-sub { grid-row: 2; grid-column: 2; align-self: center; font-size: var(--fs-label-m); color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.s-sub .null { color: var(--ink-dim); }
+.s-flags { grid-row: 2; grid-column: 3; align-self: center; justify-self: end; display: flex; gap: 6px; font-size: var(--fs-label-m); color: var(--ink-2); white-space: nowrap; }
+.s-flags .more { font-family: var(--font-mono); font-size: var(--fs-label-s); color: var(--ink-2); }
+.s-go { display: none; grid-row: 1 / 3; grid-column: 4; align-self: center; color: var(--ink-2); font-size: 18px; line-height: 1; }
+.g { font-family: var(--font-mono); font-weight: 700; font-style: normal; font-size: 13px; line-height: 1; margin-right: 1px; }
+.g.up { color: var(--flag-high); }
+.g.dn { color: var(--flag-low); }
+.q-empty { padding: 24px; color: var(--ink-2); font-size: var(--fs-body-s); display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+.q-empty .mono { font-size: var(--fs-label-s); }
+
+/* ---------- report sheet ---------- */
+.sheet { background: var(--surface-container); border-left: 1px solid var(--rule); display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+.tb { display: flex; align-items: center; gap: 8px; padding: 10px 24px 10px 20px; border-bottom: 1px solid var(--rule); flex: none; }
+.tb-id { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.tb-id .lbl { font-size: var(--fs-label-m); color: var(--ink-2); margin-left: 6px; white-space: nowrap; }
+.tb-id .no { font-family: var(--font-mono); font-size: var(--fs-label-m); color: var(--ink); font-weight: 600; letter-spacing: .04em; white-space: nowrap; }
+.tb-id .pos { font-family: var(--font-mono); font-size: var(--fs-label-s); color: var(--ink-2); margin-left: 6px; white-space: nowrap; }
+.tb-actions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+.back { display: none; }
+.menu-wrap { position: relative; }
+.menu { position: absolute; right: 0; top: calc(100% + 6px); min-width: 184px; z-index: 20; background: var(--surface-container-highest); border-radius: var(--r-8); padding: 4px; border: 1px solid var(--rule); }
+.menu[hidden] { display: none; }
+.menu button { width: 100%; height: 40px; border: 0; background: transparent; border-radius: var(--r-4); display: flex; align-items: center; gap: 8px; padding: 0 10px; font-size: var(--fs-label-m); text-align: left; color: var(--ink); }
+.menu button:hover { background: var(--surface-container-high); }
+.menu button.danger { color: var(--error); }
+.menu .m-only { display: none; }
+.menu hr { border: 0; border-top: 1px solid var(--rule); margin: 4px 0; }
+
+.r-scroll { position: relative; flex: 1; min-height: 0; overflow: auto; scrollbar-width: thin; scrollbar-color: var(--rule) transparent; }
+.report { max-width: 1080px; padding: 22px 32px 40px 32px; }
+
+/* subject block */
+.rh { display: grid; grid-template-columns: minmax(0, 1fr) 132px; gap: 28px; padding-bottom: 18px; border-bottom: 1px solid var(--outline); }
+.rh-kicker { font-size: var(--fs-label-s); color: var(--ink-2); letter-spacing: .06em; }
+.rh-name { font-size: var(--fs-headline-m); font-weight: 600; line-height: 1.2; margin: 2px 0 12px; letter-spacing: .01em; }
+.rh-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid var(--rule); }
+.rh-fields > div { padding: 7px 12px 8px; border-bottom: 1px solid var(--rule); border-left: 1px solid var(--rule); min-width: 0; }
+.rh-fields > div:nth-child(3n+1) { padding-left: 0; border-left: 0; }
+.rh-fields dt { font-size: var(--fs-label-s); color: var(--ink-2); letter-spacing: .04em; margin-bottom: 1px; }
+.rh-fields dd { font-size: var(--fs-body-m); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rh-fields dd.null { color: var(--ink-dim); }
+.rh-fields dd .sub { color: var(--ink-2); margin-left: 6px; font-size: var(--fs-body-s); }
+.verdict { display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 6px 12px; margin-top: 12px; align-items: baseline; }
+.verdict dt { font-size: var(--fs-label-s); color: var(--ink-2); letter-spacing: .04em; }
+.verdict dd { min-width: 0; }
+.verdict .concl { font-size: var(--fs-body-m); color: var(--ink); display: flex; flex-wrap: wrap; gap: 2px 14px; }
+.verdict .concl .d { font-family: var(--font-mono); margin-left: 4px; }
+.verdict .concl .none { color: var(--ink); }
+.verdict .concl .none .m { color: var(--ink-2); font-size: var(--fs-body-s); margin-left: 6px; }
+.verdict .cmp { font-size: var(--fs-body-s); color: var(--ink-2); display: flex; flex-wrap: wrap; gap: 2px 8px; }
+.verdict .cmp .link { font-size: var(--fs-body-s); }
+.verdict .cmp .d { font-family: var(--font-mono); color: var(--ink); }
+
+.specimen { display: flex; flex-direction: column; gap: 6px; }
+.specimen-frame { width: 132px; aspect-ratio: 3 / 4; padding: 3px; border: 1px solid var(--rule); background: var(--surface-container-lowest); border-radius: 2px; display: block; position: relative; overflow: hidden; color: var(--ink-2); }
+.specimen-frame:hover { border-color: var(--outline); }
+.specimen-frame img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.specimen-frame .ph-empty { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; border: 1px dashed var(--rule); font-size: var(--fs-label-s); color: var(--ink-2); }
+.specimen-frame .ph-empty svg { width: 40px; height: 40px; stroke-width: 1.25; color: var(--outline); }
+.specimen-frame .hover-cap { position: absolute; left: 3px; right: 3px; bottom: 3px; padding: 5px 6px; background: var(--surface-container-highest); font-size: var(--fs-label-s); color: var(--ink); display: flex; align-items: center; gap: 4px; opacity: 0; }
+.specimen-frame:hover .hover-cap, .specimen-frame:focus-visible .hover-cap { opacity: 1; }
+.specimen figcaption { font-family: var(--font-mono); font-size: var(--fs-label-s); color: var(--ink-2); letter-spacing: .03em; }
+
+/* sections */
+.sec { margin-top: 24px; }
+.sec-h { display: flex; align-items: baseline; gap: 10px; padding-bottom: 7px; border-bottom: 1px solid var(--outline); }
+.sec-h .t { font-size: var(--fs-title-s); font-weight: 600; letter-spacing: .02em; }
+.sec-h .meta { margin-left: auto; font-size: var(--fs-label-s); color: var(--ink-2); white-space: nowrap; }
+.sec-h .meta .mono { color: var(--ink); }
+.gen { display: grid; grid-template-columns: 1fr 1fr; gap: 0 36px; }
+
+table.lab { width: 100%; border-collapse: collapse; table-layout: fixed; }
+table.lab col.c-name { width: var(--t-name); }
+table.lab col.c-code { width: var(--t-code); }
+table.lab col.c-res { width: var(--t-res); }
+table.lab col.c-flag { width: var(--t-flag); }
+table.lab col.c-ref { width: var(--t-ref); }
+table.lab col.c-diff { width: var(--t-diff); }
+table.lab th { font-size: var(--fs-label-s); font-weight: 500; color: var(--ink-2); letter-spacing: .04em; text-align: left; padding: 8px 6px 6px; border-bottom: 1px solid var(--rule); white-space: nowrap; vertical-align: bottom; }
+table.lab td { padding: 0 6px; height: 33px; border-bottom: 1px solid var(--rule); vertical-align: middle; white-space: nowrap; }
+table.lab th:first-child, table.lab td:first-child { padding-left: 0; padding-right: 8px; }
+table.lab .num { text-align: right; }
+table.lab .ctr { text-align: center; padding-left: 0; padding-right: 0; }
+table.lab tbody tr { transition: background-color .08s; }
+table.lab tbody tr:hover { background: var(--surface-container-high); }
+table.lab .name { font-size: var(--fs-body-m); overflow: hidden; text-overflow: ellipsis; }
+table.lab .name .spec { color: var(--ink-2); font-size: var(--fs-body-s); }
+table.lab .name .ci { display: none; }
+table.lab .code { font-family: var(--font-mono); font-size: var(--fs-label-s); color: var(--ink-2); letter-spacing: .06em; }
+table.lab .res { font-family: var(--font-mono); font-size: var(--fs-body-m); font-weight: 500; color: var(--ink); }
+table.lab .res.up { color: var(--flag-high); font-weight: 700; }
+table.lab .res.dn { color: var(--flag-low); font-weight: 700; }
+table.lab .res.dim { color: var(--ink-dim); }
+table.lab .res.big { font-size: var(--fs-headline-s); line-height: 1; letter-spacing: -.02em; }
+table.lab .ref { font-family: var(--font-mono); font-size: var(--fs-label-m); color: var(--ink-2); }
+table.lab .diff { font-family: var(--font-mono); font-size: var(--fs-label-m); color: var(--ink-2); }
+table.lab .diff sup { font-size: var(--fs-label-s); margin-left: 1px; }
+table.lab .note { font-size: var(--fs-label-m); color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; }
+table.lab .note .mono { color: var(--ink); }
+table.lab.vitals td { height: 44px; }
+table.lab th.bar-h, table.lab td.bar { padding: 0 0 0 16px; }
+
+/* range bar: rail + roster band + mean caret + ⅕/½ notches + value */
+.rb { position: relative; height: 33px; }
+.rb i { position: absolute; display: block; }
+.rb .gl { top: 0; bottom: 0; width: 1px; background: var(--ink); opacity: .1; }
+.rb .trk { left: 0; right: 0; top: 15px; height: 6px; background: var(--surface-container-highest); }
+.rb .band { top: 15px; height: 6px; background: var(--outline); opacity: .42; }
+.rb .caret { top: 7px; width: 0; height: 0; margin-left: -4px; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 6px solid var(--ink-2); }
+.rb .notch { top: 13px; height: 10px; width: 1px; background: var(--ink-2); }
+.rb .val { top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--ink); }
+.ruler { position: relative; height: 14px; font-family: var(--font-mono); font-size: var(--fs-label-s); color: var(--ink-2); }
+.ruler span { position: absolute; top: 0; transform: translateX(-50%); }
+.ruler span:first-child { transform: none; }
+.ruler span:last-child { transform: translateX(-100%); }
+
+.notes { margin-top: 28px; padding-top: 10px; border-top: 1px solid var(--rule); display: grid; gap: 4px; font-size: var(--fs-label-m); color: var(--ink-2); }
+.notes li { display: grid; grid-template-columns: 40px 1fr; }
+.notes .mono { color: var(--ink); }
+.end { margin-top: 16px; font-family: var(--font-mono); font-size: var(--fs-label-s); color: var(--ink-2); letter-spacing: .08em; display: flex; justify-content: space-between; }
+
+/* toast + dialog */
+.toast { position: fixed; right: 20px; bottom: 20px; z-index: 40; max-width: 360px; background: var(--surface-container-highest); color: var(--ink); border-radius: var(--r-8); padding: 10px 14px; font-family: var(--font-mono); font-size: var(--fs-label-m); border: 1px solid var(--rule); }
+.toast[hidden] { display: none; }
+dialog { border: 1px solid var(--rule); border-radius: var(--r-12); background: var(--surface-container-high); color: var(--ink); padding: 20px 20px 16px; width: min(400px, calc(100vw - 32px)); }
+dialog::backdrop { background: rgb(13 15 9 / .72); }
+dialog h2 { font-size: var(--fs-title-m); font-weight: 600; margin-bottom: 8px; }
+dialog p { font-size: var(--fs-body-m); color: var(--ink-2); }
+dialog .row { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+
+/* ---------- responsive ---------- */
+@media (max-width: 1180px) { :root { --queue-w: 304px; } }
+@media (max-width: 899px) {
+  .ph { padding: 10px 12px; gap: 8px; }
+  .ph h1 { font-size: var(--fs-title-m); }
+  .ph-rule { display: none; }
+  .ph-actions .btn { height: 40px; }
+  .ph-actions .btn-import { width: 40px; padding: 0; justify-content: center; }
+  .ph-actions .btn-import .lbl { display: none; }
+  .work { grid-template-columns: minmax(0, 1fr); }
+  .q-head { padding: 10px 12px; }
+  .search input { height: 40px; padding-right: 10px; }
+  .search kbd { display: none; }
+  .seg { padding: 0; gap: 0; border-radius: var(--r-8); overflow: hidden; }
+  .seg button { height: 40px; border-radius: 0; }
+  .q-cols, .slip { grid-template-columns: 50px minmax(0, 1fr) auto 10px; padding-left: 12px; padding-right: 10px; column-gap: 8px; }
+  .s-go { display: block; }
+  .sheet { display: none; border-left: 0; }
+  body.show-report .queue, body.show-report .ph { display: none; }
+  body.show-report .work { border-top: 0; }
+  body.show-report .sheet { display: flex; }
+  .back { display: inline-flex; }
+  .tb { padding: 6px 8px 6px 4px; }
+  .tb .btn { height: 40px; }
+  .tb .btn-square { width: 40px; }
+  .tb .flip, .tb-id .lbl, .tb-id .no, .tb-id .pos, .tb-actions .btn-x { display: none; }
+  .menu .m-only { display: flex; }
+  .report { padding: 16px 12px 32px; }
+  .rh { grid-template-columns: minmax(0, 1fr) 76px; gap: 12px; }
+  .rh-main { display: contents; }
+  .rh-top { grid-column: 1; }
+  .specimen { grid-column: 2; grid-row: 1; }
+  .specimen-frame { width: 76px; padding: 2px; }
+  .specimen-frame .ph-empty { gap: 4px; }
+  .specimen-frame .ph-empty svg { width: 26px; height: 26px; }
+  .rh-name { font-size: var(--fs-headline-s); margin-bottom: 4px; }
+  .rh-fields, .verdict { grid-column: 1 / -1; }
+  .rh-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .rh-fields > div:nth-child(n) { padding-left: 12px; border-left: 1px solid var(--rule); }
+  .rh-fields > div:nth-child(2n+1) { padding-left: 0; border-left: 0; }
+  .rh-fields > div:nth-child(n+5) { grid-column: 1 / -1; padding-left: 0; border-left: 0; display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+  .verdict { margin-top: 0; grid-template-columns: 32px minmax(0, 1fr); }
+  .gen { grid-template-columns: 1fr; }
+  .gen table + table thead { display: none; }
+  table.lab .name { white-space: normal; line-height: 1.25; padding-top: 4px; padding-bottom: 4px; }
+  table.lab .name .spec { display: block; }
+  table.lab .name .ci { display: block; font-family: var(--font-mono); font-size: var(--fs-label-s); color: var(--ink-2); letter-spacing: .06em; }
+  table.lab td { height: 44px; padding: 0 4px; }
+  table.lab th { padding: 8px 4px 6px; white-space: normal; line-height: 1.2; }
+  table.lab th .frac { display: block; }
+  table.lab th.ctr { white-space: nowrap; }
+  .verdict .cmp { flex-direction: column; }
+  .verdict .cmp .sep { display: none; }
+  table.lab .res:not(.big) { font-size: var(--fs-body-s); }
+  table.lab .note { white-space: normal; line-height: 1.3; font-size: var(--fs-label-s); }
+  .sec-h { flex-wrap: wrap; }
+  .sec-h .meta { margin-left: 0; width: 100%; }
+  .notes li { grid-template-columns: 34px 1fr; }
+}
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+    <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></symbol>
+    <symbol id="i-template" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="7" rx="1"/><rect x="3" y="14" width="9" height="7" rx="1"/><rect x="16" y="14" width="5" height="7" rx="1"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/></symbol>
+    <symbol id="i-music" viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></symbol>
+    <symbol id="i-ban" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M10 11v6"/><path d="M14 11v6"/></symbol>
+    <symbol id="i-logout" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></symbol>
+    <symbol id="i-import" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M12 18v-6"/><path d="m9 15 3 3 3-3"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 15a4 4 0 0 0 7 2"/><path d="M16 13a4 4 0 0 0-7-2"/></symbol>
+    <symbol id="i-pen" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.4 3.6a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4z"/></symbol>
+    <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></symbol>
+    <symbol id="i-more" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></symbol>
+    <symbol id="i-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+    <symbol id="i-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+    <symbol id="i-bust" viewBox="0 0 24 24"><circle cx="12" cy="9" r="4"/><path d="M4.5 21c.8-4 3.8-6.5 7.5-6.5s6.7 2.5 7.5 6.5"/></symbol>
+  </defs>
+</svg>
+
+<div class="shell">
+  <nav class="rail" aria-label="GM 后台">
+    <div class="logo" aria-label="CoGM">
+      <svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 4v5M12 15v5"/></svg>
+    </div>
+    <div class="nav">
+      <a href="#"><span class="pill"><svg class="i"><use href="#i-users"/></svg></span>团</a>
+      <a href="#"><span class="pill"><svg class="i"><use href="#i-book"/></svg></span>模组</a>
+      <a href="#"><span class="pill"><svg class="i"><use href="#i-template"/></svg></span>模组模板</a>
+      <a href="#" aria-current="page"><span class="pill"><svg class="i"><use href="#i-user"/></svg></span>人物</a>
+      <a href="#"><span class="pill"><svg class="i"><use href="#i-music"/></svg></span>音乐</a>
+      <a href="#"><span class="pill"><svg class="i"><use href="#i-ban"/></svg></span>黑名单</a>
+      <a href="#"><span class="pill"><svg class="i"><use href="#i-check"/></svg></span>审核</a>
+      <a href="#"><span class="pill"><svg class="i"><use href="#i-trash"/></svg></span>回收站</a>
+    </div>
+    <div class="rail-foot">
+      <div class="avatar" aria-label="当前用户 KP">KP</div>
+      <button class="icon-btn" type="button" aria-label="退出登录"><svg class="i"><use href="#i-logout"/></svg></button>
+    </div>
+  </nav>
+
+  <main class="main">
+    <header class="ph">
+      <h1>人物管理</h1>
+      <span class="ph-rule">克苏鲁的呼唤 第7版</span>
+      <div class="ph-actions">
+        <button class="btn btn-outline btn-import" type="button" data-act="import" aria-label="从 Excel 导入人物"><svg class="i sm"><use href="#i-import"/></svg><span class="lbl">导入</span></button>
+        <button class="btn btn-filled" type="button" data-act="new"><svg class="i sm"><use href="#i-plus"/></svg>新建人物</button>
+      </div>
+    </header>
+
+    <div class="work">
+      <section class="queue" aria-label="人物队列">
+        <div class="q-head">
+          <label class="search">
+            <span class="sr-only">搜索人物</span>
+            <svg class="i sm"><use href="#i-search"/></svg>
+            <input id="q" type="search" placeholder="搜索人物…" autocomplete="off">
+            <kbd aria-hidden="true">/</kbd>
+          </label>
+          <div class="seg" role="group" aria-label="类别筛选" id="seg"></div>
+        </div>
+        <div class="q-scroll" data-scroll id="qscroll">
+          <div class="q-cols" aria-hidden="true"><span>样本号</span><span>检验对象</span><span class="r">HP · SAN</span></div>
+          <ol id="list"></ol>
+        </div>
+      </section>
+
+      <section class="sheet" aria-label="人物卡报告">
+        <div class="tb">
+          <div class="tb-id">
+            <button class="btn btn-ghost back" type="button" id="back" aria-label="返回队列"><svg class="i sm"><use href="#i-left"/></svg>队列</button>
+            <button class="btn btn-ghost btn-square flip" type="button" id="prev" aria-label="上一份"><svg class="i sm"><use href="#i-left"/></svg></button>
+            <button class="btn btn-ghost btn-square flip" type="button" id="next" aria-label="下一份"><svg class="i sm"><use href="#i-right"/></svg></button>
+            <span class="lbl">人物卡报告</span>
+            <span class="no" id="tb-no"></span>
+            <span class="pos" id="tb-pos"></span>
+          </div>
+          <div class="tb-actions">
+            <button class="btn btn-ghost btn-x" type="button" data-act="portrait"><svg class="i sm"><use href="#i-image"/></svg>管理立绘</button>
+            <button class="btn btn-lime" type="button" data-act="edit"><svg class="i sm"><use href="#i-pen"/></svg>编辑人物卡</button>
+            <div class="menu-wrap">
+              <button class="btn btn-ghost btn-square" type="button" id="more" aria-label="更多操作" aria-haspopup="menu" aria-expanded="false"><svg class="i sm"><use href="#i-more"/></svg></button>
+              <div class="menu" id="menu" role="menu" hidden>
+                <button type="button" role="menuitem" class="m-only" data-act="portrait"><svg class="i sm"><use href="#i-image"/></svg>管理立绘</button>
+                <button type="button" role="menuitem" data-act="excel"><svg class="i sm"><use href="#i-refresh"/></svg>从 Excel 更新</button>
+                <hr>
+                <button type="button" role="menuitem" class="danger" data-act="delete"><svg class="i sm"><use href="#i-trash"/></svg>删除人物卡</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="r-scroll" data-scroll id="rscroll">
+          <article class="report" id="report" aria-live="polite"></article>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<div class="toast" id="toast" role="status" hidden></div>
+
+<dialog id="del">
+  <h2>删除人物卡</h2>
+  <p id="del-msg"></p>
+  <div class="row">
+    <button class="btn btn-outline" type="button" id="del-cancel">取消</button>
+    <button class="btn btn-danger" type="button" id="del-ok"><svg class="i sm"><use href="#i-trash"/></svg>删除</button>
+  </div>
+</dialog>
+
+<script>
+const CHARACTERS = [
+  {"name":"艾琳·沃克","kind":"PC","occupation":"记者","age":28,"era":"1920s","attributes":{"str":45,"con":60,"siz":55,"dex":70,"app":65,"int":75,"pow":60,"edu":80,"luck":55},"skills":[["图书馆",70],["侦查",65],["说服",55],["心理学",50],["聆听",45],["闪避",45],["技艺(摄影)",40],["历史",35]],"hp":11,"mp":12,"san":60,"sanMax":99,"luck":55,"mov":8,"db":"0","build":0,"majorWound":5,"updatedAt":"2026-11-21T06:30:41.548Z"},
+  {"name":"托马斯·哈德维克","kind":"PC","occupation":"私家侦探","age":41,"era":"1920s","attributes":{"str":65,"con":70,"siz":60,"dex":55,"app":45,"int":70,"pow":50,"edu":65,"luck":40},"skills":[["侦查",75],["射击(手枪)",65],["格斗(斗殴)",60],["心理学",55],["潜行",50],["锁匠",45],["法律",30]],"hp":13,"mp":10,"san":50,"sanMax":99,"luck":40,"mov":7,"db":"+1d4","build":1,"majorWound":6,"updatedAt":"2026-11-21T06:30:41.554Z"},
+  {"name":"李文渊","kind":"PC","occupation":"古董商","age":52,"era":"1920s","attributes":{"str":40,"con":50,"siz":60,"dex":45,"app":55,"int":85,"pow":70,"edu":85,"luck":65},"skills":[["估价",80],["历史",70],["话术",60],["其他语言(拉丁语)",50],["神秘学",45],["考古学",40]],"hp":11,"mp":14,"san":70,"sanMax":99,"luck":65,"mov":5,"db":"0","build":0,"majorWound":5,"updatedAt":"2026-11-21T06:30:41.557Z"},
+  {"name":"玛格丽特·费恩","kind":"PC","occupation":"医生","age":35,"era":"1920s","attributes":{"str":50,"con":55,"siz":50,"dex":60,"app":70,"int":80,"pow":65,"edu":90,"luck":50},"skills":[["医学",75],["急救",70],["科学(药学)",55],["心理学",50],["说服",40]],"hp":10,"mp":13,"san":65,"sanMax":99,"luck":50,"mov":8,"db":"0","build":0,"majorWound":5,"updatedAt":"2026-11-21T06:30:41.560Z"},
+  {"name":"奥斯本教授","kind":"NPC","occupation":"教授","age":63,"era":"1920s","attributes":{"str":35,"con":40,"siz":55,"dex":40,"app":50,"int":90,"pow":75,"edu":95,"luck":30},"skills":[["图书馆",85],["历史",75],["神秘学",70],["其他语言(希腊语)",60],["克苏鲁神话",25]],"hp":9,"mp":15,"san":74,"sanMax":74,"luck":30,"mov":4,"db":"0","build":0,"majorWound":4,"updatedAt":"2026-11-21T06:30:41.562Z"},
+  {"name":"码头工人 杰克","kind":"NPC","occupation":"工人","age":30,"era":"1920s","attributes":{"str":80,"con":75,"siz":75,"dex":50,"app":40,"int":45,"pow":40,"edu":40,"luck":50},"skills":[["格斗(斗殴)",70],["恐吓",55],["攀爬",50],["投掷",45]],"hp":15,"mp":8,"san":40,"sanMax":99,"luck":50,"mov":8,"db":"+1d4","build":1,"majorWound":7,"updatedAt":"2026-11-21T06:30:41.566Z"},
+  {"name":"神秘女子","kind":"NPC","occupation":null,"age":null,"era":"1920s","attributes":{"str":50,"con":50,"siz":50,"dex":70,"app":85,"int":70,"pow":80,"edu":60,"luck":50},"skills":[["魅惑",80],["话术",65],["潜行",60]],"hp":10,"mp":16,"san":80,"sanMax":99,"luck":50,"mov":8,"db":"0","build":0,"majorWound":5,"updatedAt":"2026-11-21T06:30:41.569Z"},
+  {"name":"警长 柯林斯","kind":"NPC","occupation":"警探","age":47,"era":"1920s","attributes":{"str":60,"con":65,"siz":65,"dex":55,"app":50,"int":60,"pow":55,"edu":60,"luck":45},"skills":[["射击(手枪)",60],["侦查",55],["法律",50],["恐吓",50]],"hp":13,"mp":11,"san":55,"sanMax":99,"luck":45,"mov":6,"db":"+1d4","build":1,"majorWound":6,"updatedAt":"2026-11-21T06:30:41.572Z"}
+];
+
+const PORTRAITS = {
+  "艾琳·沃克": "../../assets/portrait-irene.png",
+  "托马斯·哈德维克": "../../assets/portrait-thomas.png",
+  "李文渊": "../../assets/portrait-li.png",
+  "玛格丽特·费恩": "../../assets/portrait-margaret.png",
+  "奥斯本教授": "../../assets/portrait-osborne.png"
+};
+
+// [key, label, code, single-character abbreviation used in the dense roster]
+const ATTRS = [
+  ["str", "力量", "STR", "力"], ["con", "体质", "CON", "质"], ["siz", "体型", "SIZ", "型"], ["dex", "敏捷", "DEX", "敏"],
+  ["app", "外貌", "APP", "貌"], ["int", "智力", "INT", "智"], ["pow", "意志", "POW", "意"], ["edu", "教育", "EDU", "教"], ["luck", "幸运", "LUCK", "运"]
+];
+const CHAR8 = ATTRS.slice(0, 8);
+const SKILL_CODES = {
+  "图书馆": "LIB", "侦查": "SPOT", "说服": "PERS", "心理学": "PSY", "聆听": "LSTN", "闪避": "DODG",
+  "技艺(摄影)": "ART·PH", "历史": "HIST", "射击(手枪)": "FIRE·HG", "格斗(斗殴)": "FGT·BR", "潜行": "STLH",
+  "锁匠": "LOCK", "法律": "LAW", "估价": "APPR", "话术": "FTLK", "其他语言(拉丁语)": "LANG·LA", "神秘学": "OCCT",
+  "考古学": "ARCH", "医学": "MED", "急救": "AID", "科学(药学)": "SCI·PH", "其他语言(希腊语)": "LANG·GR",
+  "克苏鲁神话": "CM", "恐吓": "INTM", "攀爬": "CLMB", "投掷": "THRW", "魅惑": "CHRM"
+};
+const FLAG_T = 15;
+const NOTE_UNIQUE = 5;
+
+let roster = CHARACTERS.map((c) => ({ ...c }));
+const state = { filter: "all", query: "", sel: roster[0]?.name ?? null };
+
+(function assignNumbers() {
+  const n = { PC: 0, NPC: 0 };
+  for (const c of roster) { n[c.kind] += 1; c.no = `${c.kind}-${String(n[c.kind]).padStart(2, "0")}`; }
+})();
+
+const avg = (a) => a.reduce((s, x) => s + x, 0) / a.length;
+function stats() {
+  const attr = {};
+  for (const [k] of ATTRS) {
+    const vs = roster.map((c) => c.attributes[k]);
+    attr[k] = { mean: avg(vs), min: Math.min(...vs), max: Math.max(...vs) };
+  }
+  const skill = {};
+  for (const c of roster) for (const [n, v] of c.skills) (skill[n] ||= []).push(v);
+  return { attr, san: { mean: avg(roster.map((c) => c.san)) }, skill, n: roster.length };
+}
+let S = stats();
+
+const dirOf = (d) => d >= FLAG_T ? "up" : d <= -FLAG_T ? "dn" : null;
+function attrFlags(c) {
+  return ATTRS.map(([k, label, code, ab]) => {
+    const v = c.attributes[k], d = v - S.attr[k].mean;
+    return { k, label, code, ab, v, d, dir: dirOf(d) };
+  });
+}
+function rmsTo(a, b) { return Math.sqrt(avg(CHAR8.map(([k]) => (a.attributes[k] - b.attributes[k]) ** 2))); }
+
+const esc = (s) => String(s).replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]));
+const sgn = (d) => { const r = Math.round(d); return r > 0 ? `+${r}` : r < 0 ? `−${Math.abs(r)}` : "±0"; };
+const glyph = (dir) => dir === "up" ? '<i class="g up" aria-label="偏高">↑</i>' : dir === "dn" ? '<i class="g dn" aria-label="偏低">↓</i>' : "";
+const era = (e) => /^(\d{4})s$/.test(e) ? `${e.slice(0, 4)} 年代` : e;
+function fmtTime(iso) {
+  const p = Object.fromEntries(new Intl.DateTimeFormat("zh-CN", { timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false }).formatToParts(new Date(iso)).map((x) => [x.type, x.value]));
+  return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}`;
+}
+function splitSkill(name) {
+  const m = name.match(/^(.+?)\((.+)\)$/);
+  return m ? `${esc(m[1])}<span class="spec">(${esc(m[2])})</span>` : esc(name);
+}
+function visible() {
+  const q = state.query.trim().toLowerCase();
+  return roster.filter((c) => (state.filter === "all" || c.kind === state.filter) && (!q || c.name.toLowerCase().includes(q)));
+}
+
+const $ = (id) => document.getElementById(id);
+const narrow = matchMedia("(max-width: 899px)");
+
+/* ---------- queue ---------- */
+function renderSeg() {
+  const pc = roster.filter((c) => c.kind === "PC").length;
+  const counts = { all: roster.length, PC: pc, NPC: roster.length - pc };
+  $("seg").innerHTML = [["all", "全部"], ["PC", "PC"], ["NPC", "NPC"]].map(([k, l]) =>
+    `<button type="button" data-f="${k}" aria-pressed="${state.filter === k}">${l}<span class="n">${counts[k]}</span></button>`).join("");
+}
+function compactFlags(c) {
+  const f = attrFlags(c).filter((x) => x.dir).sort((a, b) => Math.abs(b.d) - Math.abs(a.d));
+  if (!f.length) return "";
+  const shown = f.slice(0, 2).map((x) => `<span title="${x.label} ${sgn(x.d)}">${glyph(x.dir)}${x.ab}</span>`).join("");
+  const rest = f.length - 2;
+  return shown + (rest > 0 ? `<span class="more" title="${f.slice(2).map((x) => x.label).join("、")}">+${rest}</span>` : "");
+}
+function renderList() {
+  const list = visible();
+  const el = $("list");
+  if (!list.length) {
+    el.innerHTML = `<li class="q-empty"><span class="mono">0 / ${roster.length}</span>没有匹配「${esc(state.query)}」的人物。<button class="btn btn-outline" type="button" id="clear">清除搜索与筛选</button></li>`;
+    $("clear").onclick = () => { state.query = ""; state.filter = "all"; $("q").value = ""; renderAll(); };
+    return;
+  }
+  el.innerHTML = list.map((c) => {
+    const sub = `${c.occupation ? esc(c.occupation) : '<span class="null">未填职业</span>'} · ${c.age != null ? `${c.age} 岁` : '<span class="null">年龄未填</span>'}`;
+    return `<li><button type="button" class="slip" data-name="${esc(c.name)}" aria-current="${c.name === state.sel}">
+      <span class="s-no">${c.no}</span>
+      <span class="s-name">${esc(c.name)}</span>
+      <span class="s-vit"><span>HP</span><b>${c.hp}</b><span class="k2">SAN</span><b>${c.san}</b></span>
+      <span class="s-sub">${sub}</span>
+      <span class="s-flags">${compactFlags(c)}</span>
+      <span class="s-go" aria-hidden="true">›</span>
+    </button></li>`;
+  }).join("");
+}
+
+/* ---------- report ---------- */
+const pct = (x) => `${(Math.min(Math.max(x, 0), 99) / 99 * 100).toFixed(2)}%`;
+function bar(v, ref) {
+  const grid = [25, 50, 75].map((g) => `<i class="gl" style="left:${pct(g)}"></i>`).join("");
+  const band = ref && ref.max > ref.min ? `<i class="band" style="left:${pct(ref.min)};width:calc(${pct(ref.max)} - ${pct(ref.min)})"></i>` : "";
+  const caret = ref && ref.mean != null ? `<i class="caret" style="left:${pct(ref.mean)}"></i>` : "";
+  return `<div class="rb" aria-hidden="true">${grid}<i class="trk"></i>${band}${caret}
+    <i class="notch" style="left:${pct(Math.floor(v / 5))}"></i><i class="notch" style="left:${pct(Math.floor(v / 2))}"></i>
+    <i class="val" style="left:${pct(v)}"></i></div>`;
+}
+const RULER = '<div class="ruler"><span style="left:0">0</span><span style="left:25.25%">25</span><span style="left:50.51%">50</span><span style="left:75.76%">75</span><span style="left:100%">99</span></div>';
+
+function checkTable(rows, caption) {
+  const wide = !narrow.matches;
+  const cols = wide
+    ? '<col class="c-name"><col class="c-code"><col class="c-res"><col class="c-flag"><col class="c-ref"><col class="c-ref"><col class="c-diff"><col>'
+    : '<col><col style="width:36px"><col style="width:24px"><col style="width:36px"><col style="width:36px"><col style="width:42px">';
+  return `<table class="lab"><caption class="sr-only">${caption}</caption><colgroup>${cols}</colgroup>
+    <thead><tr><th scope="col">项目</th>${wide ? '<th scope="col">代码</th>' : ""}<th scope="col" class="num">结果</th><th scope="col" class="ctr">旗标</th>
+      <th scope="col" class="num">困难<span class="frac">(½)</span></th><th scope="col" class="num">极难<span class="frac">(⅕)</span></th>
+      <th scope="col" class="num">名册差</th>${wide ? `<th scope="col" class="bar-h">${RULER}</th>` : ""}</tr></thead>
+    <tbody>${rows.map((r) => `<tr>
+      <td class="name"${r.title ? ` title="${esc(r.title)}"` : ""}>${r.name}<span class="ci">${r.code}</span></td>
+      ${wide ? `<td class="code">${r.code}</td>` : ""}
+      <td class="num res${r.dir ? " " + r.dir : ""}">${r.v}</td>
+      <td class="ctr">${glyph(r.dir)}</td>
+      <td class="num ref">${Math.floor(r.v / 2)}</td>
+      <td class="num ref">${Math.floor(r.v / 5)}</td>
+      <td class="num diff">${r.diff}</td>
+      ${wide ? `<td class="bar">${bar(r.v, r.ref)}</td>` : ""}</tr>`).join("")}</tbody></table>`;
+}
+
+function genTable(rows, cap) {
+  const wide = !narrow.matches;
+  const cols = wide
+    ? '<col class="c-name"><col class="c-code"><col class="c-res"><col class="c-flag"><col>'
+    : '<col><col style="width:52px"><col style="width:24px"><col style="width:44%">';
+  return `<table class="lab vitals"><caption class="sr-only">${cap}</caption><colgroup>${cols}</colgroup>
+    <thead><tr><th scope="col">项目</th>${wide ? '<th scope="col">代码</th>' : ""}<th scope="col" class="num">结果</th><th scope="col" class="ctr">旗标</th><th scope="col">参考</th></tr></thead>
+    <tbody>${rows.map((r) => `<tr>
+      <td class="name">${r.name}<span class="ci">${r.code}</span></td>
+      ${wide ? `<td class="code">${r.code}</td>` : ""}
+      <td class="num res${r.big ? " big" : ""}${r.dir ? " " + r.dir : ""}${r.dim ? " dim" : ""}">${r.v}</td>
+      <td class="ctr">${glyph(r.dir)}</td>
+      <td class="note">${r.note}</td></tr>`).join("")}</tbody></table>`;
+}
+
+function renderReport() {
+  const c = roster.find((x) => x.name === state.sel);
+  const rep = $("report");
+  const list = visible();
+  if (!c) {
+    rep.innerHTML = `<div class="q-empty"><span class="mono">— / —</span>未选择人物。从左侧队列选择一份人物卡。</div>`;
+    $("tb-no").textContent = "—"; $("tb-pos").textContent = "";
+    return;
+  }
+  const idx = list.findIndex((x) => x.name === c.name);
+  $("tb-no").textContent = c.no;
+  $("tb-pos").textContent = idx >= 0 ? `${idx + 1} / ${list.length}` : "不在当前筛选";
+  $("prev").disabled = idx <= 0; $("next").disabled = idx < 0 || idx >= list.length - 1;
+
+  const flags = attrFlags(c);
+  const hits = flags.filter((x) => x.dir).sort((a, b) => Math.abs(b.d) - Math.abs(a.d));
+  const others = roster.filter((x) => x !== c).map((x) => ({ x, d: rmsTo(c, x) })).sort((a, b) => a.d - b.d);
+  const near = others[0], far = others[others.length - 1];
+  const portrait = PORTRAITS[c.name];
+  const emptyFrame = `<span class="ph-empty"><svg class="i"><use href="#i-bust"/></svg><span>未附立绘</span></span>`;
+
+  const cm = c.skills.find(([n]) => n === "克苏鲁神话");
+  const sanD = c.san - S.san.mean, luckD = c.luck - S.attr.luck.mean;
+  const strSiz = c.attributes.str + c.attributes.siz;
+  const genL = [
+    { name: "生命值", code: "HP", v: c.hp, big: true, note: "(体质+体型)÷10" },
+    { name: "魔法值", code: "MP", v: c.mp, big: true, note: "意志÷5" },
+    { name: "理智", code: "SAN", v: c.san, big: true, dir: dirOf(sanD), note: cm ? `上限 <span class="mono">${c.sanMax}</span> = 99−克苏鲁神话 <span class="mono">${cm[1]}</span>` : `上限 <span class="mono">${c.sanMax}</span>` },
+    { name: "幸运", code: "LUCK", v: c.luck, big: true, dir: dirOf(luckD), note: `名册差 <span class="mono">${sgn(luckD)}</span>` },
+  ];
+  const dbNeutral = c.db === "0";
+  const genR = [
+    { name: "移动力", code: "MOV", v: c.mov, big: true, note: "—" },
+    { name: "伤害加值", code: "DB", v: c.db.toUpperCase(), dim: dbNeutral, note: `力量+体型 <span class="mono">${strSiz}</span>` },
+    { name: "体格", code: "BUILD", v: c.build, dim: c.build === 0, note: `力量+体型 <span class="mono">${strSiz}</span>` },
+    { name: "重伤阈值", code: "MW", v: c.majorWound, note: `单次伤害 ≥ <span class="mono">${c.majorWound}</span>` },
+  ];
+  // SAN note also shows roster delta when flagged
+  if (genL[2].dir) genL[2].note += ` · 名册差 <span class="mono">${sgn(sanD)}</span>`;
+
+  const attrRows = flags.map((f) => ({
+    name: f.label, code: f.code, v: f.v, dir: f.dir, diff: sgn(f.d), ref: S.attr[f.k],
+  }));
+  let uniqueCount = 0;
+  const skillRows = c.skills.map(([n, v]) => {
+    const holders = S.skill[n] || [v];
+    const code = SKILL_CODES[n] || "—";
+    if (holders.length < 2) {
+      uniqueCount++;
+      return { name: splitSkill(n), title: n, code, v, dir: null, diff: `—<sup>${NOTE_UNIQUE}</sup>`, ref: null };
+    }
+    const m = avg(holders), d = v - m;
+    return { name: splitSkill(n), title: n, code, v, dir: dirOf(d), diff: sgn(d), ref: { mean: m, min: Math.min(...holders), max: Math.max(...holders) } };
+  });
+
+  rep.innerHTML = `
+    <header class="rh">
+      <div class="rh-main">
+        <div class="rh-top">
+          <div class="rh-kicker">检验对象</div>
+          <h2 class="rh-name">${esc(c.name)}</h2>
+        </div>
+        <dl class="rh-fields">
+          <div><dt>类别</dt><dd>${c.kind}<span class="sub">${c.kind === "PC" ? "调查员" : "非玩家角色"}</span></dd></div>
+          <div><dt>职业</dt>${c.occupation ? `<dd>${esc(c.occupation)}</dd>` : `<dd class="null">未填职业</dd>`}</div>
+          <div><dt>年龄</dt>${c.age != null ? `<dd><span class="mono">${c.age}</span> 岁</dd>` : `<dd class="null">未填</dd>`}</div>
+          <div><dt>时代</dt><dd>${era(c.era)}</dd></div>
+          <div><dt>规则</dt><dd title="克苏鲁的呼唤 第7版">克苏鲁的呼唤 第7版</dd></div>
+          <div><dt>更新时间</dt><dd class="mono">${fmtTime(c.updatedAt)}</dd></div>
+        </dl>
+        <dl class="verdict">
+          <dt>结论</dt>
+          <dd class="concl">${hits.length
+            ? hits.map((x) => `<span>${glyph(x.dir)}${x.label}<span class="d">${sgn(x.d)}</span></span>`).join("")
+            : `<span class="none">未见异常<span class="m">9 项属性均在名册均值 ±${FLAG_T} 以内</span></span>`}</dd>
+          ${near ? `<dt>比对</dt>
+          <dd class="cmp"><span>形近 <button type="button" class="link" data-goto="${esc(near.x.name)}">${esc(near.x.name)}</button> <span class="d">Δ${near.d.toFixed(1)}</span></span><span class="sep" aria-hidden="true">·</span><span>形远 <button type="button" class="link" data-goto="${esc(far.x.name)}">${esc(far.x.name)}</button> <span class="d">Δ${far.d.toFixed(1)}</span></span></dd>` : ""}
+        </dl>
+      </div>
+      <figure class="specimen">
+        <button class="specimen-frame" type="button" data-act="portrait" aria-label="管理立绘">${portrait ? `<img src="${portrait}" alt="${esc(c.name)} 立绘" data-fallback>` : emptyFrame}<span class="hover-cap"><svg class="i xs"><use href="#i-image"/></svg>管理立绘</span></button>
+        <figcaption>${portrait ? "FIG.1 立绘" : "FIG.1 —"}</figcaption>
+      </figure>
+    </header>
+
+    <section class="sec" aria-labelledby="s1">
+      <h3 class="sec-h" id="s1"><span class="t">一、一般项目</span><span class="meta">参见注 4</span></h3>
+      <div class="gen">${genTable(genL, "一般项目（一）")}${genTable(genR, "一般项目（二）")}</div>
+    </section>
+
+    <section class="sec" aria-labelledby="s2">
+      <h3 class="sec-h" id="s2"><span class="t">二、属性检验</span><span class="meta">参照 名册均值 n=<span class="mono">${S.n}</span></span></h3>
+      ${checkTable(attrRows, "属性检验")}
+    </section>
+
+    <section class="sec" aria-labelledby="s3">
+      <h3 class="sec-h" id="s3"><span class="t">三、技能检验</span><span class="meta">已投点 <span class="mono">${c.skills.length}</span> 项 · 参照 同技能持有者</span></h3>
+      ${checkTable(skillRows, "技能检验")}
+    </section>
+
+    <ol class="notes">
+      <li><span class="mono">注 1</span><span>困难 = ⌊结果 ÷ 2⌋，极难 = ⌊结果 ÷ 5⌋；掷骰 ≤ 结果为常规成功。</span></li>
+      <li><span class="mono">注 2</span><span>名册差 = 结果 − 名册均值（属性取全员；技能取同名技能持有者）。旗标 ↑ ≥ +${FLAG_T}，↓ ≤ −${FLAG_T}。比对为 8 项属性的均方根差 Δ。</span></li>
+      <li><span class="mono">注 3</span><span>分布条 0–99：浅带为名册最小–最大，上方三角为名册均值，两道细刻为极难(⅕)与困难(½)，竖线为结果。</span></li>
+      <li><span class="mono">注 4</span><span>一般项目为人物库存档值，当前值 = 上限。</span></li>
+      <li><span class="mono">注 ${NOTE_UNIQUE}</span><span>名册中仅此人物投点该技能，无比较对象${uniqueCount ? `（本报告 <span class="mono">${uniqueCount}</span> 项）` : ""}。</span></li>
+      <li><span class="mono">注 6</span><span>技能仅列已投点项，未投点技能按规则基础值处理。</span></li>
+    </ol>
+    <p class="end"><span>${c.no} · ${esc(c.name)}</span><span>报告完</span></p>`;
+
+  const img = rep.querySelector("img[data-fallback]");
+  if (img) img.addEventListener("error", () => {
+    img.replaceWith(document.createRange().createContextualFragment(emptyFrame));
+    rep.querySelector(".specimen figcaption").textContent = "FIG.1 —";
+  }, { once: true });
+  $("rscroll").scrollTop = 0;
+}
+
+function renderAll() { renderSeg(); renderList(); renderReport(); }
+
+/* ---------- interactions ---------- */
+function select(name, open) {
+  state.sel = name;
+  $("list").querySelectorAll(".slip").forEach((b) => b.setAttribute("aria-current", String(b.dataset.name === name)));
+  renderReport();
+  if (open && narrow.matches) { document.body.classList.add("show-report"); $("back").focus({ focusVisible: false }); }
+}
+narrow.addEventListener("change", () => { if (!narrow.matches) document.body.classList.remove("show-report"); renderReport(); });
+$("list").addEventListener("click", (e) => { const b = e.target.closest(".slip"); if (b) select(b.dataset.name, true); });
+$("list").addEventListener("keydown", (e) => {
+  if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+  const slips = [...$("list").querySelectorAll(".slip")];
+  const i = slips.indexOf(document.activeElement); if (i < 0) return;
+  e.preventDefault();
+  const t = slips[Math.min(Math.max(i + (e.key === "ArrowDown" ? 1 : -1), 0), slips.length - 1)];
+  select(t.dataset.name, false); t.focus(); t.scrollIntoView({ block: "nearest" });
+});
+$("report").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-goto]"); if (!b) return;
+  const name = b.dataset.goto;
+  if (!visible().some((c) => c.name === name)) { state.filter = "all"; state.query = ""; $("q").value = ""; renderSeg(); renderList(); }
+  select(name, false);
+  $("list").querySelector(`.slip[data-name="${CSS.escape(name)}"]`)?.scrollIntoView({ block: "nearest" });
+});
+$("seg").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-f]"); if (!b) return;
+  state.filter = b.dataset.f;
+  const v = visible();
+  if (v.length && !v.some((c) => c.name === state.sel)) state.sel = v[0].name;
+  renderAll();
+});
+$("q").addEventListener("input", (e) => {
+  state.query = e.target.value;
+  const v = visible();
+  if (v.length && !v.some((c) => c.name === state.sel)) state.sel = v[0].name;
+  renderList(); renderReport();
+});
+function flip(step) { const v = visible(); const i = v.findIndex((c) => c.name === state.sel); const t = v[i + step]; if (t) select(t.name, false); }
+$("prev").onclick = () => flip(-1);
+$("next").onclick = () => flip(1);
+$("back").onclick = () => {
+  document.body.classList.remove("show-report");
+  $("list").querySelector(`.slip[data-name="${CSS.escape(state.sel)}"]`)?.focus();
+};
+document.addEventListener("keydown", (e) => {
+  const typing = /INPUT|TEXTAREA/.test(document.activeElement?.tagName);
+  if (e.key === "/" && !typing) { e.preventDefault(); $("q").focus(); }
+  if (e.key === "Escape") {
+    if (!$("menu").hidden) { closeMenu(); $("more").focus(); }
+    else if (document.body.classList.contains("show-report")) $("back").click();
+  }
+  if (!typing && !e.metaKey && !e.ctrlKey && (e.key === "[" || e.key === "]")) flip(e.key === "[" ? -1 : 1);
+});
+
+function closeMenu() { $("menu").hidden = true; $("more").setAttribute("aria-expanded", "false"); }
+$("more").onclick = (e) => {
+  e.stopPropagation();
+  const open = $("menu").hidden;
+  $("menu").hidden = !open; $("more").setAttribute("aria-expanded", String(open));
+  if (open) [...$("menu").querySelectorAll("button")].find((b) => b.offsetParent)?.focus();
+};
+document.addEventListener("click", (e) => { if (!e.target.closest(".menu-wrap")) closeMenu(); });
+
+let toastT;
+function toast(msg) { const t = $("toast"); t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => (t.hidden = true), 2400); }
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-act]"); if (!b) return;
+  const c = roster.find((x) => x.name === state.sel);
+  const who = c ? `${c.no} ${c.name}` : "";
+  closeMenu();
+  switch (b.dataset.act) {
+    case "new": toast("› 新建人物：打开空白人物卡编辑器"); break;
+    case "import": toast("› 导入：选择 Excel 人物卡文件"); break;
+    case "edit": toast(`› 打开人物卡编辑器：${who}`); break;
+    case "portrait": toast(`› 管理立绘：${who}`); break;
+    case "excel": toast(`› 从 Excel 更新：${who}`); break;
+    case "delete":
+      if (!c) return;
+      $("del-msg").textContent = `删除「${c.name}」（${c.no}）的人物卡？此操作不可在本页撤销。`;
+      $("del").showModal(); $("del-cancel").focus(); break;
+  }
+});
+$("del-cancel").onclick = () => $("del").close();
+$("del-ok").onclick = () => {
+  const i = roster.findIndex((x) => x.name === state.sel);
+  const gone = roster[i];
+  roster.splice(i, 1);
+  S = stats();
+  const v = visible();
+  state.sel = (v[Math.min(i, v.length - 1)] || v[0] || roster[0])?.name ?? null;
+  $("del").close();
+  document.body.classList.remove("show-report");
+  renderAll();
+  toast(`› 已删除：${gone.no} ${gone.name}`);
+};
+
+/* URL hash hook for screenshots: #c=N (0-based roster index) and/or m=detail (open report view on mobile), e.g. #c=5&m=detail */
+function applyHash() {
+  const h = new URLSearchParams(location.hash.replace(/^#/, ""));
+  const n = Number.parseInt(h.get("c") ?? "", 10);
+  if (Number.isInteger(n) && roster[n]) state.sel = roster[n].name;
+  renderAll();
+  if (h.get("m") === "detail" && narrow.matches && state.sel) document.body.classList.add("show-report");
+  $("list").querySelector('.slip[aria-current="true"]')?.scrollIntoView({ block: "nearest" });
+}
+addEventListener("hashchange", applyHash);
+applyHash();
+</script>
+</body>
+</html>

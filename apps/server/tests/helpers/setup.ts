@@ -708,3 +708,17 @@ export async function setSessionPhase(
 		}),
 	);
 }
+
+/** 模拟审核通过后由服务端内部建立的模组-人物关联（玩家人物不能经 GM 关联接口直接拉入模组） */
+export async function linkModuleCharacterDirect(
+	container: Container,
+	moduleId: string,
+	characterId: string,
+): Promise<void> {
+	await container.charactersRepo.linkCharacterToModule({
+		id: crypto.randomUUID(),
+		moduleId,
+		characterId,
+		createdAt: Date.now(),
+	});
+}

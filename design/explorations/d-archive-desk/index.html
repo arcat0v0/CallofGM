@@ -1,0 +1,1045 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>人物管理 · CoGM</title>
+<style>
+:root{
+  --surface:#12140e;--surface-container-lowest:#0d0f09;--surface-container-low:#1a1c16;--surface-container:#1e2019;
+  --surface-container-high:#292b23;--surface-container-highest:#33362e;--on-surface:#e2e3d8;--on-surface-variant:#c5c8b9;
+  --outline:#8f9285;--outline-variant:#45483d;--primary:#b4d087;--on-primary:#223600;--primary-container:#374d13;
+  --on-primary-container:#d0eda1;--secondary:#56d6f5;--tertiary:#bac3ff;--tertiary-container:#2f4090;--error:#ffb4a6;--warning:#f0c11c;
+  --r-xs:4px;--r-sm:8px;--r-md:12px;--r-lg:16px;--r-xl:28px;--r-full:999px;
+  --sans:system-ui,"PingFang SC","Microsoft YaHei",sans-serif;
+  --mono:ui-monospace,Menlo,Consolas,"Liberation Mono",monospace;
+  --rail:96px;--drawer:400px;--row:40px;--thumb-w:24px;--thumb-h:32px;
+  --ease:cubic-bezier(.2,.7,.2,1);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:var(--surface-container-low);color:var(--on-surface);font:13px/1.45 var(--sans);-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
+button,input{font:inherit;color:inherit}
+button{background:none;border:0;cursor:pointer}
+:focus-visible{outline:2px solid var(--primary);outline-offset:2px;border-radius:var(--r-xs)}
+.mono{font-family:var(--mono)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+[hidden]{display:none!important}
+svg.i{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;flex:none}
+
+/* ---------- shell ---------- */
+.app{display:grid;grid-template-columns:var(--rail) minmax(0,1fr);height:100vh;overflow:hidden}
+.rail{background:var(--surface);display:flex;flex-direction:column;align-items:center;padding:16px 0 20px;gap:4px;height:100vh}
+.logo{width:40px;height:40px;border-radius:var(--r-full);background:var(--surface-container-high);display:grid;place-items:center;color:var(--primary);margin-bottom:20px}
+.logo svg{width:22px;height:22px}
+.nav{display:flex;flex-direction:column;gap:6px;flex:1}
+.nav a{display:flex;flex-direction:column;align-items:center;gap:4px;width:80px;padding:4px 0 6px;color:var(--on-surface-variant);text-decoration:none;font-size:12px;border-radius:var(--r-sm)}
+.nav a .pill{width:56px;height:32px;border-radius:var(--r-full);display:grid;place-items:center}
+.nav a svg{width:24px;height:24px}
+.nav a:hover .pill{background:var(--surface-container-high)}
+.nav a[aria-current=page]{color:var(--on-surface)}
+.nav a[aria-current=page] .pill{background:var(--primary-container);color:var(--on-primary-container)}
+.me{width:40px;height:40px;border-radius:var(--r-full);background:var(--primary-container);color:var(--on-primary-container);display:grid;place-items:center;font-weight:600;font-size:13px}
+.logout{width:40px;height:40px;display:grid;place-items:center;color:var(--on-surface-variant);border-radius:var(--r-full);margin-top:6px}
+.logout:hover{background:var(--surface-container-high)}
+.logout svg{width:22px;height:22px}
+
+.main{display:grid;grid-template-rows:auto auto minmax(0,1fr);min-width:0;min-height:0}
+
+/* ---------- band: rule tabs ---------- */
+.band{background:var(--surface);display:flex;align-items:flex-end;justify-content:space-between;gap:24px;padding:0 24px;border-bottom:1px solid var(--outline-variant)}
+.band-l{display:flex;align-items:flex-end;gap:28px;min-width:0}
+.band h1{font-size:12px;font-weight:400;color:var(--on-surface-variant);letter-spacing:.04em;padding:0 0 12px}
+.tabs{display:flex;gap:4px}
+.tab{position:relative;display:flex;flex-direction:column;align-items:flex-start;padding:18px 16px 12px;text-align:left;color:var(--on-surface-variant);border-radius:var(--r-sm) var(--r-sm) 0 0}
+.tab:first-child{margin-left:-16px}
+.tab .t1{display:flex;align-items:baseline;gap:8px;white-space:nowrap}
+.tab .short{font-size:1.375rem;line-height:1.15;font-weight:600;letter-spacing:-.01em}
+.tab .n{font-family:var(--mono);font-size:13px;color:var(--outline)}
+.tab .full{font-size:12px;line-height:16px;height:16px;margin-top:4px;color:var(--on-surface-variant);white-space:nowrap;visibility:hidden}
+.tab:hover{color:var(--on-surface);background:var(--surface-container-lowest)}
+.tab[aria-selected=true]{color:var(--on-surface)}
+.tab[aria-selected=true] .n{color:var(--on-surface-variant)}
+.tab[aria-selected=true] .full{visibility:visible}
+.tab[aria-selected=true]::after{content:"";position:absolute;left:16px;right:16px;bottom:-1px;height:2px;background:var(--primary)}
+.band-r{display:flex;gap:8px;align-items:center;padding-bottom:20px}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:36px;padding:0 14px;border-radius:var(--r-sm);font-size:13px;white-space:nowrap;color:var(--on-surface);border:1px solid var(--outline-variant)}
+.btn:hover{background:var(--surface-container-high);border-color:var(--outline)}
+.btn.primary{background:var(--primary);color:var(--on-primary);border-color:var(--primary);font-weight:600;padding:0 16px 0 12px}
+.btn.primary:hover{background:var(--on-primary-container);border-color:var(--on-primary-container)}
+.btn.ghost{border-color:transparent;color:var(--on-surface-variant)}
+.btn.ghost:hover{color:var(--on-surface);background:var(--surface-container-high)}
+.btn.sm{height:28px;padding:0 10px;font-size:12px}
+.btn.icon{width:36px;padding:0}
+.btn.danger{color:var(--error)}
+.btn.danger:hover{border-color:var(--error)}
+.btn[disabled]{opacity:.45;pointer-events:none}
+
+/* ---------- query ---------- */
+.query{padding:16px 24px 0;background:var(--surface-container-low)}
+.qbar{display:flex;align-items:center;gap:6px;height:48px;padding:0 8px 0 14px;background:var(--surface-container-lowest);border:1px solid var(--outline-variant);border-radius:var(--r-sm);cursor:text}
+.qbar:hover{border-color:var(--outline)}
+.qbar:focus-within{border-color:var(--primary)}
+.qbar>svg{color:var(--outline);margin-right:4px}
+.tokens{display:flex;gap:6px;flex:none}
+.tok{display:inline-flex;align-items:center;height:30px;padding:0 2px 0 9px;border-radius:var(--r-xs);background:var(--primary-container);color:var(--on-primary-container);white-space:nowrap;font-size:13px;animation:tokin .1s var(--ease)}
+.tok .k{font-family:var(--mono);font-size:12px;color:var(--primary);margin-right:5px}
+.tok button{width:24px;height:24px;display:grid;place-items:center;border-radius:var(--r-xs);margin-left:3px;color:var(--primary)}
+.tok button:hover{background:var(--on-primary);color:var(--on-primary-container)}
+.tok button svg{width:14px;height:14px}
+@keyframes tokin{from{transform:scale(.9);opacity:0}to{transform:none;opacity:1}}
+.qbar input{flex:1;min-width:80px;height:100%;background:none;border:0;outline:0;font-size:14px;color:var(--on-surface)}
+.qbar input::-webkit-search-cancel-button{display:none;-webkit-appearance:none}
+.qbar input::placeholder{color:var(--outline)}
+.kbd{font-family:var(--mono);font-size:11px;min-width:20px;height:20px;padding:0 5px;display:inline-grid;place-items:center;border:1px solid var(--outline-variant);border-radius:var(--r-xs);color:var(--on-surface-variant);line-height:1}
+.qclear{height:30px;padding:0 10px;border-radius:var(--r-xs);color:var(--on-surface-variant);font-size:12px;white-space:nowrap}
+.qclear:hover{background:var(--surface-container-high);color:var(--on-surface)}
+.qbar .slash{margin-right:6px}
+.qbar:focus-within .slash{display:none}
+
+.facets{display:flex;align-items:center;height:40px;overflow-x:auto;scrollbar-width:none;white-space:nowrap;font-size:12px}
+.facets::-webkit-scrollbar{display:none}
+.fg{display:flex;align-items:center;gap:2px;padding-right:12px;margin-right:12px;border-right:1px solid var(--outline-variant);height:16px}
+.fg:last-child{border-right:0}
+.fg .k{font-family:var(--mono);color:var(--outline);margin-right:4px}
+.fo{display:inline-flex;align-items:baseline;gap:5px;height:26px;line-height:26px;padding:0 7px;border-radius:var(--r-xs);color:var(--on-surface-variant)}
+.fo .c{font-family:var(--mono);font-size:11px;color:var(--outline)}
+.fo:hover{background:var(--surface-container-high);color:var(--on-surface)}
+.fo[data-zero]{opacity:.5}
+.fo.hl{background:var(--surface-container-high);color:var(--on-surface);box-shadow:inset 0 0 0 1px var(--outline)}
+.fo .ret{font-family:var(--mono);font-size:11px;color:var(--on-surface-variant)}
+.fhint{color:var(--outline);font-size:12px}
+
+/* ---------- work area ---------- */
+.work{display:grid;grid-template-columns:minmax(0,1fr) var(--drawer);min-height:0;border-top:1px solid var(--outline-variant)}
+.work.closed{grid-template-columns:minmax(0,1fr) 0}
+.results{display:grid;grid-template-rows:auto auto minmax(0,1fr);min-height:0;min-width:0}
+.rline{display:flex;align-items:center;justify-content:space-between;gap:16px;height:44px;padding:0 24px}
+.count{display:flex;align-items:baseline;gap:6px;color:var(--on-surface-variant);white-space:nowrap}
+.count b{font-family:var(--mono);font-size:17px;font-weight:600;color:var(--on-surface)}
+.count .of{font-family:var(--mono);font-size:13px}
+.ctrls{display:flex;align-items:center;gap:16px}
+.seg{display:inline-flex;align-items:center;gap:8px;font-size:12px;color:var(--outline)}
+.seg .opts{display:inline-flex;padding:2px;border:1px solid var(--outline-variant);border-radius:var(--r-sm)}
+.seg button{height:24px;padding:0 9px;border-radius:6px;color:var(--on-surface-variant);font-size:12px}
+.seg button:hover{color:var(--on-surface)}
+.seg button[aria-pressed=true]{background:var(--surface-container-highest);color:var(--on-surface)}
+
+.batch{display:none;align-items:center;gap:6px;height:40px;padding:0 16px 0 24px;background:var(--surface-container-high);border-top:1px solid var(--outline-variant);box-shadow:inset 2px 0 0 var(--primary)}
+.batch.on{display:flex}
+.batch .sel{font-size:13px;margin-right:10px;white-space:nowrap}
+.batch .sel b{font-family:var(--mono);font-weight:600}
+.batch .note{color:var(--on-surface-variant);font-size:12px;margin-left:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.batch .sp{flex:1}
+
+.tablewrap{overflow:auto;min-height:0;overscroll-behavior:contain}
+table{width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed}
+thead th{position:sticky;top:0;z-index:2;background:var(--surface-container-low);height:32px;text-align:left;font-weight:400;font-size:12px;color:var(--on-surface-variant);border-top:1px solid var(--outline-variant);border-bottom:1px solid var(--outline-variant);padding:0 8px;white-space:nowrap}
+thead th button{display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 4px;margin:0 -4px;border-radius:var(--r-xs);color:inherit}
+thead th button:hover{color:var(--on-surface);background:var(--surface-container-high)}
+thead th[aria-sort] button{color:var(--on-surface)}
+thead th .ar{font-family:var(--mono);font-size:11px;width:10px}
+th.r,td.r{text-align:right}
+th.r button{margin-left:auto}
+col.c-gut{width:40px}col.c-th{width:36px}col.c-kind{width:60px}col.c-own{width:128px}col.c-exp{width:52px}col.c-upd{width:100px}
+tbody td{height:var(--row);border-bottom:1px solid var(--outline-variant);padding:0 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;vertical-align:middle}
+tbody tr{cursor:default}
+tbody tr:hover td{background:var(--surface-container)}
+tbody tr.chk td{background:var(--surface-container)}
+tbody tr.act td{background:var(--surface-container-high)}
+tbody tr.act td:first-child{box-shadow:inset 2px 0 0 var(--primary)}
+td.gut{padding:0 0 0 14px}
+td.th{padding:0 4px}
+td.last,th.last{padding-right:24px}
+.cb{appearance:none;width:16px;height:16px;border:1.5px solid var(--outline);border-radius:3px;display:grid;place-items:center;opacity:0;cursor:pointer;background:var(--surface-container-lowest);vertical-align:middle}
+.cb::after{content:"";width:8px;height:4px;border-left:2px solid var(--on-primary);border-bottom:2px solid var(--on-primary);transform:translateY(-1px) rotate(-45deg);opacity:0}
+.cb:checked{background:var(--primary);border-color:var(--primary)}
+.cb:checked::after{opacity:1}
+tr:hover .cb,tr:focus-within .cb,.cb:checked,.cb:focus-visible,.multi .cb{opacity:1}
+.nm{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;text-align:left;font-size:13.5px;font-weight:500;color:var(--on-surface)}
+.kind{font-family:var(--mono);font-size:12px;color:var(--on-surface)}
+.kind.npc{color:var(--on-surface-variant)}
+.mods{color:var(--on-surface-variant)}
+.mods .more{font-family:var(--mono);font-size:11px;color:var(--outline);margin-left:6px}
+.nil{color:var(--outline)}
+.own{color:var(--on-surface-variant)}
+.own .pl{color:var(--tertiary)}
+.own svg.i{width:12px;height:12px;vertical-align:-1px;margin-right:4px;color:var(--tertiary)}
+.num{font-family:var(--mono);font-size:12px;color:var(--on-surface-variant)}
+.upd{font-family:var(--mono);font-size:12px;color:var(--on-surface-variant)}
+mark{background:none;color:var(--on-surface);text-decoration:underline;text-decoration-color:var(--primary);text-underline-offset:3px;text-decoration-thickness:2px}
+
+/* thumb + monogram */
+.thumb{width:var(--thumb-w);height:var(--thumb-h);border-radius:3px;overflow:hidden;display:grid;place-items:center;background:var(--surface-container-lowest);box-shadow:inset 0 0 0 1px var(--outline-variant)}
+.thumb img{width:100%;height:100%;object-fit:cover;object-position:50% 15%;display:block}
+.thumb .mg{font-size:11px;color:var(--on-surface-variant);line-height:1}
+
+body.comfortable{--row:52px;--thumb-w:30px;--thumb-h:40px}
+body.comfortable .nm{font-size:14px}
+body.comfortable .thumb .mg{font-size:13px}
+
+/* empty */
+.empty{padding:56px 24px 24px;max-width:560px}
+.empty h2{font-size:16px;font-weight:600;margin-bottom:6px}
+.empty p{color:var(--on-surface-variant);margin-bottom:20px}
+.relax{border-top:1px solid var(--outline-variant)}
+.relax button{display:flex;align-items:center;gap:10px;width:100%;height:40px;border-bottom:1px solid var(--outline-variant);padding:0 8px;text-align:left;color:var(--on-surface-variant)}
+.relax button:hover{background:var(--surface-container);color:var(--on-surface)}
+.relax .op{font-family:var(--mono);font-size:12px;color:var(--outline);width:44px}
+.relax .tg{color:var(--on-surface)}
+.relax .tg .k{font-family:var(--mono);font-size:12px;color:var(--on-surface-variant);margin-right:4px}
+.relax .rn{margin-left:auto;font-family:var(--mono);font-size:12px}
+
+/* ---------- drawer ---------- */
+.drawer{background:var(--surface-container);border-left:1px solid var(--outline-variant);overflow:auto;min-height:0;min-width:0}
+.work.closed .drawer{display:none}
+.dr-in{animation:drin .16s var(--ease)}
+@keyframes drin{from{transform:translateX(12px);opacity:0}to{transform:none;opacity:1}}
+.dhead{display:flex;align-items:center;justify-content:space-between;height:44px;padding:0 12px 0 24px;position:sticky;top:0;background:var(--surface-container);z-index:2}
+.dhead .id{font-family:var(--mono);font-size:12px;color:var(--on-surface-variant)}
+.dhead .nav2{display:flex;gap:2px}
+.ib{width:32px;height:32px;display:grid;place-items:center;border-radius:var(--r-sm);color:var(--on-surface-variant)}
+.ib:hover{background:var(--surface-container-high);color:var(--on-surface)}
+.hero{display:grid;grid-template-columns:150px minmax(0,1fr);grid-template-rows:auto 1fr;grid-template-areas:"p w" "p a";column-gap:18px;padding:4px 24px 22px}
+.hero>.pframe{grid-area:p}.hero>.who{grid-area:w}.hero>.acts{grid-area:a;align-self:end}
+.pframe{position:relative;width:150px;height:200px;border-radius:var(--r-xs);overflow:hidden;background:var(--surface-container-lowest)}
+.pframe img{width:100%;height:100%;object-fit:cover;display:block}
+.pframe.none{display:grid;place-items:center}
+.pframe .bigmg{font-size:56px;font-weight:300;color:var(--surface-container-highest);line-height:1}
+.pframe .ticks{position:absolute;inset:0;color:var(--outline-variant)}
+.pframe .cap{position:absolute;left:10px;bottom:9px;font-family:var(--mono);font-size:11px;color:var(--on-surface-variant)}
+.pframe.none{box-shadow:inset 0 0 0 1px var(--surface-container-high)}
+.who{display:flex;flex-direction:column;min-width:0}
+.who h2{font-size:20px;line-height:1.3;font-weight:600;letter-spacing:.01em;word-break:break-word}
+.idl{margin-top:6px;font-size:12px;color:var(--on-surface-variant);display:flex;flex-wrap:wrap;gap:4px 0}
+.idl span+span::before{content:"·";margin:0 6px;color:var(--outline)}
+.idl .pl{color:var(--tertiary)}
+.ro{display:inline-flex;align-items:center;gap:4px;margin-top:10px;font-size:12px;color:var(--tertiary)}
+.ro svg{width:13px;height:13px}
+.acts{display:flex;flex-direction:column;gap:8px;padding-top:16px}
+.acts .row{display:flex;gap:8px}
+.acts .row .btn{flex:1}
+.acts .btn.icon{flex:none}
+
+.sec{border-top:1px solid var(--outline-variant);padding:12px 24px 14px}
+.sech{display:flex;align-items:center;justify-content:space-between;height:28px;margin-bottom:8px}
+.sech h3{font-size:12px;font-weight:400;color:var(--on-surface-variant);display:flex;gap:8px;align-items:baseline}
+.sech h3 .c{font-family:var(--mono);font-size:11px;color:var(--outline)}
+.sech .src{font-family:var(--mono);font-size:11px;color:var(--outline)}
+.mlist{list-style:none}
+.mlist li{display:flex;align-items:center;justify-content:space-between;height:34px;border-bottom:1px solid var(--surface-container-high);font-size:13px}
+.mlist li:last-child{border-bottom:0}
+.mlist li .x{opacity:0}
+.mlist li:hover .x,.mlist li .x:focus-visible{opacity:1}
+.mlist .x{width:28px;height:28px}
+.mlist .x svg{width:14px;height:14px}
+.mnone{color:var(--outline);font-size:13px;height:34px;display:flex;align-items:center}
+.sum{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:var(--outline-variant);border:1px solid var(--outline-variant);border-radius:var(--r-sm);overflow:hidden}
+.sum>div{background:var(--surface-container);padding:9px 12px 10px;min-width:0}
+.sum dt{font-size:11px;color:var(--on-surface-variant);margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sum dd{font-size:15px;font-weight:500;color:var(--on-surface);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.exl{display:flex;flex-wrap:wrap;gap:0;font-size:13px;color:var(--on-surface)}
+.exl span{padding:0 10px;border-left:1px solid var(--outline-variant);line-height:16px}
+.exl span:first-child{padding-left:0;border-left:0}
+.meta{padding:14px 24px 20px;border-top:1px solid var(--outline-variant);font-family:var(--mono);font-size:12px;color:var(--on-surface-variant);display:flex;justify-content:space-between}
+.meta .rel{color:var(--outline)}
+
+/* ---------- menus, dialog, toast ---------- */
+.menu{position:fixed;z-index:50;min-width:220px;max-width:280px;background:var(--surface-container-highest);border:1px solid var(--outline-variant);border-radius:var(--r-md);padding:6px;box-shadow:0 12px 32px rgba(0,0,0,.45)}
+.menu[hidden]{display:none}
+.menu .mh{font-size:11px;color:var(--on-surface-variant);padding:6px 10px 6px;font-family:var(--mono)}
+.menu button{display:flex;align-items:center;gap:10px;width:100%;height:34px;padding:0 10px;border-radius:var(--r-sm);text-align:left;font-size:13px;color:var(--on-surface)}
+.menu button:hover,.menu button:focus-visible{background:var(--surface-container-high);outline:0}
+.menu button .ck{width:14px;color:var(--primary);flex:none}
+.menu button .ck svg.i{width:14px;height:14px;stroke-width:2}
+.menu button .c{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--on-surface-variant)}
+.menu button.danger{color:var(--error)}
+.menu hr{border:0;border-top:1px solid var(--outline-variant);margin:6px 4px}
+dialog{margin:auto;background:var(--surface-container-high);color:var(--on-surface);border:1px solid var(--outline-variant);border-radius:var(--r-lg);padding:24px;width:min(400px,calc(100vw - 32px))}
+dialog::backdrop{background:rgba(8,9,6,.66)}
+dialog h2{font-size:16px;font-weight:600;margin-bottom:8px}
+dialog p{color:var(--on-surface-variant);margin-bottom:22px}
+dialog .row{display:flex;justify-content:flex-end;gap:8px}
+.toast{position:fixed;left:calc(var(--rail) + (100vw - var(--rail)) / 2);bottom:24px;transform:translateX(-50%);z-index:60;display:flex;align-items:center;gap:14px;background:var(--surface-container-highest);border:1px solid var(--outline-variant);color:var(--on-surface);border-radius:var(--r-sm);padding:0 6px 0 14px;height:40px;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.4);white-space:nowrap}
+.toast[hidden]{display:none}
+.toast button{height:28px;padding:0 10px;border-radius:var(--r-xs);color:var(--primary);font-size:12px}
+.toast button:hover{background:var(--surface-container-high)}
+
+/* mobile-only parts hidden on desktop */
+.mlistv,.mback,.msort{display:none}
+
+/* ---------- mobile ---------- */
+@media (max-width:820px){
+  .app{display:block;height:auto;overflow:visible}
+  .rail{position:fixed;left:0;top:0;bottom:0;width:var(--rail);height:auto;z-index:20;padding-top:12px;gap:2px}
+  .logo{margin-bottom:12px}
+  .nav{gap:2px}
+  .main{display:block;margin-left:var(--rail)}
+  .band{flex-direction:column;align-items:stretch;gap:0;padding:0 14px}
+  .band h1{padding:14px 0 0}
+  .band-l{flex-direction:column;align-items:stretch;gap:0}
+  .tab{padding:8px 10px 10px}
+  .tab:first-child{margin-left:-10px}
+  .tab .short{font-size:1.125rem}
+  .tab .n{font-size:12px}
+  .tab[aria-selected=true]::after{left:10px;right:10px}
+  .band-r{order:3;padding:12px 0}
+  .band-r .rname{display:none}
+  .band-r .btn{flex:1}
+  .tab .full{display:block;font-size:11px;margin-top:2px;height:14px;line-height:14px}
+  .band-r .btn{height:32px;padding:0 10px}
+  .band-r .btn.primary{padding:0 12px 0 8px}
+  .query{position:sticky;top:0;z-index:10;padding:10px 12px 0;border-bottom:1px solid var(--outline-variant)}
+  .qbar{height:44px;padding:0 6px 0 10px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+  .qbar::-webkit-scrollbar{display:none}
+  .qbar .slash{display:none}
+  .tok{height:28px;font-size:12px}
+  .qbar input{min-width:90px;font-size:14px}
+  .facets{height:38px;margin:0 -12px;padding:0 12px}
+  .work,.work.closed{display:block;border-top:0}
+  .rline{height:44px;padding:0 12px}
+  .ctrls .seg.dens{display:none}
+  .ctrls .seg .lb{display:none}
+  .batch{display:none!important}
+  .tablewrap{overflow:visible}
+  .tablewrap table{display:none}
+  .mlistv{display:block;list-style:none;border-top:1px solid var(--outline-variant)}
+  .mlistv li button{display:grid;grid-template-columns:30px minmax(0,1fr) auto;grid-template-rows:auto auto;column-gap:10px;align-items:center;width:100%;min-height:58px;padding:8px 12px;text-align:left;border-bottom:1px solid var(--outline-variant)}
+  .mlistv li button:active{background:var(--surface-container)}
+  .mlistv .thumb{grid-row:1/3;--thumb-w:30px;--thumb-h:40px}
+  .mlistv .nm{font-size:14px}
+  .mlistv .l2{grid-column:2/4;font-size:12px;color:var(--on-surface-variant);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:2px}
+  .mlistv .l2 .pl{color:var(--tertiary)}
+  .mlistv .upd{font-size:11px;grid-row:1;grid-column:3}
+  .empty{padding:32px 12px}
+  .drawer{display:none;border-left:0;overflow:visible}
+  body.mdetail .band,body.mdetail .query,body.mdetail .results{display:none}
+  body.mdetail .drawer{display:block!important}
+  .mback{display:flex;align-items:center;gap:6px;height:52px;padding:0 12px 0 8px;border-bottom:1px solid var(--outline-variant);background:var(--surface);position:sticky;top:0;z-index:5}
+  .mback button.back{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 10px 0 6px;border-radius:var(--r-sm);font-size:13px;color:var(--on-surface)}
+  .mback .pos{margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--on-surface-variant)}
+  .dhead{display:none}
+  .hero{grid-template-columns:112px minmax(0,1fr);gap:14px;padding:18px 14px 18px}
+  .pframe{width:112px;height:150px}
+  .pframe .bigmg{font-size:42px}
+  .who h2{font-size:18px}
+  .hero{grid-template-areas:"p w" "a a";grid-template-rows:auto auto}
+  .acts{padding-top:14px;flex-direction:row}
+  .acts>.btn{flex:1}
+  .acts .row{flex:1}
+  .sec{padding:12px 14px 16px}
+  .mlist li .x{opacity:1}
+  .sum{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .meta{padding:14px 14px 32px;flex-direction:column;gap:4px}
+  .toast{left:calc(var(--rail) + (100vw - var(--rail)) / 2);max-width:calc(100vw - var(--rail) - 24px)}
+}
+.band-r .rname{display:none}
+.rname{font-size:12px;color:var(--on-surface-variant);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-right:auto;min-width:0}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-import" viewBox="0 0 24 24"><path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19.5h14"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><circle cx="6" cy="12" r=".9"/><circle cx="12" cy="12" r=".9"/><circle cx="18" cy="12" r=".9"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="9.5" rx="2"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></symbol>
+  <symbol id="i-img" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><circle cx="9.5" cy="9.5" r="1.5"/><path d="m5 18 5-5 3 3 2-2 4 4"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M5 19h3.5L18.5 9 15 5.5 5 15.5z"/><path d="m13 7.5 3.5 3.5"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M3 12s3.2-6 9-6 9 6 9 6-3.2 6-9 6-9-6-9-6z"/><circle cx="12" cy="12" r="2.5"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="m6 15 6-6 6 6"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-left" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
+  <symbol id="i-close-panel" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+</svg>
+
+<div class="app">
+  <nav class="rail" aria-label="主导航">
+    <div class="logo" aria-label="CoGM"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><path d="M12 4v4M12 16v4M4 12h4M16 12h4"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/></svg></div>
+    <div class="nav">
+      <a href="#"><span class="pill"><svg class="i" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.25"/><path d="M3.5 19c.6-3 2.8-4.75 5.5-4.75s4.9 1.75 5.5 4.75"/><path d="M15.5 5.2a3 3 0 0 1 0 5.6M17.5 14.6c1.6.6 2.6 2 3 4.4"/></svg></span>团</a>
+      <a href="#"><span class="pill"><svg class="i" viewBox="0 0 24 24"><path d="M5 4.5h10.5a3 3 0 0 1 3 3V20H8a3 3 0 0 1-3-3z"/><path d="M5 17a3 3 0 0 1 3-3h10.5"/></svg></span>模组</a>
+      <a href="#"><span class="pill"><svg class="i" viewBox="0 0 24 24"><path d="M12 4 3.5 8.5 12 13l8.5-4.5z"/><path d="m3.5 12.5 8.5 4.5 8.5-4.5"/><path d="m3.5 16.5 8.5 4.5 8.5-4.5"/></svg></span>模组模板</a>
+      <a href="#" aria-current="page"><span class="pill"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c.8-3.8 3.6-6 7-6s6.2 2.2 7 6"/></svg></span>人物</a>
+      <a href="#"><span class="pill"><svg class="i" viewBox="0 0 24 24"><path d="M9 18V5.5l11-2V16"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/></svg></span>音乐</a>
+      <a href="#"><span class="pill"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="m6 6 12 12"/></svg></span>黑名单</a>
+      <a href="#"><span class="pill"><svg class="i" viewBox="0 0 24 24"><rect x="5" y="4.5" width="14" height="16.5" rx="2"/><path d="M9 4.5V3h6v1.5"/><path d="m9 13 2 2 4-4.5"/></svg></span>审核</a>
+      <a href="#"><span class="pill"><svg class="i" viewBox="0 0 24 24"><path d="M4.5 7h15M9.5 7V4.5h5V7M6.5 7l1 13h9l1-13"/></svg></span>回收站</a>
+    </div>
+    <div class="me" aria-label="当前账号 KP">KP</div>
+    <button class="logout" aria-label="退出登录"><svg class="i" viewBox="0 0 24 24"><path d="M14 4.5h4.5v15H14M10 8l-4 4 4 4M6 12h9"/></svg></button>
+  </nav>
+
+  <main class="main">
+    <header class="band">
+      <div class="band-l">
+        <h1>人物管理</h1>
+        <div class="tabs" role="tablist" aria-label="规则" id="tabs"></div>
+      </div>
+      <div class="band-r">
+        <span class="rname" id="rname"></span>
+        <button class="btn" id="btnImport"><svg class="i"><use href="#i-import"/></svg>从 Excel 导入</button>
+        <button class="btn primary" id="btnNew"><svg class="i"><use href="#i-plus"/></svg>新建人物</button>
+      </div>
+    </header>
+
+    <section class="query" aria-label="检索">
+      <div class="qbar" id="qbar">
+        <svg class="i"><use href="#i-search"/></svg>
+        <div class="tokens" id="tokens"></div>
+        <input id="q" type="search" autocomplete="off" spellcheck="false" aria-label="检索人物" placeholder="姓名，或 类型 / 模组 / 归属">
+        <button class="qclear" id="qclear" hidden>清除</button>
+        <span class="kbd slash" aria-hidden="true">/</span>
+      </div>
+      <div class="facets" id="facets" aria-label="快速添加条件"></div>
+    </section>
+
+    <div class="work" id="work">
+      <section class="results" aria-label="结果">
+        <div class="rline">
+          <div class="count" id="count" aria-live="polite"></div>
+          <div class="ctrls">
+            <div class="seg" id="sortSeg"><span class="lb">排序</span><span class="opts"><button data-sort="updated">最近更新</button><button data-sort="name">名称</button></span></div>
+            <div class="seg dens" id="densSeg"><span class="lb">密度</span><span class="opts"><button data-dens="compact">紧凑</button><button data-dens="comfortable">舒适</button></span></div>
+          </div>
+        </div>
+        <div class="batch" id="batch"></div>
+        <div class="tablewrap" id="tablewrap" data-scroll>
+          <table id="table" aria-label="人物列表">
+            <colgroup><col class="c-gut"><col class="c-th"><col class="c-name"><col class="c-kind"><col class="c-mod"><col class="c-own"><col class="c-exp"><col class="c-upd"></colgroup>
+            <thead><tr id="thead"></tr></thead>
+            <tbody id="tbody"></tbody>
+          </table>
+          <ul class="mlistv" id="mlist"></ul>
+          <div id="empty"></div>
+        </div>
+      </section>
+      <aside class="drawer" id="drawer" data-scroll aria-label="人物详情"></aside>
+    </div>
+  </main>
+</div>
+
+<div class="menu" id="menu" hidden role="menu"></div>
+<dialog id="dlg"><h2 id="dlgT"></h2><p id="dlgP"></p><div class="row"><button class="btn ghost" id="dlgNo">取消</button><button class="btn danger" id="dlgYes">移入回收站</button></div></dialog>
+<div class="toast" id="toast" hidden role="status"><span id="toastT"></span><button id="toastU" hidden>撤销</button></div>
+
+<script>
+const FIXTURE = {"note":"Fixture for layout testing at scale (not product data). Portraits relative to ../../assets/.","rules":[{"id":"coc7e","name":"克苏鲁的呼唤 第7版","short":"CoC 7e"},{"id":"dnd5r","name":"龙与地下城 第五版（2024）","short":"D&D 5e"}],"modules":[{"name":"雾港疑案","ruleId":"coc7e"},{"name":"沉默的灯塔","ruleId":"coc7e"},{"name":"第七号病房","ruleId":"coc7e"},{"name":"米斯卡托尼克的遗产","ruleId":"coc7e"},{"name":"无名小镇","ruleId":"coc7e"},{"name":"破晓矿坑","ruleId":"dnd5r"},{"name":"龙脊群岛","ruleId":"dnd5r"},{"name":"灰烬王冠","ruleId":"dnd5r"}],"characters":[{"id":"c1","ruleId":"coc7e","name":"艾琳·沃克","kind":"PC","owner":{"kind":"gm","name":"我"},"modules":["雾港疑案"],"portrait":"portrait-irene.png","expressions":["默认","生气","惊讶","受伤"],"updatedAt":"2026-11-01T05:48:04.000Z","summary":[["职业","记者"],["年龄","28 岁"],["时代","1920 年代"],["HP","13"],["MP","10"],["SAN","50"]]},{"id":"c2","ruleId":"coc7e","name":"托马斯·哈德维克","kind":"PC","owner":{"kind":"gm","name":"我"},"modules":["雾港疑案"],"portrait":"portrait-thomas.png","expressions":["默认"],"updatedAt":"2026-09-02T10:52:05.000Z","summary":[["职业","私家侦探"],["年龄","41 岁"],["时代","1920 年代"],["HP","9"],["MP","13"],["SAN","67"]]},{"id":"c3","ruleId":"coc7e","name":"李文渊","kind":"PC","owner":{"kind":"gm","name":"我"},"modules":[],"portrait":"portrait-li.png","expressions":["默认"],"updatedAt":"2026-08-17T17:42:16.000Z","summary":[["职业","古董商"],["年龄","52 岁"],["时代","1920 年代"],["HP","10"],["MP","14"],["SAN","71"]]},{"id":"c4","ruleId":"coc7e","name":"玛格丽特·费恩","kind":"PC","owner":{"kind":"gm","name":"我"},"modules":["沉默的灯塔"],"portrait":"portrait-margaret.png","expressions":["默认","疯狂","恐惧"],"updatedAt":"2026-08-31T00:19:01.000Z","summary":[["职业","医生"],["年龄","35 岁"],["时代","1920 年代"],["HP","9"],["MP","15"],["SAN","78"]]},{"id":"c5","ruleId":"coc7e","name":"奥斯本教授","kind":"NPC","owner":{"kind":"gm","name":"我"},"modules":["沉默的灯塔"],"portrait":"portrait-osborne.png","expressions":["默认","疯狂","恐惧"],"updatedAt":"2026-11-05T22:49:31.000Z","summary":[["职业","教授"],["年龄","63 岁"],["时代","1920 年代"],["HP","10"],["MP","14"],["SAN","71"]]},{"id":"c6","ruleId":"coc7e","name":"码头工人 杰克","kind":"NPC","owner":{"kind":"gm","name":"我"},"modules":["米斯卡托尼克的遗产"],"portrait":null,"expressions":[],"updatedAt":"2026-09-05T22:14:13.000Z","summary":[["职业","工人"],["年龄","30 岁"],["时代","1920 年代"],["HP","7"],["MP","7"],["SAN","36"]]},{"id":"c7","ruleId":"coc7e","name":"神秘女子","kind":"NPC","owner":{"kind":"gm","name":"我"},"modules":["第七号病房"],"portrait":null,"expressions":[],"updatedAt":"2026-11-11T06:12:27.000Z","summary":[["职业","—"],["年龄","—"],["时代","1920 年代"],["HP","8"],["MP","13"],["SAN","65"]]},{"id":"c8","ruleId":"coc7e","name":"警长 柯林斯","kind":"NPC","owner":{"kind":"gm","name":"我"},"modules":[],"portrait":null,"expressions":["默认"],"updatedAt":"2026-11-17T06:02:04.000Z","summary":[["职业","警探"],["年龄","47 岁"],["时代","1920 年代"],["HP","8"],["MP","9"],["SAN","45"]]},{"id":"c9","ruleId":"coc7e","name":"黑帮打手 海伦","kind":"NPC","owner":{"kind":"gm","name":"我"},"modules":["米斯卡托尼克的遗产","沉默的灯塔"],"portrait":null,"expressions":[],"updatedAt":"2026-08-15T02:22:03.000Z","summary":[["职业","黑帮打手"],["年龄","29 岁"],["时代","1920 年代"],["HP","11"],["MP","13"],["SAN","66"]]},{"id":"c10","ruleId":"coc7e","name":"邮差 西奥多","kind":"NPC","owner":{"kind":"gm","name":"我"},"modules":["米斯卡托尼克的遗产"],"portrait":null,"expressions":["默认"],"updatedAt":"2026-08-27T06:34:26.000Z","summary":[["职业","邮差"],["年龄","18 岁"],["时代","1920 年代"],["HP","11"],["MP","14"],["SAN","71"]]},{"id":"c11","ruleId":"coc7e","name":"雷蒙德·摩尔","kind":"PC","owner":{"kind":"gm","name":"我"},"modules":["第七号病房"],"portrait":null,"expressions":["默认"],"updatedAt":"2026-09-15T00:45:02.000Z","summary":[["职业","水手"],["年龄","31 岁"],["时代","1920 年代"],["HP","10"],["MP","12"],["SAN","62"]]},{"id":"c12","ruleId":"coc7e","name":"邮差 塞缪尔","kind":"NPC","owner":{"kind":"gm","name":"我"},"modules":["第七号病房"],"portrait":null,"expressions":["默认"],"updatedAt":"2026-09-03T11:17:53.000Z","summary":[["职业","邮差"],["年龄","44 岁"],["时代","1920 年代"],["HP","12"],["MP","14"],["SAN","70"]]},{"id":"c13","ruleId":"coc7e","name":"雷蒙德·温斯洛","kind":"PC","owner":{"kind":"gm","name":"我"},"modules":[],"portrait":null,"expressions":[],"updatedAt":"2026-09-21T14:51:42.000Z","summary":[["职业","律师"],["年龄","45 岁"],["时代","1920 年代"],["HP","14"],["MP","12"],["SAN","60"]]},{"id":"c14","ruleId":"coc7e","name":"玛格丽特·亚米蒂奇","kind":"PC","owner":{"kind":"gm","name":"我"},"modules":["沉默的灯塔"],"portrait":null,"expressions":[],"updatedAt":"2026-11-02T10:28:42.000Z","summary":[["职业","图书管理员"],["年龄","57 岁"],["时代","1920 年代"],["HP","13"],["MP","15"],["SAN","77"]]},{"id":"c15","ruleId":"coc7e","name":"艾格尼丝·莱斯特","kind":"PC","owner":{"kind":"pl","name":"Kiri"},"modules":["米斯卡托尼克的遗产"],"portrait":null,"expressions":["默认"],"updatedAt":"2026-09-29T08:15:26.000Z","summary":[["职业","古董商"],["年龄","43 岁"],["时代","1920 年代"],["HP","11"],["MP","9"],["SAN","48"]]},{"id":"c16","ruleId":"coc7e","name":"顾听涛","kind":"PC","owner":{"kind":"gm","name":"我"},"modules":["沉默的灯塔"],"portrait":null,"expressions":[],"updatedAt":"2026-09-20T11:57:28.000Z","summary":[["职业","图书管理员"],["年龄","42 岁"],["时代","1920 年代"],["HP","13"],["MP","15"],["SAN","76"]]},{"id":"c17","ruleId":"coc7e","name":"艾格尼丝·皮克曼","kind":"PC","owner":{"kind":"pl","name":"Kiri"},"modules":["雾港疑案","无名小镇"],"portrait":null,"expressions":[],"updatedAt":"2026-07-28T03:39:01.000Z","summary":[["职业","医生"],["年龄","35 岁"],["时代","1920 年代"],["HP","13"],["MP","12"],["SAN","60"]]},{"id":"c18","ruleId":"coc7e","name":"伊迪丝·惠特利","kind":"PC","owner":{"kind":"pl","name":"小鹿"},"modules":["雾港疑案"],"portrait":null,"expressions":[],"updatedAt":"2026-09-25T15:23:47.000Z","summary":[["职业","警探"],["年龄","23 岁"],["时代","1920 年代"],["HP","11"],["MP","10"],["SAN","53"]]},{"id":"c19","ruleId":"coc7e","name":"黑帮打手 多萝西","kind":"NPC","owner":{"kind":"gm","name":"我"},"modules":["第七号病房"],"portrait":null,"expressions":[],"updatedAt":"2026-10-23T08:12:02.000Z","summary":[["职业","黑帮打手"],["年龄","—"],["时代","1920 年代"],["HP","12"],["MP","10"],["SAN","52"]]},{"id":"c20","ruleId":"coc7e","name":"灯塔看守 伊迪丝","kind":"NPC","owner":{"kind":"gm","name":"我"},"modules":[],"portrait":null,"expressions":["默认"],"updatedAt":"2026-08-08T09:41:59.000Z","summary":[["职业","灯塔看守"],["年龄","56 岁"],["时代","1920 年代"],["HP","11"],["MP","7"],["SAN","36"]]},{"id":"c21","ruleId":"coc7e","name":"露西·卡特","kind":"PC","owner":{"kind":"pl","name":"阿青"},"modules":["第七号病房"],"portrait":null,"expressions":["默认"],"updatedAt":"2026-08-18T08:23:00.000Z","summary":[["职业","私家侦探"],["年龄","31 岁"],["时代","1920 年代"],["HP","14"],["MP","14"],["SAN","73"]]},{"id":"c22","ruleId":"coc7e","name":"疯人院看护 查尔斯","kind":"NPC","owner":{"kind":"gm","name":"我"},"modules":["第七号病房"],"portrait":null,"expressions":["默认"],"updatedAt":"2026-08-04T00:21:42.000Z","summary":[["职业","疯人院看护"],["年龄","63 岁"],["时代","1920 年代"],["HP","8"],["MP","8"],["SAN","40"]]},{"id":"c23","ruleId":"coc7e","name":"多萝西·亚米蒂奇","kind":"PC","owner":{"kind":"pl","name":"阿青"},"modules":["无名小镇"],"portrait":null,"expressions":[],"updatedAt":"2026-10-11T23:13:58.000Z","summary":[["职业","水手"],["年龄","34 岁"],["时代","1920 年代"],["HP","9"],["MP","10"],["SAN","53"]]},{"id":"c24","ruleId":"coc7e","name":"牧师 梅布尔","kind":"NPC","owner":{"kind":"gm","name":"我"},"modules":[],"portrait":null,"expressions":["默认"],"updatedAt":"2026-10-30T04:24:44.000Z","summary":[["职业","牧师"],["年龄","40 岁"],["时代","1920 年代"],["HP","11"],["MP","12"],["SAN","60"]]},{"id":"c25","ruleId":"coc7e","name":"梅布尔·布莱克伍德","kind":"PC","owner":{"kind":"pl","name":"阿青"},"modules":["米斯卡托尼克的遗产"],"portrait":null,"expressions":[],"updatedAt":"2026-10-11T13:40:56.000Z","summary":[["职业","考古学家"],["年龄","41 岁"],["时代","1920 年代"],["HP","14"],["MP","6"],["SAN","34"]]},{"id":"c26","ruleId":"coc7e","name":"爱德华·塞勒斯","kind":"PC","owner":{"kind":"gm","name":"我"},"modules":["米斯卡托尼克的遗产"],"portrait":null,"expressions":["默认"],"updatedAt":"2026-10-24T06:18:20.000Z","summary":[["职业","水手"],["年龄","48 岁"],["时代","1920 年代"],["HP","14"],["MP","12"],["SAN","64"]]},{"id":"c27","ruleId":"coc7e","name":"码头工人 维奥拉","kind":"NPC","owner":{"kind":"gm","name":"我"},"modules":["米斯卡托尼克的遗产"],"portrait":null,"expressions":[],"updatedAt":"2026-11-15T07:35:41.000Z","summary":[["职业","码头工人"],["年龄","—"],["时代","1920 年代"],["HP","8"],["MP","8"],["SAN","41"]]},{"id":"c28","ruleId":"coc7e","name":"码头工人 托马斯","kind":"NPC","owner":{"kind":"gm","name":"我"},"modules":["第七号病房"],"portrait":null,"expressions":[],"updatedAt":"2026-09-23T05:48:21.000Z","summary":[["职业","码头工人"],["年龄","67 岁"],["时代","1920 年代"],["HP","8"],["MP","12"],["SAN","64"]]},{"id":"c29","ruleId":"coc7e","name":"码头工人 雷蒙德","kind":"NPC","owner":{"kind":"gm","name":"我"},"modules":["雾港疑案"],"portrait":null,"expressions":[],"updatedAt":"2026-09-27T17:17:07.000Z","summary":[["职业","码头工人"],["年龄","—"],["时代","1920 年代"],["HP","14"],["MP","12"],["SAN","61"]]},{"id":"c30","ruleId":"coc7e","name":"邮差 爱德华","kind":"NPC","owner":{"kind":"gm","name":"我"},"modules":["第七号病房"],"portrait":null,"expressions":[],"updatedAt":"2026-11-03T02:57:44.000Z","summary":[["职业","邮差"],["年龄","26 岁"],["时代","1920 年代"],["HP","11"],["MP","11"],["SAN","59"]]},{"id":"c31","ruleId":"coc7e","name":"旅店老板娘 查尔斯","kind":"NPC","owner":{"kind":"gm","name":"我"},"modules":["沉默的灯塔"],"portrait":null,"expressions":["默认"],"updatedAt":"2026-11-15T13:31:39.000Z","summary":[["职业","旅店老板娘"],["年龄","64 岁"],["时代","1920 年代"],["HP","8"],["MP","10"],["SAN","54"]]},{"id":"c32","ruleId":"coc7e","name":"邮差 艾格尼丝","kind":"NPC","owner":{"kind":"gm","name":"我"},"modules":["雾港疑案"],"portrait":null,"expressions":[],"updatedAt":"2026-10-27T21:50:57.000Z","summary":[["职业","邮差"],["年龄","19 岁"],["时代","1920 年代"],["HP","12"],["MP","12"],["SAN","63"]]},{"id":"c33","ruleId":"coc7e","name":"艾琳·德比","kind":"PC","owner":{"kind":"gm","name":"我"},"modules":["第七号病房"],"portrait":null,"expressions":[],"updatedAt":"2026-10-18T17:36:32.000Z","summary":[["职业","警探"],["年龄","53 岁"],["时代","1920 年代"],["HP","8"],["MP","8"],["SAN","42"]]},{"id":"c34","ruleId":"coc7e","name":"露西·莱斯特","kind":"PC","owner":{"kind":"pl","name":"白夜"},"modules":["雾港疑案","第七号病房"],"portrait":null,"expressions":[],"updatedAt":"2026-07-29T08:07:51.000Z","summary":[["职业","护士"],["年龄","68 岁"],["时代","1920 年代"],["HP","10"],["MP","9"],["SAN","49"]]},{"id":"c35","ruleId":"coc7e","name":"贝亚特丽丝·费恩","kind":"PC","owner":{"kind":"gm","name":"我"},"modules":["雾港疑案","第七号病房"],"portrait":null,"expressions":[],"updatedAt":"2026-11-02T17:32:26.000Z","summary":[["职业","工人"],["年龄","60 岁"],["时代","1920 年代"],["HP","16"],["MP","7"],["SAN","38"]]},{"id":"c36","ruleId":"coc7e","name":"弗兰克·摩尔","kind":"PC","owner":{"kind":"gm","name":"我"},"modules":["米斯卡托尼克的遗产","第七号病房"],"portrait":null,"expressions":[],"updatedAt":"2026-08-20T09:39:35.000Z","summary":[["职业","律师"],["年龄","62 岁"],["时代","1920 年代"],["HP","11"],["MP","8"],["SAN","44"]]},{"id":"c37","ruleId":"coc7e","name":"海伦·奥本","kind":"PC","owner":{"kind":"gm","name":"我"},"modules":["米斯卡托尼克的遗产"],"portrait":null,"expressions":["默认"],"updatedAt":"2026-08-02T13:43:40.000Z","summary":[["职业","考古学家"],["年龄","38 岁"],["时代","1920 年代"],["HP","12"],["MP","15"],["SAN","77"]]},{"id":"c38","ruleId":"coc7e","name":"管家 托马斯","kind":"NPC","owner":{"kind":"gm","name":"我"},"modules":["雾港疑案"],"portrait":null,"expressions":[],"updatedAt":"2026-08-20T18:01:34.000Z","summary":[["职业","管家"],["年龄","—"],["时代","1920 年代"],["HP","8"],["MP","16"],["SAN","81"]]},{"id":"c39","ruleId":"coc7e","name":"亨利·吉尔曼","kind":"PC","owner":{"kind":"pl","name":"星野"},"modules":["无名小镇"],"portrait":null,"expressions":[],"updatedAt":"2026-07-30T07:47:58.000Z","summary":[["职业","作家"],["年龄","35 岁"],["时代","1920 年代"],["HP","7"],["MP","11"],["SAN","59"]]},{"id":"c40","ruleId":"coc7e","name":"艾琳·奥本","kind":"PC","owner":{"kind":"pl","name":"白夜"},"modules":["雾港疑案"],"portrait":null,"expressions":["默认"],"updatedAt":"2026-10-08T20:49:43.000Z","summary":[["职业","水手"],["年龄","57 岁"],["时代","1920 年代"],["HP","9"],["MP","14"],["SAN","71"]]},{"id":"c41","ruleId":"coc7e","name":"码头工人 阿瑟","kind":"NPC","owner":{"kind":"gm","name":"我"},"modules":["沉默的灯塔"],"portrait":null,"expressions":[],"updatedAt":"2026-10-08T23:36:43.000Z","summary":[["职业","码头工人"],["年龄","54 岁"],["时代","1920 年代"],["HP","13"],["MP","8"],["SAN","40"]]},{"id":"c42","ruleId":"coc7e","name":"牧师 哈罗德","kind":"NPC","owner":{"kind":"gm","name":"我"},"modules":["米斯卡托尼克的遗产"],"portrait":null,"expressions":[],"updatedAt":"2026-10-21T02:46:04.000Z","summary":[["职业","牧师"],["年龄","74 岁"],["时代","1920 年代"],["HP","11"],["MP","16"],["SAN","80"]]},{"id":"c43","ruleId":"coc7e","name":"沈曼卿","kind":"PC","owner":{"kind":"pl","name":"阿青"},"modules":["米斯卡托尼克的遗产"],"portrait":null,"expressions":[],"updatedAt":"2026-10-18T19:21:57.000Z","summary":[["职业","药剂师"],["年龄","54 岁"],["时代","1920 年代"],["HP","12"],["MP","8"],["SAN","40"]]},{"id":"c44","ruleId":"coc7e","name":"灯塔看守 塞缪尔","kind":"NPC","owner":{"kind":"gm","name":"我"},"modules":["第七号病房"],"portrait":null,"expressions":[],"updatedAt":"2026-09-06T20:59:14.000Z","summary":[["职业","灯塔看守"],["年龄","—"],["时代","1920 年代"],["HP","11"],["MP","11"],["SAN","56"]]},{"id":"c45","ruleId":"coc7e","name":"托马斯·沃克","kind":"PC","owner":{"kind":"gm","name":"我"},"modules":["雾港疑案"],"portrait":null,"expressions":[],"updatedAt":"2026-09-03T07:05:37.000Z","summary":[["职业","水手"],["年龄","54 岁"],["时代","1920 年代"],["HP","12"],["MP","11"],["SAN","56"]]},{"id":"c46","ruleId":"coc7e","name":"露西·亚米蒂奇","kind":"PC","owner":{"kind":"pl","name":"白夜"},"modules":["沉默的灯塔","雾港疑案"],"portrait":null,"expressions":[],"updatedAt":"2026-10-24T07:14:56.000Z","summary":[["职业","图书管理员"],["年龄","26 岁"],["时代","1920 年代"],["HP","10"],["MP","16"],["SAN","81"]]},{"id":"c47","ruleId":"coc7e","name":"渔夫 托马斯","kind":"NPC","owner":{"kind":"gm","name":"我"},"modules":["雾港疑案"],"portrait":null,"expressions":["默认"],"updatedAt":"2026-09-17T11:32:08.000Z","summary":[["职业","渔夫"],["年龄","58 岁"],["时代","1920 年代"],["HP","9"],["MP","8"],["SAN","42"]]},{"id":"c48","ruleId":"coc7e","name":"玛格丽特·摩尔","kind":"PC","owner":{"kind":"gm","name":"我"},"modules":["第七号病房"],"portrait":null,"expressions":["默认"],"updatedAt":"2026-10-09T19:37:40.000Z","summary":[["职业","神父"],["年龄","33 岁"],["时代","1920 年代"],["HP","12"],["MP","9"],["SAN","48"]]},{"id":"c49","ruleId":"coc7e","name":"陈素秋","kind":"PC","owner":{"kind":"gm","name":"我"},"modules":[],"portrait":null,"expressions":[],"updatedAt":"2026-09-18T18:13:31.000Z","summary":[["职业","记者"],["年龄","43 岁"],["时代","1920 年代"],["HP","11"],["MP","11"],["SAN","59"]]},{"id":"c50","ruleId":"coc7e","name":"渔夫 爱德华","kind":"NPC","owner":{"kind":"gm","name":"我"},"modules":["雾港疑案"],"portrait":null,"expressions":[],"updatedAt":"2026-10-15T23:41:37.000Z","summary":[["职业","渔夫"],["年龄","74 岁"],["时代","1920 年代"],["HP","8"],["MP","10"],["SAN","53"]]},{"id":"c51","ruleId":"coc7e","name":"奥斯卡·费恩","kind":"PC","owner":{"kind":"gm","name":"我"},"modules":["沉默的灯塔"],"portrait":null,"expressions":["默认"],"updatedAt":"2026-10-19T08:01:46.000Z","summary":[["职业","药剂师"],["年龄","69 岁"],["时代","1920 年代"],["HP","7"],["MP","12"],["SAN","64"]]},{"id":"c52","ruleId":"coc7e","name":"报童 弗兰克","kind":"NPC","owner":{"kind":"gm","name":"我"},"modules":["第七号病房"],"portrait":null,"expressions":[],"updatedAt":"2026-11-07T02:54:54.000Z","summary":[["职业","报童"],["年龄","61 岁"],["时代","1920 年代"],["HP","14"],["MP","11"],["SAN","58"]]},{"id":"c53","ruleId":"coc7e","name":"牧师 托马斯","kind":"NPC","owner":{"kind":"gm","name":"我"},"modules":["第七号病房","米斯卡托尼克的遗产"],"portrait":null,"expressions":[],"updatedAt":"2026-10-31T02:27:51.000Z","summary":[["职业","牧师"],["年龄","44 岁"],["时代","1920 年代"],["HP","12"],["MP","10"],["SAN","51"]]},{"id":"c54","ruleId":"coc7e","name":"疯人院看护 哈罗德","kind":"NPC","owner":{"kind":"gm","name":"我"},"modules":["雾港疑案"],"portrait":null,"expressions":[],"updatedAt":"2026-10-02T03:03:41.000Z","summary":[["职业","疯人院看护"],["年龄","—"],["时代","1920 年代"],["HP","13"],["MP","14"],["SAN","73"]]},{"id":"c55","ruleId":"coc7e","name":"奥斯卡·吉尔曼","kind":"PC","owner":{"kind":"pl","name":"Momo"},"modules":["雾港疑案"],"portrait":null,"expressions":[],"updatedAt":"2026-10-02T11:42:53.000Z","summary":[["职业","作家"],["年龄","27 岁"],["时代","1920 年代"],["HP","13"],["MP","15"],["SAN","78"]]},{"id":"c56","ruleId":"coc7e","name":"爱德华·奥本","kind":"PC","owner":{"kind":"gm","name":"我"},"modules":["沉默的灯塔"],"portrait":null,"expressions":[],"updatedAt":"2026-09-09T22:12:04.000Z","summary":[["职业","作家"],["年龄","53 岁"],["时代","1920 年代"],["HP","9"],["MP","13"],["SAN","66"]]},{"id":"c57","ruleId":"coc7e","name":"黑帮打手 查尔斯","kind":"NPC","owner":{"kind":"gm","name":"我"},"modules":[],"portrait":null,"expressions":[],"updatedAt":"2026-08-09T01:21:21.000Z","summary":[["职业","黑帮打手"],["年龄","52 岁"],["时代","1920 年代"],["HP","11"],["MP","14"],["SAN","70"]]},{"id":"c58","ruleId":"coc7e","name":"管家 海伦","kind":"NPC","owner":{"kind":"gm","name":"我"},"modules":[],"portrait":null,"expressions":["默认"],"updatedAt":"2026-11-03T19:24:39.000Z","summary":[["职业","管家"],["年龄","18 岁"],["时代","1920 年代"],["HP","8"],["MP","14"],["SAN","72"]]},{"id":"c59","ruleId":"coc7e","name":"梅布尔·霍尔特","kind":"PC","owner":{"kind":"pl","name":"Kiri"},"modules":["米斯卡托尼克的遗产"],"portrait":null,"expressions":[],"updatedAt":"2026-11-04T05:14:53.000Z","summary":[["职业","作家"],["年龄","46 岁"],["时代","1920 年代"],["HP","12"],["MP","13"],["SAN","69"]]},{"id":"c60","ruleId":"coc7e","name":"神秘女子 雷蒙德","kind":"NPC","owner":{"kind":"gm","name":"我"},"modules":["无名小镇","雾港疑案"],"portrait":null,"expressions":["默认"],"updatedAt":"2026-09-14T01:23:42.000Z","summary":[["职业","神秘女子"],["年龄","64 岁"],["时代","1920 年代"],["HP","13"],["MP","7"],["SAN","37"]]},{"id":"c61","ruleId":"coc7e","name":"亨利·布莱克伍德","kind":"PC","owner":{"kind":"gm","name":"我"},"modules":["米斯卡托尼克的遗产"],"portrait":null,"expressions":[],"updatedAt":"2026-09-04T06:00:49.000Z","summary":[["职业","古董商"],["年龄","63 岁"],["时代","1920 年代"],["HP","11"],["MP","9"],["SAN","46"]]},{"id":"c62","ruleId":"coc7e","name":"塞缪尔·奥本","kind":"PC","owner":{"kind":"pl","name":"星野"},"modules":["无名小镇"],"portrait":null,"expressions":["默认"],"updatedAt":"2026-07-25T11:00:19.000Z","summary":[["职业","教授"],["年龄","27 岁"],["时代","1920 年代"],["HP","9"],["MP","16"],["SAN","84"]]},{"id":"c63","ruleId":"coc7e","name":"疯人院看护 爱德华","kind":"NPC","owner":{"kind":"gm","name":"我"},"modules":["雾港疑案"],"portrait":null,"expressions":[],"updatedAt":"2026-10-17T06:25:31.000Z","summary":[["职业","疯人院看护"],["年龄","73 岁"],["时代","1920 年代"],["HP","13"],["MP","16"],["SAN","80"]]},{"id":"c64","ruleId":"coc7e","name":"渔夫 葛丽丝","kind":"NPC","owner":{"kind":"gm","name":"我"},"modules":["第七号病房","米斯卡托尼克的遗产"],"portrait":null,"expressions":["默认"],"updatedAt":"2026-09-21T17:09:27.000Z","summary":[["职业","渔夫"],["年龄","71 岁"],["时代","1920 年代"],["HP","15"],["MP","14"],["SAN","72"]]},{"id":"c65","ruleId":"coc7e","name":"哈罗德·卡特","kind":"PC","owner":{"kind":"pl","name":"小鹿"},"modules":["第七号病房"],"portrait":null,"expressions":["默认"],"updatedAt":"2026-08-07T23:49:54.000Z","summary":[["职业","警探"],["年龄","49 岁"],["时代","1920 年代"],["HP","9"],["MP","16"],["SAN","81"]]},{"id":"c66","ruleId":"coc7e","name":"周慕白","kind":"PC","owner":{"kind":"pl","name":"白夜"},"modules":["雾港疑案"],"portrait":null,"expressions":[],"updatedAt":"2026-11-17T01:27:58.000Z","summary":[["职业","私家侦探"],["年龄","52 岁"],["时代","1920 年代"],["HP","9"],["MP","17"],["SAN","85"]]},{"id":"c67","ruleId":"coc7e","name":"玛格丽特·哈德维克","kind":"PC","owner":{"kind":"gm","name":"我"},"modules":["无名小镇"],"portrait":null,"expressions":[],"updatedAt":"2026-11-17T03:14:09.000Z","summary":[["职业","摄影师"],["年龄","26 岁"],["时代","1920 年代"],["HP","9"],["MP","9"],["SAN","46"]]},{"id":"c68","ruleId":"coc7e","name":"弗兰克·皮克曼","kind":"PC","owner":{"kind":"gm","name":"我"},"modules":["米斯卡托尼克的遗产"],"portrait":null,"expressions":["默认"],"updatedAt":"2026-09-29T01:27:11.000Z","summary":[["职业","图书管理员"],["年龄","45 岁"],["时代","1920 年代"],["HP","12"],["MP","13"],["SAN","67"]]},{"id":"c69","ruleId":"coc7e","name":"沃尔特·惠特利","kind":"PC","owner":{"kind":"pl","name":"白夜"},"modules":["雾港疑案"],"portrait":null,"expressions":[],"updatedAt":"2026-09-12T00:50:48.000Z","summary":[["职业","医生"],["年龄","70 岁"],["时代","1920 年代"],["HP","12"],["MP","7"],["SAN","38"]]},{"id":"c70","ruleId":"coc7e","name":"奥斯卡·沃德","kind":"PC","owner":{"kind":"pl","name":"星野"},"modules":["无名小镇"],"portrait":null,"expressions":[],"updatedAt":"2026-08-25T18:55:19.000Z","summary":[["职业","警探"],["年龄","67 岁"],["时代","1920 年代"],["HP","8"],["MP","12"],["SAN","61"]]},{"id":"c71","ruleId":"coc7e","name":"灯塔看守 贝亚特丽丝","kind":"NPC","owner":{"kind":"gm","name":"我"},"modules":["沉默的灯塔"],"portrait":null,"expressions":[],"updatedAt":"2026-08-29T13:19:18.000Z","summary":[["职业","灯塔看守"],["年龄","46 岁"],["时代","1920 年代"],["HP","10"],["MP","13"],["SAN","69"]]},{"id":"c72","ruleId":"coc7e","name":"雷蒙德·莱斯特","kind":"PC","owner":{"kind":"pl","name":"星野"},"modules":["米斯卡托尼克的遗产"],"portrait":null,"expressions":["默认"],"updatedAt":"2026-09-17T23:49:24.000Z","summary":[["职业","神父"],["年龄","23 岁"],["时代","1920 年代"],["HP","10"],["MP","12"],["SAN","64"]]},{"id":"c73","ruleId":"coc7e","name":"邮差 伊迪丝","kind":"NPC","owner":{"kind":"gm","name":"我"},"modules":["雾港疑案"],"portrait":null,"expressions":["默认"],"updatedAt":"2026-08-05T00:18:31.000Z","summary":[["职业","邮差"],["年龄","—"],["时代","1920 年代"],["HP","13"],["MP","6"],["SAN","32"]]},{"id":"c74","ruleId":"coc7e","name":"邮差 查尔斯","kind":"NPC","owner":{"kind":"gm","name":"我"},"modules":["米斯卡托尼克的遗产"],"portrait":null,"expressions":[],"updatedAt":"2026-08-20T08:54:06.000Z","summary":[["职业","邮差"],["年龄","56 岁"],["时代","1920 年代"],["HP","7"],["MP","6"],["SAN","33"]]},{"id":"c75","ruleId":"coc7e","name":"哈罗德·霍尔特","kind":"PC","owner":{"kind":"pl","name":"Momo"},"modules":["雾港疑案"],"portrait":null,"expressions":[],"updatedAt":"2026-08-13T23:51:08.000Z","summary":[["职业","神父"],["年龄","32 岁"],["时代","1920 年代"],["HP","13"],["MP","9"],["SAN","45"]]},{"id":"c76","ruleId":"coc7e","name":"西奥多·沃克","kind":"PC","owner":{"kind":"pl","name":"星野"},"modules":["第七号病房"],"portrait":null,"expressions":["默认"],"updatedAt":"2026-09-07T03:15:01.000Z","summary":[["职业","图书管理员"],["年龄","49 岁"],["时代","1920 年代"],["HP","12"],["MP","12"],["SAN","62"]]},{"id":"c77","ruleId":"coc7e","name":"警长 露西","kind":"NPC","owner":{"kind":"gm","name":"我"},"modules":["无名小镇"],"portrait":null,"expressions":[],"updatedAt":"2026-11-19T13:53:46.000Z","summary":[["职业","警长"],["年龄","30 岁"],["时代","1920 年代"],["HP","10"],["MP","9"],["SAN","48"]]},{"id":"c78","ruleId":"coc7e","name":"查尔斯·惠特利","kind":"PC","owner":{"kind":"gm","name":"我"},"modules":["雾港疑案"],"portrait":null,"expressions":["默认"],"updatedAt":"2026-10-06T14:13:21.000Z","summary":[["职业","工人"],["年龄","37 岁"],["时代","1920 年代"],["HP","9"],["MP","13"],["SAN","66"]]},{"id":"c79","ruleId":"coc7e","name":"露西·哈德维克","kind":"PC","owner":{"kind":"gm","name":"我"},"modules":["第七号病房","无名小镇"],"portrait":null,"expressions":[],"updatedAt":"2026-08-03T12:35:00.000Z","summary":[["职业","古董商"],["年龄","31 岁"],["时代","1920 年代"],["HP","11"],["MP","14"],["SAN","73"]]},{"id":"c80","ruleId":"coc7e","name":"克拉拉·塞勒斯","kind":"PC","owner":{"kind":"pl","name":"阿青"},"modules":["无名小镇"],"portrait":null,"expressions":[],"updatedAt":"2026-11-15T14:48:10.000Z","summary":[["职业","医生"],["年龄","53 岁"],["时代","1920 年代"],["HP","16"],["MP","7"],["SAN","36"]]},{"id":"c81","ruleId":"coc7e","name":"梅布尔·卡特","kind":"PC","owner":{"kind":"pl","name":"Kiri"},"modules":["无名小镇","第七号病房"],"portrait":null,"expressions":["默认"],"updatedAt":"2026-10-22T12:21:48.000Z","summary":[["职业","演员"],["年龄","40 岁"],["时代","1920 年代"],["HP","10"],["MP","7"],["SAN","38"]]},{"id":"c82","ruleId":"coc7e","name":"灯塔看守 玛格丽特","kind":"NPC","owner":{"kind":"gm","name":"我"},"modules":["第七号病房"],"portrait":null,"expressions":["默认"],"updatedAt":"2026-09-11T19:26:01.000Z","summary":[["职业","灯塔看守"],["年龄","—"],["时代","1920 年代"],["HP","13"],["MP","15"],["SAN","79"]]},{"id":"d0","ruleId":"dnd5r","name":"赛莲·铁炉","kind":"PC","owner":{"kind":"gm","name":"我"},"modules":["灰烬王冠"],"portrait":"portrait-dnd-ranger.png","expressions":["默认"],"updatedAt":"2026-06-18T14:46:38.000Z","summary":[["职业","术士"],["等级","10"],["种族","龙裔"],["HP","70"],["AC","16"]]},{"id":"d1","ruleId":"dnd5r","name":"露恩·银枝","kind":"PC","owner":{"kind":"gm","name":"我"},"modules":[],"portrait":null,"expressions":[],"updatedAt":"2026-07-17T18:18:46.000Z","summary":[["职业","游侠"],["等级","5"],["种族","矮人"],["HP","30"],["AC","19"]]},{"id":"d2","ruleId":"dnd5r","name":"神殿祭司 托林","kind":"NPC","owner":{"kind":"gm","name":"我"},"modules":["龙脊群岛"],"portrait":null,"expressions":[],"updatedAt":"2026-07-02T03:39:04.000Z","summary":[["职业","—"],["等级","8"],["种族","矮人"],["HP","64"],["AC","15"]]},{"id":"d3","ruleId":"dnd5r","name":"艾拉·影步","kind":"PC","owner":{"kind":"gm","name":"我"},"modules":["灰烬王冠"],"portrait":"portrait-dnd-cleric.png","expressions":["默认","生气","惊讶","受伤"],"updatedAt":"2026-07-05T12:22:35.000Z","summary":[["职业","游侠"],["等级","8"],["种族","人类"],["HP","56"],["AC","17"]]},{"id":"d4","ruleId":"dnd5r","name":"艾拉·雷鸣","kind":"PC","owner":{"kind":"pl","name":"小鹿"},"modules":["破晓矿坑"],"portrait":null,"expressions":[],"updatedAt":"2026-07-17T06:25:11.000Z","summary":[["职业","邪术师"],["等级","9"],["种族","提夫林"],["HP","90"],["AC","17"]]},{"id":"d5","ruleId":"dnd5r","name":"酒馆老板 布罗姆","kind":"NPC","owner":{"kind":"gm","name":"我"},"modules":["龙脊群岛"],"portrait":null,"expressions":[],"updatedAt":"2026-08-26T08:07:59.000Z","summary":[["职业","—"],["等级","10"],["种族","矮人"],["HP","60"],["AC","12"]]},{"id":"d6","ruleId":"dnd5r","name":"戈伦·石心","kind":"PC","owner":{"kind":"gm","name":"我"},"modules":["龙脊群岛"],"portrait":"portrait-dnd-wizard.png","expressions":["默认","生气","惊讶","受伤"],"updatedAt":"2026-10-29T08:02:53.000Z","summary":[["职业","法师"],["等级","12"],["种族","兽人"],["HP","72"],["AC","11"]]},{"id":"d7","ruleId":"dnd5r","name":"矿坑监工 布罗姆","kind":"NPC","owner":{"kind":"gm","name":"我"},"modules":["灰烬王冠"],"portrait":null,"expressions":[],"updatedAt":"2026-06-04T04:19:46.000Z","summary":[["职业","—"],["等级","5"],["种族","侏儒"],["HP","50"],["AC","12"]]},{"id":"d8","ruleId":"dnd5r","name":"矿坑监工 塔莉","kind":"NPC","owner":{"kind":"gm","name":"我"},"modules":["龙脊群岛"],"portrait":null,"expressions":[],"updatedAt":"2026-10-13T02:40:14.000Z","summary":[["职业","—"],["等级","11"],["种族","半身人"],["HP","110"],["AC","18"]]},{"id":"d9","ruleId":"dnd5r","name":"费恩·雷鸣","kind":"PC","owner":{"kind":"pl","name":"白夜"},"modules":["破晓矿坑"],"portrait":"portrait-dnd-rogue.png","expressions":["默认","惊讶"],"updatedAt":"2026-05-14T05:16:20.000Z","summary":[["职业","圣武士"],["等级","2"],["种族","矮人"],["HP","16"],["AC","19"]]},{"id":"d10","ruleId":"dnd5r","name":"神殿祭司 奎因","kind":"NPC","owner":{"kind":"gm","name":"我"},"modules":[],"portrait":null,"expressions":[],"updatedAt":"2026-11-19T00:54:58.000Z","summary":[["职业","—"],["等级","10"],["种族","半身人"],["HP","80"],["AC","13"]]},{"id":"d11","ruleId":"dnd5r","name":"卡德·灰烬","kind":"PC","owner":{"kind":"pl","name":"老周"},"modules":["龙脊群岛"],"portrait":null,"expressions":[],"updatedAt":"2026-10-20T02:58:29.000Z","summary":[["职业","法师"],["等级","4"],["种族","侏儒"],["HP","28"],["AC","11"]]},{"id":"d12","ruleId":"dnd5r","name":"薇丝·灰烬","kind":"PC","owner":{"kind":"gm","name":"我"},"modules":[],"portrait":null,"expressions":[],"updatedAt":"2026-10-12T03:40:34.000Z","summary":[["职业","游荡者"],["等级","4"],["种族","侏儒"],["HP","36"],["AC","12"]]},{"id":"d13","ruleId":"dnd5r","name":"米拉·铁炉","kind":"PC","owner":{"kind":"gm","name":"我"},"modules":["破晓矿坑"],"portrait":null,"expressions":[],"updatedAt":"2026-11-03T03:29:11.000Z","summary":[["职业","武僧"],["等级","6"],["种族","龙裔"],["HP","60"],["AC","12"]]},{"id":"d14","ruleId":"dnd5r","name":"洛萨·影步","kind":"PC","owner":{"kind":"gm","name":"我"},"modules":[],"portrait":null,"expressions":[],"updatedAt":"2026-05-06T02:40:44.000Z","summary":[["职业","法师"],["等级","2"],["种族","提夫林"],["HP","14"],["AC","14"]]},{"id":"d15","ruleId":"dnd5r","name":"城门守卫 卡德","kind":"NPC","owner":{"kind":"gm","name":"我"},"modules":["龙脊群岛"],"portrait":null,"expressions":[],"updatedAt":"2026-08-03T12:30:21.000Z","summary":[["职业","—"],["等级","5"],["种族","矮人"],["HP","50"],["AC","11"]]},{"id":"d16","ruleId":"dnd5r","name":"托林·雷鸣","kind":"PC","owner":{"kind":"gm","name":"我"},"modules":["破晓矿坑"],"portrait":null,"expressions":[],"updatedAt":"2026-09-27T10:19:47.000Z","summary":[["职业","术士"],["等级","3"],["种族","精灵"],["HP","24"],["AC","19"]]},{"id":"d17","ruleId":"dnd5r","name":"布罗姆·铁炉","kind":"PC","owner":{"kind":"gm","name":"我"},"modules":["破晓矿坑"],"portrait":null,"expressions":[],"updatedAt":"2026-11-04T11:07:22.000Z","summary":[["职业","游荡者"],["等级","6"],["种族","兽人"],["HP","36"],["AC","12"]]},{"id":"d18","ruleId":"dnd5r","name":"阿什·雷鸣","kind":"PC","owner":{"kind":"pl","name":"阿青"},"modules":["龙脊群岛"],"portrait":null,"expressions":[],"updatedAt":"2026-10-06T09:09:40.000Z","summary":[["职业","圣武士"],["等级","5"],["种族","半身人"],["HP","50"],["AC","15"]]},{"id":"d19","ruleId":"dnd5r","name":"佩林·星语","kind":"PC","owner":{"kind":"pl","name":"Momo"},"modules":["龙脊群岛"],"portrait":null,"expressions":[],"updatedAt":"2026-10-18T22:07:23.000Z","summary":[["职业","圣武士"],["等级","10"],["种族","精灵"],["HP","80"],["AC","12"]]},{"id":"d20","ruleId":"dnd5r","name":"戈伦·灰烬","kind":"PC","owner":{"kind":"pl","name":"小鹿"},"modules":["破晓矿坑"],"portrait":null,"expressions":[],"updatedAt":"2026-06-23T18:43:54.000Z","summary":[["职业","吟游诗人"],["等级","6"],["种族","龙裔"],["HP","54"],["AC","17"]]},{"id":"d21","ruleId":"dnd5r","name":"神殿祭司 薇丝","kind":"NPC","owner":{"kind":"gm","name":"我"},"modules":[],"portrait":null,"expressions":[],"updatedAt":"2026-06-01T11:32:15.000Z","summary":[["职业","—"],["等级","1"],["种族","提夫林"],["HP","9"],["AC","16"]]},{"id":"d22","ruleId":"dnd5r","name":"费恩·夜歌","kind":"PC","owner":{"kind":"pl","name":"老周"},"modules":["龙脊群岛"],"portrait":null,"expressions":[],"updatedAt":"2026-10-02T20:25:32.000Z","summary":[["职业","术士"],["等级","2"],["种族","精灵"],["HP","20"],["AC","18"]]},{"id":"d23","ruleId":"dnd5r","name":"卡德·铁炉","kind":"PC","owner":{"kind":"pl","name":"老周"},"modules":["破晓矿坑"],"portrait":null,"expressions":[],"updatedAt":"2026-06-26T08:18:24.000Z","summary":[["职业","战士"],["等级","12"],["种族","半身人"],["HP","72"],["AC","15"]]},{"id":"d24","ruleId":"dnd5r","name":"戈伦·影步","kind":"PC","owner":{"kind":"gm","name":"我"},"modules":["灰烬王冠"],"portrait":null,"expressions":[],"updatedAt":"2026-06-17T02:05:42.000Z","summary":[["职业","牧师"],["等级","10"],["种族","兽人"],["HP","60"],["AC","16"]]},{"id":"d25","ruleId":"dnd5r","name":"矿坑监工 卡德","kind":"NPC","owner":{"kind":"gm","name":"我"},"modules":["龙脊群岛"],"portrait":null,"expressions":[],"updatedAt":"2026-09-06T04:07:37.000Z","summary":[["职业","—"],["等级","6"],["种族","人类"],["HP","36"],["AC","17"]]},{"id":"d26","ruleId":"dnd5r","name":"露恩·石心","kind":"PC","owner":{"kind":"pl","name":"星野"},"modules":["破晓矿坑"],"portrait":null,"expressions":[],"updatedAt":"2026-11-13T22:51:14.000Z","summary":[["职业","邪术师"],["等级","2"],["种族","兽人"],["HP","20"],["AC","12"]]},{"id":"d27","ruleId":"dnd5r","name":"布罗姆·影步","kind":"PC","owner":{"kind":"pl","name":"老周"},"modules":["龙脊群岛"],"portrait":null,"expressions":[],"updatedAt":"2026-10-30T22:09:45.000Z","summary":[["职业","德鲁伊"],["等级","5"],["种族","兽人"],["HP","30"],["AC","16"]]},{"id":"d28","ruleId":"dnd5r","name":"米拉·晨风","kind":"PC","owner":{"kind":"gm","name":"我"},"modules":["龙脊群岛"],"portrait":null,"expressions":[],"updatedAt":"2026-09-28T00:00:30.000Z","summary":[["职业","游侠"],["等级","1"],["种族","半身人"],["HP","10"],["AC","19"]]},{"id":"d29","ruleId":"dnd5r","name":"矿坑监工 伊薇","kind":"NPC","owner":{"kind":"gm","name":"我"},"modules":["灰烬王冠"],"portrait":null,"expressions":[],"updatedAt":"2026-07-12T03:02:22.000Z","summary":[["职业","—"],["等级","9"],["种族","龙裔"],["HP","63"],["AC","19"]]},{"id":"d30","ruleId":"dnd5r","name":"流浪商人 薇丝","kind":"NPC","owner":{"kind":"gm","name":"我"},"modules":["破晓矿坑"],"portrait":null,"expressions":[],"updatedAt":"2026-06-11T16:09:06.000Z","summary":[["职业","—"],["等级","2"],["种族","矮人"],["HP","16"],["AC","15"]]},{"id":"d31","ruleId":"dnd5r","name":"米拉·石心","kind":"PC","owner":{"kind":"gm","name":"我"},"modules":["龙脊群岛"],"portrait":null,"expressions":[],"updatedAt":"2026-05-14T13:52:41.000Z","summary":[["职业","游侠"],["等级","2"],["种族","提夫林"],["HP","18"],["AC","17"]]},{"id":"d32","ruleId":"dnd5r","name":"龙之信徒 费恩","kind":"NPC","owner":{"kind":"gm","name":"我"},"modules":["破晓矿坑"],"portrait":null,"expressions":[],"updatedAt":"2026-05-31T14:59:54.000Z","summary":[["职业","—"],["等级","8"],["种族","人类"],["HP","56"],["AC","14"]]},{"id":"d33","ruleId":"dnd5r","name":"阿什·夜歌","kind":"PC","owner":{"kind":"pl","name":"阿青"},"modules":["破晓矿坑"],"portrait":null,"expressions":[],"updatedAt":"2026-07-06T12:12:59.000Z","summary":[["职业","野蛮人"],["等级","5"],["种族","侏儒"],["HP","45"],["AC","18"]]},{"id":"d34","ruleId":"dnd5r","name":"薇丝·晨风","kind":"PC","owner":{"kind":"gm","name":"我"},"modules":["灰烬王冠"],"portrait":null,"expressions":[],"updatedAt":"2026-05-09T02:01:50.000Z","summary":[["职业","牧师"],["等级","2"],["种族","人类"],["HP","14"],["AC","14"]]},{"id":"d35","ruleId":"dnd5r","name":"奎因·铁炉","kind":"PC","owner":{"kind":"pl","name":"老周"},"modules":["灰烬王冠"],"portrait":null,"expressions":[],"updatedAt":"2026-11-14T16:14:40.000Z","summary":[["职业","游侠"],["等级","5"],["种族","兽人"],["HP","45"],["AC","11"]]},{"id":"d36","ruleId":"dnd5r","name":"佩林·灰烬","kind":"PC","owner":{"kind":"pl","name":"白夜"},"modules":["龙脊群岛"],"portrait":null,"expressions":[],"updatedAt":"2026-06-22T02:54:59.000Z","summary":[["职业","圣武士"],["等级","10"],["种族","半身人"],["HP","100"],["AC","13"]]},{"id":"d37","ruleId":"dnd5r","name":"洛萨·晨风","kind":"PC","owner":{"kind":"gm","name":"我"},"modules":["灰烬王冠"],"portrait":null,"expressions":[],"updatedAt":"2026-09-28T03:48:42.000Z","summary":[["职业","战士"],["等级","9"],["种族","侏儒"],["HP","81"],["AC","19"]]},{"id":"d38","ruleId":"dnd5r","name":"佩林·晨风","kind":"PC","owner":{"kind":"gm","name":"我"},"modules":[],"portrait":null,"expressions":[],"updatedAt":"2026-10-16T15:09:47.000Z","summary":[["职业","游侠"],["等级","10"],["种族","兽人"],["HP","90"],["AC","19"]]},{"id":"d39","ruleId":"dnd5r","name":"卡德·晨风","kind":"PC","owner":{"kind":"pl","name":"阿青"},"modules":["破晓矿坑"],"portrait":null,"expressions":[],"updatedAt":"2026-05-16T13:15:09.000Z","summary":[["职业","牧师"],["等级","1"],["种族","精灵"],["HP","10"],["AC","19"]]},{"id":"d40","ruleId":"dnd5r","name":"矿坑监工 戈伦","kind":"NPC","owner":{"kind":"gm","name":"我"},"modules":["破晓矿坑"],"portrait":null,"expressions":[],"updatedAt":"2026-08-12T09:42:23.000Z","summary":[["职业","—"],["等级","2"],["种族","矮人"],["HP","12"],["AC","13"]]},{"id":"d41","ruleId":"dnd5r","name":"神殿祭司 赛莲","kind":"NPC","owner":{"kind":"gm","name":"我"},"modules":["灰烬王冠"],"portrait":null,"expressions":[],"updatedAt":"2026-11-15T09:44:01.000Z","summary":[["职业","—"],["等级","9"],["种族","半身人"],["HP","54"],["AC","12"]]},{"id":"d42","ruleId":"dnd5r","name":"矿坑监工 艾拉","kind":"NPC","owner":{"kind":"gm","name":"我"},"modules":["破晓矿坑"],"portrait":null,"expressions":[],"updatedAt":"2026-05-17T01:21:35.000Z","summary":[["职业","—"],["等级","8"],["种族","龙裔"],["HP","48"],["AC","19"]]},{"id":"d43","ruleId":"dnd5r","name":"露恩·雷鸣","kind":"PC","owner":{"kind":"gm","name":"我"},"modules":["破晓矿坑"],"portrait":null,"expressions":[],"updatedAt":"2026-05-12T02:37:20.000Z","summary":[["职业","法师"],["等级","9"],["种族","兽人"],["HP","72"],["AC","19"]]},{"id":"d44","ruleId":"dnd5r","name":"港口女王 赛莲","kind":"NPC","owner":{"kind":"gm","name":"我"},"modules":["破晓矿坑"],"portrait":null,"expressions":[],"updatedAt":"2026-09-12T21:42:25.000Z","summary":[["职业","—"],["等级","5"],["种族","精灵"],["HP","35"],["AC","18"]]},{"id":"d45","ruleId":"dnd5r","name":"赛莲·银枝","kind":"PC","owner":{"kind":"gm","name":"我"},"modules":["破晓矿坑"],"portrait":null,"expressions":[],"updatedAt":"2026-06-06T19:51:58.000Z","summary":[["职业","圣武士"],["等级","5"],["种族","人类"],["HP","40"],["AC","13"]]},{"id":"d46","ruleId":"dnd5r","name":"洛萨·石心","kind":"PC","owner":{"kind":"gm","name":"我"},"modules":["破晓矿坑"],"portrait":null,"expressions":[],"updatedAt":"2026-06-21T13:22:11.000Z","summary":[["职业","武僧"],["等级","9"],["种族","人类"],["HP","63"],["AC","15"]]},{"id":"d47","ruleId":"dnd5r","name":"米拉·灰烬","kind":"PC","owner":{"kind":"pl","name":"老周"},"modules":["破晓矿坑"],"portrait":null,"expressions":[],"updatedAt":"2026-07-11T01:45:29.000Z","summary":[["职业","德鲁伊"],["等级","5"],["种族","兽人"],["HP","30"],["AC","13"]]},{"id":"d48","ruleId":"dnd5r","name":"托林·夜歌","kind":"PC","owner":{"kind":"pl","name":"白夜"},"modules":["龙脊群岛"],"portrait":null,"expressions":[],"updatedAt":"2026-10-07T08:39:56.000Z","summary":[["职业","牧师"],["等级","7"],["种族","人类"],["HP","42"],["AC","13"]]},{"id":"d49","ruleId":"dnd5r","name":"托林·铁炉","kind":"PC","owner":{"kind":"pl","name":"白夜"},"modules":["灰烬王冠"],"portrait":null,"expressions":[],"updatedAt":"2026-09-20T23:56:37.000Z","summary":[["职业","牧师"],["等级","11"],["种族","矮人"],["HP","99"],["AC","13"]]},{"id":"d50","ruleId":"dnd5r","name":"塔莉·星语","kind":"PC","owner":{"kind":"pl","name":"白夜"},"modules":["灰烬王冠"],"portrait":null,"expressions":[],"updatedAt":"2026-06-05T06:58:42.000Z","summary":[["职业","战士"],["等级","12"],["种族","精灵"],["HP","72"],["AC","15"]]},{"id":"d51","ruleId":"dnd5r","name":"矿坑监工 露恩","kind":"NPC","owner":{"kind":"gm","name":"我"},"modules":["灰烬王冠"],"portrait":null,"expressions":[],"updatedAt":"2026-06-02T00:51:50.000Z","summary":[["职业","—"],["等级","10"],["种族","人类"],["HP","100"],["AC","18"]]}]};
+const NOW = Date.parse("2026-11-21T12:00:00+08:00");
+const ASSET = "../../assets/";
+const $ = (s, r = document) => r.querySelector(s);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const ic = (id, cls = "i") => `<svg class="${cls}"><use href="#i-${id}"/></svg>`;
+const collator = new Intl.Collator("zh-Hans-CN-u-co-pinyin");
+const mq = matchMedia("(max-width:820px)");
+
+const RULES = FIXTURE.rules;
+let CHARS = FIXTURE.characters.map((c) => ({ ...c, modules: [...c.modules], _t: Date.parse(c.updatedAt) }));
+const MODULES = (r) => FIXTURE.modules.filter((m) => m.ruleId === r).map((m) => m.name);
+const KEYS = { kind: "类型", mod: "模组", own: "归属" };
+const failed = new Set();
+
+const S = {
+  rule: "coc7e", tokens: [], q: "", sort: { key: "updated", dir: -1 }, density: "compact",
+  active: { coc7e: null, dnd5r: null }, checked: new Set(), anchor: null, drawer: true, mdetail: false,
+  arrowed: false, lastDeleted: null,
+};
+
+/* ---------- helpers ---------- */
+const rule = () => RULES.find((r) => r.id === S.rule);
+const isPL = (c) => c.owner.kind === "pl";
+const byId = (id) => CHARS.find((c) => c.id === id);
+function monogram(name) {
+  const parts = name.split(/\s+/);
+  const p = parts[parts.length - 1];
+  return p.split("·")[0].charAt(0);
+}
+function rel(t) {
+  const d = Math.floor((NOW - t) / 86400000);
+  if (d <= 0) return "今天";
+  if (d === 1) return "昨天";
+  if (d < 90) return d + " 天前";
+  const m = Math.floor(d / 30.4);
+  if (m < 12) return m + " 个月前";
+  return Math.floor(m / 12) + " 年前";
+}
+function abs(t) {
+  const d = new Date(t + 8 * 3600000);
+  const p = (n) => String(n).padStart(2, "0");
+  return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}`;
+}
+function ownLabel(c, short) {
+  return isPL(c) ? (short ? "玩家 · " : "玩家持有 · ") + c.owner.name : short ? "我" : "我创建的";
+}
+function tokenLabel(t) {
+  if (t.key === "kind") return t.value;
+  if (t.key === "mod") return t.value === "__none" ? "未归入模组" : t.value;
+  if (t.key === "own") return t.value === "gm" ? "我创建的" : t.value === "pl" ? "玩家持有" : "玩家 · " + t.value.slice(3);
+}
+function matchTok(c, t) {
+  if (t.key === "kind") return c.kind === t.value;
+  if (t.key === "mod") return t.value === "__none" ? c.modules.length === 0 : c.modules.includes(t.value);
+  if (t.key === "own") {
+    if (t.value === "gm") return !isPL(c);
+    if (t.value === "pl") return isPL(c);
+    return isPL(c) && c.owner.name === t.value.slice(3);
+  }
+}
+const inRule = () => CHARS.filter((c) => c.ruleId === S.rule);
+function filtered(opts = {}) {
+  const q = (opts.q ?? S.q).trim().toLowerCase();
+  const toks = opts.tokens ?? S.tokens;
+  return inRule().filter((c) => toks.every((t) => matchTok(c, t)) && (!q || c.name.toLowerCase().includes(q)));
+}
+function sorted(list) {
+  const { key, dir } = S.sort;
+  const f = {
+    updated: (a, b) => a._t - b._t,
+    name: (a, b) => collator.compare(a.name, b.name),
+    kind: (a, b) => a.kind.localeCompare(b.kind),
+    mod: (a, b) => collator.compare(a.modules[0] || "￿", b.modules[0] || "￿"),
+    own: (a, b) => collator.compare(isPL(a) ? "1" + a.owner.name : "0", isPL(b) ? "1" + b.owner.name : "0"),
+    exp: (a, b) => a.expressions.length - b.expressions.length,
+  }[key];
+  return [...list].sort((a, b) => f(a, b) * dir || collator.compare(a.name, b.name));
+}
+let VIEW = [];
+
+/* ---------- facets ---------- */
+function facetOptions() {
+  const mods = MODULES(S.rule);
+  const players = [...new Set(inRule().filter(isPL).map((c) => c.owner.name))];
+  return {
+    kind: [{ v: "PC", l: "PC" }, { v: "NPC", l: "NPC" }],
+    own: [{ v: "gm", l: "我创建的" }, { v: "pl", l: "玩家持有" }, ...players.map((p) => ({ v: "pl:" + p, l: "玩家 · " + p, hidden: true, m: p }))],
+    mod: [...mods.map((m) => ({ v: m, l: m })), { v: "__none", l: "未归入模组" }],
+  };
+}
+function facetCount(key, v) {
+  const toks = S.tokens.filter((t) => t.key !== key).concat({ key, value: v });
+  return filtered({ tokens: toks, q: "" }).length;
+}
+let FACET_HL = null;
+function renderFacets() {
+  const el = $("#facets");
+  const opts = facetOptions();
+  const q = S.q.trim().toLowerCase();
+  FACET_HL = null;
+  let html = "";
+  for (const key of ["kind", "own", "mod"]) {
+    const active = S.tokens.find((t) => t.key === key);
+    let list = opts[key].filter((o) => !active || o.v !== active.value);
+    if (q) list = list.filter((o) => o.l.toLowerCase().includes(q) || (o.m && o.m.toLowerCase().includes(q)));
+    else list = list.filter((o) => !o.hidden);
+    if (!list.length) continue;
+    html += `<div class="fg"><span class="k">${KEYS[key]}:</span>`;
+    for (const o of list) {
+      const n = facetCount(key, o.v);
+      const hl = q && !FACET_HL && !S.arrowed;
+      if (hl) FACET_HL = { key, value: o.v };
+      html += `<button class="fo${hl ? " hl" : ""}" data-key="${key}" data-v="${esc(o.v)}"${n ? "" : " data-zero"}>${esc(o.l)}<span class="c">${n}</span>${hl ? '<span class="ret">↵</span>' : ""}</button>`;
+    }
+    html += `</div>`;
+  }
+  if (!html && q) html = `<span class="fhint">按姓名检索 “${esc(S.q.trim())}”</span>`;
+  el.innerHTML = html;
+}
+
+/* ---------- render ---------- */
+function renderTabs() {
+  const counts = Object.fromEntries(RULES.map((r) => [r.id, CHARS.filter((c) => c.ruleId === r.id).length]));
+  $("#tabs").innerHTML = RULES.map((r) => `<button class="tab" role="tab" data-rule="${r.id}" aria-selected="${r.id === S.rule}"><span class="t1"><span class="short">${esc(r.short)}</span><span class="n">${counts[r.id]}</span></span><span class="full">${esc(r.name)}</span></button>`).join("");
+  $("#rname").textContent = rule().name;
+  $("#btnImport").hidden = S.rule !== "coc7e";
+}
+function renderTokens() {
+  $("#tokens").innerHTML = S.tokens.map((t, i) => `<span class="tok"><span class="k">${KEYS[t.key]}:</span>${esc(tokenLabel(t))}<button data-rm="${i}" aria-label="移除条件 ${KEYS[t.key]} ${esc(tokenLabel(t))}">${ic("x")}</button></span>`).join("");
+  $("#qclear").hidden = !(S.tokens.length || S.q);
+  $("#q").placeholder = S.tokens.length ? "继续输入姓名…" : "姓名，或 类型 / 模组 / 归属";
+}
+function modCell(c, budget) {
+  if (!c.modules.length) return `<span class="nil">未归入</span>`;
+  const shown = [];
+  let len = 0;
+  for (const m of c.modules) {
+    if (!shown.length || len + m.length + 1 <= budget) { shown.push(m); len += m.length + 1; } else break;
+  }
+  const rest = c.modules.length - shown.length;
+  return esc(shown.join("、")) + (rest ? `<span class="more">+${rest}</span>` : "");
+}
+function hlName(name) {
+  const q = S.q.trim();
+  if (!q) return esc(name);
+  const i = name.toLowerCase().indexOf(q.toLowerCase());
+  if (i < 0) return esc(name);
+  return esc(name.slice(0, i)) + "<mark>" + esc(name.slice(i, i + q.length)) + "</mark>" + esc(name.slice(i + q.length));
+}
+function thumb(c) {
+  const src = c.portrait && ASSET + c.portrait;
+  if (src && !failed.has(src)) return `<span class="thumb"><img src="${src}" alt="" loading="lazy" data-mg="${esc(monogram(c.name))}"></span>`;
+  return `<span class="thumb"><span class="mg" aria-hidden="true">${esc(monogram(c.name))}</span></span>`;
+}
+const COLS = [
+  ["gut", "", null], ["th", "", null], ["name", "姓名", "name"], ["kind", "类型", "kind"], ["mod", "模组", "mod"],
+  ["own", "归属", "own"], ["exp", "表情", "exp", "r"], ["upd", "更新", "updated", "r last"],
+];
+function renderHead() {
+  $("#thead").innerHTML = COLS.map(([k, l, s, cls]) => {
+    if (!s) return k === "gut" ? `<th><span class="sr">选择</span></th>` : `<th><span class="sr">立绘</span></th>`;
+    const on = S.sort.key === s;
+    const ar = on ? (S.sort.dir > 0 ? "↑" : "↓") : "";
+    return `<th class="${cls || ""}"${on ? ` aria-sort="${S.sort.dir > 0 ? "ascending" : "descending"}"` : ""}><button data-sortcol="${s}">${l}<span class="ar">${ar}</span></button></th>`;
+  }).join("");
+}
+function activeId() { return S.active[S.rule]; }
+function renderBody() {
+  const act = activeId();
+  const budget = S.drawer ? 12 : 22;
+  $("#table").classList.toggle("multi", S.checked.size > 0);
+  $("#tbody").innerHTML = VIEW.map((c) => {
+    const chk = S.checked.has(c.id);
+    return `<tr data-id="${c.id}" class="${c.id === act ? "act" : ""}${chk ? " chk" : ""}" aria-selected="${c.id === act}">
+<td class="gut"><input type="checkbox" class="cb" tabindex="-1" aria-label="多选 ${esc(c.name)}"${chk ? " checked" : ""}></td>
+<td class="th">${thumb(c)}</td>
+<td><button class="nm" tabindex="-1">${hlName(c.name)}</button></td>
+<td><span class="kind${c.kind === "NPC" ? " npc" : ""}">${c.kind}</span></td>
+<td class="mods">${modCell(c, budget)}</td>
+<td class="own">${isPL(c) ? `<span class="pl">${ic("lock")}玩家 · ${esc(c.owner.name)}</span>` : "我"}</td>
+<td class="r num">${c.expressions.length || '<span class="nil">—</span>'}</td>
+<td class="r upd last">${rel(c._t)}</td></tr>`;
+  }).join("");
+  $("#mlist").innerHTML = VIEW.map((c) => `<li><button data-id="${c.id}">${thumb(c)}<span class="nm">${hlName(c.name)}</span><span class="upd">${rel(c._t)}</span><span class="l2">${c.kind} · ${c.modules.length ? esc(c.modules[0]) + (c.modules.length > 1 ? " +" + (c.modules.length - 1) : "") : "未归入"} · ${isPL(c) ? `<span class="pl">${esc(ownLabel(c, true))}</span>` : "我"}</span></button></li>`).join("");
+}
+function renderCount() {
+  const total = inRule().length;
+  $("#count").innerHTML = `显示 <b>${VIEW.length}</b><span class="of">/ ${total}</span>`;
+  document.querySelectorAll("#sortSeg button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.sort === S.sort.key)));
+  document.querySelectorAll("#densSeg button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.dens === S.density)));
+}
+function renderBatch() {
+  const el = $("#batch");
+  const ids = [...S.checked].filter((id) => byId(id));
+  el.classList.toggle("on", ids.length > 0);
+  if (!ids.length) { el.innerHTML = ""; return; }
+  const own = ids.filter((id) => !isPL(byId(id)));
+  const pl = ids.length - own.length;
+  el.innerHTML = `<span class="sel">已选 <b>${ids.length}</b></span>
+<button class="btn ghost sm" data-batch="link"${own.length ? "" : " disabled"}>${ic("link")}关联到模组…</button>
+<button class="btn ghost sm danger" data-batch="del"${own.length ? "" : " disabled"}>删除 ${own.length}</button>
+${pl ? `<span class="note">${pl} 名玩家持有不参与批量操作</span>` : ""}
+<span class="sp"></span><button class="btn ghost sm" data-batch="clear">取消选择 <span class="kbd">Esc</span></button>`;
+}
+function renderEmpty() {
+  const el = $("#empty");
+  $("#table").style.display = VIEW.length ? "" : "none";
+  if (VIEW.length) { el.innerHTML = ""; return; }
+  const q = S.q.trim();
+  let rows = "";
+  S.tokens.forEach((t, i) => {
+    const n = filtered({ tokens: S.tokens.filter((_, j) => j !== i) }).length;
+    rows += `<button data-relax="tok:${i}"><span class="op">去掉</span><span class="tg"><span class="k">${KEYS[t.key]}:</span>${esc(tokenLabel(t))}</span><span class="rn">${n} 名</span></button>`;
+  });
+  if (q) {
+    const n = filtered({ q: "" }).length;
+    rows += `<button data-relax="q"><span class="op">去掉</span><span class="tg">“${esc(q)}”</span><span class="rn">${n} 名</span></button>`;
+    for (const r of RULES) {
+      if (r.id === S.rule) continue;
+      const m = CHARS.filter((c) => c.ruleId === r.id && c.name.toLowerCase().includes(q.toLowerCase())).length;
+      if (m) rows += `<button data-relax="rule:${r.id}"><span class="op">切换</span><span class="tg">在 ${esc(r.short)} 中检索 “${esc(q)}”</span><span class="rn">${m} 名</span></button>`;
+    }
+  }
+  el.innerHTML = `<div class="empty"><h2>没有匹配的人物</h2><p>${esc(rule().short)} 的 ${inRule().length} 名人物中无结果。</p><div class="relax">${rows}</div></div>`;
+}
+function ticks(w, h) {
+  const k = 12;
+  return `<svg class="ticks" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M.75 ${k}V.75H${k}M${w - k} .75H${w - .75}V${k}M${w - .75} ${h - k}V${h - .75}H${w - k}M${k} ${h - .75}H.75V${h - k}"/></svg>`;
+}
+function renderDrawer(animate) {
+  const el = $("#drawer");
+  const c = byId(activeId());
+  const show = S.drawer && VIEW.length && c;
+  $("#work").classList.toggle("closed", !show);
+  if (!show) { el.innerHTML = ""; if (S.mdetail) setMDetail(false); return; }
+  const pl = isPL(c);
+  const src = c.portrait && ASSET + c.portrait;
+  const mob = mq.matches;
+  const [pw, ph] = mob ? [112, 150] : [150, 200];
+  const portrait = src && !failed.has(src)
+    ? `<div class="pframe"><img src="${src}" alt="${esc(c.name)} 立绘" data-mg="${esc(monogram(c.name))}" data-big="1"></div>`
+    : `<div class="pframe none">${ticks(pw, ph)}<span class="bigmg" aria-hidden="true">${esc(monogram(c.name))}</span><span class="cap">无立绘</span></div>`;
+  const idx = VIEW.findIndex((x) => x.id === c.id);
+  const summ = c.summary;
+  const cols = mob ? 2 : 3;
+  const pad = (cols - (summ.length % cols)) % cols;
+  const mods = c.modules;
+  el.innerHTML = `<div class="${animate ? "dr-in" : ""}">
+<div class="mback"><button class="back" data-mback>${ic("left")}人物列表</button><span class="pos">${idx + 1} / ${VIEW.length}</span></div>
+<div class="dhead"><span class="id">${esc(rule().short)} · ${c.id} · ${idx + 1}/${VIEW.length}</span><span class="nav2">
+<button class="ib" data-step="-1" aria-label="上一个">${ic("up")}</button><button class="ib" data-step="1" aria-label="下一个">${ic("down")}</button><button class="ib" data-close aria-label="收起详情">${ic("close-panel")}</button></span></div>
+<div class="hero">${portrait}
+<div class="who"><h2>${esc(c.name)}</h2>
+<div class="idl"><span>${c.kind}</span><span class="${pl ? "pl" : ""}">${esc(ownLabel(c))}</span></div>
+${pl ? `<span class="ro">${ic("lock")}只读</span>` : ""}</div>
+<div class="acts">
+${pl ? `<button class="btn" data-act="open">${ic("eye")}查看人物卡</button>`
+    : `<button class="btn" data-act="open">${ic("edit")}编辑人物卡</button>
+<div class="row"><button class="btn" data-act="portrait">${ic("img")}管理立绘</button><button class="btn icon" data-act="more" aria-label="更多操作" aria-haspopup="menu">${ic("more")}</button></div>`}
+</div></div>
+<section class="sec"><div class="sech"><h3>所属模组 <span class="c">${mods.length}</span></h3>${pl ? "" : `<button class="btn ghost sm" data-act="link">${ic("plus")}关联模组</button>`}</div>
+${mods.length ? `<ul class="mlist">${mods.map((m) => `<li><span>${esc(m)}</span>${pl ? "" : `<button class="ib x" data-unlink="${esc(m)}" aria-label="取消关联 ${esc(m)}">${ic("x")}</button>`}</li>`).join("")}</ul>` : `<div class="mnone">未归入模组</div>`}
+</section>
+<section class="sec"><div class="sech"><h3>人物卡摘要</h3><span class="src">${esc(rule().short)}</span></div>
+<dl class="sum">${summ.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join("")}${"<div></div>".repeat(pad)}</dl></section>
+<section class="sec"><div class="sech"><h3>立绘 / 表情 <span class="c">${c.expressions.length}</span></h3></div>
+${c.expressions.length ? `<div class="exl">${c.expressions.map((e) => `<span>${esc(e)}</span>`).join("")}</div>` : `<div class="mnone">未上传</div>`}</section>
+<div class="meta"><span>更新于 ${abs(c._t)}</span><span class="rel">${rel(c._t)}</span></div>
+</div>`;
+}
+function compute() {
+  VIEW = sorted(filtered());
+  const act = activeId();
+  if (!VIEW.find((c) => c.id === act)) S.active[S.rule] = VIEW[0]?.id ?? null;
+  for (const id of [...S.checked]) if (!VIEW.find((c) => c.id === id)) S.checked.delete(id);
+}
+let lastDrawerId = null;
+function render() {
+  compute();
+  document.body.classList.toggle("comfortable", S.density === "comfortable");
+  renderTabs(); renderTokens(); renderFacets(); renderHead(); renderBody(); renderCount(); renderBatch(); renderEmpty();
+  const id = activeId();
+  renderDrawer(id !== lastDrawerId);
+  lastDrawerId = id;
+}
+function renderSel() {
+  // light update for selection only
+  const act = activeId();
+  document.querySelectorAll("#tbody tr").forEach((tr) => {
+    const id = tr.dataset.id;
+    tr.classList.toggle("act", id === act);
+    tr.setAttribute("aria-selected", String(id === act));
+    tr.classList.toggle("chk", S.checked.has(id));
+    tr.querySelector(".cb").checked = S.checked.has(id);
+  });
+  $("#table").classList.toggle("multi", S.checked.size > 0);
+  renderBatch();
+  renderDrawer(act !== lastDrawerId);
+  lastDrawerId = act;
+}
+
+/* ---------- actions ---------- */
+let toastTimer;
+function toast(msg, undo) {
+  $("#toastT").textContent = msg;
+  $("#toastU").hidden = !undo;
+  $("#toast").hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => ($("#toast").hidden = true), 3200);
+}
+function setActive(id, scroll) {
+  S.active[S.rule] = id;
+  S.drawer = true;
+  renderSel();
+  if (scroll) {
+    const tr = document.querySelector(`#tbody tr[data-id="${id}"]`);
+    tr && tr.scrollIntoView({ block: "nearest" });
+  }
+}
+function step(d) {
+  if (!VIEW.length) return;
+  const i = VIEW.findIndex((c) => c.id === activeId());
+  const n = Math.max(0, Math.min(VIEW.length - 1, (i < 0 ? -1 : i) + d));
+  setActive(VIEW[n].id, true);
+}
+function addToken(key, value) {
+  S.tokens = S.tokens.filter((t) => t.key !== key).concat({ key, value });
+  render();
+}
+function openSheet(c) { toast(`${isPL(c) ? "打开人物卡（只读）" : "打开人物卡编辑器"} · ${c.name}`); }
+function setRule(id) {
+  if (id === S.rule) return;
+  S.rule = id;
+  S.tokens = S.tokens.filter((t) => t.key !== "mod" && !(t.key === "own" && t.value.startsWith("pl:")));
+  S.checked.clear();
+  render();
+}
+function confirmDel(ids) {
+  const list = ids.map(byId).filter((c) => c && !isPL(c));
+  if (!list.length) return;
+  $("#dlgT").textContent = list.length === 1 ? `删除「${list[0].name}」？` : `删除 ${list.length} 名人物？`;
+  $("#dlgP").textContent = "人物卡与立绘将移入回收站，所属模组中的关联同时解除。";
+  const dlg = $("#dlg");
+  $("#dlgYes").onclick = () => {
+    dlg.close();
+    const set = new Set(list.map((c) => c.id));
+    S.lastDeleted = CHARS.filter((c) => set.has(c.id));
+    const i = VIEW.findIndex((c) => c.id === activeId());
+    CHARS = CHARS.filter((c) => !set.has(c.id));
+    list.forEach((c) => S.checked.delete(c.id));
+    if (set.has(activeId())) { const rest = VIEW.filter((c) => !set.has(c.id)); S.active[S.rule] = (rest[Math.min(i, rest.length - 1)] || {}).id ?? null; }
+    render();
+    toast(list.length === 1 ? `已移入回收站 · ${list[0].name}` : `已移入回收站 · ${list.length} 名`, true);
+  };
+  dlg.showModal();
+  $("#dlgNo").focus();
+}
+$("#dlgNo").onclick = () => $("#dlg").close();
+$("#toastU").onclick = () => {
+  if (S.lastDeleted) { CHARS = CHARS.concat(S.lastDeleted); S.lastDeleted = null; render(); }
+  $("#toast").hidden = true;
+};
+
+/* menu */
+const menu = $("#menu");
+let menuAnchor = null;
+function openMenu(anchor, html, onClick) {
+  menu.innerHTML = html;
+  menu.hidden = false;
+  menuAnchor = anchor;
+  const r = anchor.getBoundingClientRect();
+  const mw = menu.offsetWidth, mh = menu.offsetHeight;
+  let left = r.left + mw > innerWidth - 8 ? r.right - mw : r.left;
+  left = Math.max(8, Math.min(left, innerWidth - mw - 8));
+  let top = r.bottom + 6;
+  if (top + mh > innerHeight - 8) top = Math.max(8, r.top - mh - 6);
+  menu.style.left = left + "px";
+  menu.style.top = top + "px";
+  menu.onclick = (e) => { const b = e.target.closest("button"); if (b) onClick(b); };
+  const first = menu.querySelector("button");
+  first && first.focus();
+}
+function closeMenu() { if (!menu.hidden) { menu.hidden = true; menuAnchor && menuAnchor.focus && menuAnchor.focus({ preventScroll: true }); menuAnchor = null; } }
+document.addEventListener("pointerdown", (e) => { if (!menu.hidden && !menu.contains(e.target) && e.target.closest("button") !== menuAnchor) closeMenu(); });
+
+function linkMenu(anchor, c) {
+  const draw = () => `<div class="mh">${esc(c.name)} · 关联模组</div>` + MODULES(S.rule).map((m) => `<button role="menuitemcheckbox" aria-checked="${c.modules.includes(m)}" data-m="${esc(m)}"><span class="ck">${c.modules.includes(m) ? ic("check") : ""}</span>${esc(m)}</button>`).join("");
+  openMenu(anchor, draw(), (b) => {
+    const m = b.dataset.m;
+    const on = c.modules.includes(m);
+    c.modules = on ? c.modules.filter((x) => x !== m) : c.modules.concat(m);
+    c._t = NOW; c.updatedAt = new Date(NOW).toISOString();
+    render();
+    const a = $('#drawer [data-act="link"]') || anchor;
+    linkMenu(a, c);
+    menu.querySelector(`[data-m="${CSS.escape(m)}"]`)?.focus();
+    toast(on ? `已取消关联 · ${m}` : `已关联 · ${m}`);
+  });
+}
+function batchLinkMenu(anchor) {
+  const ids = [...S.checked].map(byId).filter((c) => c && !isPL(c));
+  openMenu(anchor, `<div class="mh">关联 ${ids.length} 名到模组</div>` + MODULES(S.rule).map((m) => {
+    const has = ids.filter((c) => c.modules.includes(m)).length;
+    return `<button role="menuitem" data-m="${esc(m)}"><span class="ck">${has === ids.length ? ic("check") : ""}</span>${esc(m)}<span class="c">${has}/${ids.length}</span></button>`;
+  }).join(""), (b) => {
+    const m = b.dataset.m;
+    ids.forEach((c) => { if (!c.modules.includes(m)) { c.modules = c.modules.concat(m); c._t = NOW; } });
+    closeMenu(); render();
+    toast(`已关联 ${ids.length} 名 · ${m}`);
+  });
+}
+
+/* ---------- events ---------- */
+$("#tabs").addEventListener("click", (e) => { const b = e.target.closest("[data-rule]"); if (b) setRule(b.dataset.rule); });
+$("#tabs").addEventListener("keydown", (e) => {
+  if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+  e.stopPropagation();
+  const i = RULES.findIndex((r) => r.id === S.rule);
+  const n = RULES[(i + (e.key === "ArrowRight" ? 1 : -1) + RULES.length) % RULES.length];
+  setRule(n.id);
+  $(`#tabs [data-rule="${n.id}"]`).focus();
+});
+$("#btnNew").onclick = () => toast(`新建 ${rule().short} 人物`);
+$("#btnImport").onclick = () => toast("从 Excel 导入 · 选择 .xlsx 人物卡");
+const qi = $("#q");
+$("#qbar").addEventListener("click", (e) => { if (!e.target.closest("button")) qi.focus(); });
+qi.addEventListener("input", () => { S.q = qi.value; S.arrowed = false; render(); });
+qi.addEventListener("keydown", (e) => {
+  if (e.key === "Backspace" && !qi.value && S.tokens.length) { S.tokens.pop(); render(); e.preventDefault(); }
+  else if (e.key === "Enter") {
+    e.preventDefault();
+    if (FACET_HL && !S.arrowed) { const { key, value } = FACET_HL; S.q = qi.value = ""; addToken(key, value); }
+    else { const c = byId(activeId()); if (c && VIEW.length) openSheet(c); }
+  }
+});
+$("#tokens").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-rm]");
+  if (b) { S.tokens.splice(+b.dataset.rm, 1); render(); qi.focus(); }
+});
+$("#qclear").onclick = () => { S.tokens = []; S.q = qi.value = ""; render(); qi.focus(); };
+$("#facets").addEventListener("click", (e) => {
+  const b = e.target.closest(".fo");
+  if (!b) return;
+  if (S.q && (FACET_HL || b.classList.contains("fo"))) { S.q = qi.value = ""; }
+  addToken(b.dataset.key, b.dataset.v);
+});
+$("#sortSeg").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-sort]");
+  if (!b) return;
+  S.sort = { key: b.dataset.sort, dir: b.dataset.sort === "updated" ? -1 : 1 };
+  render();
+});
+$("#densSeg").addEventListener("click", (e) => { const b = e.target.closest("[data-dens]"); if (b) { S.density = b.dataset.dens; render(); } });
+$("#thead").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-sortcol]");
+  if (!b) return;
+  const k = b.dataset.sortcol;
+  if (S.sort.key === k) S.sort.dir *= -1;
+  else S.sort = { key: k, dir: k === "updated" || k === "exp" ? -1 : 1 };
+  render();
+});
+$("#tbody").addEventListener("click", (e) => {
+  const tr = e.target.closest("tr[data-id]");
+  if (!tr) return;
+  const id = tr.dataset.id;
+  const isCb = e.target.classList.contains("cb");
+  if (e.shiftKey && (S.anchor || activeId())) {
+    const a = VIEW.findIndex((c) => c.id === (S.anchor || activeId()));
+    const b = VIEW.findIndex((c) => c.id === id);
+    const [lo, hi] = a < b ? [a, b] : [b, a];
+    if (!(e.ctrlKey || e.metaKey)) S.checked.clear();
+    VIEW.slice(lo, hi + 1).forEach((c) => S.checked.add(c.id));
+    window.getSelection()?.removeAllRanges();
+  } else if (isCb || e.ctrlKey || e.metaKey) {
+    if (!isCb && S.checked.size === 0 && activeId() && activeId() !== id) S.checked.add(activeId());
+    S.checked.has(id) ? S.checked.delete(id) : S.checked.add(id);
+    S.anchor = id;
+    if (isCb) { renderSel(); return; }
+  } else {
+    S.checked.clear();
+    S.anchor = id;
+  }
+  setActive(id);
+});
+$("#tbody").addEventListener("dblclick", (e) => { const tr = e.target.closest("tr[data-id]"); if (tr && !e.target.classList.contains("cb")) openSheet(byId(tr.dataset.id)); });
+$("#mlist").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-id]");
+  if (!b) return;
+  S.active[S.rule] = b.dataset.id;
+  S.drawer = true;
+  renderSel();
+  setMDetail(true);
+});
+function setMDetail(on) {
+  S.mdetail = on;
+  document.body.classList.toggle("mdetail", on);
+  if (on) { renderDrawer(true); scrollTo(0, 0); }
+  else { const b = document.querySelector(`#mlist [data-id="${activeId()}"]`); b && b.scrollIntoView({ block: "center" }); }
+}
+$("#batch").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-batch]");
+  if (!b) return;
+  const a = b.dataset.batch;
+  if (a === "clear") { S.checked.clear(); renderSel(); }
+  else if (a === "del") confirmDel([...S.checked]);
+  else if (a === "link") batchLinkMenu(b);
+});
+$("#empty").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-relax]");
+  if (!b) return;
+  const [k, v] = b.dataset.relax.split(":");
+  if (k === "tok") S.tokens.splice(+v, 1);
+  else if (k === "q") S.q = qi.value = "";
+  else if (k === "rule") { setRule(v); return; }
+  render();
+});
+$("#drawer").addEventListener("click", (e) => {
+  const c = byId(activeId());
+  const b = e.target.closest("button");
+  if (!b || !c) return;
+  if (b.dataset.close != null) { S.drawer = false; render(); return; }
+  if (b.dataset.mback != null) { setMDetail(false); return; }
+  if (b.dataset.step) { step(+b.dataset.step); return; }
+  if (b.dataset.unlink) {
+    const m = b.dataset.unlink;
+    c.modules = c.modules.filter((x) => x !== m); c._t = NOW;
+    render(); toast(`已取消关联 · ${m}`); return;
+  }
+  const a = b.dataset.act;
+  if (a === "open") openSheet(c);
+  else if (a === "portrait") toast(`管理立绘 · ${c.name}`);
+  else if (a === "link") linkMenu(b, c);
+  else if (a === "more") openMenu(b, `<button data-m="copy">复制人物 ID<span class="c">${c.id}</span></button><hr><button class="danger" data-m="del">删除人物…</button>`, (x) => {
+    closeMenu();
+    if (x.dataset.m === "del") confirmDel([c.id]);
+    else toast(`已复制 · ${c.id}`);
+  });
+});
+document.addEventListener("error", (e) => {
+  const img = e.target;
+  if (img.tagName !== "IMG" || !img.dataset.mg) return;
+  failed.add(img.getAttribute("src"));
+  if (img.dataset.big) { renderDrawer(false); return; }
+  const s = document.createElement("span");
+  s.className = "mg"; s.setAttribute("aria-hidden", "true"); s.textContent = img.dataset.mg;
+  img.replaceWith(s);
+}, true);
+document.addEventListener("keydown", (e) => {
+  if ($("#dlg").open) return;
+  const inQ = document.activeElement === qi;
+  const inField = !inQ && /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName || "");
+  if (e.key === "Escape") {
+    if (!menu.hidden) { closeMenu(); return; }
+    if (S.mdetail) { setMDetail(false); return; }
+    if (S.checked.size) { S.checked.clear(); renderSel(); return; }
+    if (inQ) { qi.blur(); return; }
+    return;
+  }
+  if (!menu.hidden) {
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      const bs = [...menu.querySelectorAll("button")];
+      const i = bs.indexOf(document.activeElement);
+      bs[(i + (e.key === "ArrowDown" ? 1 : -1) + bs.length) % bs.length].focus();
+    }
+    return;
+  }
+  if (e.key === "/" && !inQ && !inField) { e.preventDefault(); qi.focus(); qi.select(); return; }
+  if ((e.key === "ArrowDown" || e.key === "ArrowUp") && !inField && !S.mdetail) {
+    e.preventDefault();
+    if (inQ && !S.arrowed) { S.arrowed = true; renderFacets(); }
+    step(e.key === "ArrowDown" ? 1 : -1);
+    return;
+  }
+  if (e.key === "Enter" && !inQ && !inField && document.activeElement === document.body) {
+    const c = byId(activeId()); if (c) openSheet(c);
+  }
+});
+mq.addEventListener("change", () => { if (!mq.matches) setMDetail(false); render(); });
+
+/* ---------- hash hooks ---------- */
+function applyHash() {
+  const h = new URLSearchParams(location.hash.slice(1));
+  const sel = (h.get("sel") || "").split(",").filter(Boolean).filter(byId);
+  let r = h.get("rule");
+  if (!r && sel.length) r = byId(sel[0]).ruleId;
+  if (r && RULES.find((x) => x.id === r)) S.rule = r;
+  S.tokens = [];
+  if (h.get("kind")) S.tokens.push({ key: "kind", value: h.get("kind").toUpperCase() });
+  if (h.get("own")) S.tokens.push({ key: "own", value: h.get("own") });
+  if (h.get("mod")) S.tokens.push({ key: "mod", value: h.get("mod") === "未归入" || h.get("mod") === "none" ? "__none" : h.get("mod") });
+  S.q = h.get("q") || "";
+  qi.value = S.q;
+  const v = h.get("view");
+  if (v === "comfortable" || v === "compact") S.density = v;
+  const so = h.get("sort");
+  if (so) S.sort = { key: so, dir: so === "updated" || so === "exp" ? -1 : 1 };
+  S.drawer = h.get("drawer") !== "closed";
+  S.checked.clear();
+  if (sel.length) {
+    S.active[S.rule] = sel[0];
+    if (sel.length > 1) sel.forEach((id) => S.checked.add(id));
+  }
+  render();
+  if (sel.length) { const tr = document.querySelector(`#tbody tr[data-id="${sel[0]}"]`); const w = $("#tablewrap"); if (tr && !mq.matches) w.scrollTop = tr.offsetTop - w.clientHeight / 2 + tr.offsetHeight; }
+  setMDetail(h.get("m") === "detail" && mq.matches);
+  if (h.get("focus") === "q") qi.focus();
+}
+addEventListener("hashchange", applyHash);
+applyHash();
+</script>
+</body>
+</html>
