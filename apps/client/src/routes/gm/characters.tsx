@@ -46,13 +46,14 @@ import { LibraryList, LibraryWall } from "@/features/gm-characters/library-resul
 import {
 	type LibraryFolderState,
 	LibraryFolders,
-	LibraryRuleSwitch,
+	LibraryRulePicker,
 } from "@/features/gm-characters/library-sidebar";
 import { t, useI18nVersion } from "@/i18n";
 import { api } from "@/lib/api";
 import { errorText } from "@/lib/errors";
 import { requireGmAuth } from "@/lib/identity";
 import { useRuleOptions } from "@/lib/rules-api";
+import { readGmLibraryRule, writeGmLibraryRule } from "@/lib/storage";
 import { useMediaQuery } from "@/lib/use-media-query";
 import { cn } from "@/lib/utils";
 import { getRuleComponent } from "@/rules/registry";
@@ -79,8 +80,17 @@ function GmCharactersPage() {
 	const wide = useMediaQuery("(min-width: 1024px)", true);
 	const { rules } = useRuleOptions();
 	const ruleIds = rules.map((rule) => rule.id);
+	// URL 优先，其次是上次使用的规则，最后才是列表里的第一个
+	const storedRuleId = readGmLibraryRule();
 	const ruleId =
-		search.rule && ruleIds.includes(search.rule) ? search.rule : ruleIds[0];
+		search.rule && ruleIds.includes(search.rule)
+			? search.rule
+			: storedRuleId && ruleIds.includes(storedRuleId)
+				? storedRuleId
+				: ruleIds[0];
+	useEffect(() => {
+		if (ruleId) writeGmLibraryRule(ruleId);
+	}, [ruleId]);
 	const rule = getRuleComponent(ruleId);
 	const view = search.view ?? "list";
 
@@ -498,7 +508,7 @@ function GmCharactersPage() {
 						data-scroll
 						className="flex w-60 shrink-0 flex-col overflow-y-auto border-r border-md-outline-variant/60 bg-md-surface pb-6 xl:w-64"
 					>
-						<LibraryRuleSwitch
+						<LibraryRulePicker
 							rules={ruleOptions}
 							activeRuleId={ruleId ?? ""}
 							onSelect={changeRule}
@@ -535,21 +545,11 @@ function GmCharactersPage() {
 			) : (
 				<div className="flex min-h-full flex-col">
 					<div className="flex flex-col gap-3 border-b border-md-outline-variant/60 bg-md-surface px-4 pt-4 pb-3">
-						<SegmentedControl
-							aria-label={t("gm.library.rulesAria")}
-							value={ruleId ?? ""}
-							onValueChange={changeRule}
-							options={ruleOptions.map((option) => ({
-								value: option.id,
-								label: (
-									<>
-										{getRuleComponent(option.id).shortName}
-										<span className="text-label-medium tabular-nums opacity-80">
-											{option.count}
-										</span>
-									</>
-								),
-							}))}
+						<LibraryRulePicker
+							compact
+							rules={ruleOptions}
+							activeRuleId={ruleId ?? ""}
+							onSelect={changeRule}
 						/>
 						{header}
 					</div>

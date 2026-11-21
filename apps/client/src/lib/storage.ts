@@ -5,6 +5,7 @@ export const ROTATE_SUGGESTION_KEY = "cogm.rotateSuggestionDismissed";
 export const LOCAL_VOLUME_KEY = "cogm.localVolume";
 export const LOCAL_MUTED_KEY = "cogm.localMuted";
 export const PLAY_DISPLAY_KEY = "cogm.playDisplay";
+export const GM_LIBRARY_RULE_KEY = "cogm.gmLibraryRule";
 export const VOICE_MEMBER_VOLUMES_PREFIX = "cogm.voiceMemberVolumes.";
 
 export type PlayDisplayKey =
@@ -163,4 +164,18 @@ export function writeVoiceMemberVolumes(
 	} catch {
 		// Ignore quota errors on local preference persistence.
 	}
+}
+
+export function readGmLibraryRule(): string | null {
+	if (typeof localStorage === "undefined") {
+		return null;
+	}
+	return localStorage.getItem(GM_LIBRARY_RULE_KEY);
+}
+
+export function writeGmLibraryRule(ruleId: string): void {
+	if (typeof localStorage === "undefined") {
+		return;
+	}
+	localStorage.setItem(GM_LIBRARY_RULE_KEY, ruleId);
 }

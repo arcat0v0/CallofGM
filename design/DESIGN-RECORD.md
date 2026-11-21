@@ -138,3 +138,7 @@ Tokens: 全部来自 apps/client/src/styles/theme.css（md-surface* 分层、md-
 Signature moves: 1) 规则作为一级切换（library-sidebar.tsx LibraryRuleSwitch）；2) 带分面计数的筛选文件夹（LibraryFolders，计数来自服务端 facets）；3) 立绘主导的检视器（character-inspector.tsx），规则摘要只经 RuleComponent.sheetOverview/summaryMetrics。
 Never "clean up": 列表里没有规则数值是产品决定；分面计数“按其余已选条件计算”是刻意的；玩家人物只读；GET /gm/characters/library 不返回 sheetJson 是性能约束。
 Port notes: 页面 apps/client/src/routes/gm/characters.tsx；业务组件 apps/client/src/features/gm-characters/；服务端 ListCharacterLibraryUseCase / buildCharacterLibraryPage（use-cases.ts）与 listLibraryScope / gmHasReadAccess（drizzle-characters-repository.ts）。
+
+## 交付后修订
+
+- 2026-11-21 用户反馈“规则切换的逻辑不好，规则多了怎么办”：左栏堆叠的规则块与移动端分段控件均随规则数线性增长。改为 `LibraryRulePicker`——单个触发器（当前规则简称、全名、人数）+ 弹层；弹层按“有人物（按人数降序）/暂无人物（按名称）”分组，规则超过 6 套出现搜索框（匹配简称、全名、id，回车选第一项），方向键在选项间移动；桌面与移动端共用，移动端为单行形态。无 `?rule=` 时恢复上次使用的规则（localStorage `cogm.gmLibraryRule`）。截图：`shots/gm-characters/picker-*`；8 套规则的分组/搜索行为由 `apps/client/tests/library-rule-picker.test.tsx` 覆盖。未重跑评审轮。

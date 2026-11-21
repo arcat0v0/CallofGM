@@ -1740,6 +1740,11 @@ export const zhCN: Record<string, string> = {
 
 	"gm.library.title": "人物管理",
 	"gm.library.rulesAria": "规则",
+	"gm.library.rulePickerAria": "切换规则，当前：{rule}",
+	"gm.library.ruleSearchPlaceholder": "搜索规则",
+	"gm.library.ruleGroupUsed": "有人物",
+	"gm.library.ruleGroupEmpty": "暂无人物",
+	"gm.library.ruleNoMatch": "没有匹配的规则",
 	"gm.library.foldersAria": "人物筛选",
 	"gm.library.all": "全部人物",
 	"gm.library.groupKind": "类型",
