@@ -16,6 +16,7 @@ import { t } from "@/i18n";
 import { api, isApiError } from "@/lib/api";
 import { errorText } from "@/lib/errors";
 import { formatStamp } from "@/lib/format";
+import { getRuleComponent } from "@/rules/registry";
 
 type Invite = CharacterInviteDto;
 type IssuedInvite = Omit<Invite, "token"> & { token: string };
@@ -55,13 +56,21 @@ export function InviteLinksDialog({
 	scope,
 	targetId,
 	targetName,
+	ruleId,
 }: {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	scope: "module" | "session";
 	targetId: string;
 	targetName: string;
+	/** 目标的规则；规则声明车卡方式能力时，可为新链接设定天命/购点等 */
+	ruleId?: string | null | undefined;
 }) {
+	const creationCapability = ruleId
+		? getRuleComponent(ruleId).capabilities?.characterCreation
+		: undefined;
+	const CreationOptionsEditor = creationCapability?.optionsEditor;
+	const [creationOptions, setCreationOptions] = useState<unknown | null>(null);
 	const [invites, setInvites] = useState<Invite[]>([]);
 	const [freshTokens, setFreshTokens] = useState<Map<string, FreshTokenEntry>>(
 		new Map(),
@@ -159,7 +168,14 @@ export function InviteLinksDialog({
 		try {
 			const response = await api<unknown>("/gm/invites", {
 				method: "POST",
-				body: JSON.stringify({ scope, targetId, expiresInDays: 7 }),
+				body: JSON.stringify({
+					scope,
+					targetId,
+					expiresInDays: 7,
+					...(creationCapability && creationOptions !== null
+						? { creationOptions }
+						: {}),
+				}),
 			});
 			if (generationRef.current !== generation) {
 				return;
@@ -243,6 +259,18 @@ export function InviteLinksDialog({
 				</DialogHeader>
 
 				<div className="flex flex-col gap-4">
+					{CreationOptionsEditor ? (
+						<div className="flex flex-col gap-2 rounded-lg bg-surface-tertiary px-3 py-3">
+							<span className="text-label-large text-foreground-secondary">
+								{t("gm.invites.methodSection")}
+							</span>
+							<CreationOptionsEditor
+								value={creationOptions}
+								onChange={setCreationOptions}
+								disabled={pending}
+							/>
+						</div>
+					) : null}
 					<Button
 						type="button"
 						variant="primary"
@@ -272,6 +300,12 @@ export function InviteLinksDialog({
 							{rows.map((invite) => {
 								const fresh = active.get(invite.id)?.token ?? null;
 								const status = inviteStatus(invite);
+								const method =
+									invite.creationOptions === null
+										? null
+										: (creationCapability?.describeOptions(
+												invite.creationOptions,
+											) ?? null);
 								return (
 									<div
 										key={invite.id}
@@ -283,6 +317,11 @@ export function InviteLinksDialog({
 											<Badge variant="soft" tone={statusTone(status)} size="sm">
 												{t(`gm.invites.status.${status}`)}
 											</Badge>
+											{method ? (
+												<Badge variant="soft" tone="accent" size="sm">
+													{method}
+												</Badge>
+											) : null}
 											<span className="text-foreground-tertiary text-label-small">
 												{t("gm.invites.expiry", {
 													date: formatStamp(invite.expiresAt),

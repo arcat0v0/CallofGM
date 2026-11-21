@@ -1,5 +1,5 @@
 import { coc7e } from "@cogm/shared";
-import { Dices, ImagePlus, Trash2, UserRound } from "lucide-react";
+import { ImagePlus, Trash2, UserRound } from "lucide-react";
 import { type ReactNode, useRef } from "react";
 import {
 	NumericField,
@@ -12,6 +12,8 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { t } from "@/i18n";
+import type { RuleCreationRollContext } from "../../types";
+import { Coc7eCreationRollPanel } from "../creation-method";
 
 type Sheet = coc7e.Coc7eCharacterSheet;
 type AttributeKey = coc7e.Coc7eAttributeKey;
@@ -29,6 +31,7 @@ const ATTRIBUTE_KEYS: AttributeKey[] = [
 ];
 
 export function Coc7eIdentityAttributesTab({
+	creation,
 	sheet,
 	onChange,
 	onChangeEra,
@@ -43,6 +46,7 @@ export function Coc7eIdentityAttributesTab({
 	onClearPendingPortrait,
 	onManageExpressions,
 }: {
+	creation?: RuleCreationRollContext | null | undefined;
 	sheet: Sheet;
 	onChange: (patch: Partial<Sheet>) => void;
 	onChangeEra: (era: Sheet["era"]) => void;
@@ -291,19 +295,15 @@ export function Coc7eIdentityAttributesTab({
 				id="attributes"
 				title={t("characterCreation.attributes")}
 				description={t("characterCreation.rollFormulaHint")}
-				actions={
-					<Button
-						type="button"
-						variant="outline"
-						onClick={() =>
-							onChange({ attributes: coc7e.rollAllCoc7eAttributes() })
-						}
-					>
-						<Dices className="size-4" />
-						{t("characterCreation.rollAllAttributes")}
-					</Button>
-				}
 			>
+				{creation ? (
+					<Coc7eCreationRollPanel
+						creation={creation}
+						attributes={sheet.attributes}
+						age={sheet.age}
+						onApplyAttributes={(attributes) => onChange({ attributes })}
+					/>
+				) : null}
 				<div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
 					{ATTRIBUTE_KEYS.map((key) => {
 						const pair = coc7e.COC7E_ATTRIBUTE_LABELS[key] ?? {
@@ -340,25 +340,6 @@ export function Coc7eIdentityAttributesTab({
 											}
 										/>
 									</div>
-									<Button
-										type="button"
-										variant="ghost"
-										size="icon-sm"
-										className="mt-6 shrink-0"
-										aria-label={t("characterCreation.rollSingleAttribute", {
-											name: pair.label,
-										})}
-										onClick={() =>
-											onChange({
-												attributes: {
-													...sheet.attributes,
-													[key]: coc7e.rollCoc7eAttribute(key),
-												},
-											})
-										}
-									>
-										<Dices className="size-4" />
-									</Button>
 								</div>
 								<p className="font-mono text-label-small text-foreground-secondary tabular-nums">
 									{t("characterCreation.halfFifth", {

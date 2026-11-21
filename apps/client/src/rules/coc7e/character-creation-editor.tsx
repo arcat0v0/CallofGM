@@ -14,6 +14,7 @@ import { Coc7eSkillsTab, type SkillCatalogItem } from "./tabs/skills-tab";
 type Sheet = coc7e.Coc7eCharacterSheet;
 
 export function Coc7eCharacterCreationEditor({
+	creation,
 	sheet: rawSheet,
 	onChange,
 	showValidation,
@@ -156,6 +157,7 @@ export function Coc7eCharacterCreationEditor({
 
 			<div role="tabpanel" hidden={activeTab !== "identity"}>
 				<Coc7eIdentityAttributesTab
+					creation={creation}
 					sheet={sheet}
 					onChange={update}
 					onChangeEra={changeEra}

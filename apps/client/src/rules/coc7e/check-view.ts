@@ -24,7 +24,7 @@ export function formatCheckEvent({
 }: RuleCheckEvent): RuleCheckEventView {
 	const skill =
 		skillKey === "luck"
-			? t("chat.destinyCheck")
+			? t("chat.luckCheck")
 			: skillKey
 				? coc7e.coc7eSkillLabel(skillKey)
 				: t("chat.role.check");

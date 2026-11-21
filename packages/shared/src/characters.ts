@@ -212,6 +212,8 @@ export const CreateCharacterInviteRequest = z.object({
 	scope: CharacterInviteScope,
 	targetId: z.string().min(1),
 	expiresInDays: z.number().int().min(1).max(90).default(7),
+	/** 规则专属的车卡属性生成方式（如 CoC 7e 天命/购点），由服务端按规则系统校验；缺省为手填 */
+	creationOptions: z.unknown().optional(),
 });
 export type CreateCharacterInviteRequest = z.infer<
 	typeof CreateCharacterInviteRequest
@@ -223,11 +225,34 @@ export const CharacterInviteDto = z.object({
 	targetId: z.string(),
 	targetName: z.string().nullable(),
 	token: z.string().nullable(),
+	creationOptions: z.unknown().nullable().default(null),
 	expiresAt: z.number().int(),
 	revokedAt: z.number().int().nullable(),
 	createdAt: z.number().int(),
 });
 export type CharacterInviteDto = z.infer<typeof CharacterInviteDto>;
+
+/**
+ * 车卡属性生成记录：每位 PL 在每条提交链接上只能掷一次，结果由服务端生成并保存。
+ * result 为规则专属结构；chosenIndex 为玩家最终选定的一套（规则不需要选择时为 0）。
+ */
+export const CharacterCreationRollDto = z.object({
+	id: z.string(),
+	ruleId: RuleId,
+	options: z.unknown(),
+	result: z.unknown(),
+	chosenIndex: z.number().int().min(0).nullable(),
+	createdAt: z.number().int(),
+	chosenAt: z.number().int().nullable(),
+});
+export type CharacterCreationRollDto = z.infer<typeof CharacterCreationRollDto>;
+
+export const ChooseCreationRollRequest = z.object({
+	index: z.number().int().min(0),
+});
+export type ChooseCreationRollRequest = z.infer<
+	typeof ChooseCreationRollRequest
+>;
 
 export const CharacterInviteInfoResponse = z.object({
 	scope: CharacterInviteScope,
@@ -235,6 +260,8 @@ export const CharacterInviteInfoResponse = z.object({
 	targetName: z.string(),
 	ruleId: RuleId,
 	expiresAt: z.number().int(),
+	creationOptions: z.unknown().nullable().default(null),
+	creationRoll: CharacterCreationRollDto.nullable().default(null),
 	ownedCharacters: z.array(
 		z.object({
 			id: z.string(),
@@ -281,6 +308,11 @@ export const CharacterReviewDto = z.object({
 	decidedByUserId: z.string().nullable(),
 	decidedAt: z.number().int().nullable(),
 	createdAt: z.number().int(),
+	ruleId: RuleId.nullable().default(null),
+	/** 提交时人物卡（仅当人物当前版本仍为提交版本时给出），供规则比对车卡掷骰结果 */
+	submittedSheet: z.unknown().nullable().default(null),
+	/** 该提交者在这条链接上的车卡掷骰记录；链接未设定生成方式或未掷时为 null */
+	creationRoll: CharacterCreationRollDto.nullable().default(null),
 });
 export type CharacterReviewDto = z.infer<typeof CharacterReviewDto>;
 

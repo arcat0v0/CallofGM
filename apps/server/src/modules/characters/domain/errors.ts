@@ -155,3 +155,41 @@ export class CharacterInUseError extends AppError {
 		super("CHARACTER_IN_USE", message, 409);
 	}
 }
+
+export class CreationMethodUnsupportedError extends AppError {
+	constructor(message = "This rule system does not support creation methods") {
+		super("CREATION_METHOD_UNSUPPORTED", message, 400);
+	}
+}
+
+export class CreationRollNotAvailableError extends AppError {
+	constructor(message = "This invite link has no creation method") {
+		super("CREATION_ROLL_NOT_AVAILABLE", message, 400);
+	}
+}
+
+export class CreationRollNotFoundError extends AppError {
+	constructor(message = "Creation roll has not been made yet") {
+		super("CREATION_ROLL_NOT_FOUND", message, 404);
+	}
+}
+
+export class CreationRollAlreadyChosenError extends AppError {
+	constructor(message = "A set has already been chosen for this roll") {
+		super("CREATION_ROLL_ALREADY_CHOSEN", message, 409);
+	}
+}
+
+export class CreationRollInvalidChoiceError extends AppError {
+	constructor(message = "Chosen set does not exist") {
+		super("CREATION_ROLL_INVALID_CHOICE", message, 400);
+	}
+}
+
+export class CreationRollRequiredError extends AppError {
+	constructor(
+		message = "Roll and choose attributes before submitting a new character",
+	) {
+		super("CREATION_ROLL_REQUIRED", message, 400);
+	}
+}

@@ -3,6 +3,7 @@ import { AppError } from "@/platform/errors/app-error";
 import { validationFailed } from "@/platform/errors/validation";
 import type { RandomSource } from "@/platform/ports";
 import type {
+	CharacterCreationCapability,
 	LuckCapability,
 	LuckRecoveryResult,
 	LuckSpendResult,
@@ -66,7 +67,8 @@ export class Coc7eRuleSystem
 	implements
 		SanityCheckCapability<coc7e.CharacterSessionState>,
 		LuckCapability<coc7e.CharacterSessionState>,
-		SkillGrowthCapability<coc7e.Coc7eCharacterSheet>
+		SkillGrowthCapability<coc7e.Coc7eCharacterSheet>,
+		CharacterCreationCapability
 {
 	readonly id = "coc7e";
 	readonly metadata: RuleMetadata = {
@@ -541,6 +543,29 @@ export class Coc7eRuleSystem
 			state: this.sessionStateSchema.parse(next),
 			result: amended,
 		};
+	}
+
+	parseCreationOptions(input: unknown): coc7e.Coc7eCreationOptions {
+		const parsed = coc7e.Coc7eCreationOptions.safeParse(input);
+		if (!parsed.success) {
+			throw validationFailed(parsed.error);
+		}
+		return parsed.data;
+	}
+
+	rollCreation(
+		options: unknown,
+		random: RandomSource,
+	): coc7e.Coc7eCreationRollResult {
+		return coc7e.rollCoc7eCreation(
+			this.parseCreationOptions(options),
+			(sides) => random.randomInt(1, sides),
+		);
+	}
+
+	creationChoiceCount(result: unknown): number {
+		const parsed = coc7e.Coc7eCreationRollResult.parse(result);
+		return parsed.method === "destiny" ? parsed.sets.length : 1;
 	}
 
 	recoverLuck(

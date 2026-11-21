@@ -92,9 +92,22 @@ export interface CharacterInviteRecord {
 	scope: string;
 	targetId: string;
 	tokenHash: string;
+	creationOptionsJson: string | null;
 	expiresAt: number;
 	revokedAt: number | null;
 	deletedAt: number | null;
+	createdAt: number;
+}
+
+export interface CharacterCreationRollRecord {
+	id: string;
+	inviteId: string;
+	userId: string;
+	ruleId: string;
+	optionsJson: string;
+	resultJson: string;
+	chosenIndex: number | null;
+	chosenAt: number | null;
 	createdAt: number;
 }
 
@@ -129,6 +142,10 @@ export interface CharacterReviewDetail extends CharacterReviewRecord {
 	characterName: string;
 	submittedByName: string | null;
 	targetName: string | null;
+	ruleId: string | null;
+	/** 人物当前版本仍为提交版本时的卡面 JSON，否则为 null */
+	submittedSheetJson: string | null;
+	creationRoll: CharacterCreationRollRecord | null;
 }
 
 export interface CharacterSyncPreview {
@@ -311,6 +328,20 @@ export interface CharactersRepository {
 	): Promise<CharacterInviteRecord | null>;
 	listInvites(ownerId: string): Promise<CharacterInviteRecord[]>;
 	revokeInvite(id: string, revokedAt: number): Promise<void>;
+	findCreationRoll(
+		inviteId: string,
+		userId: string,
+	): Promise<CharacterCreationRollRecord | null>;
+	/** 插入掷骰记录；同一链接同一用户已存在记录时返回已有记录（不重掷） */
+	saveCreationRollOnce(
+		roll: CharacterCreationRollRecord,
+	): Promise<CharacterCreationRollRecord>;
+	/** 仅在尚未选择时写入选择；返回是否写入成功 */
+	chooseCreationRoll(
+		id: string,
+		index: number,
+		chosenAt: number,
+	): Promise<boolean>;
 
 	saveReview(
 		review: Omit<

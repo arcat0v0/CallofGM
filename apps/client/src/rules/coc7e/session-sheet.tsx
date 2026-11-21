@@ -93,11 +93,11 @@ export function CocSessionSheet({
 				variant="tertiary"
 				className="bg-md-surface-container flex h-auto w-full items-stretch justify-between gap-4 px-4 py-3 text-left"
 				disabled={!canPerform}
-				onClick={() => onPerform("luck", undefined, t("sheet.destinyCheck"))}
+				onClick={() => onPerform("luck", undefined, t("sheet.luckCheck"))}
 			>
 				<span className="flex flex-col gap-0.5">
 					<span className="text-foreground-secondary text-label-small tracking-[0.14em]">
-						{t("sheet.destiny")}
+						{t("sheet.luck")}
 					</span>
 					<span className="text-title-large-emph text-foreground font-serif tabular-nums">
 						{canPerform ? (state?.luck ?? derived.luck) : derived.luck}

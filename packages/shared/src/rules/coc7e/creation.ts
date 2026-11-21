@@ -5,8 +5,6 @@ import {
 	coc7eOccupation,
 } from "./occupations";
 import type {
-	Coc7eAttributeKey,
-	Coc7eAttributes,
 	Coc7eBackgroundFieldKey,
 	Coc7eBackgroundProfile,
 	Coc7eCharacterSheet,
@@ -364,44 +362,6 @@ function guidance(
 		appearanceReduction,
 		eduReduction: 0,
 		luckRolls: 1,
-	};
-}
-
-function rollD6(nextInt?: (sides: number) => number): number {
-	if (nextInt) {
-		return nextInt(6);
-	}
-	if (typeof crypto !== "undefined" && crypto.getRandomValues) {
-		const buf = new Uint32Array(1);
-		crypto.getRandomValues(buf);
-		return ((buf[0] ?? 0) % 6) + 1;
-	}
-	return Math.floor(Math.random() * 6) + 1;
-}
-
-export function rollCoc7eAttribute(
-	key: Coc7eAttributeKey,
-	nextInt?: (sides: number) => number,
-): number {
-	if (key === "siz" || key === "int" || key === "edu") {
-		return (rollD6(nextInt) + rollD6(nextInt) + 6) * 5;
-	}
-	return (rollD6(nextInt) + rollD6(nextInt) + rollD6(nextInt)) * 5;
-}
-
-export function rollAllCoc7eAttributes(
-	nextInt?: (sides: number) => number,
-): Coc7eAttributes {
-	return {
-		str: rollCoc7eAttribute("str", nextInt),
-		con: rollCoc7eAttribute("con", nextInt),
-		siz: rollCoc7eAttribute("siz", nextInt),
-		dex: rollCoc7eAttribute("dex", nextInt),
-		app: rollCoc7eAttribute("app", nextInt),
-		int: rollCoc7eAttribute("int", nextInt),
-		pow: rollCoc7eAttribute("pow", nextInt),
-		edu: rollCoc7eAttribute("edu", nextInt),
-		luck: rollCoc7eAttribute("luck", nextInt),
 	};
 }
 

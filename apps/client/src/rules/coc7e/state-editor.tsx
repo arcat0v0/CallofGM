@@ -210,7 +210,7 @@ export function CocStateEditor({ character, onClose }: RuleStateEditorProps) {
 					<div className="bg-md-surface-container-high border-field-border flex flex-col gap-2 rounded-lg border p-3 shadow-[inset_0_1px_0_#ffffff0a]">
 						<div className="flex flex-wrap items-center gap-2">
 							<span className="text-md-on-surface-variant text-label-medium-emph">
-								{t("sheet.destiny")}
+								{t("sheet.luck")}
 							</span>
 							<Input
 								value={values.luck ?? ""}
@@ -233,7 +233,7 @@ export function CocStateEditor({ character, onClose }: RuleStateEditorProps) {
 									className="h-9"
 									onClick={applyLuckDelta}
 								>
-									± {delta} {t("sheet.destiny")}
+									± {delta} {t("sheet.luck")}
 								</Button>
 								<Button
 									type="button"

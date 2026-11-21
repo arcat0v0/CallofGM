@@ -1,4 +1,8 @@
-import type { CharacterInviteInfoResponse, RuleMetadata } from "@cogm/shared";
+import {
+	CharacterCreationRollDto,
+	type CharacterInviteInfoResponse,
+	type RuleMetadata,
+} from "@cogm/shared";
 import {
 	AlertTriangle,
 	ArrowLeft,
@@ -25,6 +29,7 @@ import { t } from "@/i18n";
 import { api } from "@/lib/api";
 import { errorText } from "@/lib/errors";
 import { getRuleComponent } from "@/rules/registry";
+import type { RuleCreationRollContext } from "@/rules/types";
 import {
 	clearCharacterCreationDraft,
 	createEmptyCharacterSheet,
@@ -116,19 +121,20 @@ export function CharacterCreationPageView({
 					targetName: inviteTargetName ?? "",
 					ruleId: inviteRuleId,
 					expiresAt: 0,
+					creationOptions: null,
+					creationRoll: null,
 					ownedCharacters: [],
 				}
 			: null,
 	);
-	const [inviteLoading, setInviteLoading] = useState(
-		mode === "invite" && !inviteRuleId,
-	);
+	const [inviteLoading, setInviteLoading] = useState(mode === "invite" && !inviteRuleId);
 	const [inviteError, setInviteError] = useState(false);
 	const [errorMessage, setErrorMessage] = useState("");
+	const [rollPending, setRollPending] = useState(false);
 	const dirty = useRef(false);
 
 	useEffect(() => {
-		if (mode !== "invite" || !inviteToken || inviteRuleId) {
+		if (mode !== "invite" || !inviteToken) {
 			return;
 		}
 		let cancelled = false;
@@ -140,6 +146,9 @@ export function CharacterCreationPageView({
 					return;
 				}
 				setInvite(value);
+				if (inviteRuleId) {
+					return;
+				}
 				setRuleId(value.ruleId);
 				setSheet(
 					initial.draft?.ruleId === value.ruleId
@@ -223,6 +232,48 @@ export function CharacterCreationPageView({
 		markDirty();
 		setSheet(value);
 	}
+
+	async function requestCreationRoll(
+		path: string,
+		body?: unknown,
+	): Promise<CharacterCreationRollDto | null> {
+		if (!inviteToken || rollPending) {
+			return null;
+		}
+		setRollPending(true);
+		try {
+			const roll = CharacterCreationRollDto.parse(
+				await api<unknown>(
+					`/pl/invites/${encodeURIComponent(inviteToken)}/${path}`,
+					{
+						method: "POST",
+						...(body === undefined ? {} : { body: JSON.stringify(body) }),
+					},
+				),
+			);
+			setInvite((current) =>
+				current ? { ...current, creationRoll: roll } : current,
+			);
+			return roll;
+		} catch (error) {
+			toast.error(errorText(error, "characterCreation.method.rollFailed"));
+			return null;
+		} finally {
+			setRollPending(false);
+		}
+	}
+
+	const creation: RuleCreationRollContext | null =
+		mode === "invite" && invite?.creationOptions
+			? {
+					options: invite.creationOptions,
+					roll: invite.creationRoll,
+					pending: rollPending || inviteLoading,
+					onRoll: () => requestCreationRoll("creation-roll"),
+					onChoose: (index) =>
+						requestCreationRoll("creation-roll/choice", { index }),
+				}
+			: null;
 
 	const rule = getRuleComponent(ruleId || undefined);
 	const CreationEditor = rule.creationEditor;
@@ -537,6 +588,7 @@ export function CharacterCreationPageView({
 
 				{ruleId && sheet !== null ? (
 					<CreationEditor
+						creation={creation}
 						sheet={sheet}
 						onChange={updateSheet}
 						showValidation={showValidation}

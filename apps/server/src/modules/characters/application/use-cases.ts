@@ -887,6 +887,7 @@ export class UnlinkModuleCharacterUseCase {
 }
 
 export {
+	ChooseCreationRollUseCase,
 	ConfirmGrowthUseCase,
 	CreateCharacterInviteUseCase,
 	DecideReviewUseCase,
@@ -895,7 +896,9 @@ export {
 	ListCharacterInvitesUseCase,
 	ListReviewsUseCase,
 	RevokeCharacterInviteUseCase,
+	RollCreationUseCase,
 	SubmitCharacterUseCase,
+	toCreationRollDto,
 } from "./lifecycle";
 export { ApplyCharacterSyncUseCase, PreviewCharacterSyncUseCase } from "./sync";
 export { ModuleCharacterAlreadyLinkedError, PermanentFieldNotEditableError };

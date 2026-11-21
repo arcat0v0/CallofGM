@@ -637,13 +637,13 @@ describe("CoC 7e getSkillTargetValue", () => {
 	});
 });
 
-describe("CoC 7e 天命（幸运）", () => {
-	test("开团状态从人物卡初始化当前天命", () => {
+describe("CoC 7e 幸运", () => {
+	test("开团状态从人物卡初始化当前幸运", () => {
 		const state = rule.initializeSessionState(baseSheet);
 		expect(state.luck).toBe(50);
 	});
 
-	test("GM 可直接设置或增减天命，并钳制到 0–99", () => {
+	test("GM 可直接设置或增减幸运，并钳制到 0–99", () => {
 		expect(rule.applyGmStateEdit(baseState, { luck: 98 }).state.luck).toBe(98);
 		expect(rule.applyGmStateEdit(baseState, { luckDelta: -5 }).state.luck).toBe(
 			45,
@@ -656,7 +656,7 @@ describe("CoC 7e 天命（幸运）", () => {
 		);
 	});
 
-	test("花费天命改骰：扣点、提升判级并收回成长标记", () => {
+	test("花费幸运改骰：扣点、提升判级并收回成长标记", () => {
 		const failed = check({ tens: [6], units: 3 });
 		expect(failed.outcome).toBe("failure");
 		const spent = rule.spendLuckOnCheck(
@@ -676,7 +676,7 @@ describe("CoC 7e 天命（幸运）", () => {
 		});
 	});
 
-	test("花费天命禁用手表", () => {
+	test("花费幸运禁用手表", () => {
 		const failed = check({ tens: [6], units: 3 });
 		const fumble = check({ tens: [0], units: 0 });
 		const luckCheck = check(
@@ -732,7 +732,7 @@ describe("CoC 7e 天命（幸运）", () => {
 		}
 	});
 
-	test("天命恢复：超过当前值回复 1d10，未超过不变，上限 99", () => {
+	test("幸运恢复：超过当前值回复 1d10，未超过不变，上限 99", () => {
 		const gained = rule.recoverLuck(
 			{ ...baseState, luck: 50 },
 			new FakeRandomSource([78, 7]),
@@ -767,7 +767,7 @@ describe("CoC 7e 天命（幸运）", () => {
 		});
 	});
 
-	test("团内状态摘要包含当前天命", () => {
-		expect(coc7e.coc7eStateSummary(baseState)).toContain("天命 50");
+	test("团内状态摘要包含当前幸运", () => {
+		expect(coc7e.coc7eStateSummary(baseState)).toContain("幸运 50");
 	});
 });

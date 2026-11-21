@@ -172,6 +172,8 @@ export const characterInvites = sqliteTable(
 		scope: text("scope").notNull(),
 		targetId: text("target_id").notNull(),
 		tokenHash: text("token_hash").notNull().unique(),
+		/** 规则专属的车卡属性生成方式（JSON），NULL 表示手填 */
+		creationOptionsJson: text("creation_options_json"),
 		expiresAt: integer("expires_at").notNull(),
 		revokedAt: integer("revoked_at"),
 		deletedAt: integer("deleted_at"),
@@ -180,6 +182,32 @@ export const characterInvites = sqliteTable(
 	(table) => [
 		index("character_invites_owner_idx").on(table.ownerId),
 		index("character_invites_target_idx").on(table.scope, table.targetId),
+	],
+);
+
+/** 车卡属性生成记录：每位 PL 在每条提交链接上只能掷一次，结果由服务端生成 */
+export const characterCreationRolls = sqliteTable(
+	"character_creation_rolls",
+	{
+		id: text("id").primaryKey(),
+		inviteId: text("invite_id")
+			.notNull()
+			.references(() => characterInvites.id),
+		userId: text("user_id")
+			.notNull()
+			.references(() => users.id),
+		ruleId: text("rule_id").notNull(),
+		optionsJson: text("options_json").notNull(),
+		resultJson: text("result_json").notNull(),
+		chosenIndex: integer("chosen_index"),
+		chosenAt: integer("chosen_at"),
+		createdAt: integer("created_at").notNull(),
+	},
+	(table) => [
+		uniqueIndex("character_creation_rolls_invite_user_idx").on(
+			table.inviteId,
+			table.userId,
+		),
 	],
 );
 

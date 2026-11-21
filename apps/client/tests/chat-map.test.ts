@@ -172,8 +172,8 @@ describe("check result clarity", () => {
 	});
 });
 
-describe("destiny and luck amendment mapping", () => {
-	test("a luck check is titled as a destiny check and keeps the luck value", () => {
+describe("luck check and amendment mapping", () => {
+	test("a luck check is titled as a luck check and keeps the luck value", () => {
 		const event = mapActivityEvent(
 			"check:resolved",
 			{
@@ -192,7 +192,7 @@ describe("destiny and luck amendment mapping", () => {
 			9,
 			1_700_000_000_000,
 		);
-		expect(event?.check?.skill).toBe("天命检定");
+		expect(event?.check?.skill).toBe("幸运检定");
 		expect(event?.check?.skillNote).toBe("幸运 63/50");
 		expect(event?.check?.skillKey).toBe("luck");
 	});
@@ -252,7 +252,7 @@ describe("destiny and luck amendment mapping", () => {
 			1_700_000_000_015,
 		);
 		expect(event?.body).toBe(
-			"天命恢复 78/42 超过当前幸运，回复 7 点（42→49）",
+			"幸运恢复 78/42 超过当前幸运，回复 7 点（42→49）",
 		);
 		expect(event?.isSystem).toBe(true);
 	});
@@ -410,7 +410,7 @@ describe("history activity mapping", () => {
 			[character()],
 		);
 		expect(event?.speakerName).toBe("陈默");
-		expect(event?.body).toBe("HP 8/12 · MP 3/9 · SAN 45/60 · 天命 50");
+		expect(event?.body).toBe("HP 8/12 · MP 3/9 · SAN 45/60 · 幸运 50");
 
 		const sparse = mapActivityEvent(
 			"state:changed",

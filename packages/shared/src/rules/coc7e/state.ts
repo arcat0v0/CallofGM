@@ -87,5 +87,5 @@ export function coc7eStateSummary(state: unknown): string | null {
 		return null;
 	}
 	const value = parsed.data;
-	return `HP ${value.hp}/${value.maxHp} · MP ${value.mp}/${value.maxMp} · SAN ${value.san}/${value.maxSan} · 天命 ${value.luck}`;
+	return `HP ${value.hp}/${value.maxHp} · MP ${value.mp}/${value.maxMp} · SAN ${value.san}/${value.maxSan} · 幸运 ${value.luck}`;
 }

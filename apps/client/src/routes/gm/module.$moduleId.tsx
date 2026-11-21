@@ -868,6 +868,7 @@ function ModuleDetailPage() {
 				scope="module"
 				targetId={moduleId}
 				targetName={module?.name ?? ""}
+				ruleId={module?.ruleId}
 			/>
 		</AdminLayout>
 	);

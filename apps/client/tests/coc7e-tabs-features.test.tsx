@@ -1,10 +1,14 @@
 import { beforeEach, describe, expect, test } from "bun:test";
-import type { CharacterSheetContextResponse } from "@cogm/shared";
+import type {
+	CharacterCreationRollDto,
+	CharacterSheetContextResponse,
+} from "@cogm/shared";
 import { coc7e } from "@cogm/shared";
 import { fireEvent, render, waitFor, within } from "@testing-library/react";
 import { useState } from "react";
 import { Coc7eCharacterCreationEditor } from "../src/rules/coc7e/character-creation-editor";
 import { Coc7eBackgroundTab } from "../src/rules/coc7e/tabs/background-tab";
+import type { RuleCreationRollContext } from "../src/rules/types";
 
 type Sheet = ReturnType<typeof coc7e.normalizeCoc7eSheet>;
 
@@ -27,15 +31,18 @@ function emptySheet(): Sheet {
 function Harness({
 	initial = emptySheet(),
 	sheetContext = null,
+	creation = null,
 	onChange,
 }: {
 	initial?: Sheet;
 	sheetContext?: CharacterSheetContextResponse | null;
+	creation?: RuleCreationRollContext | null;
 	onChange: (sheet: Sheet) => void;
 }) {
 	const [sheet, setSheet] = useState(initial);
 	return (
 		<Coc7eCharacterCreationEditor
+			creation={creation}
 			sheet={sheet}
 			showValidation={false}
 			onValidityChange={() => undefined}
@@ -92,31 +99,123 @@ describe("CoC 7e v2 7-tab features", () => {
 		}
 	});
 
-	test("rolls all attributes and rerolls a single attribute within CoC 7e bounds", async () => {
+	test("without a creation method attributes are manual-only", () => {
+		const view = render(<Harness onChange={() => undefined} />);
+		expect(view.queryByRole("button", { name: "一键掷全部属性" })).toBeNull();
+		expect(view.queryByRole("button", { name: /重掷/ })).toBeNull();
+		expect(view.queryByRole("button", { name: /天命骰/ })).toBeNull();
+	});
+
+	test("destiny: rolls once via the server context and applies the chosen set", async () => {
+		const setA = { ...baseAttributes, str: 80, luck: 35 };
+		const setB = { ...baseAttributes, str: 40, siz: 70, luck: 60 };
+		const rolled: CharacterCreationRollDto = {
+			id: "roll-1",
+			ruleId: "coc7e",
+			options: { method: "destiny", count: 2 },
+			result: {
+				method: "destiny",
+				sets: [
+					{ attributes: setA, youngLuck: 20 },
+					{ attributes: setB, youngLuck: 75 },
+				],
+			},
+			chosenIndex: null,
+			createdAt: 1,
+			chosenAt: null,
+		};
+		const calls: string[] = [];
+		function DestinyHarness({ onChange }: { onChange: (sheet: Sheet) => void }) {
+			const [roll, setRoll] = useState<CharacterCreationRollDto | null>(null);
+			return (
+				<Harness
+					onChange={onChange}
+					creation={{
+						options: { method: "destiny", count: 2 },
+						roll,
+						pending: false,
+						onRoll: async () => {
+							calls.push("roll");
+							setRoll(rolled);
+							return rolled;
+						},
+						onChoose: async (index) => {
+							calls.push(`choose:${index}`);
+							const next = { ...rolled, chosenIndex: index, chosenAt: 2 };
+							setRoll(next);
+							return next;
+						},
+					}}
+				/>
+			);
+		}
 		let latest = emptySheet();
 		const view = render(
-			<Harness
+			<DestinyHarness
 				onChange={(next) => {
 					latest = next;
 				}}
 			/>,
 		);
-		fireEvent.click(view.getByRole("button", { name: "一键掷全部属性" }));
-		await waitFor(() => {
-			const sum = Object.values(latest.attributes).reduce((a, b) => a + b, 0);
-			expect(sum).toBeGreaterThan(0);
-			for (const value of Object.values(latest.attributes)) {
-				expect(value).toBeGreaterThanOrEqual(15);
-				expect(value).toBeLessThanOrEqual(90);
-				expect(value % 5).toBe(0);
-			}
-		});
-		fireEvent.click(view.getByRole("button", { name: "重掷 力量" }));
-		await waitFor(() => {
-			expect(latest.attributes.str).toBeGreaterThanOrEqual(15);
-			expect(latest.attributes.str).toBeLessThanOrEqual(90);
-			expect(latest.attributes.str % 5).toBe(0);
-		});
+		fireEvent.click(view.getByRole("button", { name: "天命骰（2 套）" }));
+		await waitFor(() => expect(view.getByText("第 2 套")).toBeTruthy());
+		expect(view.queryByRole("button", { name: /天命骰/ })).toBeNull();
+		fireEvent.click(view.getAllByRole("button", { name: "选这套" })[1]!);
+		fireEvent.click(
+			within(document.body).getByRole("button", { name: "选定" }),
+		);
+		await waitFor(() => expect(latest.attributes).toEqual(setB));
+		expect(calls).toEqual(["roll", "choose:1"]);
+		expect(view.queryByRole("button", { name: "选这套" })).toBeNull();
+		expect(view.getByText("已选定")).toBeTruthy();
+	});
+
+	test("point buy: shows the budget and rolls luck once", async () => {
+		const rolled: CharacterCreationRollDto = {
+			id: "roll-2",
+			ruleId: "coc7e",
+			options: { method: "pointBuy", points: 460 },
+			result: { method: "pointBuy", luck: 65, youngLuck: 30 },
+			chosenIndex: 0,
+			createdAt: 1,
+			chosenAt: 1,
+		};
+		function PointBuyHarness({
+			onChange,
+		}: {
+			onChange: (sheet: Sheet) => void;
+		}) {
+			const [roll, setRoll] = useState<CharacterCreationRollDto | null>(null);
+			return (
+				<Harness
+					onChange={onChange}
+					creation={{
+						options: { method: "pointBuy", points: 460 },
+						roll,
+						pending: false,
+						onRoll: async () => {
+							setRoll(rolled);
+							return rolled;
+						},
+						onChoose: async () => null,
+					}}
+				/>
+			);
+		}
+		let latest = emptySheet();
+		const view = render(
+			<PointBuyHarness
+				onChange={(next) => {
+					latest = next;
+				}}
+			/>,
+		);
+		expect(view.getByText("已分配 400 / 460")).toBeTruthy();
+		expect(view.getByText("剩余 60")).toBeTruthy();
+		fireEvent.click(view.getByRole("button", { name: "骰幸运（只能掷一次）" }));
+		await waitFor(() => expect(latest.attributes.luck).toBe(65));
+		expect(view.queryByRole("button", { name: "骰幸运（只能掷一次）" })).toBeNull();
+		expect(view.getByText("幸运 65")).toBeTruthy();
 	});
 
 	test("enables storied investigator rule with adjustable experience budget and 3rd ledger column", async () => {

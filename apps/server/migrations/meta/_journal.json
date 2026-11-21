@@ -71,6 +71,13 @@
       "when": 1795155730274,
       "tag": "0009_flashy_bloodscream",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1795224917921,
+      "tag": "0010_character_creation_rolls",
+      "breakpoints": true
     }
   ]
 }

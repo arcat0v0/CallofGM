@@ -6,8 +6,6 @@ import {
 	deriveCoc7eSplitLedger,
 	normalizeCoc7eSheet,
 	projectPublicCoc7eSheet,
-	rollAllCoc7eAttributes,
-	rollCoc7eAttribute,
 	serializeCoc7eBackground,
 } from "../src/rules/coc7e";
 
@@ -210,16 +208,6 @@ describe("CoC 7e v2 split ledger, rolling, background serialization and public p
 			spent: 20,
 			remaining: 80,
 		});
-	});
-
-	it("rolls attributes using 3d6*5 and (2d6+6)*5 formulas", () => {
-		expect(rollCoc7eAttribute("str", () => 1)).toBe(15);
-		expect(rollCoc7eAttribute("str", (sides) => sides)).toBe(90);
-		expect(rollCoc7eAttribute("siz", () => 1)).toBe(40);
-		expect(rollCoc7eAttribute("edu", (sides) => sides)).toBe(90);
-		const all = rollAllCoc7eAttributes(() => 3);
-		expect(all.str).toBe(45);
-		expect(all.siz).toBe(60);
 	});
 
 	it("serializes structured background with key connection star or falls back to plain text", () => {

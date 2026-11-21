@@ -86,6 +86,7 @@ CallofGM/
   - 人物卡 schema、空卡构造、Excel 解析器与导入器
   - 必须实现鉴定选项校验、掷骰判定与同步预览投影。规则使用注入的 `RandomSource` 生成骰点，并返回鉴定引起的状态变更。
   - 理智、幸运与技能成长是独立的可选能力。既有 v1 命令调用对应能力，由规则实现决定鉴定与成长细则。
+  - 车卡属性生成（`CharacterCreationCapability`）是可选能力：规则校验 GM 在提交链接上设定的生成方式（`parseCreationOptions`），用注入的 `RandomSource` 一次性掷出结果（`rollCreation`），并声明可选套数（`creationChoiceCount`）。通用层只保存与转发不透明 JSON；CoC 7e 的“天命 N”与“购点 + 骰幸运”schema 在 `packages/shared/src/rules/coc7e/generation.ts`。客户端对应 `RuleComponent.capabilities.characterCreation`（链接设定编辑器、链接标签、审核比对），车卡编辑器经 `RuleCreationEditorProps.creation` 取得掷骰上下文。
   - 团内状态的 schema 定义与初始化由规则拥有。初始化接收人物卡及团和人物标识。
   - 允许扩展项声明：CoC 允许自定义技能（名称/基础值/当前值），不允许自定义属性、公式、成功等级或特殊检定
   - 供结构化 UI 调用的规则动作定义（技能鉴定、理智检定等）；不解析聊天文本命令
@@ -233,6 +234,7 @@ BgmState = { trackId, playing, volume, mode: off|single|list|shuffle, seekOffset
 - 客户端规则组件声明背景来自人物卡时（CoC 7e：`backgroundSource=sheet`），顶层 `background` 是保存时由规则卡派生的展示摘要；服务端仍按请求字段独立存储，不反向推导，客户端不得为该规则提供第二套背景编辑入口。
 - 审核记录绑定 `sheet_version`；规则数值/技能/终生字段变化提升 `sheet_version` 并使旧审核过期，资料/立绘变化只提升 `profile_version`。
 - 提交链接 `character_invites`：目标为模组或团，token 哈希存储，默认 7 天，可撤销；PL 登录后提交新建人物或已有同规则人物，生成 `character_reviews`。审核通过只建立模组关联或团内 PC 席位，不自动认领。
+- 链接可带规则专属的车卡生成方式 `creation_options_json`（NULL 为手填）。`character_creation_rolls` 以 `(invite_id, user_id)` 唯一：`POST /api/v1/pl/invites/:token/creation-roll` 首次调用时由服务端掷骰并保存，重复调用返回同一结果；`POST .../creation-roll/choice` 仅在未选定时写入 `chosen_index`（只有一套可选时掷骰即自动选定）。设定了生成方式的链接，新建人物提交前必须已选定，否则返回 `CREATION_ROLL_REQUIRED`；提交已有人物不受此限制。提交后人物卡仍可修改（如年龄调整），审核列表附带提交者在该链接的掷骰记录与提交版本卡面，由客户端规则组件比对差异，服务端不强制一致。
 - `session_characters` 保存入团快照（姓名、背景、`sheet_json`、`base_sheet_version`、`base_profile_version`），检定与状态初始化读取团内快照。主卡变化不会自动同步。GM 通过差异预览与显式同步更新所选字段，规则模块在同步规则卡时按新卡调整团内状态上限。
 - GM 修改规则声明的终生字段、结团成长确认都写入追加式 `character_audits` / `character_growth_entries`；成长确认对主卡技能做增量累加，历史团保持旧快照。
 - 并发更新携带 `expectedVersion`；同字段冲突返回 409 与最新版本，增量成长可累计，禁止整卡静默覆盖。

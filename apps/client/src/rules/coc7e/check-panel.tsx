@@ -63,7 +63,7 @@ export function CocCheckPanel({ characters, onClose }: RuleCheckPanelProps) {
 				type === "san"
 					? t("gm.workbench.sanCheck")
 					: resolvedSkill === "luck"
-						? t("gm.workbench.destinyCheck")
+						? t("gm.workbench.luckCheck")
 						: coc7e.coc7eSkillLabel(resolvedSkill),
 				...(type === "skill" ? [difficultyLabel(difficulty)] : []),
 				...(hidden ? [t("gm.workbench.hiddenShort")] : []),
@@ -224,7 +224,7 @@ export function CocCheckPanel({ characters, onClose }: RuleCheckPanelProps) {
 							{skills.map((key) => (
 								<SelectItem key={key} value={key}>
 									{key === "luck"
-										? t("gm.workbench.destinyCheck")
+										? t("gm.workbench.luckCheck")
 										: coc7e.coc7eSkillLabel(key)}
 								</SelectItem>
 							))}

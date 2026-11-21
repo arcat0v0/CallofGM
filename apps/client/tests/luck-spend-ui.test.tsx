@@ -93,7 +93,7 @@ describe("luck spend ticket UI", () => {
 		const view = render(
 			<SystemMessageCard message={checkMessage()} allowLuckSpend />,
 		);
-		expect(view.getByText("花费天命")).toBeTruthy();
+		expect(view.getByText("花费幸运")).toBeTruthy();
 		expect(view.getByText("−3 · 常规成功")).toBeTruthy();
 		expect(view.getByText("−33 · 困难成功")).toBeTruthy();
 		expect(view.queryByText("−51 · 极难成功")).toBeNull();
@@ -116,14 +116,14 @@ describe("luck spend ticket UI", () => {
 		const view = render(
 			<SystemMessageCard message={checkMessage()} allowLuckSpend />,
 		);
-		expect(view.queryByText("花费天命")).toBeNull();
+		expect(view.queryByText("花费幸运")).toBeNull();
 	});
 
 	test("stays hidden on luck checks and already amended checks", () => {
 		const luckMessage = checkMessage({
 			check: {
 				...checkMessage().check!,
-				skill: "天命检定",
+				skill: "幸运检定",
 				skillKey: "luck",
 			},
 		});
@@ -131,7 +131,7 @@ describe("luck spend ticket UI", () => {
 		const first = render(
 			<SystemMessageCard message={luckMessage} allowLuckSpend />,
 		);
-		expect(first.queryByText("花费天命")).toBeNull();
+		expect(first.queryByText("花费幸运")).toBeNull();
 		first.unmount();
 
 		const amended = checkMessage({
@@ -146,7 +146,7 @@ describe("luck spend ticket UI", () => {
 		const second = render(
 			<SystemMessageCard message={amended} allowLuckSpend />,
 		);
-		expect(second.queryByText("花费天命")).toBeNull();
-		expect(second.getByText("花费 33 点天命")).toBeTruthy();
+		expect(second.queryByText("花费幸运")).toBeNull();
+		expect(second.getByText("花费 33 点幸运")).toBeTruthy();
 	});
 });

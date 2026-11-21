@@ -1,4 +1,4 @@
-import type { CharacterReviewDto } from "@cogm/shared";
+import { CharacterReviewDto } from "@cogm/shared";
 import { createFileRoute } from "@tanstack/react-router";
 import { Check, ClipboardCheck, Link2, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
@@ -14,6 +14,7 @@ import { api, isApiError } from "@/lib/api";
 import { errorText } from "@/lib/errors";
 import { formatStamp, initialsOf } from "@/lib/format";
 import { requireGmAuth } from "@/lib/identity";
+import { getRuleComponent } from "@/rules/registry";
 
 export const Route = createFileRoute("/gm/reviews")({
 	beforeLoad: () => requireGmAuth(),
@@ -31,7 +32,11 @@ function ReviewsPage() {
 			const list = await api<
 				CharacterReviewDto[] | { pending: CharacterReviewDto[] }
 			>("/gm/reviews?status=pending");
-			setReviews(Array.isArray(list) ? list : (list.pending ?? []));
+			setReviews(
+				(Array.isArray(list) ? list : (list.pending ?? [])).map((item) =>
+					CharacterReviewDto.parse(item),
+				),
+			);
 		} catch (error) {
 			toast.error(isApiError(error) ? error.message : t("gm.reviews.empty"));
 		} finally {
@@ -122,6 +127,7 @@ function ReviewsPage() {
 													})}
 												</span>
 											</div>
+											<ReviewCreationSummary review={review} />
 										</div>
 									</div>
 
@@ -152,5 +158,23 @@ function ReviewsPage() {
 				)}
 			</div>
 		</AdminLayout>
+	);
+}
+
+function ReviewCreationSummary({ review }: { review: CharacterReviewDto }) {
+	if (!review.creationRoll || !review.ruleId) {
+		return null;
+	}
+	const Summary =
+		getRuleComponent(review.ruleId).capabilities?.characterCreation
+			?.reviewSummary;
+	if (!Summary) {
+		return null;
+	}
+	return (
+		<Summary
+			roll={review.creationRoll}
+			submittedSheet={review.submittedSheet}
+		/>
 	);
 }

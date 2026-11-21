@@ -44,6 +44,7 @@ function GmTopBar() {
 	const status = usePlayStore((state) => state.status);
 	const moduleName = usePlayStore((state) => state.moduleName);
 	const sessionName = usePlayStore((state) => state.sessionName);
+	const ruleId = usePlayStore((state) => state.ruleId);
 	const scene = usePlayStore((state) => state.scene);
 	const presenceAvailable = usePlayStore((state) => state.presenceAvailable);
 	const [endOpen, setEndOpen] = useState(false);
@@ -193,6 +194,7 @@ function GmTopBar() {
 				scope="session"
 				targetId={sessionId}
 				targetName={title}
+				ruleId={ruleId}
 			/>
 		</div>
 	);

@@ -32,6 +32,7 @@ function inviteRow(
 		targetId: "module-1",
 		targetName: "测试模组",
 		token: null,
+		creationOptions: null,
 		expiresAt: NOW + 7 * DAY,
 		revokedAt: null,
 		createdAt: NOW - 1_000,

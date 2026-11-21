@@ -6,8 +6,12 @@ import {
 	CharacterDto,
 	CharacterHistoryResponse,
 	CharacterImportPreviewResponse,
+	CharacterCreationRollDto,
 	CharacterInviteDto,
+	CharacterInviteInfoResponse,
 	CharacterPortraitDto,
+	CharacterReviewDto,
+	ChooseCreationRollRequest,
 	CharacterSheetContextResponse,
 	CharacterSyncDiffDto,
 	CreateCharacterInviteRequest,
@@ -33,8 +37,10 @@ import { AppError } from "@/platform/errors/app-error";
 import { validationFailed } from "@/platform/errors/validation";
 import { assertXlsxUploadSize } from "@/platform/file-type";
 import { assertTrustedOrigin } from "@/platform/security/origin";
+import type { CharacterReviewDetail } from "../application/ports";
 import {
 	AddPortraitUseCase,
+	ChooseCreationRollUseCase,
 	ApplyCharacterSyncUseCase,
 	AssignCharacterOwnerUseCase,
 	CreateCharacterInviteUseCase,
@@ -54,7 +60,9 @@ import {
 	ListReviewsUseCase,
 	PreviewCharacterSyncUseCase,
 	RevokeCharacterInviteUseCase,
+	RollCreationUseCase,
 	SubmitCharacterUseCase,
+	toCreationRollDto,
 	UnlinkModuleCharacterUseCase,
 	UpdateCharacterUseCase,
 	UpdatePortraitUseCase,
@@ -81,6 +89,19 @@ function parsePageQuery(query: unknown) {
 		throw validationFailed(parsed.error);
 	}
 	return parsed.data;
+}
+
+function toReviewDto(detail: CharacterReviewDetail) {
+	const { submittedSheetJson, creationRoll, ownerId: _ownerId, ...rest } =
+		detail;
+	return CharacterReviewDto.parse({
+		...rest,
+		submittedSheet:
+			submittedSheetJson === null
+				? null
+				: (JSON.parse(submittedSheetJson) as unknown),
+		creationRoll: creationRoll ? toCreationRollDto(creationRoll) : null,
+	});
 }
 
 export function createCharactersRoutes(container: Container) {
@@ -138,12 +159,25 @@ export function createCharactersRoutes(container: Container) {
 
 	const createInvite = new CreateCharacterInviteUseCase(
 		repo,
+		container.ruleRegistry,
 		container.idGenerator,
 		container.clock,
 	);
 	const listInvites = new ListCharacterInvitesUseCase(repo);
 	const revokeInvite = new RevokeCharacterInviteUseCase(repo, container.clock);
 	const inviteInfo = new GetInviteInfoUseCase(repo, container.clock);
+	const rollCreation = new RollCreationUseCase(
+		repo,
+		container.ruleRegistry,
+		container.idGenerator,
+		container.clock,
+		container.randomSource,
+	);
+	const chooseCreationRoll = new ChooseCreationRollUseCase(
+		repo,
+		container.ruleRegistry,
+		container.clock,
+	);
 	const submitCharacter = new SubmitCharacterUseCase(
 		repo,
 		container.ruleRegistry,
@@ -480,6 +514,7 @@ export function createCharactersRoutes(container: Container) {
 				scope: data.scope,
 				targetId: data.targetId,
 				expiresInDays: data.expiresInDays,
+				creationOptions: data.creationOptions,
 			});
 			return CharacterInviteDto.parse({
 				id: created.id,
@@ -487,9 +522,10 @@ export function createCharactersRoutes(container: Container) {
 				targetId: data.targetId,
 				targetName: null,
 				token: created.token,
+				creationOptions: created.creationOptions,
 				expiresAt: created.expiresAt,
 				revokedAt: null,
-				createdAt: Date.now(),
+				createdAt: created.createdAt,
 			});
 		})
 		.get("/", async ({ actor }) => {
@@ -517,7 +553,7 @@ export function createCharactersRoutes(container: Container) {
 				userId: gm.userId,
 				status: typeof query?.status === "string" ? query.status : undefined,
 			});
-			return result.pending;
+			return result.pending.map(toReviewDto);
 		})
 		.post("/:id/decide", async ({ params, body, actor }) => {
 			const gm = requireGm(actor);
@@ -714,8 +750,33 @@ export function createCharactersRoutes(container: Container) {
 		})
 		.get("/invites/:token", async ({ actor, params }) => {
 			const user = requireUser(actor);
-			return inviteInfo.execute({ token: params.token, userId: user.userId });
+			return CharacterInviteInfoResponse.parse(
+				await inviteInfo.execute({ token: params.token, userId: user.userId }),
+			);
 		})
+		.post("/invites/:token/creation-roll", async ({ actor, params }) => {
+			const user = requireUser(actor);
+			return CharacterCreationRollDto.parse(
+				await rollCreation.execute({
+					token: params.token,
+					userId: user.userId,
+				}),
+			);
+		})
+		.post(
+			"/invites/:token/creation-roll/choice",
+			async ({ actor, params, body }) => {
+				const user = requireUser(actor);
+				const data = parseBody(ChooseCreationRollRequest, body);
+				return CharacterCreationRollDto.parse(
+					await chooseCreationRoll.execute({
+						token: params.token,
+						userId: user.userId,
+						index: data.index,
+					}),
+				);
+			},
+		)
 		.post("/invites/:token/submissions", async ({ actor, params, body }) => {
 			const user = requireUser(actor);
 			const data = parseBody(
@@ -758,7 +819,7 @@ export function createCharactersRoutes(container: Container) {
 				ownerId: user.userId,
 				userId: user.userId,
 			});
-			return result.mine;
+			return result.mine.map(toReviewDto);
 		});
 
 	return new Elysia()

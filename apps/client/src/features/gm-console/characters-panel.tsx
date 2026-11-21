@@ -547,7 +547,7 @@ function CharactersPanel({ onClose }: { onClose: () => void }) {
 													))}
 												{luck ? (
 													<GmValueField
-														label={t("sheet.destiny")}
+														label={t("sheet.luck")}
 														value={
 															currentLuck == null ? "—" : String(currentLuck)
 														}

@@ -1,4 +1,5 @@
 import type {
+	CharacterCreationRollDto,
 	CharacterSheetContextResponse,
 	CheckRequestDto,
 	RuleMetadata,
@@ -8,7 +9,30 @@ import type { ComponentType, ReactNode } from "react";
 import type { ChatCheckView } from "@/features/chat/types";
 import type { DiceAnimationRequest } from "@/features/dice-animation/model";
 
+/** 提交链接上设定了车卡属性生成方式时，由车卡页传给规则编辑器的服务端掷骰上下文 */
+export type RuleCreationRollContext = {
+	options: unknown;
+	roll: CharacterCreationRollDto | null;
+	pending: boolean;
+	/** 发起唯一一次掷骰（服务端生成） */
+	onRoll: () => Promise<CharacterCreationRollDto | null>;
+	/** 选定一套结果，选定后不可更改 */
+	onChoose: (index: number) => Promise<CharacterCreationRollDto | null>;
+};
+
+export type RuleCreationOptionsEditorProps = {
+	value: unknown | null;
+	onChange: (value: unknown | null) => void;
+	disabled?: boolean;
+};
+
+export type RuleCreationReviewProps = {
+	roll: CharacterCreationRollDto;
+	submittedSheet: unknown | null;
+};
+
 export type RuleCreationEditorProps = {
+	creation?: RuleCreationRollContext | null;
 	sheet: unknown;
 	onChange: (sheet: unknown) => void;
 	showValidation: boolean;
@@ -173,6 +197,12 @@ export type RuleComponent = {
 		};
 		sheetBackground?: {
 			serialize: (sheet: unknown, fallback: string) => string;
+		};
+		/** 车卡属性生成方式（GM 在提交链接上设定，服务端掷骰） */
+		characterCreation?: {
+			optionsEditor: ComponentType<RuleCreationOptionsEditorProps>;
+			describeOptions: (options: unknown) => string | null;
+			reviewSummary: ComponentType<RuleCreationReviewProps>;
 		};
 	};
 };

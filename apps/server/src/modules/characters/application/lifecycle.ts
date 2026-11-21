@@ -1,13 +1,22 @@
 import { ModuleNotFoundError } from "@/modules/catalog";
 import { hashToken, issueOpaqueToken } from "@/modules/identity";
 import { SessionNotFoundError } from "@/modules/sessions";
-import type { Clock, IdGenerator } from "@/platform/ports";
-import { requireSkillGrowthCapability } from "@/rules/capabilities";
+import type { Clock, IdGenerator, RandomSource } from "@/platform/ports";
+import {
+	findCharacterCreationCapability,
+	requireSkillGrowthCapability,
+} from "@/rules/capabilities";
 import type { RuleRegistry } from "@/rules/registry";
 import {
 	CharacterNotFoundError,
 	CharacterNotOwnedError,
 	CharacterVersionConflictError,
+	CreationMethodUnsupportedError,
+	CreationRollAlreadyChosenError,
+	CreationRollInvalidChoiceError,
+	CreationRollNotAvailableError,
+	CreationRollNotFoundError,
+	CreationRollRequiredError,
 	InviteExpiredError,
 	InviteNotFoundError,
 	PermanentFieldNotEditableError,
@@ -15,13 +24,66 @@ import {
 	ReviewNotFoundError,
 	ReviewSheetVersionConflictError,
 } from "../domain/errors";
-import type { CharactersRepository } from "./ports";
+import type {
+	CharacterCreationRollRecord,
+	CharacterInviteRecord,
+	CharactersRepository,
+} from "./ports";
 
 const INVITE_DEFAULT_DAYS = 7;
+
+function parseJsonOrNull(json: string | null): unknown {
+	return json === null ? null : (JSON.parse(json) as unknown);
+}
+
+export function toCreationRollDto(record: CharacterCreationRollRecord) {
+	return {
+		id: record.id,
+		ruleId: record.ruleId,
+		options: JSON.parse(record.optionsJson) as unknown,
+		result: JSON.parse(record.resultJson) as unknown,
+		chosenIndex: record.chosenIndex,
+		createdAt: record.createdAt,
+		chosenAt: record.chosenAt,
+	};
+}
+
+/** 按 token 取仍有效的提交链接及其目标规则 */
+async function resolveActiveInvite(
+	repo: CharactersRepository,
+	clock: Clock,
+	tokenHasher: (token: string) => string,
+	token: string,
+): Promise<{
+	invite: CharacterInviteRecord;
+	ruleId: string;
+	targetName: string;
+}> {
+	const invite = await repo.findInviteByTokenHash(tokenHasher(token));
+	if (!invite) {
+		throw new InviteNotFoundError();
+	}
+	if (invite.revokedAt !== null || invite.expiresAt < clock.nowEpochMs()) {
+		throw new InviteExpiredError();
+	}
+	const target =
+		invite.scope === "module"
+			? await repo.findModule(invite.targetId)
+			: await repo.findSession(invite.targetId);
+	if (!target) {
+		throw new InviteExpiredError();
+	}
+	return {
+		invite,
+		ruleId: target.ruleId,
+		targetName: target.name ?? invite.targetId,
+	};
+}
 
 export class CreateCharacterInviteUseCase {
 	constructor(
 		private readonly repo: CharactersRepository,
+		private readonly ruleRegistry: RuleRegistry,
 		private readonly idGenerator: IdGenerator,
 		private readonly clock: Clock,
 	) {}
@@ -31,17 +93,32 @@ export class CreateCharacterInviteUseCase {
 		scope: "module" | "session";
 		targetId: string;
 		expiresInDays?: number;
+		creationOptions?: unknown;
 	}) {
+		let ruleId: string;
 		if (input.scope === "module") {
 			const module = await this.repo.findModule(input.targetId);
 			if (!module || module.ownerId !== input.ownerId) {
 				throw new ModuleNotFoundError();
 			}
+			ruleId = module.ruleId;
 		} else {
 			const session = await this.repo.findSession(input.targetId);
 			if (!session || session.ownerId !== input.ownerId) {
 				throw new SessionNotFoundError();
 			}
+			ruleId = session.ruleId;
+		}
+
+		let creationOptions: unknown = null;
+		if (input.creationOptions !== undefined && input.creationOptions !== null) {
+			const capability = findCharacterCreationCapability(
+				this.ruleRegistry.get(ruleId),
+			);
+			if (!capability) {
+				throw new CreationMethodUnsupportedError();
+			}
+			creationOptions = capability.parseCreationOptions(input.creationOptions);
 		}
 
 		const issued = issueOpaqueToken();
@@ -55,6 +132,8 @@ export class CreateCharacterInviteUseCase {
 			scope: input.scope,
 			targetId: input.targetId,
 			tokenHash: issued.tokenHash,
+			creationOptionsJson:
+				creationOptions === null ? null : JSON.stringify(creationOptions),
 			expiresAt: now + days * 24 * 60 * 60 * 1000,
 			revokedAt: null,
 			deletedAt: null,
@@ -64,7 +143,9 @@ export class CreateCharacterInviteUseCase {
 		return {
 			id,
 			token: issued.token,
+			creationOptions,
 			expiresAt: now + days * 24 * 60 * 60 * 1000,
+			createdAt: now,
 		};
 	}
 }
@@ -88,6 +169,7 @@ export class ListCharacterInvitesUseCase {
 						? (("name" in target ? target.name : null) ?? invite.targetId)
 						: null,
 					token: null,
+					creationOptions: parseJsonOrNull(invite.creationOptionsJson),
 					expiresAt: invite.expiresAt,
 					revokedAt: invite.revokedAt,
 					createdAt: invite.createdAt,
@@ -122,26 +204,12 @@ export class GetInviteInfoUseCase {
 	) {}
 
 	async execute(input: { token: string; userId: string }) {
-		const invite = await this.repo.findInviteByTokenHash(
-			this.tokenHasher(input.token),
+		const { invite, ruleId, targetName } = await resolveActiveInvite(
+			this.repo,
+			this.clock,
+			this.tokenHasher,
+			input.token,
 		);
-		if (!invite) {
-			throw new InviteNotFoundError();
-		}
-		if (
-			invite.revokedAt !== null ||
-			invite.expiresAt < this.clock.nowEpochMs()
-		) {
-			throw new InviteExpiredError();
-		}
-
-		const ruleId =
-			invite.scope === "module"
-				? (await this.repo.findModule(invite.targetId))?.ruleId
-				: (await this.repo.findSession(invite.targetId))?.ruleId;
-		if (!ruleId) {
-			throw new InviteExpiredError();
-		}
 
 		const owned = await this.repo.listCharacters(input.userId, { limit: 100 });
 		const eligible = [];
@@ -166,12 +234,7 @@ export class GetInviteInfoUseCase {
 			});
 		}
 
-		const targetName =
-			invite.scope === "module"
-				? ((await this.repo.findModule(invite.targetId))?.name ??
-					invite.targetId)
-				: ((await this.repo.findSession(invite.targetId))?.name ??
-					invite.targetId);
+		const roll = await this.repo.findCreationRoll(invite.id, input.userId);
 
 		return {
 			scope: invite.scope as "module" | "session",
@@ -179,6 +242,8 @@ export class GetInviteInfoUseCase {
 			targetName,
 			ruleId,
 			expiresAt: invite.expiresAt,
+			creationOptions: parseJsonOrNull(invite.creationOptionsJson),
+			creationRoll: roll ? toCreationRollDto(roll) : null,
 			ownedCharacters: eligible,
 		};
 	}
@@ -202,27 +267,12 @@ export class SubmitCharacterUseCase {
 		background?: string;
 		sheetData?: unknown;
 	}) {
-		const invite = await this.repo.findInviteByTokenHash(
-			this.tokenHasher(input.token),
+		const { invite, ruleId: targetRuleId } = await resolveActiveInvite(
+			this.repo,
+			this.clock,
+			this.tokenHasher,
+			input.token,
 		);
-		if (!invite) {
-			throw new InviteNotFoundError();
-		}
-		if (
-			invite.revokedAt !== null ||
-			invite.expiresAt < this.clock.nowEpochMs()
-		) {
-			throw new InviteExpiredError();
-		}
-
-		const target =
-			invite.scope === "module"
-				? await this.repo.findModule(invite.targetId)
-				: await this.repo.findSession(invite.targetId);
-		if (!target) {
-			throw new InviteExpiredError();
-		}
-		const targetRuleId = target.ruleId;
 		const now = this.clock.nowEpochMs();
 
 		let characterId: string;
@@ -245,6 +295,12 @@ export class SubmitCharacterUseCase {
 			}
 			characterId = character.id;
 		} else {
+			if (invite.creationOptionsJson !== null) {
+				const roll = await this.repo.findCreationRoll(invite.id, input.userId);
+				if (!roll || roll.chosenIndex === null) {
+					throw new CreationRollRequiredError();
+				}
+			}
 			const ruleSystem = this.ruleRegistry.get(targetRuleId);
 			const sheet = ruleSystem.characterSheetSchema.parse(
 				input.sheetData ?? ruleSystem.createEmptySheet(),
@@ -310,6 +366,99 @@ export class SubmitCharacterUseCase {
 		);
 
 		return { reviewId, characterId };
+	}
+}
+
+/** PL 在提交链接上进行车卡属性生成：每人每条链接只掷一次，重复调用返回已有结果 */
+export class RollCreationUseCase {
+	constructor(
+		private readonly repo: CharactersRepository,
+		private readonly ruleRegistry: RuleRegistry,
+		private readonly idGenerator: IdGenerator,
+		private readonly clock: Clock,
+		private readonly random: RandomSource,
+		private readonly tokenHasher: (token: string) => string = hashToken,
+	) {}
+
+	async execute(input: { token: string; userId: string }) {
+		const { invite, ruleId } = await resolveActiveInvite(
+			this.repo,
+			this.clock,
+			this.tokenHasher,
+			input.token,
+		);
+		if (invite.creationOptionsJson === null) {
+			throw new CreationRollNotAvailableError();
+		}
+		const existing = await this.repo.findCreationRoll(invite.id, input.userId);
+		if (existing) {
+			return toCreationRollDto(existing);
+		}
+		const capability = findCharacterCreationCapability(
+			this.ruleRegistry.get(ruleId),
+		);
+		if (!capability) {
+			throw new CreationMethodUnsupportedError();
+		}
+		const options = capability.parseCreationOptions(
+			JSON.parse(invite.creationOptionsJson),
+		);
+		const result = capability.rollCreation(options, this.random);
+		const now = this.clock.nowEpochMs();
+		const singleChoice = capability.creationChoiceCount(result) === 1;
+		const stored = await this.repo.saveCreationRollOnce({
+			id: this.idGenerator.nextId(),
+			inviteId: invite.id,
+			userId: input.userId,
+			ruleId,
+			optionsJson: JSON.stringify(options),
+			resultJson: JSON.stringify(result),
+			chosenIndex: singleChoice ? 0 : null,
+			chosenAt: singleChoice ? now : null,
+			createdAt: now,
+		});
+		return toCreationRollDto(stored);
+	}
+}
+
+/** PL 从已掷出的多套属性中选定一套；选定后不可更改 */
+export class ChooseCreationRollUseCase {
+	constructor(
+		private readonly repo: CharactersRepository,
+		private readonly ruleRegistry: RuleRegistry,
+		private readonly clock: Clock,
+		private readonly tokenHasher: (token: string) => string = hashToken,
+	) {}
+
+	async execute(input: { token: string; userId: string; index: number }) {
+		const { invite, ruleId } = await resolveActiveInvite(
+			this.repo,
+			this.clock,
+			this.tokenHasher,
+			input.token,
+		);
+		const roll = await this.repo.findCreationRoll(invite.id, input.userId);
+		if (!roll) {
+			throw new CreationRollNotFoundError();
+		}
+		if (roll.chosenIndex !== null) {
+			throw new CreationRollAlreadyChosenError();
+		}
+		const capability = findCharacterCreationCapability(
+			this.ruleRegistry.get(ruleId),
+		);
+		if (!capability) {
+			throw new CreationMethodUnsupportedError();
+		}
+		const count = capability.creationChoiceCount(JSON.parse(roll.resultJson));
+		if (input.index < 0 || input.index >= count) {
+			throw new CreationRollInvalidChoiceError();
+		}
+		const chosenAt = this.clock.nowEpochMs();
+		if (!(await this.repo.chooseCreationRoll(roll.id, input.index, chosenAt))) {
+			throw new CreationRollAlreadyChosenError();
+		}
+		return toCreationRollDto({ ...roll, chosenIndex: input.index, chosenAt });
 	}
 }
 

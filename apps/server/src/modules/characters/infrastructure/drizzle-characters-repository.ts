@@ -2,6 +2,7 @@ import { and, asc, desc, eq, gt, inArray, isNull, or, sql } from "drizzle-orm";
 import type { DbClient } from "@/platform/db/client";
 import {
 	characterAudits,
+	characterCreationRolls,
 	characterGrowthEntries,
 	characterInvites,
 	characterPortraits,
@@ -19,6 +20,7 @@ import {
 } from "@/platform/db/schema";
 import type {
 	CharacterAuditRecord,
+	CharacterCreationRollRecord,
 	CharacterGrowthRecord,
 	CharacterInviteRecord,
 	CharacterReviewDetail,
@@ -478,6 +480,54 @@ export class DrizzleCharactersRepository implements CharactersRepository {
 			.where(eq(characterInvites.id, id));
 	}
 
+	async findCreationRoll(inviteId: string, userId: string) {
+		const rows = await this.db
+			.select()
+			.from(characterCreationRolls)
+			.where(
+				and(
+					eq(characterCreationRolls.inviteId, inviteId),
+					eq(characterCreationRolls.userId, userId),
+				),
+			)
+			.limit(1);
+		return (rows[0] as CharacterCreationRollRecord | undefined) ?? null;
+	}
+
+	async saveCreationRollOnce(
+		roll: CharacterCreationRollRecord,
+	): Promise<CharacterCreationRollRecord> {
+		await this.db
+			.insert(characterCreationRolls)
+			.values(roll)
+			.onConflictDoNothing({
+				target: [characterCreationRolls.inviteId, characterCreationRolls.userId],
+			});
+		const stored = await this.findCreationRoll(roll.inviteId, roll.userId);
+		if (!stored) {
+			throw new Error("creation roll was not persisted");
+		}
+		return stored;
+	}
+
+	async chooseCreationRoll(
+		id: string,
+		index: number,
+		chosenAt: number,
+	): Promise<boolean> {
+		const updated = await this.db
+			.update(characterCreationRolls)
+			.set({ chosenIndex: index, chosenAt })
+			.where(
+				and(
+					eq(characterCreationRolls.id, id),
+					isNull(characterCreationRolls.chosenIndex),
+				),
+			)
+			.returning({ id: characterCreationRolls.id });
+		return updated.length > 0;
+	}
+
 	async saveReview(
 		review: typeof characterReviews.$inferInsert,
 	): Promise<void> {
@@ -503,10 +553,38 @@ export class DrizzleCharactersRepository implements CharactersRepository {
 		const submitterIds = [...new Set(rows.map((row) => row.submittedByUserId))];
 
 		const characterRows = await this.db
-			.select({ id: characters.id, name: characters.name })
+			.select({
+				id: characters.id,
+				name: characters.name,
+				ruleId: characters.ruleId,
+				sheetJson: characters.sheetJson,
+				sheetVersion: characters.sheetVersion,
+			})
 			.from(characters)
 			.where(inArray(characters.id, characterIds));
 		const nameById = new Map(characterRows.map((row) => [row.id, row.name]));
+		const characterById = new Map(characterRows.map((row) => [row.id, row]));
+
+		const inviteIds = [
+			...new Set(
+				rows
+					.map((row) => row.inviteId)
+					.filter((id): id is string => id !== null),
+			),
+		];
+		const rollByKey = new Map<string, CharacterCreationRollRecord>();
+		if (inviteIds.length > 0) {
+			const rollRows = await this.db
+				.select()
+				.from(characterCreationRolls)
+				.where(inArray(characterCreationRolls.inviteId, inviteIds));
+			for (const roll of rollRows) {
+				rollByKey.set(
+					`${roll.inviteId}:${roll.userId}`,
+					roll as CharacterCreationRollRecord,
+				);
+			}
+		}
 
 		const userRows = await this.db
 			.select({ id: users.id, username: users.username })
@@ -542,12 +620,24 @@ export class DrizzleCharactersRepository implements CharactersRepository {
 				targetNames.set(`session:${row.id}`, row.name ?? row.id);
 		}
 
-		return rows.map((row) => ({
-			...(row as CharacterReviewRecord),
-			characterName: nameById.get(row.characterId) ?? row.characterId,
-			submittedByName: userById.get(row.submittedByUserId) ?? null,
-			targetName: targetNames.get(`${row.scope}:${row.targetId}`) ?? null,
-		}));
+		return rows.map((row) => {
+			const character = characterById.get(row.characterId);
+			return {
+				...(row as CharacterReviewRecord),
+				characterName: nameById.get(row.characterId) ?? row.characterId,
+				submittedByName: userById.get(row.submittedByUserId) ?? null,
+				targetName: targetNames.get(`${row.scope}:${row.targetId}`) ?? null,
+				ruleId: character?.ruleId ?? null,
+				submittedSheetJson:
+					character && character.sheetVersion === row.submittedSheetVersion
+						? character.sheetJson
+						: null,
+				creationRoll: row.inviteId
+					? (rollByKey.get(`${row.inviteId}:${row.submittedByUserId}`) ??
+						null)
+					: null,
+			};
+		});
 	}
 
 	async listReviewsForOwner(

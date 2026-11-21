@@ -5,6 +5,11 @@ import { Coc7eCharacterCreationEditor } from "./character-creation-editor";
 import { CocCheckCard } from "./check-card";
 import { CocCheckPanel } from "./check-panel";
 import {
+	Coc7eCreationOptionsEditor,
+	Coc7eCreationReviewSummary,
+	describeCoc7eCreationOptions,
+} from "./creation-method";
+import {
 	buildCheckDiceAnimation,
 	formatCheckEvent,
 	formatCheckRequest,
@@ -113,6 +118,11 @@ export const coc7eComponent: RuleComponent = {
 	backgroundSource: "sheet",
 	capabilities: {
 		luck,
+		characterCreation: {
+			optionsEditor: Coc7eCreationOptionsEditor,
+			describeOptions: describeCoc7eCreationOptions,
+			reviewSummary: Coc7eCreationReviewSummary,
+		},
 		excelImport: {
 			previewAttributes: (sheet) => {
 				const parsed = parseCocSheet(sheet);
@@ -190,7 +200,7 @@ export const coc7eComponent: RuleComponent = {
 			maxMp: t("gm.console.maxMp"),
 			san: "SAN",
 			maxSan: t("sheet.maxSan"),
-			luck: t("sheet.destiny"),
+			luck: t("sheet.luck"),
 		})[key] ?? key,
 	publicStateOptions: () => [
 		{ value: "hp", label: "HP" },

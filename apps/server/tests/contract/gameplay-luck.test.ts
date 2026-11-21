@@ -25,7 +25,7 @@ describe("Gameplay luck contract tests", () => {
 			characters: [
 				{
 					id: "char-pc1",
-					name: "天命调查员",
+					name: "幸运调查员",
 					kind: "pc",
 					sheet: {
 						attributes: {
@@ -82,7 +82,7 @@ describe("Gameplay luck contract tests", () => {
 		return { gm, pc1, pc2 };
 	}
 
-	test("花费天命、禁用手表、恢复与历史回放", async () => {
+	test("花费幸运、禁用手表、恢复与历史回放", async () => {
 		await setSessionPhase(ctx, "free_performance");
 		const { gm, pc1, pc2 } = await openAll();
 
@@ -280,7 +280,7 @@ describe("Gameplay luck contract tests", () => {
 		expect(fumbleReply.type).toBe("command:rejected");
 		expect(fumbleReply.payload.code).toBe("LUCK_SPEND_NOT_ALLOWED");
 
-		// F. 天命检定本身不可花
+		// F. 幸运检定本身不可花
 		const luckCheck = await perform("luck", [3, 6], "luck-check-luck");
 		expect(luckCheck.payload.skillKey).toBe("luck");
 		sendCommand(
@@ -334,7 +334,7 @@ describe("Gameplay luck contract tests", () => {
 		expect(sanReply.type).toBe("command:rejected");
 		expect(sanReply.payload.code).toBe("LUCK_SPEND_NOT_ALLOWED");
 
-		// H. 点数超过当前天命
+		// H. 点数超过当前幸运
 		const expensiveCheck = await perform("侦查", [9, 9], "luck-check-poor");
 		sendCommand(
 			pc1,
@@ -387,7 +387,7 @@ describe("Gameplay luck contract tests", () => {
 		expect(hiddenReply.type).toBe("command:rejected");
 		expect(hiddenReply.payload.code).toBe("LUCK_SPEND_NOT_ALLOWED");
 
-		// 天命恢复：成功 / 不变 / 上限 99
+		// 幸运恢复：成功 / 不变 / 上限 99
 		const recoverySince = maxEventId(gm);
 		random.push(78, 7);
 		sendCommand(
