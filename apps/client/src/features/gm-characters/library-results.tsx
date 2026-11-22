@@ -158,11 +158,11 @@ function LoadMoreSentinel({
 export function LibraryList(props: ResultsProps) {
 	const { items, selectedId, onSelect, onOpen } = props;
 	return (
-		<div>
-			<table className="w-full table-fixed border-collapse text-left">
-				<thead className="sticky top-0 z-10 bg-md-surface-container-low">
-					<tr className="border-b border-md-outline-variant text-label-medium text-md-on-surface-variant [&>th]:h-8 [&>th]:font-normal">
-						<th scope="col" className="pl-5">
+		<div className="isolate overflow-clip rounded-xl bg-md-surface-container-low">
+			<table className="w-full table-fixed border-separate border-spacing-0 text-left">
+				<thead className="sticky top-0 z-10 bg-md-surface-container max-lg:top-13">
+					<tr className="text-label-medium-emph text-md-on-surface-variant [&>th]:h-8">
+						<th scope="col" className="pl-3">
 							{t("gm.library.colName")}
 						</th>
 						<th scope="col" className="hidden w-14 sm:table-cell">
@@ -174,7 +174,7 @@ export function LibraryList(props: ResultsProps) {
 						<th scope="col" className="hidden w-24 lg:table-cell">
 							{t("gm.library.colOwner")}
 						</th>
-						<th scope="col" className="w-20 pr-5 text-right">
+						<th scope="col" className="w-20 pr-3 text-right">
 							{t("gm.library.colUpdated")}
 						</th>
 					</tr>
@@ -190,13 +190,13 @@ export function LibraryList(props: ResultsProps) {
 								onClick={() => onSelect(item.id)}
 								onDoubleClick={() => onOpen(item.id)}
 								className={cn(
-									"cursor-pointer border-b border-md-outline-variant/40 align-middle text-body-medium transition-colors",
+									"cursor-pointer align-middle text-body-medium [&>td]:transition-colors [&>td]:duration-150 [&>td]:ease-standard-fast-effects motion-reduce:[&>td]:transition-none [&>td:first-child]:rounded-l-md [&>td:last-child]:rounded-r-md",
 									selected
-										? "bg-md-surface-container-high shadow-[inset_3px_0_0_var(--color-accent)]"
-										: "hover:bg-md-surface-container",
+										? "[&>td]:bg-accent-soft"
+										: "hover:[&>td]:bg-md-surface-container",
 								)}
 							>
-								<td className="h-9 pr-3 pl-5 max-sm:h-14">
+								<td className="h-9 pr-3 pl-3 max-sm:h-14">
 									<button
 										type="button"
 										tabIndex={selected ? 0 : -1}
@@ -213,8 +213,10 @@ export function LibraryList(props: ResultsProps) {
 										<span className="flex min-w-0 flex-col">
 											<span
 												className={cn(
-													"truncate text-label-large",
-													selected ? "text-accent" : "text-md-on-surface",
+													"truncate",
+													selected
+														? "text-label-large-emph text-accent-soft-foreground"
+														: "text-label-large text-md-on-surface",
 												)}
 											>
 												{selected ? item.name : <NameText name={item.name} />}
@@ -238,7 +240,7 @@ export function LibraryList(props: ResultsProps) {
 										<OwnerText item={item} short />
 									</div>
 								</td>
-								<td className="pr-5 text-right text-label-medium tabular-nums text-md-on-surface-variant">
+								<td className="pr-3 text-right text-label-medium tabular-nums text-md-on-surface-variant">
 									{formatUpdated(item.updatedAt)}
 								</td>
 							</tr>
@@ -261,10 +263,10 @@ export function LibraryWall(props: ResultsProps) {
 	const withoutArt = items.filter((item) => !item.portraitAssetId);
 	const ringClass = (selected: boolean) =>
 		selected
-			? "outline-2 outline-offset-2 outline-accent"
-			: "outline-0 group-hover:outline-1 group-hover:outline-offset-2 group-hover:outline-md-outline";
+			? "after:pointer-events-none after:absolute after:inset-0 after:rounded-[inherit] after:ring-2 after:ring-inset after:ring-accent"
+			: "group-hover:outline-1 group-hover:-outline-offset-1 group-hover:outline-md-outline"
 	return (
-		<div className="flex flex-col gap-6 p-5">
+		<div className="flex flex-col gap-5 px-1 pt-1 pb-3">
 			{withArt.length > 0 ? (
 				<ul className="grid grid-cols-[repeat(auto-fill,minmax(8.5rem,1fr))] gap-3">
 					{withArt.map((item) => {
@@ -276,11 +278,11 @@ export function LibraryWall(props: ResultsProps) {
 									aria-pressed={selected}
 									onClick={() => onSelect(item.id)}
 									onDoubleClick={() => onOpen(item.id)}
-									className="group block w-full rounded-sm text-left outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 focus-visible:ring-offset-md-surface-container-low"
+									className="group block w-full rounded-lg-inc text-left outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
 								>
 									<span
 										className={cn(
-											"relative isolate block aspect-[3/4] w-full overflow-hidden rounded-sm bg-md-surface-container-high",
+											"relative isolate block aspect-[3/4] w-full overflow-hidden rounded-lg-inc bg-md-surface-container-high",
 											ringClass(selected),
 										)}
 									>
@@ -294,7 +296,7 @@ export function LibraryWall(props: ResultsProps) {
 											aria-hidden
 											className="absolute inset-x-0 bottom-0 h-3/5 bg-linear-to-t from-md-scrim/90 via-md-scrim/50 to-transparent"
 										/>
-										<span className="absolute inset-x-2.5 top-2 flex items-center justify-between gap-2">
+										<span className="absolute inset-x-3 top-3 flex items-center justify-between gap-2">
 											<KindText kind={item.kind} />
 											{item.ownedByMe ? null : (
 												<span className="min-w-0 text-label-small">
@@ -302,7 +304,7 @@ export function LibraryWall(props: ResultsProps) {
 												</span>
 											)}
 										</span>
-										<span className="absolute inset-x-2.5 bottom-2 flex flex-col gap-0.5">
+										<span className="absolute inset-x-3 bottom-3 flex flex-col gap-0.5">
 											<span
 												className={cn(
 													"line-clamp-2 text-title-small break-words",
@@ -341,14 +343,14 @@ export function LibraryWall(props: ResultsProps) {
 										aria-pressed={selected}
 										onClick={() => onSelect(item.id)}
 										onDoubleClick={() => onOpen(item.id)}
-										className="group block w-full rounded-sm text-left outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+										className="group block w-full rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
 									>
 										<span
 											className={cn(
-												"flex h-14 items-center gap-3 rounded-sm px-2.5",
+												"relative flex h-14 items-center gap-3 rounded-md px-3",
 												item.kind === "npc"
-													? "bg-md-surface-container"
-													: "bg-md-surface-container-high",
+													? "bg-md-surface-container-low"
+													: "bg-md-surface-container",
 												ringClass(selected),
 											)}
 										>

@@ -51,9 +51,9 @@ function Section({
 	children: ReactNode;
 }) {
 	return (
-		<section className="flex flex-col gap-2 border-t border-md-outline-variant/60 pt-4">
+		<section className="flex flex-col gap-1 rounded-lg bg-md-surface-container px-3 py-2.5">
 			<header className="flex min-h-8 items-center justify-between gap-3">
-				<h3 className="text-label-large text-md-on-surface-variant">{title}</h3>
+				<h3 className="text-title-small-emph text-md-on-surface">{title}</h3>
 				{aside}
 			</header>
 			{children}
@@ -160,8 +160,8 @@ export function CharacterInspector({
 	}
 
 	const identity = (
-		<div className="flex flex-col gap-1">
-			<h2 className="text-headline-small-emph break-words text-md-on-surface">
+		<div className="flex min-w-0 flex-col gap-1">
+			<h2 className="wrap-anywhere text-headline-small-emph text-md-on-surface">
 				{item.name}
 			</h2>
 			<p className="flex flex-wrap items-center gap-x-2 text-body-medium text-md-on-surface-variant">
@@ -186,10 +186,13 @@ export function CharacterInspector({
 	return (
 		<article
 			aria-label={item.name}
-			className={cn("flex min-h-0 flex-col", className)}
+			className={cn(
+				"flex min-h-0 flex-col rounded-xl bg-md-surface-container-low",
+				className,
+			)}
 		>
 			{onBack ? (
-				<div className="sticky top-0 z-10 flex h-12 items-center border-b border-md-outline-variant/60 bg-md-surface-container px-2">
+				<div className="sticky top-0 z-10 flex h-12 items-center rounded-t-xl bg-md-surface-container-low px-2">
 					<Button
 						type="button"
 						variant="text"
@@ -202,16 +205,21 @@ export function CharacterInspector({
 					</Button>
 				</div>
 			) : null}
-			<div className="flex flex-col gap-5 p-5">
+			<div className="flex flex-col gap-3 p-3 xl:p-4">
 				{heroSrc ? (
 					<>
 						<div className="relative">
-							<PortraitFrame name={item.name} src={heroSrc} size="hero" />
+							<PortraitFrame
+								name={item.name}
+								src={heroSrc}
+								size="hero"
+								className="rounded-lg-inc"
+							/>
 							{portraits.length > 1 ? (
 								<div
 									role="tablist"
 									aria-label={t("gm.library.expressionsTitle")}
-									className="absolute inset-x-0 bottom-0 flex gap-1.5 overflow-x-auto rounded-b-md bg-linear-to-t from-md-scrim/80 to-transparent px-3 pt-8 pb-3"
+									className="absolute inset-x-0 bottom-0 flex gap-1.5 overflow-x-auto rounded-b-lg-inc bg-linear-to-t from-md-scrim/80 to-transparent px-3 pt-8 pb-3"
 								>
 									{portraits.map((portrait) => {
 										const active = portrait.id === shown?.id;
@@ -250,7 +258,12 @@ export function CharacterInspector({
 					</>
 				) : (
 					<div className="flex items-center gap-4">
-						<PortraitFrame name={item.name} src={null} size="card" />
+						<PortraitFrame
+							name={item.name}
+							src={null}
+							size="card"
+							className="size-16 rounded-lg-inc bg-md-secondary-container"
+						/>
 						{identity}
 					</div>
 				)}
@@ -258,7 +271,7 @@ export function CharacterInspector({
 				<div className="flex items-center gap-2">
 					<Button
 						type="button"
-						variant="outline"
+						variant="tonal"
 						size="sm"
 						className="min-w-0 flex-1"
 						onClick={() => onOpenSheet(item.id)}
@@ -410,7 +423,7 @@ export function CharacterInspector({
 							{[0, 1, 2, 3].map((index) => (
 								<div
 									key={index}
-									className="h-10 animate-pulse rounded-xs bg-md-surface-container-high"
+									className="h-10 rounded-sm bg-md-surface-container-high motion-safe:animate-pulse"
 								/>
 							))}
 						</div>
@@ -419,12 +432,12 @@ export function CharacterInspector({
 							{t("gm.library.summaryEmpty")}
 						</p>
 					) : (
-						<dl className="grid grid-cols-2 gap-x-6">
+						<dl className="grid grid-cols-2 gap-x-4">
 							{summary.map((entry, index) => (
 								<div
 									key={`${entry.label}-${index}`}
 									className={cn(
-										"flex flex-col gap-0.5 border-b border-md-outline-variant/40 py-2",
+										"flex min-w-0 flex-col gap-0.5 py-1.5",
 										index === summary.length - 1 &&
 											summary.length % 2 === 1 &&
 											"col-span-2",
@@ -433,7 +446,7 @@ export function CharacterInspector({
 									<dt className="text-label-medium text-md-on-surface-variant">
 										{entry.label}
 									</dt>
-									<dd className="text-body-large tabular-nums text-md-on-surface">
+									<dd className="wrap-anywhere text-title-medium tabular-nums text-md-on-surface">
 										{entry.value}
 									</dd>
 								</div>

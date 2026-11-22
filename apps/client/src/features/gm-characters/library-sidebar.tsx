@@ -1,12 +1,13 @@
 import type { GmCharacterLibraryFacets } from "@cogm/shared";
 import { Check, ChevronsUpDown, Search } from "lucide-react";
-import { type ReactNode, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import {
 	InputGroup,
 	InputGroupAddon,
 	InputGroupInput,
 } from "@/components/ui/input-group";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { FolderGroup, FolderItem } from "@/features/gm-admin/library-navigation";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { getRuleComponent } from "@/rules/registry";
@@ -91,9 +92,9 @@ export function LibraryRulePicker({
 				aria-current={selected ? "true" : undefined}
 				onClick={() => choose(rule.id)}
 				className={cn(
-					"flex w-full items-center gap-3 rounded-sm px-3 py-2 text-left outline-none transition-colors",
-					"hover:bg-md-surface-container-high focus-visible:bg-md-surface-container-high focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring",
-					selected && "bg-md-surface-container-high",
+					"flex min-h-11 w-full items-center gap-3 rounded-md px-3 py-2 text-left outline-none transition-colors duration-150 ease-standard-fast-effects motion-reduce:transition-none",
+					selected ? "bg-accent-soft" : "hover:bg-md-surface-container-high",
+					"focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring",
 				)}
 			>
 				<span className="flex min-w-0 flex-1 flex-col">
@@ -135,11 +136,9 @@ export function LibraryRulePicker({
 						rule: activeComponent?.shortName ?? "",
 					})}
 					className={cn(
-						"group flex items-center gap-3 text-left outline-none transition-colors",
+						"group flex items-center gap-3 bg-md-surface-container text-left outline-none transition-colors duration-150 ease-standard-fast-effects hover:bg-md-surface-container-high data-[state=open]:bg-md-surface-container-high motion-reduce:transition-none",
 						"focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring",
-						compact
-							? "h-10 rounded-md border border-md-outline-variant bg-md-surface-container-low px-3 hover:bg-md-surface-container"
-							: "w-full border-b border-md-outline-variant/60 py-4 pr-4 pl-5 hover:bg-md-surface-container-low data-[state=open]:bg-md-surface-container-low",
+						compact ? "h-11 rounded-full px-4" : "w-full rounded-lg p-3",
 					)}
 				>
 					{compact ? (
@@ -147,7 +146,7 @@ export function LibraryRulePicker({
 							<span className="truncate text-title-small text-md-on-surface">
 								{activeComponent?.shortName}
 							</span>
-							<span className="text-label-large tabular-nums text-accent">
+							<span className="text-label-medium-emph tabular-nums text-accent">
 								{active?.count ?? 0}
 							</span>
 						</span>
@@ -177,7 +176,7 @@ export function LibraryRulePicker({
 			</PopoverTrigger>
 			<PopoverContent
 				align="start"
-				sideOffset={compact ? 6 : 0}
+				sideOffset={6}
 				className="flex w-(--radix-popover-trigger-width) min-w-72 flex-col gap-1 p-1.5"
 				onOpenAutoFocus={(event) => {
 					if (searchable) return;
@@ -249,66 +248,6 @@ function RuleGroupLabel({ label }: { label: string }) {
 	);
 }
 
-function FolderGroup({
-	label,
-	children,
-}: {
-	label?: string;
-	children: ReactNode;
-}) {
-	return (
-		<div role="group" aria-label={label} className="flex flex-col py-2">
-			{label ? (
-				<div className="px-5 pt-2 pb-1 text-label-medium text-md-on-surface-variant">
-					{label}
-				</div>
-			) : null}
-			{children}
-		</div>
-	);
-}
-
-function FolderItem({
-	label,
-	hint,
-	count,
-	active,
-	onClick,
-}: {
-	label: string;
-	hint?: string;
-	count: number;
-	active: boolean;
-	onClick: () => void;
-}) {
-	return (
-		<button
-			type="button"
-			aria-pressed={active}
-			title={hint}
-			onClick={onClick}
-			className={cn(
-				"relative flex h-9 items-baseline gap-3 pt-2 pr-4 pl-5 text-left outline-none transition-colors",
-				"focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring",
-				active
-					? "bg-md-surface-container-high text-md-on-surface"
-					: "text-md-on-surface-variant hover:bg-md-surface-container-lowest hover:text-md-on-surface",
-				count === 0 && !active && "opacity-60",
-			)}
-		>
-			<span
-				aria-hidden
-				className={cn(
-					"absolute inset-y-1.5 left-0 w-[3px] rounded-r-full",
-					active ? "bg-accent" : "bg-transparent",
-				)}
-			/>
-			<span className="min-w-0 flex-1 truncate text-body-medium">{label}</span>
-			<span className="text-label-large tabular-nums">{count}</span>
-		</button>
-	);
-}
-
 /** 当前规则下的筛选文件夹：类型 / 归属 / 模组，各组单选、组间叠加，计数为分面计数 */
 export function LibraryFolders({
 	facets,
@@ -327,7 +266,7 @@ export function LibraryFolders({
 		value: LibraryFolderState[K],
 	) => onChange({ ...state, [key]: state[key] === value ? undefined : value });
 	return (
-		<div aria-label={t("gm.library.foldersAria")} className="flex flex-col">
+		<nav aria-label={t("gm.library.foldersAria")} className="flex flex-col">
 			<FolderGroup>
 				<FolderItem
 					label={t("gm.library.all")}
@@ -383,6 +322,6 @@ export function LibraryFolders({
 					onClick={() => toggle("module", "none")}
 				/>
 			</FolderGroup>
-		</div>
+		</nav>
 	);
 }

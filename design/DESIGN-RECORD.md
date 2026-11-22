@@ -142,6 +142,8 @@ Port notes: 页面 apps/client/src/routes/gm/characters.tsx；业务组件 apps/
 ## 交付后修订
 
 - 2026-11-21 用户反馈“规则切换的逻辑不好，规则多了怎么办”：左栏堆叠的规则块与移动端分段控件均随规则数线性增长。改为 `LibraryRulePicker`——单个触发器（当前规则简称、全名、人数）+ 弹层；弹层按“有人物（按人数降序）/暂无人物（按名称）”分组，规则超过 6 套出现搜索框（匹配简称、全名、id，回车选第一项），方向键在选项间移动；桌面与移动端共用，移动端为单行形态。无 `?rule=` 时恢复上次使用的规则（localStorage `cogm.gmLibraryRule`）。截图：`shots/gm-characters/picker-*`；8 套规则的分组/搜索行为由 `apps/client/tests/library-rule-picker.test.tsx` 覆盖。未重跑评审轮。
+- 2026-11-22 圆角与表面色阶调整。人物库和模组库共用二级导航外壳、分组和筛选项。Chromium 实测两页在 1024px 和 1440px 视口下分别为 176px 和 208px。人物台账保持 36px 行高，窄屏从详情顶部展示立绘。
+- 独立截图快评（`scout` 默认模型）明确偏好新版。分面目录、台账与检视器更易区分，画廊保留三列。评审建议加深搜索框边界并补列表分隔线，本轮保留低对比表面以减少连续线条。截图见 `shots/gm-characters/spot-expressive-*` 和 `shots/gm-modules/spot-expressive-*`。
 
 ---
 

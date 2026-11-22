@@ -35,6 +35,7 @@ import {
 import { AdminLayout } from "@/features/gm-admin/admin-layout";
 import { CreateCharacterDialog } from "@/features/gm-admin/dialogs/create-character-dialog";
 import { ImportCharacterSheetDialog } from "@/features/gm-admin/dialogs/import-character-sheet-dialog";
+import { LibraryNavigation } from "@/features/gm-admin/library-navigation";
 import { CharacterInspector } from "@/features/gm-characters/character-inspector";
 import {
 	type LibraryFilters,
@@ -55,7 +56,6 @@ import { requireGmAuth } from "@/lib/identity";
 import { useRuleOptions } from "@/lib/rules-api";
 import { readGmLibraryRule, writeGmLibraryRule } from "@/lib/storage";
 import { useMediaQuery } from "@/lib/use-media-query";
-import { cn } from "@/lib/utils";
 import { getRuleComponent } from "@/rules/registry";
 
 export const Route = createFileRoute("/gm/characters")({
@@ -101,6 +101,9 @@ function GmCharactersPage() {
 	const [filtersOpen, setFiltersOpen] = useState(false);
 	const searchRef = useRef<HTMLInputElement>(null);
 	const resultsRef = useRef<HTMLDivElement>(null);
+	const showDetailFromTop = useCallback((node: HTMLDivElement | null) => {
+		node?.scrollIntoView({ block: "start", behavior: "instant" });
+	}, []);
 
 	const setSearch = useCallback(
 		(patch: Partial<LibrarySearch>, replace = true) =>
@@ -277,14 +280,14 @@ function GmCharactersPage() {
 					{t("gm.library.retry")}
 				</Button>
 			}
-			className="m-5 bg-transparent"
+			className="bg-md-surface-container-low"
 		/>
 	) : library.loading && items.length === 0 ? (
-		<div aria-busy className="flex flex-col">
+		<div aria-busy className="flex flex-col gap-1 rounded-xl bg-md-surface-container-low p-1">
 			{Array.from({ length: 8 }, (_, index) => (
 				<div
 					key={index}
-					className="mx-5 h-12 animate-pulse border-b border-md-outline-variant/40"
+					className="h-9 rounded-md bg-md-surface-container motion-safe:animate-pulse max-sm:h-14"
 				/>
 			))}
 		</div>
@@ -312,7 +315,7 @@ function GmCharactersPage() {
 						) : null}
 					</div>
 				}
-				className="m-5 bg-transparent"
+				className="bg-md-surface-container-low"
 			/>
 		) : (
 			<EmptyState
@@ -325,7 +328,7 @@ function GmCharactersPage() {
 						{t("gm.library.create")}
 					</Button>
 				}
-				className="m-5 bg-transparent"
+				className="bg-md-surface-container-low"
 			/>
 		)
 	) : view === "wall" ? (
@@ -346,7 +349,7 @@ function GmCharactersPage() {
 			>
 				<SelectTrigger
 					aria-label={t("gm.library.sortAria")}
-					className="w-auto min-w-0 flex-1 lg:flex-none"
+					className="w-auto min-w-0 flex-1 rounded-full px-4 lg:flex-none"
 				>
 					<SelectValue />
 				</SelectTrigger>
@@ -371,7 +374,7 @@ function GmCharactersPage() {
 						label: (
 							<>
 								<List className="size-4" aria-hidden />
-								<span className="sr-only lg:not-sr-only lg:whitespace-nowrap">
+								<span className="sr-only xl:not-sr-only xl:whitespace-nowrap">
 									{t("gm.library.viewList")}
 								</span>
 							</>
@@ -382,7 +385,7 @@ function GmCharactersPage() {
 						label: (
 							<>
 								<LayoutGrid className="size-4" aria-hidden />
-								<span className="sr-only lg:not-sr-only lg:whitespace-nowrap">
+								<span className="sr-only xl:not-sr-only xl:whitespace-nowrap">
 									{t("gm.library.viewWall")}
 								</span>
 							</>
@@ -394,8 +397,8 @@ function GmCharactersPage() {
 	);
 
 	const toolbar = (
-		<div className="flex flex-wrap items-center gap-2">
-			<InputGroup className="h-10 min-w-0 flex-1 lg:basis-48">
+		<div className="flex items-center gap-2">
+			<InputGroup className="min-w-0 flex-1 rounded-full border-transparent bg-md-surface-container max-lg:h-11">
 				<InputGroupAddon>
 					<Search />
 				</InputGroupAddon>
@@ -410,35 +413,32 @@ function GmCharactersPage() {
 					aria-label={t("gm.library.searchAria")}
 				/>
 				<InputGroupAddon className="hidden lg:flex">
-					<kbd className="rounded-xs border border-md-outline-variant px-1.5 font-mono text-label-small text-md-on-surface-variant">
+					<kbd className="rounded-sm bg-md-surface-container-high px-2 font-mono text-label-small text-md-on-surface-variant">
 						/
 					</kbd>
 				</InputGroupAddon>
 			</InputGroup>
 			<div className="flex min-w-0 items-center gap-2">
-			{!wide ? (
-				<Button
-					type="button"
-					variant="outline"
-					size="sm"
-					className={cn(
-						"h-10 px-3 text-md-on-surface",
-						activeFolderCount > 0 && "border-accent text-accent",
-					)}
-					onClick={() => setFiltersOpen(true)}
-					aria-label={
-						activeFolderCount > 0
-							? t("gm.library.filtersActive", { count: activeFolderCount })
-							: t("gm.library.filters")
-					}
-				>
-					<SlidersHorizontal />
-					{activeFolderCount > 0 ? (
-						<span className="tabular-nums">{activeFolderCount}</span>
-					) : null}
-				</Button>
-			) : null}
-			{wide ? viewControls : null}
+				{!wide ? (
+					<Button
+						type="button"
+						variant={activeFolderCount > 0 ? "tonal" : "outline"}
+						size="sm"
+						className="h-11 px-3"
+						onClick={() => setFiltersOpen(true)}
+						aria-label={
+							activeFolderCount > 0
+								? t("gm.library.filtersActive", { count: activeFolderCount })
+								: t("gm.library.filters")
+						}
+					>
+						<SlidersHorizontal />
+						{activeFolderCount > 0 ? (
+							<span className="tabular-nums">{activeFolderCount}</span>
+						) : null}
+					</Button>
+				) : null}
+				{wide ? viewControls : null}
 			</div>
 		</div>
 	);
@@ -465,7 +465,7 @@ function GmCharactersPage() {
 	const header = (
 		<div className="flex items-center justify-between gap-3">
 			<div className="flex min-w-0 flex-col gap-0.5 lg:flex-row lg:items-baseline lg:gap-2">
-				<h1 className="truncate text-title-large text-md-on-surface">
+				<h1 className="truncate text-headline-small-emph text-md-on-surface">
 					{scopeTitle}
 				</h1>
 				{activeFolderCount > 0 || search.q ? (
@@ -480,7 +480,6 @@ function GmCharactersPage() {
 						type="button"
 						variant="text"
 						size="sm"
-						className="text-md-on-surface"
 						onClick={() => {
 							setImportTargetId(null);
 							setImportOpen(true);
@@ -503,11 +502,8 @@ function GmCharactersPage() {
 		<AdminLayout bleed>
 			<h2 className="sr-only">{t("gm.library.title")}</h2>
 			{wide ? (
-				<div className="flex h-full min-h-0">
-					<aside
-						data-scroll
-						className="flex w-60 shrink-0 flex-col overflow-y-auto border-r border-md-outline-variant/60 bg-md-surface pb-6 xl:w-64"
-					>
+				<div className="flex h-full min-h-0 gap-3 bg-md-surface p-3 xl:gap-4 xl:p-4">
+					<LibraryNavigation>
 						<LibraryRulePicker
 							rules={ruleOptions}
 							activeRuleId={ruleId ?? ""}
@@ -519,9 +515,9 @@ function GmCharactersPage() {
 							state={folderState}
 							onChange={changeFolders}
 						/>
-					</aside>
-					<section className="flex min-w-0 flex-1 flex-col">
-						<div className="flex flex-col gap-3 border-b border-md-outline-variant/60 px-5 pt-5 pb-4">
+					</LibraryNavigation>
+					<section className="flex min-w-0 flex-1 flex-col gap-3">
+						<div className="flex flex-col gap-3 px-1 pt-1">
 							{header}
 							{toolbar}
 						</div>
@@ -531,7 +527,7 @@ function GmCharactersPage() {
 					</section>
 					<aside
 						data-scroll
-						className="w-[22rem] shrink-0 overflow-y-auto border-l border-md-outline-variant/60 bg-md-surface-container xl:w-[26rem]"
+						className="max-h-full w-72 shrink-0 self-start overflow-y-auto rounded-xl bg-md-surface-container-low xl:w-96"
 					>
 						{inspector ?? (
 							<p className="p-8 text-center text-body-medium text-md-on-surface-variant">
@@ -541,10 +537,15 @@ function GmCharactersPage() {
 					</aside>
 				</div>
 			) : search.detail && inspector ? (
-				<div className="min-h-full bg-md-surface-container">{inspector}</div>
+				<div
+					ref={showDetailFromTop}
+					className="min-h-full bg-md-surface px-3 py-2"
+				>
+					{inspector}
+				</div>
 			) : (
-				<div className="flex min-h-full flex-col">
-					<div className="flex flex-col gap-3 border-b border-md-outline-variant/60 bg-md-surface px-4 pt-4 pb-3">
+				<div className="flex min-h-full flex-col gap-2 bg-md-surface px-3 pt-3 pb-2">
+					<div className="flex flex-col gap-3">
 						<LibraryRulePicker
 							compact
 							rules={ruleOptions}
@@ -553,10 +554,10 @@ function GmCharactersPage() {
 						/>
 						{header}
 					</div>
-					<div className="sticky top-0 z-20 border-b border-md-outline-variant/60 bg-md-surface-container-low px-4 py-3">
+					<div className="sticky top-0 z-20 bg-md-surface py-1">
 						{toolbar}
 					</div>
-					<div ref={resultsRef} className={cn("flex-1")}>
+					<div ref={resultsRef} className="flex-1">
 						{results}
 					</div>
 					<Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
@@ -564,8 +565,8 @@ function GmCharactersPage() {
 							<SheetHeader>
 								<SheetTitle>{t("gm.library.filters")}</SheetTitle>
 							</SheetHeader>
-							<SheetBody className="px-0">
-								<div className="flex items-center gap-2 px-5 pb-3">
+							<SheetBody>
+								<div className="flex items-center gap-2 pb-3">
 									{viewControls}
 								</div>
 								<LibraryFolders
