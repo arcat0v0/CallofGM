@@ -21,6 +21,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 团管理、模组模板、音乐、黑名单、提交审核和回收站统一为紧凑的 Material 3 Expressive 管理页，采用与模组库、人物库一致的页头、圆角面板和表面色阶。
 - GM 音乐库对齐模组库与人物库的 M3 Expressive 工作台：圆角模组侧栏、胶囊工具栏、圆角曲目台账面板与底部试听浮岛。
 
+### Fixed
+
+- 修复 GM 模组工作台音乐页缺失文案键、直接显示 i18n key 的问题（曲目计数与空态）。
+- 修复 GM 曲库与模组工作台的试听无法播放无扩展名媒体与平台流的问题：为 Howler 补显式格式提示，网易云按 mp3、QQ 按 m4a。
+
 ### Tests
 
 - 使用隔离双 Chromium、network namespace、合成音频与 RTP/RMS 采样验证语音基线、真实 UDP 损伤、五次双路径切换及 WS-only 重连；明确 CDP 页面网络条件未形成 RTP 弱网证据，实体无线切换、RNNoise 弱网对照与主观听感仍未覆盖。详见 [语音弱网与切网验证](docs/voice-network-testing.md)。

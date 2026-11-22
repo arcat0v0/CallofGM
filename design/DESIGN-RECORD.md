@@ -260,3 +260,7 @@ r1/r2/gate/final 四轮中位数都是 6（桌面最后一轮升到 7/7/7）。�
 - 页面 `apps/client/src/routes/gm/music.tsx`；业务组件 `apps/client/src/features/gm-music/`；服务端 `GET /api/v1/gm/modules/tracks`、软删除修复、媒体 `Range` 支持；文档 `docs/product.md`（音乐库页）、`docs/architecture.md`（曲库列表、Range）。
 - 原型与评审素材：`design/explorations/music-cuesheet*`、`music-console`、`_shared`；截图 `design/shots/gm-music/`（r0 基线、poc-a/b、r1、r2、p0–p6 真实页面；评审用副本在 `.critic/`，已忽略）。
 - 未提交：工作区改动尚未 commit（用户未要求）。
+
+## 交付后修订（gm-music）
+- 2026-11-22 用户反馈“/gm/music 页面风格有些老旧，需要像 /gm/modules 和 /gm/characters 一样，多用 MD3 Expressive”：改为与模组库同源的工作台——`LibraryNavigation` 圆角侧栏（模组项复用文件夹样式，选中 accent-soft）、`bg-md-surface` 画布与 `p-3/4` 内边距、胶囊搜索/排序与 `SegmentedControl`、台账收进 `rounded-xl bg-md-surface-container-low` 面板（BGM/SE 40px 分组条 + 计数药丸，行内选中用表面色阶与强调线）、试听条改为底部圆角浮岛；行内左缘与面板圆角之间留 12px，标题与艺术家/专辑并排，不再悬浮。列结构、拖放、全部曲目分组与键盘快捷键保持不变；移动端工具栏两行换行。
+- 2026-11-22 模组工作台音乐页修复：补齐 `gm.music.bgmCount` / `seCount` / `noBgm` / `noSe` 文案键，不再直接显示 key；试听补齐 Howler 格式提示（Howler 对无扩展名的媒体/流地址会直接判定无可用编码），网易云用 mp3、QQ 用 m4a，并在 `music-page.test.tsx` 断言平台流的 `format`。Chromium 实测 1440×900 与 390×844（模组视图、全部曲目、试听中），以及模组工作台音乐页平台曲目实际播放（206 + audio/mpeg）。截图待补。

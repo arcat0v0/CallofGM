@@ -283,9 +283,7 @@ function SceneTile({
 									<Pencil />
 									{t("gm.module.rename")}
 								</DropdownMenuItem>
-								<DropdownMenuItem
-									onClick={() => fileInputRef.current?.click()}
-								>
+								<DropdownMenuItem onClick={() => fileInputRef.current?.click()}>
 									<Upload />
 									{src
 										? t("gm.module.replaceSceneBg")
@@ -546,7 +544,9 @@ export function ModuleScenesTab({
 				<DialogContent className="max-w-lg">
 					<DialogHeader>
 						<DialogTitle>{t("gm.module.createScene")}</DialogTitle>
-						<DialogDescription>{t("gm.module.coverOrderHint")}</DialogDescription>
+						<DialogDescription>
+							{t("gm.module.coverOrderHint")}
+						</DialogDescription>
 					</DialogHeader>
 					<form
 						className="flex flex-col gap-4"

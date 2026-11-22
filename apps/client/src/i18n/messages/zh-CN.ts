@@ -1711,6 +1711,10 @@ export const zhCN: Record<string, string> = {
 	"gm.music.sectionSe": "SE",
 	"gm.music.sectionBgmHint": "循环 · 一次只放一首",
 	"gm.music.sectionSeHint": "点一下播一次",
+	"gm.music.bgmCount": "{count} 首",
+	"gm.music.seCount": "{count} 首",
+	"gm.music.noBgm": "还没有 BGM",
+	"gm.music.noSe": "还没有音效",
 	"gm.music.emptyTitle": "这个模组还没有曲目",
 	"gm.music.emptyHint":
 		"点「添加曲目」上传音频，或从网易云音乐、QQ 音乐按歌曲、歌单添加；也可以把文件直接拖进来。",

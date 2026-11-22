@@ -2,6 +2,7 @@ import { Howl } from "howler";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { t } from "@/i18n";
+import { trackPlaybackFormat } from "@/lib/music-playback";
 import { type LibraryTrack, trackPlaybackPath } from "./music-library-model";
 
 const POSITION_POLL_MS = 250;
@@ -52,6 +53,7 @@ export function useAudition(): Audition {
 			}
 			const howl = new Howl({
 				src: [src],
+				format: [trackPlaybackFormat(next.source)],
 				html5: true,
 				xhr: { withCredentials: true },
 				loop: next.type === "bgm",

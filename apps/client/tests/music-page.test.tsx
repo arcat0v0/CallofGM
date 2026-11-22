@@ -51,7 +51,12 @@ mock.module("sonner", () => ({
 }));
 
 // ---- 试听：假的 Howl ----
-type HowlOptions = { src: string[]; loop?: boolean; volume?: number };
+type HowlOptions = {
+	src: string[];
+	format?: string[];
+	loop?: boolean;
+	volume?: number;
+};
 const howls: Array<{ options: HowlOptions; unloaded: boolean; played: boolean }> = [];
 mock.module("howler", () => ({
 	Howl: class {
@@ -394,6 +399,7 @@ describe("music page", () => {
 		await waitFor(() => view().getByText("River Flows In You"));
 		fireEvent.click(view().getByRole("button", { name: "试听 River Flows In You" }));
 		expect(howls[0]?.options.src).toEqual(["/api/v1/music/tracks/River/stream"]);
+		expect(howls[0]?.options.format).toEqual(["mp3"]);
 		fireEvent.click(view().getByRole("button", { name: "试听 汽笛" }));
 		expect(howls[0]?.unloaded).toBe(true);
 		expect(howls[1]?.options.loop).toBe(false);

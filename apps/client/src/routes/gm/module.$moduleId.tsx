@@ -80,6 +80,7 @@ import { errorText } from "@/lib/errors";
 import { formatDurationMmSs } from "@/lib/format";
 import { requireGmAuth } from "@/lib/identity";
 import { uploadMediaAsset } from "@/lib/media-upload";
+import { trackPlaybackFormat } from "@/lib/music-playback";
 import { cn } from "@/lib/utils";
 import { getRuleComponent } from "@/rules/registry";
 import { listThemes } from "@/themes/themes-api";
@@ -312,10 +313,7 @@ function TrackStudioRow({
 								</DropdownMenuItem>
 							) : null}
 							<DropdownMenuSeparator />
-							<DropdownMenuItem
-								variant="destructive"
-								onClick={onRequestDelete}
-							>
+							<DropdownMenuItem variant="destructive" onClick={onRequestDelete}>
 								<Trash2 />
 								{t("gm.module.deleteTrackTitle")}
 							</DropdownMenuItem>
@@ -438,6 +436,7 @@ function ModuleDetailPage() {
 		}
 		const howl = new Howl({
 			src: [src],
+			format: [trackPlaybackFormat(track.source)],
 			html5: true,
 			xhr: { withCredentials: true },
 			volume: 0.8,
@@ -754,7 +753,10 @@ function ModuleDetailPage() {
 									setUploadingTrack(true);
 									void (async () => {
 										try {
-											const audioAssetId = await uploadMediaAsset(file, "audio");
+											const audioAssetId = await uploadMediaAsset(
+												file,
+												"audio",
+											);
 											const duration = await audioDurationMs(file);
 											await api(
 												`/gm/modules/${encodeURIComponent(moduleId)}/tracks`,
@@ -801,9 +803,7 @@ function ModuleDetailPage() {
 												className="h-10 w-full max-w-none"
 												onChange={(event) => {
 													setDroppedFile(null);
-													setTrackFileName(
-														event.target.files?.[0]?.name ?? "",
-													);
+													setTrackFileName(event.target.files?.[0]?.name ?? "");
 												}}
 											/>
 										</div>
@@ -822,9 +822,7 @@ function ModuleDetailPage() {
 												className="h-10 w-full max-w-none lg:w-64 lg:shrink-0"
 												onChange={(event) => {
 													setDroppedFile(null);
-													setTrackFileName(
-														event.target.files?.[0]?.name ?? "",
-													);
+													setTrackFileName(event.target.files?.[0]?.name ?? "");
 												}}
 											/>
 											{trackFileName ? (
@@ -908,6 +906,7 @@ function ModuleDetailPage() {
 							) : (
 								<div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
 									<section
+										aria-labelledby="module-deck-bgm"
 										onDragOver={(event) => {
 											event.preventDefault();
 											setDropTarget("bgm");
@@ -927,7 +926,10 @@ function ModuleDetailPage() {
 													className="size-4 text-md-on-surface-variant"
 													aria-hidden
 												/>
-												<h2 className="text-title-small-emph text-md-on-surface">
+												<h2
+													id="module-deck-bgm"
+													className="text-title-small-emph text-md-on-surface"
+												>
 													{t("gm.module.musicHeadingBgm")}
 												</h2>
 												<span className="rounded-xs border border-md-outline-variant/65 bg-md-surface-container-high px-1.5 py-0.5 font-mono text-label-small tracking-[0.04em] text-md-on-surface-variant">
@@ -964,6 +966,7 @@ function ModuleDetailPage() {
 									</section>
 
 									<section
+										aria-labelledby="module-deck-se"
 										onDragOver={(event) => {
 											event.preventDefault();
 											setDropTarget("se");
@@ -983,7 +986,10 @@ function ModuleDetailPage() {
 													className="size-4 text-md-on-surface-variant"
 													aria-hidden
 												/>
-												<h2 className="text-title-small-emph text-md-on-surface">
+												<h2
+													id="module-deck-se"
+													className="text-title-small-emph text-md-on-surface"
+												>
 													{t("gm.module.musicHeadingSe")}
 												</h2>
 												<span className="rounded-xs border border-md-outline-variant/65 bg-md-surface-container-high px-1.5 py-0.5 font-mono text-label-small tracking-[0.04em] text-md-on-surface-variant">

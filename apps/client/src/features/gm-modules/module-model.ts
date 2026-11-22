@@ -1,4 +1,8 @@
-import type { ModuleDto, ModuleSummaryDto, ThemeSummaryDto } from "@cogm/shared";
+import type {
+	ModuleDto,
+	ModuleSummaryDto,
+	ThemeSummaryDto,
+} from "@cogm/shared";
 import { getRuleComponent } from "@/rules/registry";
 
 export type ModulesSort = "updated" | "name" | "assets";
@@ -132,6 +136,9 @@ export function filterAndSortModules(
 				collator.compare(a.module.name, b.module.name)
 			);
 		}
-		return b.updatedAt - a.updatedAt || collator.compare(a.module.name, b.module.name);
+		return (
+			b.updatedAt - a.updatedAt ||
+			collator.compare(a.module.name, b.module.name)
+		);
 	});
 }
