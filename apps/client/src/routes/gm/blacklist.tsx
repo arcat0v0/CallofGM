@@ -13,8 +13,8 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { EmptyState } from "@/components/shared/empty-state";
 import { MetricStrip } from "@/components/shared/metric-card";
-import { PageHeader } from "@/components/shared/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -35,7 +35,11 @@ import {
 	TooltipContent,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { AdminLayout } from "@/features/gm-admin/admin-layout";
+import {
+	AdminLedger,
+	AdminWorkbench,
+	AdminWorkbenchHeader,
+} from "@/features/gm-admin/admin-workbench";
 import { BanPlayerDialog } from "@/features/gm-admin/dialogs/ban-player-dialog";
 import { t, useI18nVersion } from "@/i18n";
 import { api, unwrapItems } from "@/lib/api";
@@ -171,42 +175,26 @@ function BlacklistPage() {
 	).length;
 
 	return (
-		<AdminLayout>
-			<div className="flex h-full flex-col gap-5">
-				<PageHeader
+		<AdminWorkbench>
+			<div className="flex flex-col gap-3 xl:gap-4">
+				<AdminWorkbenchHeader
 					title={t("gm.blacklist.title")}
 					description={t("gm.blacklist.description")}
 					actions={
-						<>
-							<InputGroup className="h-12 w-64">
-								<InputGroupAddon>
-									<Search />
-								</InputGroupAddon>
-								<InputGroupInput
-									value={query}
-									onChange={(event) => setQuery(event.target.value)}
-									placeholder={t("gm.blacklist.searchPlaceholder")}
-									aria-label={t("gm.blacklist.searchAria")}
-									className="text-label-large"
-								/>
-							</InputGroup>
-							<Button
-								variant="dangerSoft"
-								className="h-12 px-6"
-								onClick={() =>
-									setBanContext({ playerId: "", fingerprintHash: "" })
-								}
-							>
-								<UserX />
-								{t("gm.blacklist.manualBan")}
-							</Button>
-						</>
+						<Button
+							variant="dangerSoft"
+							size="sm"
+							onClick={() =>
+								setBanContext({ playerId: "", fingerprintHash: "" })
+							}
+						>
+							<UserX />
+							{t("gm.blacklist.manualBan")}
+						</Button>
 					}
 				/>
-
 				<MetricStrip
 					columns={3}
-					className="animate-in fade-in slide-in-from-bottom-4 duration-500 ease-standard-default-spatial"
 					items={[
 						{
 							icon: ShieldBan,
@@ -227,62 +215,62 @@ function BlacklistPage() {
 					]}
 				/>
 
+				<InputGroup className="max-w-lg rounded-full border-transparent bg-md-surface-container">
+					<InputGroupAddon>
+						<Search aria-hidden />
+					</InputGroupAddon>
+					<InputGroupInput
+						value={query}
+						onChange={(event) => setQuery(event.target.value)}
+						placeholder={t("gm.blacklist.searchPlaceholder")}
+						aria-label={t("gm.blacklist.searchAria")}
+					/>
+				</InputGroup>
+
 				{rows.length === 0 ? (
-					<div className="bg-md-surface-container border-md-outline-variant/50 animate-in fade-in slide-in-from-bottom-4 flex flex-col items-center justify-center gap-3 rounded-xl-inc border px-6 py-16 text-center delay-75 duration-500 ease-standard-default-spatial">
-						<span className="bg-accent-soft text-accent-soft-foreground grid size-12 place-items-center rounded-full">
-							<ShieldBan className="size-6" />
-						</span>
-						<p className="text-md-on-surface text-title-medium-emph">
-							{t("gm.blacklist.emptyTitle")}
-						</p>
-						<p className="text-md-on-surface-variant max-w-sm text-label-medium">
-							{t("gm.blacklist.emptyDescription")}
-						</p>
-						<p className="text-md-on-surface-variant/75 text-label-small">
-							{t("gm.blacklist.emptyHint")}
-						</p>
-					</div>
+					<EmptyState
+						icon={ShieldBan}
+						title={t("gm.blacklist.emptyTitle")}
+						description={`${t("gm.blacklist.emptyDescription")} ${t("gm.blacklist.emptyHint")}`}
+						className="rounded-xl bg-md-surface-container-low"
+					/>
 				) : entries.length === 0 ? (
-					<div className="bg-md-surface-container border-md-outline-variant/50 animate-in fade-in slide-in-from-bottom-4 flex flex-col items-center justify-center gap-3 rounded-xl-inc border px-6 py-16 text-center delay-75 duration-500 ease-standard-default-spatial">
-						<span className="bg-default text-md-on-surface-variant grid size-12 place-items-center rounded-full">
-							<Search className="size-6" />
-						</span>
-						<p className="text-md-on-surface text-title-medium-emph">
-							{t("gm.blacklist.noMatchTitle")}
-						</p>
-						<p className="text-md-on-surface-variant max-w-sm text-label-medium">
-							{t("gm.blacklist.noMatchDescription")}
-						</p>
-						<Button
-							variant="tertiary"
-							className="mt-1 h-10 px-4"
-							onClick={() => setQuery("")}
-						>
-							{t("gm.blacklist.clearSearch")}
-						</Button>
-					</div>
+					<EmptyState
+						icon={Search}
+						title={t("gm.blacklist.noMatchTitle")}
+						description={t("gm.blacklist.noMatchDescription")}
+						className="rounded-xl bg-md-surface-container-low"
+						action={
+							<Button variant="text" size="sm" onClick={() => setQuery("")}>
+								{t("gm.blacklist.clearSearch")}
+							</Button>
+						}
+					/>
 				) : (
-					<div className="animate-in fade-in slide-in-from-bottom-4 overflow-hidden rounded-2xl bg-md-surface-container delay-75 duration-500 ease-standard-default-spatial">
-						<Table className="table-fixed">
+					<AdminLedger>
+						<Table
+							aria-label={t("gm.blacklist.title")}
+							className="min-w-240 table-fixed"
+						>
 							<TableHeader>
 								<TableRow>
-									<TableHead className="w-52">
+									<TableHead className="w-38">
 										{t("gm.blacklist.player")}
 									</TableHead>
-									<TableHead className="w-58">
+									<TableHead className="w-48">
 										{t("gm.blacklist.fingerprint")}
 									</TableHead>
 									<TableHead>{t("gm.blacklist.note")}</TableHead>
-									<TableHead className="w-30">
+									<TableHead className="w-24">
 										{t("gm.blacklist.duration")}
 									</TableHead>
-									<TableHead className="w-32">
+									<TableHead className="w-26">
 										{t("gm.blacklist.remaining")}
 									</TableHead>
 									<TableHead className="w-30">
 										{t("gm.blacklist.bannedAt")}
 									</TableHead>
-									<TableHead className="w-28">
+									<TableHead className="w-24">
 										{t("gm.blacklist.actions")}
 									</TableHead>
 								</TableRow>
@@ -292,10 +280,10 @@ function BlacklistPage() {
 									<TableRow key={entry.fingerprintHash}>
 										<TableCell>
 											<div className="flex min-w-0 flex-col">
-												<span className="text-foreground truncate text-label-large">
+												<span className="truncate text-title-small-emph text-md-on-surface">
 													{entry.displayName ?? t("gm.blacklist.unknownPlayer")}
 												</span>
-												<span className="text-foreground-tertiary flex items-center gap-1 font-mono text-body-small">
+												<span className="flex items-center gap-1 font-mono text-body-small text-md-on-surface-variant">
 													<span className="truncate">
 														{entry.playerId
 															? `${entry.playerId.slice(0, 8)}…`
@@ -353,7 +341,7 @@ function BlacklistPage() {
 												</Button>
 											</div>
 										</TableCell>
-										<TableCell className="text-foreground-secondary truncate text-body-medium">
+										<TableCell className="truncate text-body-medium text-md-on-surface-variant">
 											{entry.note}
 										</TableCell>
 										<TableCell>
@@ -376,7 +364,7 @@ function BlacklistPage() {
 										>
 											{entry.remaining}
 										</TableCell>
-										<TableCell className="text-foreground-tertiary font-mono text-body-small">
+										<TableCell className="text-body-small tabular-nums text-md-on-surface-variant">
 											{entry.bannedAt}
 										</TableCell>
 										<TableCell>
@@ -411,7 +399,7 @@ function BlacklistPage() {
 								))}
 							</TableBody>
 						</Table>
-					</div>
+					</AdminLedger>
 				)}
 			</div>
 
@@ -476,6 +464,6 @@ function BlacklistPage() {
 						);
 				}}
 			/>
-		</AdminLayout>
+		</AdminWorkbench>
 	);
 }

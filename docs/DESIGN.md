@@ -123,10 +123,10 @@
 ### GM 后台 `/gm/*`（参考 m3.material.io 官网版式）
 
 - **导航改为 navigation rail**：`w-24` 窄栏，每站 icon（上）+ label-medium（下）垂直堆叠；选中态为 `bg-md-secondary-container` 横向椭圆指示器包裹 icon + emphasized 标签，切换用 standard spring。顶 Logo、底主持人头像+登出。
-- 页头：标题 `text-display-small-emph font-sans`，描述 `text-body-large`；主操作按钮大号（`h-12 px-6`）。
-- **仪表盘统计卡（Hero）**：四卡分别 `bg-md-primary-container / secondary-container / tertiary-container / error-container`，数字 `text-display-small-emph`，图标+标签 on-container 色，`rounded-2xl`、`h-28`——色块战术的直接落地。
-- 列表页：表格外层套 `rounded-2xl bg-md-surface-container-low` 容器；模组/音乐等卡片封面区 `rounded-t-2xl bg-md-surface-container-highest`，标题 sans emphasized。
-- 表格、表单等高密度区保持信息密度，不为装饰牺牲可用性。
+- 管理页与模组库、人物库共用 `surface` 画布、紧凑内边距和 `headline-small-emph` 标题。说明用 `body-medium`，顶部动作使用 40px 胶囊按钮。
+- 团管理与黑名单的统计卡使用 20px 圆角和表面色阶，重点指标使用强调容器色。台账使用 32px 表头、细行分隔线和等宽数字。窄屏表格在容器内横向滚动。
+- 模板、审核和回收站的列表使用 `surface-container-low` 面板和 20px 圆角。音乐页桌面为模组侧栏加曲目台账，窄屏把模组选择器置于台账上方。空状态沿用低色阶容器。
+- 模组封面保留小于外框的圆角，表格和表单保持紧凑。
 
 ### GM 控制台 `/gm/session/$sessionId`（B2 · 导演工作台）
 

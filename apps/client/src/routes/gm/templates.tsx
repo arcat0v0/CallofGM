@@ -5,7 +5,6 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { EmptyState, ListSkeleton } from "@/components/shared/empty-state";
 import { FormField } from "@/components/shared/form-field";
-import { PageHeader } from "@/components/shared/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,7 +29,10 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import { AdminLayout } from "@/features/gm-admin/admin-layout";
+import {
+	AdminWorkbench,
+	AdminWorkbenchHeader,
+} from "@/features/gm-admin/admin-workbench";
 import { t, useI18nVersion } from "@/i18n";
 import { api, fetchAllPages, isApiError } from "@/lib/api";
 import { errorText } from "@/lib/errors";
@@ -150,15 +152,16 @@ function TemplatesPage() {
 	}
 
 	return (
-		<AdminLayout>
-			<div className="flex flex-col gap-6">
-				<PageHeader
+		<AdminWorkbench>
+			<div className="flex flex-col gap-3 xl:gap-4">
+				<AdminWorkbenchHeader
 					title={t("gm.templates.title")}
 					description={t("gm.templates.description")}
 					actions={
 						<Button
 							type="button"
 							variant="primary"
+							size="sm"
 							onClick={() => setCreateOpen(true)}
 						>
 							<Plus />
@@ -173,11 +176,13 @@ function TemplatesPage() {
 					<EmptyState
 						icon={Layers}
 						title={t("gm.templates.empty")}
+						className="rounded-xl bg-md-surface-container-low"
 						description={t("gm.templates.emptyHint")}
 						action={
 							<Button
 								type="button"
 								variant="primary"
+								size="sm"
 								onClick={() => setCreateOpen(true)}
 							>
 								<Plus />
@@ -186,28 +191,28 @@ function TemplatesPage() {
 						}
 					/>
 				) : (
-					<div className="animate-in fade-in slide-in-from-bottom-4 overflow-hidden rounded-2xl bg-md-surface-container duration-500 ease-standard-default-spatial">
+					<div className="overflow-clip rounded-lg-inc bg-md-surface-container-low">
 						{templates.map((template) => (
 							<article
 								key={template.id}
-								className="border-separator-secondary/60 flex flex-col gap-4 border-b p-4 last:border-b-0 lg:flex-row lg:items-center lg:justify-between lg:gap-6"
+								className="flex flex-col gap-2.5 border-b border-md-outline-variant/35 px-4 py-3 last:border-b-0 lg:flex-row lg:items-center lg:justify-between lg:gap-4"
 							>
 								<div className="flex min-w-0 flex-col gap-1">
 									<div className="flex flex-wrap items-center gap-2">
-										<h2 className="text-foreground truncate font-sans text-title-medium-emph">
+										<h2 className="min-w-0 truncate text-title-medium-emph text-md-on-surface">
 											{template.name}
 										</h2>
 										<Badge variant="soft" tone="default" size="sm">
 											v{template.currentVersion}
 										</Badge>
 									</div>
-									<div className="text-foreground-tertiary text-label-small">
+									<div className="text-label-medium tabular-nums text-md-on-surface-variant">
 										{template.ruleId} ·{" "}
 										{t("gm.templates.updatedAt", {
 											time: formatStamp(template.updatedAt),
 										})}
 									</div>
-									<div className="text-foreground-secondary flex flex-wrap items-center gap-x-3 gap-y-1 text-label-small">
+									<div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-body-small tabular-nums text-md-on-surface-variant">
 										<span>
 											{t("gm.templates.scenes")} {template.sceneCount}
 										</span>
@@ -226,7 +231,7 @@ function TemplatesPage() {
 								<div className="flex flex-wrap items-center gap-2 lg:shrink-0">
 									<Button
 										type="button"
-										variant="primary"
+										variant="tonal"
 										size="sm"
 										onClick={() => void instantiate(template, false)}
 									>
@@ -234,7 +239,7 @@ function TemplatesPage() {
 									</Button>
 									<Button
 										type="button"
-										variant="accentSoft"
+										variant="outline"
 										size="sm"
 										onClick={() => void instantiate(template, true)}
 									>
@@ -247,7 +252,7 @@ function TemplatesPage() {
 												type="button"
 												variant="ghost"
 												size="icon-sm"
-												className="text-foreground-secondary"
+												className="text-md-on-surface-variant"
 												aria-label={`${t("gm.templates.moreActions")} ${template.name}`}
 											>
 												<Ellipsis />
@@ -318,6 +323,6 @@ function TemplatesPage() {
 					</DialogFooter>
 				</DialogContent>
 			</Dialog>
-		</AdminLayout>
+		</AdminWorkbench>
 	);
 }

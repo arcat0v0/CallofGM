@@ -23,10 +23,8 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { MetricStrip } from "@/components/shared/metric-card";
-import { PageHeader } from "@/components/shared/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import {
 	Dialog,
 	DialogContent,
@@ -50,7 +48,11 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
-import { AdminLayout } from "@/features/gm-admin/admin-layout";
+import {
+	AdminLedger,
+	AdminWorkbench,
+	AdminWorkbenchHeader,
+} from "@/features/gm-admin/admin-workbench";
 import { CreateSessionDialog } from "@/features/gm-admin/dialogs/create-session-dialog";
 import { ImportCharacterSheetDialog } from "@/features/gm-admin/dialogs/import-character-sheet-dialog";
 import { t, useI18nVersion } from "@/i18n";
@@ -139,17 +141,16 @@ function GmDashboardPage() {
 	}
 
 	return (
-		<AdminLayout>
-			<div className="flex flex-col gap-5">
-				<PageHeader
+		<AdminWorkbench>
+			<div className="flex flex-col gap-3 xl:gap-4">
+				<AdminWorkbenchHeader
 					title={t("gm.dashboard.title")}
 					description={t("gm.dashboard.description")}
 					actions={
 						<>
 							<Button
-								variant="outline"
-								size="md"
-								className="h-12"
+								variant="text"
+								size="sm"
 								onClick={() => setImportOpen(true)}
 							>
 								<FileSpreadsheet />
@@ -157,8 +158,7 @@ function GmDashboardPage() {
 							</Button>
 							<Button
 								variant="primary"
-								size="md"
-								className="h-12"
+								size="sm"
 								onClick={() => setCreateOpen(true)}
 							>
 								<Plus />
@@ -169,13 +169,12 @@ function GmDashboardPage() {
 				/>
 
 				<MetricStrip
-					className="animate-in fade-in slide-in-from-bottom-4 duration-500 ease-standard-default-spatial"
 					items={[
 						{
 							icon: Play,
 							value: String(liveCount),
 							label: t("gm.dashboard.liveSessions"),
-							emphasis: true,
+							emphasis: liveCount > 0,
 						},
 						{
 							icon: Package,
@@ -195,12 +194,15 @@ function GmDashboardPage() {
 					]}
 				/>
 
-				<div className="animate-in fade-in slide-in-from-bottom-4 overflow-hidden rounded-2xl bg-md-surface-container delay-75 duration-500 ease-standard-default-spatial">
-					<Table className="table-fixed">
+				<AdminLedger>
+					<Table
+						aria-label={t("gm.dashboard.title")}
+						className="min-w-225 table-fixed"
+					>
 						<TableHeader>
 							<TableRow>
 								<TableHead>{t("gm.dashboard.sessionName")}</TableHead>
-								<TableHead className="w-42">
+								<TableHead className="w-38">
 									{t("gm.dashboard.module")}
 								</TableHead>
 								<TableHead className="w-24">
@@ -209,11 +211,11 @@ function GmDashboardPage() {
 								<TableHead className="w-26">
 									{t("gm.dashboard.phase")}
 								</TableHead>
-								<TableHead className="w-35">{t("gm.dashboard.code")}</TableHead>
-								<TableHead className="w-25">
+								<TableHead className="w-22">{t("gm.dashboard.code")}</TableHead>
+								<TableHead className="w-28">
 									{t("gm.dashboard.updated")}
 								</TableHead>
-								<TableHead className="w-45">
+								<TableHead className="w-60">
 									{t("gm.dashboard.actions")}
 								</TableHead>
 							</TableRow>
@@ -222,12 +224,12 @@ function GmDashboardPage() {
 							{sessions.map((session) => (
 								<TableRow key={session.id}>
 									<TableCell
-										className="truncate text-label-large-emph"
+										className="truncate text-title-small-emph text-md-on-surface"
 										title={formatStamp(session.createdAt)}
 									>
 										{sessionTitle(session)}
 									</TableCell>
-									<TableCell className="text-foreground-secondary text-body-medium">
+									<TableCell className="truncate text-md-on-surface-variant">
 										{moduleName(session.moduleId)}
 									</TableCell>
 									<TableCell>
@@ -258,23 +260,22 @@ function GmDashboardPage() {
 										)}
 									</TableCell>
 									<TableCell
-										className="text-foreground-tertiary font-mono text-label-small"
+										className="font-mono text-label-small text-md-on-surface-variant"
 										title={session.id}
 									>
 										#{session.id.slice(0, 6)}
 									</TableCell>
-									<TableCell className="text-foreground-tertiary text-body-small">
+									<TableCell className="text-body-small tabular-nums text-md-on-surface-variant">
 										{formatStamp(session.createdAt)}
 									</TableCell>
 									<TableCell>
-										<div className="flex items-center gap-1.5">
+										<div className="flex flex-wrap items-center gap-1.5">
 											{session.status !== "ended" &&
 											session.status !== "active" ? (
 												<Button
 													type="button"
 													variant="tertiary"
-													size="sm"
-													className="h-7 px-3"
+													size="xs"
 													onClick={() => {
 														const next =
 															session.status === "waiting"
@@ -292,10 +293,9 @@ function GmDashboardPage() {
 												asChild
 												type="button"
 												variant={
-													session.status === "active" ? "primary" : "tertiary"
+													session.status === "active" ? "tonal" : "tertiary"
 												}
-												size="sm"
-												className="h-7 px-3"
+												size="xs"
 											>
 												<Link
 													to="/gm/session/$sessionId"
@@ -311,11 +311,11 @@ function GmDashboardPage() {
 													<Button
 														type="button"
 														variant="ghost"
-														size="icon-sm"
+														size="xs"
 														aria-label={t("gm.dashboard.moreActions", {
 															id: session.id,
 														})}
-														className="size-7 text-foreground-tertiary"
+														className="size-8 px-0 text-md-on-surface-variant"
 													>
 														<Ellipsis />
 													</Button>
@@ -362,10 +362,10 @@ function GmDashboardPage() {
 							))}
 						</TableBody>
 					</Table>
-				</div>
+				</AdminLedger>
 
-				<div className="animate-in fade-in slide-in-from-bottom-4 flex items-center justify-between pt-1.5 delay-150 duration-500 ease-standard-default-spatial">
-					<h2 className="text-foreground font-sans text-headline-small-emph">
+				<div className="flex flex-wrap items-center justify-between gap-2 px-1 pt-1">
+					<h2 className="text-title-large-emph text-md-on-surface">
 						{t("gm.dashboard.moduleResources")}
 					</h2>
 					<Button
@@ -381,13 +381,13 @@ function GmDashboardPage() {
 					</Button>
 				</div>
 
-				<div className="animate-in fade-in slide-in-from-bottom-4 flex flex-col gap-4 delay-150 duration-500 ease-standard-default-spatial">
+				<div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
 					{modules.map((module) => (
-						<Card
+						<article
 							key={module.id}
-							className="min-h-36 flex-row items-stretch gap-0 overflow-hidden rounded-2xl p-0"
+							className="flex min-h-28 items-stretch overflow-hidden rounded-xl bg-md-surface-container-low"
 						>
-							<div className="bg-md-surface-container-highest relative w-48 shrink-0 overflow-hidden sm:w-56">
+							<div className="relative my-1.5 ml-1.5 w-16 shrink-0 overflow-hidden rounded-lg-inc bg-md-surface-container-high sm:w-28">
 								{(() => {
 									const summary = summaryFor(module.id);
 									const cover = summary?.coverAssetId
@@ -404,9 +404,9 @@ function GmDashboardPage() {
 									);
 								})()}
 							</div>
-							<div className="flex min-w-0 flex-1 flex-col gap-2 p-4">
-								<div className="flex items-center justify-between gap-3">
-									<span className="text-foreground truncate font-sans text-title-medium-emph">
+							<div className="flex min-w-0 flex-1 flex-col gap-1.5 p-3">
+								<div className="flex min-w-0 items-center justify-between gap-2">
+									<span className="truncate text-title-medium-emph text-md-on-surface">
 										{module.name}
 									</span>
 									<Button
@@ -425,12 +425,12 @@ function GmDashboardPage() {
 									</Button>
 								</div>
 								{module.description ? (
-									<p className="text-foreground-secondary line-clamp-1 text-label-small select-text">
+									<p className="line-clamp-1 text-body-small text-md-on-surface-variant select-text">
 										{module.description}
 									</p>
 								) : null}
 								{summaryFor(module.id) ? (
-									<span className="text-foreground-secondary text-label-small">
+									<span className="text-label-small text-md-on-surface-variant">
 										{t("gm.dashboard.moduleStats", {
 											scenes: summaryFor(module.id)!.sceneCount,
 											handouts: summaryFor(module.id)!.handoutCount,
@@ -439,7 +439,7 @@ function GmDashboardPage() {
 										})}
 									</span>
 								) : null}
-								<span className="text-foreground-tertiary mt-auto truncate text-label-small">
+								<span className="mt-auto truncate text-label-small tabular-nums text-md-on-surface-variant">
 									{summaryFor(module.id)
 										? t("gm.dashboard.moduleUpdated", {
 												time: new Date(
@@ -454,7 +454,7 @@ function GmDashboardPage() {
 										: module.ruleId}
 								</span>
 							</div>
-						</Card>
+						</article>
 					))}
 				</div>
 			</div>
@@ -534,6 +534,6 @@ function GmDashboardPage() {
 					}
 				}}
 			/>
-		</AdminLayout>
+		</AdminWorkbench>
 	);
 }

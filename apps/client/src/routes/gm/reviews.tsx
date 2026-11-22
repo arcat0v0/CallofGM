@@ -4,11 +4,13 @@ import { Check, ClipboardCheck, Link2, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { EmptyState, ListSkeleton } from "@/components/shared/empty-state";
-import { PageHeader } from "@/components/shared/page-header";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { AdminLayout } from "@/features/gm-admin/admin-layout";
+import {
+	AdminWorkbench,
+	AdminWorkbenchHeader,
+} from "@/features/gm-admin/admin-workbench";
 import { t, useI18nVersion } from "@/i18n";
 import { api, isApiError } from "@/lib/api";
 import { errorText } from "@/lib/errors";
@@ -64,9 +66,9 @@ function ReviewsPage() {
 	}
 
 	return (
-		<AdminLayout>
-			<div className="flex flex-col gap-6">
-				<PageHeader
+		<AdminWorkbench>
+			<div className="flex flex-col gap-3 xl:gap-4">
+				<AdminWorkbenchHeader
 					title={t("gm.reviews.title")}
 					description={t("gm.reviews.description")}
 				/>
@@ -78,31 +80,31 @@ function ReviewsPage() {
 						icon={ClipboardCheck}
 						title={t("gm.reviews.empty")}
 						description={t("gm.reviews.emptyHint")}
+						className="rounded-xl bg-md-surface-container-low"
 					/>
 				) : (
 					<div className="flex flex-col gap-3">
-						<span className="text-foreground-secondary text-label-large">
+						<span className="px-1 text-label-large tabular-nums text-md-on-surface-variant">
 							{t("gm.reviews.count", { count: reviews.length })}
 						</span>
-						<div className="animate-in fade-in slide-in-from-bottom-4 overflow-hidden rounded-2xl bg-md-surface-container duration-500 ease-standard-default-spatial">
+						<div className="overflow-clip rounded-lg-inc bg-md-surface-container-low">
 							{reviews.map((review) => (
 								<article
 									key={review.id}
-									className="border-separator-secondary/60 grid gap-4 border-b p-4 last:border-b-0 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:gap-6"
+									className="grid gap-2.5 border-b border-md-outline-variant/35 px-4 py-3 last:border-b-0 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:gap-4"
 								>
 									<div className="flex min-w-0 items-start gap-3.5">
 										<Avatar
-											size="lg"
-											shape="arch"
-											className="bg-md-primary-container"
+											size="md"
+											className="rounded-md bg-md-surface-container-high"
 										>
-											<AvatarFallback className="text-md-on-primary-container font-sans text-title-medium-emph">
+											<AvatarFallback className="text-title-medium-emph text-md-on-surface-variant">
 												{initialsOf(review.characterName)}
 											</AvatarFallback>
 										</Avatar>
 										<div className="flex min-w-0 flex-col gap-1">
 											<div className="flex flex-wrap items-center gap-2">
-												<h2 className="text-foreground truncate font-sans text-title-medium-emph">
+												<h2 className="min-w-0 truncate text-title-medium-emph text-md-on-surface">
 													{review.characterName}
 												</h2>
 												<Badge variant="soft" tone="default" size="sm">
@@ -112,11 +114,11 @@ function ReviewsPage() {
 														: t("gm.reviews.scopeModule")}
 												</Badge>
 											</div>
-											<div className="text-foreground-secondary truncate text-body-small">
+											<div className="truncate text-body-small text-md-on-surface-variant">
 												{review.submittedByName ?? review.submittedByUserId} · v
 												{review.submittedSheetVersion}
 											</div>
-											<div className="text-foreground-tertiary flex flex-wrap items-center gap-x-3 gap-y-0.5 text-label-small">
+											<div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-0.5 text-label-medium tabular-nums text-md-on-surface-variant">
 												<span className="truncate">
 													{t("gm.reviews.target")}{" "}
 													{review.targetName ?? review.targetId}
@@ -131,10 +133,10 @@ function ReviewsPage() {
 										</div>
 									</div>
 
-									<div className="flex flex-col gap-2 sm:flex-row lg:shrink-0">
+									<div className="flex flex-wrap gap-2 lg:shrink-0">
 										<Button
 											type="button"
-											variant="accentSoft"
+											variant="tonal"
 											size="sm"
 											onClick={() => void decide(review, true)}
 										>
@@ -157,7 +159,7 @@ function ReviewsPage() {
 					</div>
 				)}
 			</div>
-		</AdminLayout>
+		</AdminWorkbench>
 	);
 }
 
@@ -165,9 +167,8 @@ function ReviewCreationSummary({ review }: { review: CharacterReviewDto }) {
 	if (!review.creationRoll || !review.ruleId) {
 		return null;
 	}
-	const Summary =
-		getRuleComponent(review.ruleId).capabilities?.characterCreation
-			?.reviewSummary;
+	const Summary = getRuleComponent(review.ruleId).capabilities
+		?.characterCreation?.reviewSummary;
 	if (!Summary) {
 		return null;
 	}

@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 type MetricItem = {
 	icon: LucideIcon;
 	value: React.ReactNode;
-	label: React.ReactNode;
+	label: string;
 	emphasis?: boolean;
 };
 
@@ -23,34 +23,41 @@ function MetricStrip({
 	return (
 		<div
 			className={cn(
-				"bg-md-outline-variant/40 border-md-outline-variant/50 shadow-card grid gap-px overflow-hidden rounded-3xl border",
-				columns === 4
-					? "grid-cols-2 lg:grid-cols-4"
-					: "grid-cols-1 sm:grid-cols-3",
+				"grid gap-2",
+				columns === 4 ? "grid-cols-2 lg:grid-cols-4" : "grid-cols-3",
 				className,
 			)}
 			{...props}
 		>
-			{items.map(({ icon: Icon, value, label, emphasis = false }, index) => (
+			{items.map(({ icon: Icon, value, label, emphasis = false }) => (
 				<div
-					key={index}
-					className="bg-md-surface-container flex min-w-0 flex-col gap-3 p-5"
+					key={label}
+					className={cn(
+						"flex min-w-0 flex-col gap-1.5 rounded-lg-inc bg-md-surface-container-low px-3 py-2.5 sm:px-4",
+						emphasis && "bg-accent-soft text-accent-soft-foreground",
+					)}
 				>
 					<div className="flex items-center justify-between gap-3">
-						<span className="text-md-on-surface-variant truncate text-label-medium">
+						<span
+							className={cn(
+								"text-label-medium",
+								!emphasis && "text-md-on-surface-variant",
+							)}
+						>
 							{label}
 						</span>
 						<Icon
+							aria-hidden
 							className={cn(
-								"size-4 shrink-0",
-								emphasis ? "text-md-primary" : "text-md-outline",
+								"hidden size-4 shrink-0 sm:block",
+								!emphasis && "text-md-on-surface-variant",
 							)}
 						/>
 					</div>
 					<span
 						className={cn(
-							"font-sans text-[clamp(2rem,3vw,3rem)] leading-none font-semibold tabular-nums",
-							emphasis ? "text-md-primary" : "text-md-on-surface",
+							"text-headline-small-emph tabular-nums",
+							!emphasis && "text-md-on-surface",
 						)}
 					>
 						{value}

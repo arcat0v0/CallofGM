@@ -4,9 +4,11 @@ import { RotateCcw, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { EmptyState, ListSkeleton } from "@/components/shared/empty-state";
-import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
-import { AdminLayout } from "@/features/gm-admin/admin-layout";
+import {
+	AdminWorkbench,
+	AdminWorkbenchHeader,
+} from "@/features/gm-admin/admin-workbench";
 import { t, useI18nVersion } from "@/i18n";
 import { api, isApiError } from "@/lib/api";
 import { errorText } from "@/lib/errors";
@@ -77,9 +79,9 @@ function TrashPage() {
 	})).filter((group) => group.items.length > 0);
 
 	return (
-		<AdminLayout>
-			<div className="flex flex-col gap-6">
-				<PageHeader
+		<AdminWorkbench>
+			<div className="flex flex-col gap-3 xl:gap-4">
+				<AdminWorkbenchHeader
 					title={t("trash.title")}
 					description={t("trash.description")}
 				/>
@@ -91,39 +93,40 @@ function TrashPage() {
 						icon={Trash2}
 						title={t("trash.empty")}
 						description={t("trash.emptyHint")}
+						className="rounded-xl bg-md-surface-container-low"
 					/>
 				) : (
-					<div className="flex flex-col gap-4">
-						<span className="text-foreground-secondary text-label-large">
+					<div className="flex flex-col gap-3">
+						<span className="px-1 text-label-large tabular-nums text-md-on-surface-variant">
 							{t("trash.count", { count: items.length })}
 						</span>
 						{groups.map((group) => (
 							<section
 								key={group.type}
-								className="animate-in fade-in slide-in-from-bottom-4 overflow-hidden rounded-2xl bg-md-surface-container duration-500 ease-standard-default-spatial"
+								className="overflow-clip rounded-lg-inc bg-md-surface-container-low"
 							>
-								<div className="border-separator-secondary/60 flex items-center justify-between gap-3 border-b px-5 py-2.5">
-									<h2 className="text-foreground font-sans text-title-medium-emph">
+								<div className="flex h-10 items-center justify-between gap-3 border-b border-md-outline-variant/60 px-4">
+									<h2 className="text-title-small-emph text-md-on-surface">
 										{typeLabel(group.type)}
 									</h2>
-									<span className="text-foreground-secondary text-label-large tabular-nums">
+									<span className="text-label-medium tabular-nums text-md-on-surface-variant">
 										{group.items.length}
 									</span>
 								</div>
 								{group.items.map((item) => (
 									<div
 										key={`${item.entityType}:${item.id}`}
-										className="border-separator-secondary/60 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b px-4 py-3 last:border-b-0 md:grid-cols-[minmax(0,1fr)_12rem_auto] md:px-5"
+										className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-md-outline-variant/35 px-4 py-1.5 last:border-b-0 md:grid-cols-[minmax(0,1fr)_12rem_auto]"
 									>
 										<div className="flex min-w-0 flex-col gap-0.5">
-											<span className="text-foreground truncate text-label-large-emph">
+											<span className="truncate text-title-small-emph text-md-on-surface">
 												{item.name}
 											</span>
-											<span className="text-foreground-tertiary text-label-small md:hidden">
+											<span className="text-label-small tabular-nums text-md-on-surface-variant md:hidden">
 												{new Date(item.deletedAt).toLocaleString()}
 											</span>
 										</div>
-										<span className="text-foreground-tertiary hidden text-body-small md:block">
+										<span className="hidden text-body-small tabular-nums text-md-on-surface-variant md:block">
 											{new Date(item.deletedAt).toLocaleString()}
 										</span>
 										<Button
@@ -143,6 +146,6 @@ function TrashPage() {
 					</div>
 				)}
 			</div>
-		</AdminLayout>
+		</AdminWorkbench>
 	);
 }
