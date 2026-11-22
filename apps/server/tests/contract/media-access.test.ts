@@ -23,7 +23,11 @@ describe("Media access four-tier contract tests", () => {
 
 	async function uploadMedia(token: string): Promise<string> {
 		const formData = new FormData();
-		formData.append("file", new Blob([PNG_1X1], { type: "image/png" }), "p.png");
+		formData.append(
+			"file",
+			new Blob([PNG_1X1], { type: "image/png" }),
+			"p.png",
+		);
 		formData.append("purpose", "portrait");
 		const res = await ctx.app.handle(
 			new Request("http://localhost/api/v1/media/upload", {
@@ -46,8 +50,8 @@ describe("Media access four-tier contract tests", () => {
 
 	beforeAll(async () => {
 		mediaDir = await mkdtemp(join(tmpdir(), "cogm-media-access-"));
-		process.env.MEDIA_DIR = mediaDir;
 		ctx = await setupTestApp({
+			mediaDir,
 			players: ["anon1"],
 			claims: [{ player: "anon1", role: "ob" }],
 			plAccounts: ["plowner", "plother"],
@@ -83,14 +87,17 @@ describe("Media access four-tier contract tests", () => {
 	test("PL owner uploads portrait, asset flows to session for all four tiers", async () => {
 		const assetPl = await uploadMedia(ctx.plTokens.get("plowner")!);
 		const addRes = await ctx.app.handle(
-			new Request("http://localhost/api/v1/pl/characters/char-media/portraits", {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-					Authorization: `Bearer ${ctx.plTokens.get("plowner")!}`,
+			new Request(
+				"http://localhost/api/v1/pl/characters/char-media/portraits",
+				{
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: `Bearer ${ctx.plTokens.get("plowner")!}`,
+					},
+					body: JSON.stringify({ label: "新表情", portraitAssetId: assetPl }),
 				},
-				body: JSON.stringify({ label: "新表情", portraitAssetId: assetPl }),
-			}),
+			),
 		);
 		expect(addRes.status).toBe(200);
 		const portrait = CharacterPortraitDto.parse(await addRes.json());

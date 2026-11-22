@@ -1,8 +1,21 @@
 import { createApp } from "./app";
 import { Container } from "./bootstrap/container";
 import { buildCommandHandlers } from "./bootstrap/handlers";
+import { loadConfig } from "./config/app-config";
 
-const container = new Container();
+function loadConfigOrExit() {
+	try {
+		return loadConfig();
+	} catch (error) {
+		console.error(
+			"Failed to load configuration:",
+			error instanceof Error ? error.message : error,
+		);
+		process.exit(1);
+	}
+}
+
+const container = new Container([], { config: loadConfigOrExit() });
 container.sessionCommandExecutor.registerHandlers(
 	buildCommandHandlers(container),
 );
@@ -17,9 +30,9 @@ try {
 
 const app = createApp(container);
 
-const listenTarget = container.env.HOST
-	? { port: container.env.PORT, hostname: container.env.HOST }
-	: container.env.PORT;
+const listenTarget = container.config.host
+	? { port: container.config.port, hostname: container.config.host }
+	: container.config.port;
 
 const server = app.listen(listenTarget, () => {
 	console.log(

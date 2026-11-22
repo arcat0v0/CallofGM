@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { type BuildInfo, VersionResponseSchema } from "@cogm/shared";
 import { type App, createApp } from "@/app";
 import { Container } from "@/bootstrap/container";
+import { testAppConfig } from "../helpers/setup";
 
 const override: BuildInfo = {
 	version: "9.8.7",
@@ -18,10 +19,9 @@ describe("Version endpoint", () => {
 	const previousBuildTime = process.env.COGM_BUILD_TIME;
 
 	beforeAll(() => {
-		process.env.DATABASE_URL = ":memory:";
 		process.env.COGM_COMMIT = "fedcba9876543210fedcba9876543210fedcba98";
 		process.env.COGM_BUILD_TIME = "2026-11-05T11:22:33Z";
-		container = new Container();
+		container = new Container([], { config: testAppConfig() });
 		app = createApp(container, { serverBuildInfo: override });
 	});
 

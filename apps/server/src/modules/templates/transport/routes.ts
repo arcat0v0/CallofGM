@@ -11,7 +11,6 @@ import {
 } from "@cogm/shared";
 import { Elysia } from "elysia";
 import type { Container } from "@/bootstrap/container";
-import { corsOriginsFor } from "@/config/env";
 import { requireGm } from "@/modules/identity";
 import { validationFailed } from "@/platform/errors/validation";
 import { assertTrustedOrigin } from "@/platform/security/origin";
@@ -56,7 +55,7 @@ export function createTemplatesRoutes(container: Container) {
 		sessionsRepo: sessions,
 		authPlugin,
 	} = container;
-	const allowedOrigins = corsOriginsFor(container.env);
+	const allowedOrigins = container.config.corsOrigins;
 
 	const createTemplate = new CreateTemplateUseCase(
 		repo,
@@ -90,7 +89,11 @@ export function createTemplatesRoutes(container: Container) {
 		.onBeforeHandle(({ actor, request }) => {
 			requireGm(actor);
 			if (request.method !== "GET" && request.method !== "HEAD") {
-				assertTrustedOrigin(request, allowedOrigins, container.env.TRUST_PROXY);
+				assertTrustedOrigin(
+					request,
+					allowedOrigins,
+					container.config.trustProxy,
+				);
 			}
 		})
 		.post("/", async ({ actor, body }) => {

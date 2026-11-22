@@ -26,6 +26,7 @@ import {
 	sendCommand,
 	setupTestApp,
 	stopServer,
+	testAppConfig,
 	type TestWebSocket,
 } from "../helpers/setup";
 
@@ -48,8 +49,6 @@ async function accepted(socket: TestWebSocket, type: string, payload: unknown) {
 
 test("a player-created 5R character joins by review and plays through rewind and restart", async () => {
 	const random = new ScriptedRandomSource([]);
-	const previousDatabase = process.env.DATABASE_URL;
-	const previousThemes = process.env.THEMES_DIR;
 	const dir = await mkdtemp(join(tmpdir(), "cogm-dnd5r-"));
 	const databaseUrl = join(dir, "campaign.sqlite");
 	const fixture = await setupTestApp({
@@ -513,7 +512,12 @@ test("a player-created 5R character joins by review and plays through rewind and
 		await Promise.all(sockets.splice(0).map(closeWs));
 		await stopServer(server);
 		container.dbContext.sqlite.close();
-		container = new Container();
+		container = new Container([], {
+			config: testAppConfig({
+				databaseUrl,
+				themesDir: join(dir, "themes"),
+			}),
+		});
 		await container.startupService.startup();
 		container.sessionCommandExecutor.registerHandlers(
 			buildCommandHandlers(container),
@@ -600,10 +604,6 @@ test("a player-created 5R character joins by review and plays through rewind and
 		await Promise.all(sockets.map(closeWs));
 		await stopServer(server);
 		container.dbContext.sqlite.close();
-		if (previousDatabase === undefined) delete process.env.DATABASE_URL;
-		else process.env.DATABASE_URL = previousDatabase;
-		if (previousThemes === undefined) delete process.env.THEMES_DIR;
-		else process.env.THEMES_DIR = previousThemes;
 		await rm(dir, { recursive: true, force: true });
 	}
 }, 15000);

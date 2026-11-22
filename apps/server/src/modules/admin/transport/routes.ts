@@ -6,7 +6,6 @@ import {
 } from "@cogm/shared";
 import { Elysia } from "elysia";
 import type { Container } from "@/bootstrap/container";
-import { corsOriginsFor } from "@/config/env";
 import {
 	AdminRequiredError,
 	AuthRequiredError,
@@ -43,7 +42,7 @@ function toUserDto(user: {
 
 export function createAdminRoutes(container: Container) {
 	const { identityRepo: repo, authPlugin } = container;
-	const allowedOrigins = corsOriginsFor(container.env);
+	const allowedOrigins = container.config.corsOrigins;
 	const createUser = new CreateUserUseCase(
 		container.idGenerator,
 		container.clock,
@@ -79,7 +78,7 @@ export function createAdminRoutes(container: Container) {
 			return { items: rows.map(toUserDto) };
 		})
 		.post("/api/v1/admin/users", async ({ actor, body, request }) => {
-			assertTrustedOrigin(request, allowedOrigins, container.env.TRUST_PROXY);
+			assertTrustedOrigin(request, allowedOrigins, container.config.trustProxy);
 			requireAdmin(actor);
 			const parsed = CreateUserRequest.safeParse(body);
 			if (!parsed.success) {
@@ -95,7 +94,11 @@ export function createAdminRoutes(container: Container) {
 		.patch(
 			"/api/v1/admin/users/:id",
 			async ({ actor, body, params, request }) => {
-				assertTrustedOrigin(request, allowedOrigins, container.env.TRUST_PROXY);
+				assertTrustedOrigin(
+					request,
+					allowedOrigins,
+					container.config.trustProxy,
+				);
 				const admin = requireAdmin(actor);
 				const parsed = UpdateUserRequest.safeParse(body);
 				if (!parsed.success) {
@@ -121,7 +124,11 @@ export function createAdminRoutes(container: Container) {
 		.post(
 			"/api/v1/admin/users/:id/password",
 			async ({ actor, body, params, request }) => {
-				assertTrustedOrigin(request, allowedOrigins, container.env.TRUST_PROXY);
+				assertTrustedOrigin(
+					request,
+					allowedOrigins,
+					container.config.trustProxy,
+				);
 				requireAdmin(actor);
 				const parsed = ResetUserPasswordRequest.safeParse(body);
 				if (!parsed.success) {

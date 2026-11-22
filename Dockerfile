@@ -16,12 +16,13 @@ FROM oven/bun:1.3.14-slim AS runtime
 ARG COGM_COMMIT=unknown
 ARG COGM_BUILD_TIME=
 WORKDIR /app
-ENV NODE_ENV=production PORT=15632 DATABASE_URL=/app/data/db.sqlite MEDIA_DIR=/app/data/media THEMES_DIR=/app/data/themes COGM_COMMIT=${COGM_COMMIT} COGM_BUILD_TIME=${COGM_BUILD_TIME}
+ENV NODE_ENV=production COGM_CONFIG=/app/config/cogm.docker.toml COGM_COMMIT=${COGM_COMMIT} COGM_BUILD_TIME=${COGM_BUILD_TIME}
 COPY --from=build /app/package.json /app/bun.lock ./
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/apps/server ./apps/server
 COPY --from=build /app/apps/client/dist ./apps/client/dist
 COPY --from=build /app/packages/shared ./packages/shared
+COPY --from=build /app/config ./config
 RUN mkdir -p /app/data && chown -R bun:bun /app
 USER bun
 VOLUME ["/app/data"]

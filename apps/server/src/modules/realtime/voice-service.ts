@@ -6,7 +6,7 @@ import {
 	VoiceServerMessage,
 	type VoiceState,
 } from "@cogm/shared";
-import type { Env } from "@/config/env";
+import type { AppConfig } from "@/config/app-config";
 import { type ActorContext, holderKey, holderOf } from "@/modules/identity";
 import { SessionLifecycle } from "@/modules/sessions";
 import type { VoiceSession, VoiceSessionStore } from "./application/ports";
@@ -49,7 +49,7 @@ export class VoiceService {
 	constructor(
 		private readonly store: VoiceSessionStore,
 		private readonly connectionRegistry: ConnectionRegistry,
-		private readonly env: Env,
+		private readonly config: AppConfig,
 	) {
 		this.connectionRegistry.onUnregister((connection) => {
 			if (!this.removeMember(connection.sessionId, connection.connectionId))
@@ -225,7 +225,7 @@ export class VoiceService {
 			if (this.rooms.has(connection.sessionId)) {
 				throw new VoiceError("VOICE_LIMIT_LOCKED");
 			}
-			if (payload.limit > this.env.VOICE_MAX_PARTICIPANTS) {
+			if (payload.limit > this.config.voice.maxParticipants) {
 				throw new VoiceError("VOICE_LIMIT_INVALID");
 			}
 			await this.store.setVoiceLimit(connection.sessionId, payload.limit);
@@ -314,8 +314,8 @@ export class VoiceService {
 		const unavailable: VoiceState = {
 			enabled: false,
 			available: false,
-			limit: this.env.VOICE_MAX_PARTICIPANTS,
-			maxLimit: this.env.VOICE_MAX_PARTICIPANTS,
+			limit: this.config.voice.maxParticipants,
+			maxLimit: this.config.voice.maxParticipants,
 			selfId: null,
 			members: [],
 			memberCount: 0,
@@ -400,23 +400,23 @@ export class VoiceService {
 
 	private effectiveLimit(session: VoiceSession): number {
 		return Math.min(
-			session.voiceLimit ?? this.env.VOICE_MAX_PARTICIPANTS,
-			this.env.VOICE_MAX_PARTICIPANTS,
+			session.voiceLimit ?? this.config.voice.maxParticipants,
+			this.config.voice.maxParticipants,
 		);
 	}
 
 	private iceServers(): VoiceIceServer[] {
 		const result: VoiceIceServer[] = [];
-		if (this.env.VOICE_STUN_URLS.length > 0) {
-			result.push({ urls: this.env.VOICE_STUN_URLS });
+		if (this.config.voice.stunUrls.length > 0) {
+			result.push({ urls: this.config.voice.stunUrls });
 		}
-		const secret = this.env.VOICE_TURN_REST_SECRET;
-		if (secret && this.env.VOICE_TURN_URLS.length > 0) {
+		const secret = this.config.voice.turnRestSecret;
+		if (secret && this.config.voice.turnUrls.length > 0) {
 			const expires =
-				Math.floor(Date.now() / 1000) + this.env.VOICE_TURN_TTL_SECONDS;
+				Math.floor(Date.now() / 1000) + this.config.voice.turnTtlSeconds;
 			const username = `${expires}:${crypto.randomUUID()}`;
 			result.push({
-				urls: this.env.VOICE_TURN_URLS,
+				urls: this.config.voice.turnUrls,
 				username,
 				credential: createHmac("sha1", secret)
 					.update(username)

@@ -4,7 +4,7 @@
 
 | 层 | 选型 | 说明 |
 |---|---|---|
-| 运行时/工具链 | **Bun** | runtime、包管理（workspaces）、测试（`bun test`）、`.env` 加载一体 |
+| 运行时/工具链 | **Bun** | runtime、包管理（workspaces）、测试（`bun test`）一体；应用配置使用 `config/cogm.toml` / `cogm.docker.toml`（TOML + zod） |
 | 后端框架 | **Elysia** | Bun 原生框架；配 **Eden Treaty** 实现端到端类型安全（替代 tRPC） |
 | 实时通信 | **Bun 原生 WebSocket**（Elysia `ws` 插件） | 内建 topic pub/sub，"团"即一个 topic，天然的房间广播模型 |
 | 客户端 WS | **partysocket** | 自动重连、心跳；配合 lastEventId 补发机制 |

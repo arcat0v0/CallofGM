@@ -9,7 +9,6 @@ import {
 import { Elysia } from "elysia";
 import { z } from "zod";
 import type { Container } from "@/bootstrap/container";
-import { corsOriginsFor } from "@/config/env";
 import { PlayerNotFoundError } from "@/modules/moderation";
 import { AppError } from "@/platform/errors/app-error";
 import { validationFailed } from "@/platform/errors/validation";
@@ -51,14 +50,14 @@ export function createIdentityRoutes(container: Container) {
 		repo,
 	);
 
-	const allowedOrigins = corsOriginsFor(container.env);
+	const allowedOrigins = container.config.corsOrigins;
 
 	return new Elysia()
 		.use(authPlugin)
 		.post("/api/v1/auth/login", async ({ body, cookie, request, server }) => {
-			assertTrustedOrigin(request, allowedOrigins, container.env.TRUST_PROXY);
+			assertTrustedOrigin(request, allowedOrigins, container.config.trustProxy);
 			container.httpLimits.loginRateLimiter.assert(
-				clientIp(request, server, container.env.TRUST_PROXY),
+				clientIp(request, server, container.config.trustProxy),
 			);
 
 			const parsed = LoginRequest.safeParse(body);
@@ -74,7 +73,7 @@ export function createIdentityRoutes(container: Container) {
 				);
 			} catch (err) {
 				logger.audit("auth.login.failed", {
-					ip: clientIp(request, server, container.env.TRUST_PROXY),
+					ip: clientIp(request, server, container.config.trustProxy),
 				});
 				throw err;
 			}
@@ -92,7 +91,7 @@ export function createIdentityRoutes(container: Container) {
 			cookie?.[SESSION_COOKIE]?.set({
 				value: result.sessionToken,
 				httpOnly: true,
-				secure: container.env.NODE_ENV === "production",
+				secure: container.config.environment === "production",
 				sameSite: "strict",
 				path: "/",
 				expires: new Date(result.expiresAt),
@@ -100,7 +99,7 @@ export function createIdentityRoutes(container: Container) {
 
 			logger.audit("auth.login.ok", { role: result.user.role });
 			return {
-				...(container.env.NODE_ENV === "production"
+				...(container.config.environment === "production"
 					? {}
 					: { sessionToken: result.sessionToken }),
 				userId: result.user.id,
@@ -110,7 +109,7 @@ export function createIdentityRoutes(container: Container) {
 			};
 		})
 		.post("/api/v1/auth/logout", async ({ actor, request, cookie }) => {
-			assertTrustedOrigin(request, allowedOrigins, container.env.TRUST_PROXY);
+			assertTrustedOrigin(request, allowedOrigins, container.config.trustProxy);
 			if (!actor || actor.type !== "user") {
 				throw new AuthRequiredError();
 			}
@@ -134,7 +133,7 @@ export function createIdentityRoutes(container: Container) {
 			};
 		})
 		.put("/api/v1/auth/password", async ({ actor, body, request, cookie }) => {
-			assertTrustedOrigin(request, allowedOrigins, container.env.TRUST_PROXY);
+			assertTrustedOrigin(request, allowedOrigins, container.config.trustProxy);
 			if (!actor || actor.type !== "user") {
 				throw new AuthRequiredError();
 			}
@@ -162,7 +161,7 @@ export function createIdentityRoutes(container: Container) {
 				.parse(await repo.listBlacklistEntries());
 		})
 		.post("/api/v1/gm/blacklist", async ({ actor, body, request }) => {
-			assertTrustedOrigin(request, allowedOrigins, container.env.TRUST_PROXY);
+			assertTrustedOrigin(request, allowedOrigins, container.config.trustProxy);
 			requireGm(actor);
 			const parsed = BanPlayerRequest.safeParse(body);
 			if (!parsed.success) {
@@ -233,7 +232,7 @@ export function createIdentityRoutes(container: Container) {
 			};
 		})
 		.post("/api/v1/gm/blacklist/unban", async ({ actor, body, request }) => {
-			assertTrustedOrigin(request, allowedOrigins, container.env.TRUST_PROXY);
+			assertTrustedOrigin(request, allowedOrigins, container.config.trustProxy);
 			requireGm(actor);
 			const parsed = UnbanFingerprintRequest.safeParse(body);
 			if (!parsed.success) {
@@ -255,9 +254,13 @@ export function createIdentityRoutes(container: Container) {
 		.post(
 			"/api/v1/player/identity",
 			async ({ body, cookie, request, server }) => {
-				assertTrustedOrigin(request, allowedOrigins, container.env.TRUST_PROXY);
+				assertTrustedOrigin(
+					request,
+					allowedOrigins,
+					container.config.trustProxy,
+				);
 				container.httpLimits.identityRateLimiter.assert(
-					clientIp(request, server, container.env.TRUST_PROXY),
+					clientIp(request, server, container.config.trustProxy),
 				);
 
 				const payload = body as Record<string, unknown> | null;
@@ -284,7 +287,7 @@ export function createIdentityRoutes(container: Container) {
 				cookie?.[PLAYER_COOKIE]?.set({
 					value: result.token,
 					httpOnly: true,
-					secure: container.env.NODE_ENV === "production",
+					secure: container.config.environment === "production",
 					sameSite: "strict",
 					path: "/",
 					expires: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
@@ -292,7 +295,7 @@ export function createIdentityRoutes(container: Container) {
 
 				return {
 					playerId: result.playerId,
-					...(container.env.NODE_ENV === "production"
+					...(container.config.environment === "production"
 						? {}
 						: { token: result.token }),
 				};

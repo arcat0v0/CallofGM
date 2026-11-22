@@ -27,8 +27,8 @@ describe("Handouts & moderation contract tests", () => {
 		`ws://localhost:${server.server?.port}/api/v1/sessions/${ctx.sessionId}/ws`;
 
 	beforeAll(async () => {
-		process.env.MEDIA_DIR = mediaDir;
 		ctx = await setupTestApp({
+			mediaDir,
 			players: ["pc1", "pc2", "ob1"],
 			characters: [
 				{ id: "char-pc1", name: "调查员一号", kind: "pc" },
@@ -124,7 +124,6 @@ describe("Handouts & moderation contract tests", () => {
 		await stopServer(server);
 		ctx.container.dbContext.sqlite.close();
 		await rm(mediaDir, { recursive: true, force: true });
-		delete process.env.MEDIA_DIR;
 	});
 
 	async function openAll() {

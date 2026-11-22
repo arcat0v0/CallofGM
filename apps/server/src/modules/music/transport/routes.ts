@@ -8,7 +8,6 @@ import {
 } from "@cogm/shared";
 import { Elysia } from "elysia";
 import type { Container } from "@/bootstrap/container";
-import { corsOriginsFor } from "@/config/env";
 import { requireGm } from "@/modules/identity";
 import { validationFailed } from "@/platform/errors/validation";
 import { assertTrustedOrigin } from "@/platform/security/origin";
@@ -19,7 +18,7 @@ export function createMusicRoutes(container: Container) {
 		container.musicTrackAccessRepo,
 		container.musicService,
 	);
-	const allowedOrigins = corsOriginsFor(container.env);
+	const allowedOrigins = container.config.corsOrigins;
 
 	return new Elysia()
 		.use(container.authPlugin)
@@ -43,7 +42,7 @@ export function createMusicRoutes(container: Container) {
 		})
 		.post("/api/v1/gm/music/resolve", async ({ actor, body, request }) => {
 			requireGm(actor);
-			assertTrustedOrigin(request, allowedOrigins, container.env.TRUST_PROXY);
+			assertTrustedOrigin(request, allowedOrigins, container.config.trustProxy);
 			const parsed = ResolveMusicTrackRequest.safeParse(body);
 			if (!parsed.success) {
 				throw validationFailed(parsed.error);
@@ -59,7 +58,11 @@ export function createMusicRoutes(container: Container) {
 			"/api/v1/gm/music/playlists/resolve",
 			async ({ actor, body, request }) => {
 				requireGm(actor);
-				assertTrustedOrigin(request, allowedOrigins, container.env.TRUST_PROXY);
+				assertTrustedOrigin(
+					request,
+					allowedOrigins,
+					container.config.trustProxy,
+				);
 				const parsed = ResolveMusicPlaylistRequest.safeParse(body);
 				if (!parsed.success) {
 					throw validationFailed(parsed.error);

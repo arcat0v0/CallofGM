@@ -5,6 +5,7 @@ apps/*/dist/
 apps/client/.tanstack/
 .env
 .env.local
+config/cogm.local.toml
 data/
 .dev-https/
 *.log

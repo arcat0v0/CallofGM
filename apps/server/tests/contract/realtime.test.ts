@@ -32,6 +32,7 @@ import {
 	seedAccounts,
 	seedPlayers,
 	stopServer,
+	testAppConfig,
 } from "../helpers/setup";
 
 interface TestWebSocket extends WebSocket {
@@ -147,8 +148,9 @@ describe("Realtime contract tests", () => {
 	let sessionId = "";
 
 	beforeAll(async () => {
-		process.env.DATABASE_URL = ":memory:";
-		container = new Container([new TestEventProbeHandler()]);
+		container = new Container([new TestEventProbeHandler()], {
+			config: testAppConfig(),
+		});
 		await container.startupService.startup();
 		await seedAccounts(container.db, gmPassword);
 

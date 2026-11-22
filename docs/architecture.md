@@ -145,14 +145,14 @@ BgmState = { trackId, playing, volume, mode: off|single|list|shuffle, seekOffset
 - 语音复用 `/api/v1/sessions/:id/ws`，协议在 `packages/shared/src/voice.ts` 定义，客户端/服务端消息均运行时 zod 校验。信封使用 `protocolVersion: 1` 与 `requestId`，但不使用 `ClientCommand`，不分配 `eventId`，不写 outbox、历史、聊天或补发日志。`voice:join` 携带权威 `voice:state.roomId`，避免状态下发与自动重入之间跨开启竞态；不匹配返回 `VOICE_ROOM_CHANGED`。
 - `VoiceService` 在单进程内保存当前开启、连接成员与按席位 claim id 索引的授权/静音。归属 GM 在准备中/进行中开启后，GM 断线不关闭；显式关闭、结团和进程重启清除。成员 UUID 每次加入重新签发，连接注册表的所有注销路径同步撤销成员，目标发送前再次核验来源、目标、团、开启与 active 连接。
 - `SessionLifecycle` 统一判断状态转换、阶段变更、席位认领、名单、同步、成长确认和命令的状态限制。语音是否可用、阶段是否允许发言与 GM 对成员的授权和静音分别判定。
-- 同一 claim/GM 同时只能有一个媒体连接。准入在同团串行队列中原子完成，GM 保留一个名额，PC/OB 不抢占。`sessions.voice_limit` 仅保存可空单团上限；实例 `VOICE_MAX_PARTICIPANTS` 默认 8，实际取两者较小值。运行时成员、房间 UUID、SDP/ICE 和静音不持久化。
+- 同一 claim/GM 同时只能有一个媒体连接。准入在同团串行队列中原子完成，GM 保留一个名额，PC/OB 不抢占。`sessions.voice_limit` 仅保存可空单团上限；实例配置 `[voice] maxParticipants` 默认 8，实际取两者较小值。运行时成员、房间 UUID、SDP/ICE 和静音不持久化。
 - 服务端先完成普通 WS 快照 hydration，再下发 `voice:state`，之后才接受信令；加入时先更新成员状态再允许后续信令。SDP offer/answer 与 ICE candidate（包括 glare 中双向 candidate）只向同开启的目标成员单播。信令采用独立 5 秒 256 帧突发上限，其他语音控制与无效帧复用普通命令 5 秒 50 帧上限。
 - GM 获得完整管理列表，已加入成员获得对等列表，未加入的非 GM 只获得人数与自身可用状态。OB 默认 listen-only，授权与 GM 静音在同一 claim 的重连/主动离开再入间保留；替换、释放、踢出清除。阶段、回溯与撤销通过事件投递后的刷新重算 `canSpeak`，已结束团关闭整个语音开启。
 - 浏览器按权威状态在发送端停止/禁用采集与轨道，并在接收端 mute、pause、disable 对应远端轨道。服务端不能约束相互串通的客户端再次转发已经收到的媒体，语音不是对恶意合谋参与者的保密通道。
 - `VoiceController` 在本地保存音频偏好并管理采集、麦克风测试及按键说话。采集链读取音轨报告的实际约束，使用 48 kHz AudioWorklet 运行 RNNoise WASM，并支持噪声门与 Web Audio 压限。RNNoise 生效时请求关闭浏览器降噪，增强处理不可用时使用可用的浏览器采集与处理。通话发送与本地测试使用同一套采集处理逻辑，回听仅连接本机音频输出。
 - 按键说话由客户端按发言权限及按住状态控制发送轨道。松开按键、窗口失焦或页面隐藏时，发送轨道静音，麦克风采集保持就绪。用户关闭麦克风、离开语音或失去发言权限时，客户端释放采集资源。
 - WebRTC 优先协商单声道 Opus。浏览器支持时，RTP 发送端设置 32 kbps 码率上限。DTX（不连续传输）与带内 FEC（前向纠错）取决于浏览器能力和协商结果。
-- ICE 配置默认空，浏览器可直接尝试 host candidate。`VOICE_STUN_URLS` 配置逗号分隔 STUN；`VOICE_TURN_URLS` 与 `VOICE_TURN_REST_SECRET` 成对配置独立 TURN，服务端按 `VOICE_TURN_TTL_SECONDS`（默认 600）生成 coturn REST 用户名与 HMAC-SHA1 临时凭据，仅向已加入成员下发。长期 REST secret 仅存在服务端环境，不下发前端。
+- ICE 配置默认空，浏览器可直接尝试 host candidate。`[voice] stunUrls` / `turnUrls`（本地 `config/cogm.toml`，容器 `config/cogm.docker.toml`）配置地址数组；`turnUrls` 与 `VOICE_TURN_REST_SECRET` 环境变量成对配置独立 TURN，服务端按 `turnTtlSeconds`（默认 600）生成 coturn REST 用户名与 HMAC-SHA1 临时凭据，仅向已加入成员下发。长期 REST secret 仅存在服务端环境，不下发前端。
 - 语音弱网、WS-only 中断与切网的隔离 Chromium 复验方法、实测证据和边界见 [WebRTC 语音弱网与切网验证](voice-network-testing.md)。
 
 ### 语音诊断与隐私
@@ -272,4 +272,4 @@ GM 后台与 PL 工作台上传 `.xlsx` → 服务端 SheetJS 解析 → 按 `pa
 
 - 场景画面用 DOM + CSS 实现（绝对定位立绘 + transition 切换表情/转场），不引入 Canvas/PixiJS；需要更复杂动画时再加 GSAP。
 - 生产部署：`vite build` 产物由 Elysia 静态托管，单 Bun 进程提供 HTTP + WS，Docker 镜像基于 `oven/bun`。
-- 已安装主题属于运行时数据，位于 `THEMES_DIR`（默认 `data/themes`），与数据库、上传媒资一并挂载持久卷；不进入镜像。
+- 已安装主题属于运行时数据，位于应用配置的 `[themes] dir`（本地默认 `data/themes`，容器 `/app/data/themes`），与数据库、上传媒资一并挂载持久卷；不进入镜像。

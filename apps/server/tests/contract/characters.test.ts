@@ -6,7 +6,7 @@ import { createCharactersRoutes } from "@/modules/characters/transport/routes";
 import { createIdentityRoutes } from "@/modules/identity/transport/routes";
 import { importStagings, mediaAssets } from "@/platform/db/schema";
 import { AppError } from "@/platform/errors/app-error";
-import { gmUserIdRef, seedAccounts } from "../helpers/setup";
+import { gmUserIdRef, seedAccounts, testAppConfig } from "../helpers/setup";
 
 interface TestCharacterResponse {
 	id: string;
@@ -23,8 +23,7 @@ describe("Characters contract tests", () => {
 	let gmToken = "";
 
 	beforeAll(async () => {
-		process.env.DATABASE_URL = ":memory:";
-		container = new Container();
+		container = new Container([], { config: testAppConfig() });
 		await container.startupService.startup();
 		await seedAccounts(container.db, gmPassword);
 

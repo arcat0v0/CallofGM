@@ -98,7 +98,7 @@ apps/server/
 │   │   ├── container.ts             # composition root，显式构造依赖
 │   │   └── startup.ts               # 迁移检查、恢复 outbox、启动任务
 │   ├── config/
-│   │   ├── env.ts                   # zod 校验环境变量
+│   │   ├── app-config.ts            # TOML 配置加载与 zod 校验
 │   │   └── types.ts
 │   ├── platform/
 │   │   ├── db/

@@ -69,14 +69,38 @@ curl -fsS https://cogm.example.com/api/health/ready
 curl -fsS https://cogm.example.com/api/version
 ```
 
-部署在 TLS 反向代理之后时，必须在部署目录的 `.env` 中设置 `TRUST_PROXY=true`，让服务端从代理的 `X-Forwarded-Proto` / `Host` 还原浏览器实际访问的来源；否则它看到的是内部 `http://127.0.0.1:15632`，浏览器带 `Origin` 的登录与写请求会被源校验以 403 拒绝，页面能打开但无法登录或操作。只有确认请求确实经由自己的代理到达时才开启。`CORS_ORIGINS`（逗号分隔）仅用于额外放行前端与 API 不同源的部署。
+本地开发使用 `config/cogm.toml`（路径相对 `apps/server`）；容器使用 `config/cogm.docker.toml`（绝对 `/app/data` 路径），由镜像设置 `COGM_CONFIG` 指定。部署专属改动写入同目录的 `config/cogm.local.toml`（已忽略提交，compose 以只读方式挂载整个 `config/`）。修改后重启容器生效。
+
+配置读取顺序为：基础配置文件 → 同目录 `cogm.local.toml` → 显式覆盖。`COGM_CONFIG` 可指定基础配置文件（开发脚本与隔离测试使用）；指定后仍会合并该文件同目录的 `cogm.local.toml`。除密钥、运行时模式和构建元数据外，不再通过环境变量配置实例：
+
+| 环境变量 | 用途 |
+|---|---|
+| `COGM_CONFIG` | 基础配置文件路径；默认 `config/cogm.toml`，容器镜像设为 `config/cogm.docker.toml` |
+| `NODE_ENV` | `development` / `production` / `test`，决定 Cookie `Secure` 与默认 CORS 策略 |
+| `VOICE_TURN_REST_SECRET` | coturn 长期凭据，必须与 `[voice] turnUrls` 成对出现 |
+| `COGM_COMMIT` / `COGM_BUILD_TIME` | 构建与版本展示元数据 |
+| `COGM_ADMIN_USERNAME` / `COGM_ADMIN_PASSWORD` | `setup:admin` 初始化账号；也可用命令行参数 |
+
+部署在 TLS 反向代理之后时，必须在 `config/cogm.local.toml` 中设置：
+
+```toml
+[security]
+trustProxy = true
+```
+
+让服务端从代理的 `X-Forwarded-Proto` / `Host` 还原浏览器实际访问的来源；否则它看到的是内部 `http://127.0.0.1:15632`，浏览器带 `Origin` 的登录与写请求会被源校验以 403 拒绝，页面能打开但无法登录或操作。只有确认请求确实经由自己的代理到达时才开启。`corsOrigins` 仅用于额外放行前端与 API 不同源的部署：
+
+```toml
+[security]
+corsOrigins = ["https://cogm.example.com"]
+```
 
 再打开首页或登录页的版本入口，确认网页版本、后端版本与 commit 一致。游玩房间与沉浸舞台不显示版本入口。
 
 ## 数据库迁移与备份
 
 - 更新前必须备份 `data/db.sqlite`。优先使用 `bun run db:backup`；在运行中的容器内使用 `docker compose exec cogm bun run db:backup`。
-- 备份写入数据库同目录的 `backups/`，属于 `data/` 持久卷的一部分。
+- 备份写入数据库同目录的 `backups/`，可通过 `[database] backupDir` 覆盖；属于 `data/` 持久卷的一部分。
 - 新版本包含迁移时，先确认迁移可重复执行、失败路径可恢复，并在副本上预演。
 - 应用启动会在 `apps/server` 启动流程中执行数据库迁移；不要在未备份的情况下直接更新。
 - 回滚代码不等于降级数据库。若新版本已执行不可逆迁移，必须按该版本迁移说明处理，不能自动降级。
@@ -86,17 +110,18 @@ curl -fsS https://cogm.example.com/api/version
 
 语音是 GM + 最多 7 个其他席位的全网状 WebRTC 拓扑（8 人共 28 条对等连接），CoGM 只交换信令，不代理媒体。默认可不配置任何外部服务，浏览器会直接尝试 host/host；跨 NAT 或受限网络通常需要 STUN，无法直连时需要 TURN。实际生产验收必须覆盖目标网络与真实音频设备，不能用同机结果代替跨网络保证。
 
-可选环境变量：
+语音配置位于 `config/cogm.toml` 的 `[voice]` 段：
 
-| 变量 | 默认 | 说明 |
+| 配置项 | 默认 | 说明 |
 |---|---|---|
-| `VOICE_MAX_PARTICIPANTS` | `8` | 实例最大语音人数，含 GM，整数 2–256；大规模全网状需另行评估浏览器带宽与 CPU |
-| `VOICE_STUN_URLS` | 空 | 逗号分隔的 `stun:` / `stuns:` 地址 |
-| `VOICE_TURN_URLS` | 空 | 逗号分隔的 `turn:` / `turns:` 地址，与 REST secret 成对设置 |
-| `VOICE_TURN_REST_SECRET` | 空 | 仅服务端持有的 coturn `static-auth-secret`，不写入前端或公开示例 |
-| `VOICE_TURN_TTL_SECONDS` | `600` | TURN 临时凭据寿命，60–86400 秒 |
+| `maxParticipants` | `8` | 实例最大语音人数，含 GM，整数 2–256；大规模全网状需另行评估浏览器带宽与 CPU |
+| `stunUrls` | `[]` | `stun:` / `stuns:` 地址数组，最多 16 条 |
+| `turnUrls` | `[]` | `turn:` / `turns:` 地址数组，最多 16 条，与 REST secret 成对设置 |
+| `turnTtlSeconds` | `600` | TURN 临时凭据寿命，60–86400 秒 |
 
-coturn 需启用 `use-auth-secret` 与同一 `static-auth-secret`，按实际公网地址开放 UDP/TCP relay 端口及 relay 端口范围；公网部署优先使用受 TLS 保护的 `turns:`。TURN 是独立可选组件，不由 CoGM compose 强制启动。部署机通过受保护环境注入 secret，`docker-compose.yml` 只透传变量，不含任何长期凭据。
+TURN 长期凭据不写入配置文件，只通过服务端环境变量 `VOICE_TURN_REST_SECRET` 注入；`docker-compose.yml` 仅透传该变量，仓库与配置文件中均不含长期凭据。
+
+coturn 需启用 `use-auth-secret` 与同一 `static-auth-secret`，按实际公网地址开放 UDP/TCP relay 端口及 relay 端口范围；公网部署优先使用受 TLS 保护的 `turns:`。TURN 是独立可选组件，不由 CoGM compose 强制启动。
 
 浏览器麦克风在非 localhost 环境只可用于安全上下文，生产必须同时提供 HTTPS 页面与 WSS 团连接；仅开放 HTTP/WS 不能作为公网语音部署。TURN REST 凭据在每次语音 join/rejoin 时重新签发；若 relay 协商在凭据到期后失败，应重新加入以取得新凭据，并按单次通话时长、网络切换与重连策略调整 TTL，不能把已下发凭据当作永久配置。
 

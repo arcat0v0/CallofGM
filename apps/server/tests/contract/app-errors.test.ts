@@ -3,14 +3,14 @@ import { existsSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { type App, createApp } from "@/app";
 import { Container } from "@/bootstrap/container";
+import { testAppConfig } from "../helpers/setup";
 
 describe("Production createApp error mapping", () => {
 	let container: Container;
 	let app: App;
 
 	beforeAll(async () => {
-		process.env.DATABASE_URL = ":memory:";
-		container = new Container();
+		container = new Container([], { config: testAppConfig() });
 		await container.startupService.startup();
 		app = createApp(container);
 	});

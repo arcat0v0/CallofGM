@@ -1,0 +1,40 @@
+# CoGM 实例配置。修改后重启服务生效。
+# 部署专属覆盖写入 config/cogm.local.toml（已加入 .gitignore），不要修改本文件后提交。
+# 密钥不写入配置文件：TURN 长期凭据通过 VOICE_TURN_REST_SECRET 环境变量注入。
+
+[server]
+# 监听地址：0.0.0.0 表示所有网卡；仅本机开发可改为 127.0.0.1。
+host = "0.0.0.0"
+port = 15632
+
+[database]
+# 相对路径按服务端工作目录解析；容器内为 /app。
+url = "data/db.sqlite"
+# 备份目录默认与数据库同目录下的 backups/。
+# backupDir = "data/backups"
+
+[media]
+dir = "data/media"
+
+[themes]
+dir = "data/themes"
+
+[security]
+# 仅在 TLS 反向代理之后部署时开启。
+trustProxy = false
+# 额外放行的浏览器来源；生产留空时仅允许同源。
+corsOrigins = []
+
+[voice]
+maxParticipants = 8
+# 例如 ["stun:stun.example.org:3478"]。
+stunUrls = []
+# 与 VOICE_TURN_REST_SECRET 成对配置。
+turnUrls = []
+turnTtlSeconds = 600
+
+[dev]
+# 仅 bun run dev:https 使用。
+httpsPort = 15633
+clientPort = 15634
+httpsHosts = []

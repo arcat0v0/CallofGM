@@ -5,7 +5,7 @@ import { Container } from "@/bootstrap/container";
 import { createIdentityRoutes } from "@/modules/identity/transport/routes";
 import { blacklistEntries } from "@/platform/db/schema";
 import { AppError } from "@/platform/errors/app-error";
-import { seedAccounts } from "../helpers/setup";
+import { seedAccounts, testAppConfig } from "../helpers/setup";
 
 describe("Identity and Auth contract tests", () => {
 	let container: Container;
@@ -13,8 +13,7 @@ describe("Identity and Auth contract tests", () => {
 	const gmPassword = "test-gm-password";
 
 	beforeAll(async () => {
-		process.env.DATABASE_URL = ":memory:";
-		container = new Container();
+		container = new Container([], { config: testAppConfig() });
 		await container.startupService.startup();
 		await seedAccounts(container.db, gmPassword);
 

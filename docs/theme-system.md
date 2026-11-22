@@ -152,9 +152,9 @@ export default defineTheme({
 
 ## 服务端存储与接口
 
-- 安装目录：`THEMES_DIR`（默认 `data/themes`，相对服务端工作目录；本地为 `apps/server/data/themes`，Docker 中为 `/app/data/themes`），结构 `<THEMES_DIR>/<id>/<version>/`。
+- 安装目录：应用配置的 `[themes] dir`（本地 `config/cogm.toml`，容器 `config/cogm.docker.toml`；默认 `data/themes`，相对服务端工作目录；本地为 `apps/server/data/themes`，Docker 中为 `/app/data/themes`），结构 `<themes dir>/<id>/<version>/`。
 - 数据库：`modules.theme_id` 保存模组主题；`ui_settings` 单例表保存 `gm_theme_id`。
-- 备份策略需同时覆盖数据库与 `THEMES_DIR`；只备份数据库不会保留已安装主题文件。
+- 备份策略需同时覆盖数据库与主题目录；只备份数据库不会保留已安装主题文件。
 - 公开接口：
   - `GET /api/v1/themes/:id/manifest` → `ThemeManifest`，`Cache-Control: no-cache`。
   - `GET /api/v1/themes/:id/versions/:version/*` → 版本化静态文件，`Cache-Control: public, max-age=31536000, immutable`。

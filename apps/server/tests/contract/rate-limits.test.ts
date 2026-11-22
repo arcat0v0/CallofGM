@@ -7,7 +7,7 @@ import { modules, sessions } from "@/platform/db/schema";
 import { AppError } from "@/platform/errors/app-error";
 import { HttpLimits } from "@/platform/security/http-limits";
 import { RateLimiter } from "@/platform/security/rate-limiter";
-import { seedAccounts } from "../helpers/setup";
+import { seedAccounts, testAppConfig } from "../helpers/setup";
 
 function buildApp(container: Container) {
 	return new Elysia()
@@ -39,9 +39,8 @@ describe("HTTP rate limits", () => {
 	const gmPassword = "rate-limit-password";
 
 	beforeAll(async () => {
-		process.env.DATABASE_URL = ":memory:";
-		limitedContainer = new Container();
-		isolatedContainer = new Container();
+		limitedContainer = new Container([], { config: testAppConfig() });
+		isolatedContainer = new Container([], { config: testAppConfig() });
 		await limitedContainer.startupService.startup();
 		await isolatedContainer.startupService.startup();
 		await seedAccounts(limitedContainer.db, gmPassword);
@@ -72,8 +71,8 @@ describe("HTTP rate limits", () => {
 	});
 
 	test("identity 429 responses carry Retry-After and stay Chinese-copy friendly", async () => {
-		process.env.DATABASE_URL = ":memory:";
 		const bounded = new Container([], {
+			config: testAppConfig(),
 			httpLimits: new HttpLimits({ identity: new RateLimiter(1, 60_000) }),
 		});
 		await bounded.startupService.startup();
@@ -125,8 +124,8 @@ describe("HTTP rate limits", () => {
 		limits.reset();
 		expect(defaultLimiter.check("198.51.100.9")).toBe(true);
 
-		process.env.DATABASE_URL = ":memory:";
 		const bounded = new Container([], {
+			config: testAppConfig(),
 			httpLimits: new HttpLimits({
 				sessionReference: new RateLimiter(2, 60_000),
 				join: new RateLimiter(1, 60_000),

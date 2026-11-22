@@ -17,6 +17,7 @@ import {
 	loginToken,
 	seedAccounts,
 	seedPlayers,
+	testAppConfig,
 } from "../helpers/setup";
 
 describe("Sessions contract tests", () => {
@@ -30,8 +31,7 @@ describe("Sessions contract tests", () => {
 	let player2Id = "";
 
 	beforeAll(async () => {
-		process.env.DATABASE_URL = ":memory:";
-		container = new Container();
+		container = new Container([], { config: testAppConfig() });
 		await container.startupService.startup();
 		await seedAccounts(container.db, gmPassword);
 

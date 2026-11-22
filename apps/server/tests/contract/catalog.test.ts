@@ -12,7 +12,7 @@ import {
 	tracks,
 } from "@/platform/db/schema";
 import { AppError } from "@/platform/errors/app-error";
-import { gmUserIdRef, seedAccounts } from "../helpers/setup";
+import { gmUserIdRef, seedAccounts, testAppConfig } from "../helpers/setup";
 
 describe("Catalog contract tests", () => {
 	let container: Container;
@@ -22,8 +22,7 @@ describe("Catalog contract tests", () => {
 	let playerToken = "";
 
 	beforeAll(async () => {
-		process.env.DATABASE_URL = ":memory:";
-		container = new Container();
+		container = new Container([], { config: testAppConfig() });
 		await container.startupService.startup();
 		await seedAccounts(container.db, gmPassword);
 
@@ -545,9 +544,7 @@ describe("Catalog contract tests", () => {
 		const mine = page.items.filter((item) =>
 			item.name.startsWith("Library Track"),
 		);
-		expect(
-			mine.map((item) => [item.name, item.moduleName]).sort(),
-		).toEqual([
+		expect(mine.map((item) => [item.name, item.moduleName]).sort()).toEqual([
 			["Library Track A", "Library Module A"],
 			["Library Track C", "Library Module B"],
 		]);

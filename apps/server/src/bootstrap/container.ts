@@ -1,4 +1,4 @@
-import { type Env, parseEnv } from "@/config/env";
+import { type AppConfig, loadConfig } from "@/config/app-config";
 import { DrizzleTrashRepository, type TrashRepository } from "@/modules/admin";
 import {
 	type CatalogRepository,
@@ -79,7 +79,7 @@ import { RuleRegistry } from "@/rules/registry";
 import { StartupService } from "./startup";
 
 export class Container {
-	readonly env: Env;
+	readonly config: AppConfig;
 	readonly dbContext: DbContext;
 	readonly db: DbClient;
 	readonly transactionRunner: TransactionRunner;
@@ -118,6 +118,7 @@ export class Container {
 	constructor(
 		commandHandlers: CommandHandler[] = [],
 		overrides: {
+			config?: AppConfig;
 			clock?: Clock;
 			idGenerator?: IdGenerator;
 			randomSource?: RandomSource;
@@ -125,8 +126,8 @@ export class Container {
 			musicService?: MusicService;
 		} = {},
 	) {
-		this.env = parseEnv();
-		this.dbContext = createDb(this.env.DATABASE_URL);
+		this.config = overrides.config ?? loadConfig();
+		this.dbContext = createDb(this.config.databaseUrl);
 		this.db = this.dbContext.db;
 		this.identityRepo = new DrizzleIdentityRepository(this.db);
 		this.authPlugin = createAuthPlugin(this.identityRepo);
@@ -136,7 +137,7 @@ export class Container {
 		this.moderationRepo = new DrizzleModerationRepository(this.db);
 		this.templatesRepo = new DrizzleTemplatesRepository(this.db);
 		this.uiSettingsRepo = new DrizzleUiSettingsRepository(this.db);
-		this.mediaStorage = new LocalMediaStorage(this.env.MEDIA_DIR);
+		this.mediaStorage = new LocalMediaStorage(this.config.mediaDir);
 		this.mediaRepo = new DrizzleMediaRepository(this.db);
 		this.musicTrackAccessRepo = new DrizzleMusicTrackAccessRepository(this.db);
 		this.trashRepo = new DrizzleTrashRepository(this.db);
@@ -148,7 +149,7 @@ export class Container {
 		this.startupService = new StartupService(
 			this.dbContext.sqlite,
 			this.db,
-			this.env.DATABASE_URL,
+			this.config.databaseUrl,
 		);
 		this.httpLimits = overrides.httpLimits ?? new HttpLimits();
 
@@ -156,7 +157,7 @@ export class Container {
 		this.ruleRegistry = new RuleRegistry();
 		this.ruleRegistry.register(new Coc7eRuleSystem());
 		this.ruleRegistry.register(new Dnd5rRuleSystem());
-		this.themeRegistry = new ThemeRegistry(this.env.THEMES_DIR, this.clock);
+		this.themeRegistry = new ThemeRegistry(this.config.themesDir, this.clock);
 
 		this.connectionRegistry = new ConnectionRegistry(
 			new DrizzleActiveClaimLookup(this.db),
@@ -164,7 +165,7 @@ export class Container {
 		this.voiceService = new VoiceService(
 			new DrizzleVoiceSessionStore(this.db),
 			this.connectionRegistry,
-			this.env,
+			this.config,
 		);
 		this.eventRingBuffer = new EventRingBuffer();
 		this.presenceService = new PresenceService(

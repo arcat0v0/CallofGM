@@ -33,6 +33,7 @@ import {
 	listenTestApp,
 	seedAccounts,
 	sendCommand,
+	testAppConfig,
 	type TestWebSocket,
 } from "../helpers/setup";
 
@@ -72,9 +73,7 @@ describe("End-to-End TRPG Session Flow (GM Hosting & Player TRPG)", () => {
 	let obWs: TestWebSocket;
 
 	beforeAll(async () => {
-		process.env.DATABASE_URL = ":memory:";
-
-		container = new Container();
+		container = new Container([], { config: testAppConfig() });
 		await container.startupService.startup();
 		await seedAccounts(container.db, gmPassword);
 		container.sessionCommandExecutor.registerHandlers(

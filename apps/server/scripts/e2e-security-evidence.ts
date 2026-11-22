@@ -1,7 +1,9 @@
 import { z } from "zod";
 import { SessionSnapshotPayload, CreateSessionResponse, ModuleDto, CharacterDto, PlayerIdentityResponse } from "@cogm/shared";
+import { loadConfig } from "@/config/app-config";
 
-const PORT = Number(process.env.PORT ?? 15632);
+const config = loadConfig();
+const PORT = config.port;
 const RUN = process.env.E2E_RUN ?? "default";
 const BASE = `http://localhost:${PORT}`;
 const WS_BASE = `ws://localhost:${PORT}`;

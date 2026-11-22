@@ -19,7 +19,7 @@ import {
 	tracks,
 } from "@/platform/db/schema";
 import { AppError } from "@/platform/errors/app-error";
-import { gmUserIdRef, seedAccounts } from "../helpers/setup";
+import { gmUserIdRef, seedAccounts, testAppConfig } from "../helpers/setup";
 
 describe("Media Storage contract tests", () => {
 	let container: Container;
@@ -30,8 +30,7 @@ describe("Media Storage contract tests", () => {
 	let playerId = "";
 
 	beforeAll(async () => {
-		process.env.DATABASE_URL = ":memory:";
-		container = new Container();
+		container = new Container([], { config: testAppConfig() });
 		await container.startupService.startup();
 		await seedAccounts(container.db, gmPassword);
 
@@ -282,7 +281,11 @@ describe("Media Storage contract tests", () => {
 		const bytes = new Uint8Array(40).map((_, index) => index);
 		bytes.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 		const formData = new FormData();
-		formData.append("file", new Blob([bytes], { type: "image/png" }), "ranged.png");
+		formData.append(
+			"file",
+			new Blob([bytes], { type: "image/png" }),
+			"ranged.png",
+		);
 		formData.append("purpose", "general");
 		formData.append("filename", "ranged.png");
 		const uploadRes = await app.handle(

@@ -2,7 +2,6 @@ import { TrashEntityType } from "@cogm/shared";
 import { Elysia } from "elysia";
 import { z } from "zod";
 import type { Container } from "@/bootstrap/container";
-import { corsOriginsFor } from "@/config/env";
 import {
 	AdminRequiredError,
 	AuthRequiredError,
@@ -27,7 +26,7 @@ const RestoreRequest = z.object({
 
 export function createTrashRoutes(container: Container) {
 	const { trashRepo: repo, authPlugin } = container;
-	const allowedOrigins = corsOriginsFor(container.env);
+	const allowedOrigins = container.config.corsOrigins;
 
 	return new Elysia()
 		.use(authPlugin)
@@ -45,7 +44,7 @@ export function createTrashRoutes(container: Container) {
 			return { items };
 		})
 		.post("/api/v1/trash/restore", async ({ actor, body, request }) => {
-			assertTrustedOrigin(request, allowedOrigins, container.env.TRUST_PROXY);
+			assertTrustedOrigin(request, allowedOrigins, container.config.trustProxy);
 			if (!actor) {
 				throw new AuthRequiredError();
 			}

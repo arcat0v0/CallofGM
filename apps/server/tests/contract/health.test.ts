@@ -1,14 +1,14 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { type App, createApp } from "@/app";
 import { Container } from "@/bootstrap/container";
+import { testAppConfig } from "../helpers/setup";
 
 describe("Health endpoints", () => {
 	let container: Container;
 	let app: App;
 
 	beforeAll(() => {
-		process.env.DATABASE_URL = ":memory:";
-		container = new Container();
+		container = new Container([], { config: testAppConfig() });
 		app = createApp(container);
 	});
 

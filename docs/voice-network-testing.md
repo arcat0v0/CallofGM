@@ -32,7 +32,7 @@ VOICE_NET_MODE=ws-only VOICE_NET_REPORT=/tmp/cogm-voice-ws-only-report.json unsh
 
 ## 复验步骤
 
-1. 从仓库根目录运行 `bun run build:client`。在 `unshare -Urnm bash` 创建的临时环境中，用两对 veth 分别连接 GM、PL 的媒体地址（例如 `10.200.1.1/2` 与 `10.200.2.1/2`），再建第三条独立应用路径。这三个子网须使用不同的网段。将临时 Bun 服务绑定到应用地址，显式设置 `CORS_ORIGINS` 和临时 `DATABASE_URL`、`MEDIA_DIR`、`THEMES_DIR`，使用临时 GM 和 PL 账号及团席位。所有 `ip`、`nft`、`tc` 命令都在隔离 namespace 内执行。
+1. 从仓库根目录运行 `bun run build:client`。在 `unshare -Urnm bash` 创建的临时环境中，用两对 veth 分别连接 GM、PL 的媒体地址（例如 `10.200.1.1/2` 与 `10.200.2.1/2`），再建第三条独立应用路径。这三个子网须使用不同的网段。将临时 Bun 服务绑定到应用地址，用 `COGM_CONFIG=/tmp/cogm-net.toml` 指向临时配置，在 `[security] corsOrigins` 与 `[database]`、`[media]`、`[themes]` 段设置隔离测试的 origin 和临时目录，使用临时 GM 和 PL 账号及团席位。所有 `ip`、`nft`、`tc` 命令都在隔离 namespace 内执行。
 2. 使用两个临时 Chromium profile，加入 `--use-fake-ui-for-media-stream`、`--use-fake-device-for-media-stream` 和各自的 `--use-file-for-fake-audio-capture=<wav>`。在非 localhost 上使用 HTTPS，或仅对本次隔离测试 origin 启用 Chromium 的安全上下文例外。下方示例生成每周期 3 秒有声、1 秒静音的 48 kHz 单声道 PCM，方便校验采样是否能区分两者。
 3. GM 开启语音，双方在 UI 加入并开启麦克风。重建临时自动化时可用 `Page.addScriptToEvaluateOnNewDocument` 在创建 peer 前保存原生 `RTCPeerConnection` 实例。读取 `getStats()` 中 `transport.selectedCandidatePairId` 指向的 pair，每秒记录 stats，并通过 `AudioContext` 分析远端 track，每 100 ms 记录 RMS。同步记录 connection、ICE、signaling 与团 WS 事件，以及轨道状态。
 4. 先采集 12 秒无损伤基线，再在双方媒体 veth 上分别设置 `tc qdisc replace dev <媒体网卡> root fq maxrate 128kbit limit 100` 或 `64kbit`。对两端隔离 namespace 的 nft `output` hook 添加 `meta l4proto udp meta random < <阈值> counter drop`，2%、10%、20% 档分别使用阈值 85899346、429496730、858993459。每档运行 15 秒，保存 `nft list table`、`tc -s qdisc show`、浏览器原始 JSON 和移除规则后的恢复采样，清理该档规则后再开始下一档。

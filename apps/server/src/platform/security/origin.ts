@@ -1,21 +1,5 @@
 import { AppError } from "@/platform/errors/app-error";
 
-export function parseCorsOrigins(
-	raw: string | undefined,
-	nodeEnv: string,
-): string[] {
-	if (raw !== undefined && raw.trim() !== "") {
-		return raw
-			.split(",")
-			.map((item) => item.trim())
-			.filter(Boolean);
-	}
-	if (nodeEnv === "production") {
-		return [];
-	}
-	return ["http://localhost:15633", "http://localhost:15632"];
-}
-
 function firstHeaderValue(value: string | null): string | null {
 	const first = value?.split(",")[0]?.trim();
 	return first || null;

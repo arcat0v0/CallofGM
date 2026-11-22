@@ -5,7 +5,7 @@ import { createCatalogRoutes } from "@/modules/catalog/transport/routes";
 import { createIdentityRoutes } from "@/modules/identity/transport/routes";
 import { createMediaRoutes } from "@/modules/media";
 import { AppError } from "@/platform/errors/app-error";
-import { seedAccounts } from "../helpers/setup";
+import { seedAccounts, testAppConfig } from "../helpers/setup";
 
 type TestApp = { handle(request: Request): Promise<Response> };
 
@@ -17,8 +17,7 @@ describe("GM write endpoints reject untrusted origins", () => {
 	const evil = "http://evil.example";
 
 	beforeAll(async () => {
-		process.env.DATABASE_URL = ":memory:";
-		container = new Container();
+		container = new Container([], { config: testAppConfig() });
 		await container.startupService.startup();
 		await seedAccounts(container.db, gmPassword);
 

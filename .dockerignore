@@ -7,3 +7,4 @@ data
 .dev-https
 *.log
 .env*
+config/cogm.local.toml

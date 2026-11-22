@@ -3,6 +3,7 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Elysia } from "elysia";
+import { type AppConfig, createAppConfig } from "@/config/app-config";
 import { Container } from "@/bootstrap/container";
 import { buildCommandHandlers } from "@/bootstrap/handlers";
 import { createAdminRoutes, createTrashRoutes } from "@/modules/admin";
@@ -222,6 +223,7 @@ export interface TestSetupOptions {
 	extraHandlers?: CommandHandler[];
 	randomSource?: RandomSource;
 	databaseUrl?: string;
+	mediaDir?: string;
 	characters?: Array<{
 		id: string;
 		name: string;
@@ -235,6 +237,16 @@ export interface TestSetupOptions {
 	plAccounts?: string[];
 	themesDir?: string;
 	musicService?: MusicService;
+}
+
+export function testAppConfig(
+	overrides: Parameters<typeof createAppConfig>[0] = {},
+): AppConfig {
+	return createAppConfig({
+		databaseUrl: ":memory:",
+		environment: "test",
+		...overrides,
+	});
 }
 
 /** 脚本化随机源：按队列吐出值，队列空后循环最后一个值（适合长流程测试） */
@@ -377,12 +389,16 @@ export async function setupTestApp(
 	options: TestSetupOptions = {},
 ): Promise<TestContext> {
 	const gmPassword = options.gmPassword ?? "test-gm-password";
-	process.env.DATABASE_URL = options.databaseUrl ?? ":memory:";
 	const themesDir =
 		options.themesDir ?? (await mkdtemp(join(tmpdir(), "cogm-themes-")));
-	process.env.THEMES_DIR = themesDir;
+	const config = testAppConfig({
+		databaseUrl: options.databaseUrl ?? ":memory:",
+		themesDir,
+		...(options.mediaDir ? { mediaDir: options.mediaDir } : {}),
+	});
 
 	const container = new Container([], {
+		config,
 		randomSource: options.randomSource,
 		musicService: options.musicService,
 	});

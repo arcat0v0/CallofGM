@@ -1,7 +1,6 @@
 import { MediaAssetDto, MediaPurpose } from "@cogm/shared";
 import { Elysia, t } from "elysia";
 import type { Container } from "@/bootstrap/container";
-import { corsOriginsFor } from "@/config/env";
 import { validationFailed } from "@/platform/errors/validation";
 import { assertTrustedOrigin } from "@/platform/security/origin";
 import { clientIp } from "@/platform/security/request-ip";
@@ -30,9 +29,13 @@ export function createMediaRoutes(container: Container) {
 			"/api/v1/media/upload",
 			async ({ body, actor, request, server }) => {
 				const ownerId = requireMediaUploader(actor);
-				assertTrustedOrigin(request, corsOriginsFor(container.env), container.env.TRUST_PROXY);
+				assertTrustedOrigin(
+					request,
+					container.config.corsOrigins,
+					container.config.trustProxy,
+				);
 				container.httpLimits.uploadRateLimiter.assert(
-					clientIp(request, server, container.env.TRUST_PROXY),
+					clientIp(request, server, container.config.trustProxy),
 				);
 				const file = body.file as Blob;
 				const parsedPurpose = MediaPurpose.safeParse(body.purpose ?? "general");
@@ -113,6 +116,7 @@ function parseByteRange(
 	if (start >= total) {
 		return "unsatisfiable";
 	}
-	const end = match[2] === "" ? total - 1 : Math.min(Number(match[2]), total - 1);
+	const end =
+		match[2] === "" ? total - 1 : Math.min(Number(match[2]), total - 1);
 	return end < start ? "unsatisfiable" : { start, end };
 }

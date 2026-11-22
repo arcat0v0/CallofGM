@@ -3,7 +3,6 @@ import { Elysia, NotFoundError } from "elysia";
 import { extname, resolve, sep } from "path";
 import { ZodError } from "zod";
 import type { Container } from "./bootstrap/container";
-import { corsOriginsFor } from "./config/env";
 import { createAdminRoutes, createTrashRoutes } from "./modules/admin";
 import { createCatalogRoutes } from "./modules/catalog";
 import { createCharactersRoutes } from "./modules/characters";
@@ -59,7 +58,7 @@ function applyCors(
 	if (!origin) {
 		return;
 	}
-	const allowed = corsOriginsFor(container.env);
+	const allowed = container.config.corsOrigins;
 	if (isAllowedOrigin(origin, allowed, request.url)) {
 		set.headers["Access-Control-Allow-Origin"] = origin;
 		set.headers["Access-Control-Allow-Credentials"] = "true";

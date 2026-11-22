@@ -1,0 +1,16 @@
+# Docker 容器内使用的基础配置；由 Dockerfile 通过 COGM_CONFIG 指定。
+# 部署专属改动写入同目录的 cogm.local.toml，不要直接修改本文件。
+# 本地开发使用 config/cogm.toml，路径相对 apps/server。
+
+[server]
+host = "0.0.0.0"
+port = 15632
+
+[database]
+url = "/app/data/db.sqlite"
+
+[media]
+dir = "/app/data/media"
+
+[themes]
+dir = "/app/data/themes"

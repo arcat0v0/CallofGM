@@ -1,4 +1,4 @@
-import { parseEnv } from "@/config/env";
+import { loadConfig } from "@/config/app-config";
 import { createDb } from "@/platform/db/client";
 import { runMigrations } from "@/platform/db/migration";
 import { DrizzleIdentityRepository } from "@/modules/identity";
@@ -14,8 +14,8 @@ if (!username || !password) {
   process.exit(1);
 }
 
-const env = parseEnv();
-const dbContext = createDb(env.DATABASE_URL);
+const config = loadConfig();
+const dbContext = createDb(config.databaseUrl);
 await runMigrations(dbContext.db);
 
 const repo = new DrizzleIdentityRepository(dbContext.db);

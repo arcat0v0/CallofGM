@@ -32,7 +32,6 @@ import {
 } from "@cogm/shared";
 import { Elysia, t } from "elysia";
 import type { Container } from "@/bootstrap/container";
-import { corsOriginsFor } from "@/config/env";
 import { ModuleNotFoundError } from "@/modules/catalog";
 import { AuthRequiredError, requireGm } from "@/modules/identity";
 import { AddSessionCharacterUseCase } from "@/modules/sessions";
@@ -96,8 +95,12 @@ function parsePageQuery(query: unknown) {
 }
 
 function toReviewDto(detail: CharacterReviewDetail) {
-	const { submittedSheetJson, creationRoll, ownerId: _ownerId, ...rest } =
-		detail;
+	const {
+		submittedSheetJson,
+		creationRoll,
+		ownerId: _ownerId,
+		...rest
+	} = detail;
 	return CharacterReviewDto.parse({
 		...rest,
 		submittedSheet:
@@ -219,7 +222,7 @@ export function createCharactersRoutes(container: Container) {
 		container.clock,
 	);
 
-	const allowedOrigins = corsOriginsFor(container.env);
+	const allowedOrigins = container.config.corsOrigins;
 
 	const requireUser = (actor: { type: string } | null | undefined) => {
 		if (!actor || actor.type !== "user") {
@@ -230,7 +233,7 @@ export function createCharactersRoutes(container: Container) {
 
 	const writeGuard = (request: Request) => {
 		if (request.method !== "GET" && request.method !== "HEAD") {
-			assertTrustedOrigin(request, allowedOrigins, container.env.TRUST_PROXY);
+			assertTrustedOrigin(request, allowedOrigins, container.config.trustProxy);
 		}
 	};
 

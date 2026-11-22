@@ -10,17 +10,8 @@ services:
     ports:
       - "127.0.0.1:15632:15632"
     environment:
-      PORT: "15632"
       NODE_ENV: production
-      DATABASE_URL: /app/data/db.sqlite
-      MEDIA_DIR: /app/data/media
-      THEMES_DIR: /app/data/themes
-      CORS_ORIGINS: ${CORS_ORIGINS:-}
-      TRUST_PROXY: ${TRUST_PROXY:-false}
-      VOICE_MAX_PARTICIPANTS: ${VOICE_MAX_PARTICIPANTS:-8}
-      VOICE_STUN_URLS: ${VOICE_STUN_URLS:-}
-      VOICE_TURN_URLS: ${VOICE_TURN_URLS:-}
       VOICE_TURN_REST_SECRET: ${VOICE_TURN_REST_SECRET:-}
-      VOICE_TURN_TTL_SECONDS: ${VOICE_TURN_TTL_SECONDS:-600}
     volumes:
       - ./data:/app/data
+      - ./config:/app/config:ro

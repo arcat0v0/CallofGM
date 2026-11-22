@@ -1,7 +1,6 @@
 import { ThemeSummaryDto } from "@cogm/shared";
 import { Elysia, t } from "elysia";
 import type { Container } from "@/bootstrap/container";
-import { corsOriginsFor } from "@/config/env";
 import { ForbiddenError } from "@/modules/identity";
 import { logger } from "@/platform/logging/logger";
 import { assertTrustedOrigin } from "@/platform/security/origin";
@@ -28,7 +27,7 @@ export function createThemeRoutes(container: Container) {
 	const installTheme = new InstallThemeUseCase(registry, themeUsageRepo);
 	const deleteTheme = new DeleteThemeUseCase(registry, themeUsageRepo);
 	const rescanThemes = new RescanThemesUseCase(registry, themeUsageRepo);
-	const allowedOrigins = corsOriginsFor(container.env);
+	const allowedOrigins = container.config.corsOrigins;
 
 	return new Elysia()
 		.get("/api/v1/themes/:id/manifest", async ({ params, set }) => {
@@ -65,9 +64,13 @@ export function createThemeRoutes(container: Container) {
 			"/api/v1/admin/themes",
 			async ({ actor, body, request, server }) => {
 				requireAdmin(actor);
-				assertTrustedOrigin(request, allowedOrigins, container.env.TRUST_PROXY);
+				assertTrustedOrigin(
+					request,
+					allowedOrigins,
+					container.config.trustProxy,
+				);
 				container.httpLimits.uploadRateLimiter.assert(
-					clientIp(request, server, container.env.TRUST_PROXY),
+					clientIp(request, server, container.config.trustProxy),
 				);
 				const file = body.file as Blob;
 				if (file.size > 50 * 1024 * 1024) {

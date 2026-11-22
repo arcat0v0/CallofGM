@@ -9,7 +9,6 @@ import {
 	ensureDevCertificate,
 	findBinary,
 	generateNginxConfig,
-	parsePort,
 	resolveRuntimePaths,
 } from "./dev-https";
 
@@ -25,14 +24,6 @@ afterEach(async () => {
 });
 
 describe("dev:https helpers", () => {
-	test("parsePort validates numeric range and falls back on empty input", () => {
-		expect(parsePort(undefined, 15633, "DEV_HTTPS_PORT")).toBe(15633);
-		expect(parsePort(" ", 15633, "DEV_HTTPS_PORT")).toBe(15633);
-		expect(parsePort("16000", 15633, "DEV_HTTPS_PORT")).toBe(16000);
-		expect(() => parsePort("abc", 15633, "DEV_HTTPS_PORT")).toThrow();
-		expect(() => parsePort("70000", 15633, "DEV_HTTPS_PORT")).toThrow();
-	});
-
 	test("collectHostInfo filters virtual bridges from display while preserving SANs", () => {
 		const info = collectHostInfo(
 			{
@@ -115,11 +106,19 @@ describe("dev:https helpers", () => {
 		expect(config).not.toMatch(/^\s*user\s+/m);
 		expect(config).toContain("daemon off;");
 		expect(config).toContain("listen 0.0.0.0:15633 ssl;");
-		expect(config).toContain("error_page 497 =307 https://$http_host$request_uri;");
+		expect(config).toContain(
+			"error_page 497 =307 https://$http_host$request_uri;",
+		);
 		expect(config).toContain("client_max_body_size 64m;");
-		expect(config).toContain("location /api/ {\n\t\t\tproxy_pass http://127.0.0.1:15632;");
-		expect(config).toContain("location / {\n\t\t\tproxy_pass http://127.0.0.1:15634;");
-		expect(config).toContain('client_body_temp_path "/tmp/cogm-test/.dev-https/nginx/temp/client_body";');
+		expect(config).toContain(
+			"location /api/ {\n\t\t\tproxy_pass http://127.0.0.1:15632;",
+		);
+		expect(config).toContain(
+			"location / {\n\t\t\tproxy_pass http://127.0.0.1:15634;",
+		);
+		expect(config).toContain(
+			'client_body_temp_path "/tmp/cogm-test/.dev-https/nginx/temp/client_body";',
+		);
 		expect(() =>
 			generateNginxConfig({
 				httpsPort: 15633,

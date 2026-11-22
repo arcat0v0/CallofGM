@@ -19,7 +19,6 @@ import {
 import { Elysia } from "elysia";
 import { z } from "zod";
 import type { Container } from "@/bootstrap/container";
-import { corsOriginsFor } from "@/config/env";
 import { AuthRequiredError, requireGm } from "@/modules/identity";
 import { ThemeNotFoundError } from "@/modules/themes";
 import { validationFailed } from "@/platform/errors/validation";
@@ -113,7 +112,7 @@ export function createCatalogRoutes(container: Container) {
 	const updateHandout = new UpdateHandoutUseCase(repo);
 	const listHandouts = new ListHandoutsUseCase(repo);
 
-	const allowedOrigins = corsOriginsFor(container.env);
+	const allowedOrigins = container.config.corsOrigins;
 
 	const requireOwnedModule = async (moduleId: string, ownerId: string) => {
 		const record = await repo.findModuleById(moduleId);
@@ -157,7 +156,11 @@ export function createCatalogRoutes(container: Container) {
 				throw new AuthRequiredError();
 			}
 			if (request.method !== "GET" && request.method !== "HEAD") {
-				assertTrustedOrigin(request, allowedOrigins, container.env.TRUST_PROXY);
+				assertTrustedOrigin(
+					request,
+					allowedOrigins,
+					container.config.trustProxy,
+				);
 			}
 		})
 		.post("/", async ({ body, actor }) => {

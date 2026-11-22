@@ -8,10 +8,7 @@ import {
 } from "node:net";
 import { networkInterfaces } from "node:os";
 import { join, resolve } from "node:path";
-
-export const DEFAULT_HTTPS_PORT = 15633;
-export const DEFAULT_BACKEND_PORT = 15632;
-export const DEFAULT_CLIENT_PORT = 15634;
+import { loadConfig, toFileConfig } from "../apps/server/src/config/app-config";
 
 const VIRTUAL_INTERFACE_PREFIXES = [
 	"docker",
@@ -71,24 +68,6 @@ export function resolveRuntimePaths(rootDir: string): RuntimePaths {
 		pidPath: join(nginxDir, "nginx.pid"),
 		errorLogPath: join(logsDir, "error.log"),
 	};
-}
-
-export function parsePort(
-	raw: string | undefined,
-	fallback: number,
-	label: string,
-): number {
-	if (raw === undefined || raw.trim() === "") {
-		return fallback;
-	}
-	if (!/^\d+$/.test(raw.trim())) {
-		throw new Error(`${label} must be a valid TCP port, got "${raw}"`);
-	}
-	const port = Number.parseInt(raw.trim(), 10);
-	if (port < 1 || port > 65_535) {
-		throw new Error(`${label} must be between 1 and 65535, got ${port}`);
-	}
-	return port;
 }
 
 function isVirtualInterface(name: string): boolean {
@@ -536,21 +515,10 @@ export async function runDevHttps(): Promise<void> {
 		process.exit(1);
 	}
 
-	const httpsPort = parsePort(
-		process.env.DEV_HTTPS_PORT,
-		DEFAULT_HTTPS_PORT,
-		"DEV_HTTPS_PORT",
-	);
-	const backendPort = parsePort(
-		process.env.DEV_BACKEND_PORT ?? process.env.PORT,
-		DEFAULT_BACKEND_PORT,
-		"DEV_BACKEND_PORT",
-	);
-	const clientPort = parsePort(
-		process.env.DEV_CLIENT_PORT,
-		DEFAULT_CLIENT_PORT,
-		"DEV_CLIENT_PORT",
-	);
+	const config = loadConfig();
+	const httpsPort = config.dev.httpsPort;
+	const backendPort = config.port;
+	const clientPort = config.dev.clientPort;
 
 	const configText = generateNginxConfig({
 		httpsPort,
@@ -565,7 +533,7 @@ export async function runDevHttps(): Promise<void> {
 
 	const hostInfo = collectHostInfo(
 		networkInterfaces(),
-		process.env.DEV_HTTPS_HOSTS,
+		config.dev.httpsHosts.join(","),
 	);
 	const regenerated = await ensureDevCertificate(
 		paths,
@@ -578,7 +546,7 @@ export async function runDevHttps(): Promise<void> {
 	const corsOrigins = buildCorsOrigins(
 		httpsPort,
 		hostInfo.corsHosts,
-		process.env.CORS_ORIGINS,
+		config.corsOrigins.join(","),
 	);
 	const existingAllowedHosts = process.env.__VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS
 		?.split(",")
@@ -591,6 +559,23 @@ export async function runDevHttps(): Promise<void> {
 		]),
 	].join(",");
 
+	const runtimeConfigPath = join(paths.runtimeDir, "cogm.json");
+	await mkdir(paths.runtimeDir, { recursive: true });
+	await writeFile(
+		runtimeConfigPath,
+		`${JSON.stringify(
+			toFileConfig({
+				...config,
+				host: "127.0.0.1",
+				port: backendPort,
+				trustProxy: true,
+				corsOrigins: corsOrigins.split(",").filter(Boolean),
+			}),
+			null,
+			2,
+		)}\n`,
+	);
+
 	const serverProc = spawnManaged(
 		process.execPath,
 		["run", "--watch", "src/index.ts"],
@@ -598,10 +583,7 @@ export async function runDevHttps(): Promise<void> {
 			cwd: join(rootDir, "apps/server"),
 			env: {
 				...process.env,
-				HOST: "127.0.0.1",
-				PORT: String(backendPort),
-				TRUST_PROXY: "true",
-				CORS_ORIGINS: corsOrigins,
+				COGM_CONFIG: runtimeConfigPath,
 			},
 		},
 	);
