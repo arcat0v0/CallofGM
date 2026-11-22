@@ -86,7 +86,7 @@ CallofGM/
   - 人物卡 schema、空卡构造、Excel 解析器与导入器
   - 必须实现鉴定选项校验、掷骰判定与同步预览投影。规则使用注入的 `RandomSource` 生成骰点，并返回鉴定引起的状态变更。
   - 理智、幸运与技能成长是独立的可选能力。既有 v1 命令调用对应能力，由规则实现决定鉴定与成长细则。
-  - 车卡属性生成（`CharacterCreationCapability`）是可选能力：规则校验 GM 在提交链接上设定的生成方式（`parseCreationOptions`），用注入的 `RandomSource` 一次性掷出结果（`rollCreation`），并声明可选套数（`creationChoiceCount`）。通用层只保存与转发不透明 JSON；CoC 7e 的“天命 N”与“购点 + 骰幸运”schema 在 `packages/shared/src/rules/coc7e/generation.ts`。客户端对应 `RuleComponent.capabilities.characterCreation`（链接设定编辑器、链接标签、审核比对），车卡编辑器经 `RuleCreationEditorProps.creation` 取得掷骰上下文。
+  - 车卡属性生成（`CharacterCreationCapability`）是可选能力：规则校验 GM 在提交链接上设定的生成方式（`parseCreationOptions`），用注入的 `RandomSource` 一次性掷出结果（`rollCreation`），并声明可选候选项数（`creationChoiceCount`，CoC 7e 的天命改购点占一个候选项）。通用层只保存与转发不透明 JSON，并在提交人物时锁定选择；CoC 7e 的“天命 N（可改购点）”与“购点 + 骰幸运”schema 在 `packages/shared/src/rules/coc7e/generation.ts`。客户端对应 `RuleComponent.capabilities.characterCreation`（链接设定编辑器、链接标签、审核比对），车卡编辑器经 `RuleCreationEditorProps.creation` 取得掷骰上下文。
   - 团内状态的 schema 定义与初始化由规则拥有。初始化接收人物卡及团和人物标识。
   - 允许扩展项声明：CoC 允许自定义技能（名称/基础值/当前值），不允许自定义属性、公式、成功等级或特殊检定
   - 供结构化 UI 调用的规则动作定义（技能鉴定、理智检定等）；不解析聊天文本命令

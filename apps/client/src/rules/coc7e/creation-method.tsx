@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { NumberStepper } from "@/components/ui/number-stepper";
+import { Switch } from "@/components/ui/switch";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 import type {
@@ -54,7 +55,12 @@ export function describeCoc7eCreationOptions(value: unknown): string | null {
 		return null;
 	}
 	return options.method === "destiny"
-		? t("characterCreation.method.destinyTitle", { count: options.count })
+		? options.fallbackPoints === null
+			? t("characterCreation.method.destinyTitle", { count: options.count })
+			: t("characterCreation.method.fallbackTitle", {
+					count: options.count,
+					points: options.fallbackPoints,
+				})
 		: t("characterCreation.method.pointBuyTitle", { points: options.points });
 }
 
@@ -79,15 +85,30 @@ export function Coc7eCreationOptionsEditor({
 			? options.points
 			: coc7e.COC7E_POINT_BUY_DEFAULT_TOTAL,
 	);
+	const initialFallback =
+		options?.method === "destiny" ? options.fallbackPoints : null;
+	const [fallbackEnabled, setFallbackEnabled] = useState(initialFallback !== null);
+	const [fallbackPoints, setFallbackPoints] = useState(
+		initialFallback ?? coc7e.COC7E_POINT_BUY_DEFAULT_TOTAL,
+	);
+
+	function emitDestiny(count: number, fallback: number | null) {
+		onChange({ method: "destiny", count, fallbackPoints: fallback });
+	}
 
 	function selectMethod(next: MethodValue) {
 		if (next === "manual") {
 			onChange(null);
 		} else if (next === "destiny") {
-			onChange({ method: "destiny", count });
+			emitDestiny(count, fallbackEnabled ? fallbackPoints : null);
 		} else {
 			onChange({ method: "pointBuy", points });
 		}
+	}
+
+	function toggleFallback(checked: boolean) {
+		setFallbackEnabled(checked);
+		emitDestiny(count, checked ? fallbackPoints : null);
 	}
 
 	function clampInt(text: string, min: number, max: number, fallback: number) {
@@ -123,28 +144,71 @@ export function Coc7eCreationOptionsEditor({
 				]}
 			/>
 			{method === "destiny" ? (
-				<div className="flex flex-wrap items-center gap-3">
-					<NumberStepper
-						label={t("characterCreation.method.destinyCount")}
-						value={String(count)}
-						min={coc7e.COC7E_DESTINY_MIN}
-						max={coc7e.COC7E_DESTINY_MAX}
-						disabled={disabled}
-						size="sm"
-						onValueChange={(text) => {
-							const next = clampInt(
-								text,
-								coc7e.COC7E_DESTINY_MIN,
-								coc7e.COC7E_DESTINY_MAX,
-								count,
-							);
-							setCount(next);
-							onChange({ method: "destiny", count: next });
-						}}
-					/>
-					<span className="text-body-small text-foreground-secondary">
-						{t("characterCreation.method.destinyCount")}
-					</span>
+				<div className="flex flex-col gap-3">
+					<div className="flex flex-wrap items-center gap-3">
+						<NumberStepper
+							label={t("characterCreation.method.destinyCount")}
+							value={String(count)}
+							min={coc7e.COC7E_DESTINY_MIN}
+							max={coc7e.COC7E_DESTINY_MAX}
+							disabled={disabled}
+							size="sm"
+							onValueChange={(text) => {
+								const next = clampInt(
+									text,
+									coc7e.COC7E_DESTINY_MIN,
+									coc7e.COC7E_DESTINY_MAX,
+									count,
+								);
+								setCount(next);
+								emitDestiny(
+									next,
+									fallbackEnabled ? fallbackPoints : null,
+								);
+							}}
+						/>
+						<span className="text-body-small text-foreground-secondary">
+							{t("characterCreation.method.destinyCount")}
+						</span>
+					</div>
+					<div className="flex items-center justify-between gap-3">
+						<Label htmlFor="coc7e-fallback-points">
+							{t("characterCreation.method.fallbackSwitch")}
+						</Label>
+						<Switch
+							id="coc7e-fallback-points"
+							size="sm"
+							checked={fallbackEnabled}
+							disabled={disabled}
+							onCheckedChange={toggleFallback}
+						/>
+					</div>
+					{fallbackEnabled ? (
+						<div className="flex flex-wrap items-center gap-3">
+							<NumberStepper
+								label={t("characterCreation.method.fallbackTotal")}
+								value={String(fallbackPoints)}
+								min={coc7e.COC7E_POINT_BUY_MIN_TOTAL}
+								max={coc7e.COC7E_POINT_BUY_MAX_TOTAL}
+								step={10}
+								disabled={disabled}
+								size="sm"
+								onValueChange={(text) => {
+									const next = clampInt(
+										text,
+										coc7e.COC7E_POINT_BUY_MIN_TOTAL,
+										coc7e.COC7E_POINT_BUY_MAX_TOTAL,
+										fallbackPoints,
+									);
+									setFallbackPoints(next);
+									emitDestiny(count, next);
+								}}
+							/>
+							<span className="text-body-small text-foreground-secondary">
+								{t("characterCreation.method.fallbackTotal")}
+							</span>
+						</div>
+					) : null}
 				</div>
 			) : method === "pointBuy" ? (
 				<div className="flex flex-wrap items-center gap-3">
@@ -174,7 +238,12 @@ export function Coc7eCreationOptionsEditor({
 			) : null}
 			<p className="text-body-small text-foreground-tertiary">
 				{method === "destiny"
-					? t("characterCreation.method.destinyHint", { count })
+					? fallbackEnabled
+						? t("characterCreation.method.fallbackEditorHint", {
+								count,
+								points: fallbackPoints,
+							})
+						: t("characterCreation.method.destinyHint", { count })
 					: method === "pointBuy"
 						? t("characterCreation.method.pointBuyHint", {
 								points,
@@ -262,8 +331,9 @@ export function Coc7eCreationRollPanel({
 	}
 	return options.method === "destiny" ? (
 		<DestinyPanel
-			count={options.count}
+			options={options}
 			creation={creation}
+			attributes={attributes}
 			age={age}
 			onApplyAttributes={onApplyAttributes}
 		/>
@@ -278,21 +348,35 @@ export function Coc7eCreationRollPanel({
 	);
 }
 
+type DestinyOptions = Extract<
+	coc7e.Coc7eCreationOptions,
+	{ method: "destiny" }
+>;
+
 function DestinyPanel({
-	count,
+	options,
 	creation,
+	attributes,
 	age,
 	onApplyAttributes,
 }: {
-	count: number;
+	options: DestinyOptions;
 	creation: RuleCreationRollContext;
+	attributes: Attributes;
 	age: number | null;
 	onApplyAttributes: (attributes: Attributes) => void;
 }) {
+	const count = options.count;
 	const [confirmIndex, setConfirmIndex] = useState<number | null>(null);
 	const result = parseResult(creation.roll?.result);
 	const sets = result?.method === "destiny" ? result.sets : [];
+	const fallback = result?.method === "destiny" ? result.fallback : null;
+	const fallbackIndex = result ? coc7e.coc7eFallbackChoiceIndex(result) : null;
 	const chosenIndex = creation.roll?.chosenIndex ?? null;
+	const locked = creation.roll ? creation.roll.lockedAt !== null : false;
+	const pointBuyChosen =
+		result !== null && coc7e.coc7eChosenPointBuy(result, chosenIndex);
+	const fallbackPoints = options.fallbackPoints;
 
 	async function confirmChoice(index: number) {
 		setConfirmIndex(null);
@@ -300,6 +384,16 @@ function DestinyPanel({
 		const set = sets[index];
 		if (updated && set) {
 			onApplyAttributes(appliedAttributes(set, age));
+		}
+	}
+
+	async function convertToPointBuy() {
+		if (fallbackIndex === null || !fallback) {
+			return;
+		}
+		const updated = await creation.onChoose(fallbackIndex);
+		if (updated) {
+			onApplyAttributes({ ...attributes, luck: luckValue(fallback, age) });
 		}
 	}
 
@@ -311,7 +405,12 @@ function DestinyPanel({
 						{t("characterCreation.method.destinyTitle", { count })}
 					</span>
 					<p className="text-body-small text-foreground-secondary">
-						{t("characterCreation.method.destinyIntro", { count })}
+						{fallbackPoints === null
+							? t("characterCreation.method.destinyIntro", { count })
+							: t("characterCreation.method.destinyFallbackIntro", {
+									count,
+									points: fallbackPoints,
+								})}
 					</p>
 				</div>
 				{creation.roll ? null : (
@@ -332,7 +431,8 @@ function DestinyPanel({
 				<div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
 					{sets.map((set, index) => {
 						const chosen = chosenIndex === index;
-						const dimmed = chosenIndex !== null && !chosen;
+						const dimmed =
+							chosenIndex !== null && !chosen && !pointBuyChosen;
 						return (
 							<div
 								key={index}
@@ -366,17 +466,7 @@ function DestinyPanel({
 										})}
 									</p>
 								) : null}
-								{chosenIndex === null ? (
-									<Button
-										type="button"
-										variant="accentSoft"
-										size="sm"
-										disabled={creation.pending}
-										onClick={() => setConfirmIndex(index)}
-									>
-										{t("characterCreation.method.choose")}
-									</Button>
-								) : chosen ? (
+								{chosen ? (
 									<Button
 										type="button"
 										variant="outline"
@@ -388,11 +478,69 @@ function DestinyPanel({
 										<RotateCcw />
 										{t("characterCreation.method.reapply")}
 									</Button>
-								) : null}
+								) : locked ? null : (
+									<Button
+										type="button"
+										variant="accentSoft"
+										size="sm"
+										disabled={creation.pending}
+										onClick={() => setConfirmIndex(index)}
+									>
+										{t("characterCreation.method.choose")}
+									</Button>
+								)}
 							</div>
 						);
 					})}
 				</div>
+			) : null}
+
+			{fallback !== null &&
+			fallbackIndex !== null &&
+			fallbackPoints !== null &&
+			(pointBuyChosen || !locked) ? (
+				pointBuyChosen ? (
+					<PointBuyPanel
+						points={fallbackPoints}
+						creation={creation}
+						attributes={attributes}
+						age={age}
+						onApplyAttributes={onApplyAttributes}
+						fallback={fallback}
+					/>
+				) : (
+					<div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-md-outline-variant/30 bg-md-surface-container-low p-3.5">
+						<div className="flex min-w-0 flex-1 flex-col gap-1">
+							<span className="text-label-large text-foreground">
+								{t("characterCreation.method.fallbackCtaTitle")}
+							</span>
+							<p className="text-body-small text-foreground-secondary">
+								{t("characterCreation.method.fallbackIntro", {
+									points: fallbackPoints,
+									min: coc7e.COC7E_POINT_BUY_ATTRIBUTE_MIN,
+									max: coc7e.COC7E_POINT_BUY_ATTRIBUTE_MAX,
+								})}
+							</p>
+						</div>
+						<Button
+							type="button"
+							variant="accentSoft"
+							size="sm"
+							disabled={locked || creation.pending}
+							onClick={() => void convertToPointBuy()}
+						>
+							{t("characterCreation.method.fallbackCta", {
+								points: fallbackPoints,
+							})}
+						</Button>
+					</div>
+				)
+			) : null}
+
+			{locked ? (
+				<p className="text-label-small text-foreground-tertiary">
+					{t("characterCreation.method.locked")}
+				</p>
 			) : null}
 
 			<ConfirmDialog
@@ -419,11 +567,10 @@ function DestinyPanel({
 	);
 }
 
-function pointBuyLuck(
-	result: Extract<coc7e.Coc7eCreationRollResult, { method: "pointBuy" }>,
-	age: number | null,
-): number {
-	return isYoung(age) ? Math.max(result.luck, result.youngLuck) : result.luck;
+type LuckRoll = { luck: number; youngLuck: number };
+
+function luckValue(luck: LuckRoll, age: number | null): number {
+	return isYoung(age) ? Math.max(luck.luck, luck.youngLuck) : luck.luck;
 }
 
 function PointBuyPanel({
@@ -432,12 +579,14 @@ function PointBuyPanel({
 	attributes,
 	age,
 	onApplyAttributes,
+	fallback = null,
 }: {
 	points: number;
 	creation: RuleCreationRollContext;
 	attributes: Attributes;
 	age: number | null;
 	onApplyAttributes: (attributes: Attributes) => void;
+	fallback?: LuckRoll | null;
 }) {
 	const spent = coc7e.coc7ePointBuySpent(attributes);
 	const remaining = points - spent;
@@ -447,28 +596,50 @@ function PointBuyPanel({
 			attributes[key] > coc7e.COC7E_POINT_BUY_ATTRIBUTE_MAX,
 	);
 	const result = parseResult(creation.roll?.result);
-	const luckResult = result?.method === "pointBuy" ? result : null;
+	const luckResult =
+		fallback ??
+		(result?.method === "pointBuy"
+			? { luck: result.luck, youngLuck: result.youngLuck }
+			: null);
 
 	async function roll() {
 		const rolled = await creation.onRoll();
 		const parsed = parseResult(rolled?.result);
 		if (parsed?.method === "pointBuy") {
-			onApplyAttributes({ ...attributes, luck: pointBuyLuck(parsed, age) });
+			onApplyAttributes({ ...attributes, luck: luckValue(parsed, age) });
 		}
 	}
 
 	return (
 		<div className="flex flex-col gap-3 rounded-xl bg-md-surface-container p-4">
 			<div className="flex flex-col gap-1">
-				<span className="font-sans text-title-small-emph text-foreground">
-					{t("characterCreation.method.pointBuyTitle", { points })}
-				</span>
+				<div className="flex flex-wrap items-center gap-2">
+					<span className="font-sans text-title-small-emph text-foreground">
+						{fallback
+							? t("characterCreation.method.fallbackPointBuyTitle", {
+									points,
+								})
+							: t("characterCreation.method.pointBuyTitle", { points })}
+					</span>
+					{fallback ? (
+						<Badge variant="soft" tone="accent" size="sm">
+							<Check className="size-3" />
+							{t("characterCreation.method.fallbackChosen")}
+						</Badge>
+					) : null}
+				</div>
 				<p className="text-body-small text-foreground-secondary">
-					{t("characterCreation.method.pointBuyIntro", {
-						points,
-						min: coc7e.COC7E_POINT_BUY_ATTRIBUTE_MIN,
-						max: coc7e.COC7E_POINT_BUY_ATTRIBUTE_MAX,
-					})}
+					{fallback
+						? t("characterCreation.method.fallbackPointBuyIntro", {
+								points,
+								min: coc7e.COC7E_POINT_BUY_ATTRIBUTE_MIN,
+								max: coc7e.COC7E_POINT_BUY_ATTRIBUTE_MAX,
+							})
+						: t("characterCreation.method.pointBuyIntro", {
+								points,
+								min: coc7e.COC7E_POINT_BUY_ATTRIBUTE_MIN,
+								max: coc7e.COC7E_POINT_BUY_ATTRIBUTE_MAX,
+							})}
 				</p>
 			</div>
 			<div className="flex flex-wrap items-center gap-2">
@@ -517,7 +688,7 @@ function PointBuyPanel({
 							onClick={() =>
 								onApplyAttributes({
 									...attributes,
-									luck: pointBuyLuck(luckResult, age),
+									luck: luckValue(luckResult, age),
 								})
 							}
 						>
@@ -566,11 +737,21 @@ export function Coc7eCreationReviewSummary({
 			)
 		: [];
 	const diffKeys = new Set(differences.map((item) => item.key));
+	const fallbackIndex = coc7e.coc7eFallbackChoiceIndex(result);
+	const fallbackChosen =
+		fallbackIndex !== null && roll.chosenIndex === fallbackIndex;
 
 	let heading: string;
 	if (options.method === "destiny") {
-		heading =
-			roll.chosenIndex === null
+		heading = fallbackChosen
+			? t("characterCreation.method.reviewDestinyFallback", {
+					count: options.count,
+					points: options.fallbackPoints ?? "—",
+					spent: submitted
+						? coc7e.coc7ePointBuySpent(submitted.attributes)
+						: "—",
+				})
+			: roll.chosenIndex === null
 				? t("characterCreation.method.reviewDestinyUnchosen", {
 						count: options.count,
 					})
@@ -586,9 +767,15 @@ export function Coc7eCreationReviewSummary({
 	}
 
 	const chosenSet =
-		result.method === "destiny" && roll.chosenIndex !== null
+		result.method === "destiny" && roll.chosenIndex !== null && !fallbackChosen
 			? result.sets[roll.chosenIndex]
 			: undefined;
+	const luckResult =
+		result.method === "pointBuy"
+			? { luck: result.luck, youngLuck: result.youngLuck }
+			: fallbackChosen && result.fallback !== null
+				? result.fallback
+				: null;
 
 	return (
 		<div className="flex flex-col gap-2 rounded-xl bg-md-surface-container-low px-3.5 py-3">
@@ -610,11 +797,14 @@ export function Coc7eCreationReviewSummary({
 			{chosenSet ? (
 				<AttributeGrid attributes={chosenSet.attributes} highlight={diffKeys} />
 			) : null}
-			{result.method === "pointBuy" ? (
+			{luckResult ? (
 				<span className="text-label-small text-foreground-secondary">
-					{t("characterCreation.method.luckResult", { luck: result.luck })} ·{" "}
+					{t("characterCreation.method.luckResult", {
+						luck: luckResult.luck,
+					})}{" "}
+					·{" "}
 					{t("characterCreation.method.youngLuck", {
-						luck: result.youngLuck,
+						luck: luckResult.youngLuck,
 					})}
 				</span>
 			) : null}

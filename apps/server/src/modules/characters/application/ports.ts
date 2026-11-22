@@ -108,6 +108,7 @@ export interface CharacterCreationRollRecord {
 	resultJson: string;
 	chosenIndex: number | null;
 	chosenAt: number | null;
+	lockedAt: number | null;
 	createdAt: number;
 }
 
@@ -366,12 +367,14 @@ export interface CharactersRepository {
 	saveCreationRollOnce(
 		roll: CharacterCreationRollRecord,
 	): Promise<CharacterCreationRollRecord>;
-	/** 仅在尚未选择时写入选择；返回是否写入成功 */
+	/** 提交人物前可改选；已锁定时返回 false */
 	chooseCreationRoll(
 		id: string,
 		index: number,
 		chosenAt: number,
 	): Promise<boolean>;
+	/** 提交人物时锁定选择；已锁定时返回 false */
+	lockCreationRoll(id: string, lockedAt: number): Promise<boolean>;
 
 	saveReview(
 		review: Omit<

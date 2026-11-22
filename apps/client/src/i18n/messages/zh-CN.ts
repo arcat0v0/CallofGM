@@ -404,7 +404,9 @@ export const zhCN: Record<string, string> = {
 		"填写九项属性。STR/CON/DEX/APP/POW/幸运 常规为 3D6×5，SIZ/INT/EDU 为 (2D6+6)×5。",
 	"characterCreation.method.destinyTitle": "天命 {count}",
 	"characterCreation.method.destinyIntro":
-		"主持人设定了天命 {count}：服务端一次掷出 {count} 套属性，任选其一。每条链接只能掷一次，选定后不可更改。",
+		"主持人设定了天命 {count}：服务端一次掷出 {count} 套属性，任选其一。每条链接只能掷一次；提交人物前可改选。",
+	"characterCreation.method.destinyFallbackIntro":
+		"主持人设定了天命 {count}：服务端一次掷出 {count} 套属性，任选其一；不满意可改用 {points} 点购点。每条链接只能掷一次；提交人物前可来回切换。",
 	"characterCreation.method.destinyRoll": "天命骰（{count} 套）",
 	"characterCreation.method.setTitle": "第 {index} 套",
 	"characterCreation.method.setTotals": "[{without}/{with}]",
@@ -412,10 +414,10 @@ export const zhCN: Record<string, string> = {
 	"characterCreation.method.choose": "选这套",
 	"characterCreation.method.chosen": "已选定",
 	"characterCreation.method.reapply": "重新填入选定属性",
-	"characterCreation.method.chooseConfirmTitle": "选定第 {index} 套属性？",
+	"characterCreation.method.chooseConfirmTitle": "填入第 {index} 套属性？",
 	"characterCreation.method.chooseConfirmBody":
-		"选定后不可更改，属性会填入人物卡。之后若按年龄等规则调整数值，主持人审核时会看到与掷骰结果的差异。",
-	"characterCreation.method.chooseConfirm": "选定",
+		"会覆盖当前九项属性。提交人物前可随时改选其他天命套数或购点。",
+	"characterCreation.method.chooseConfirm": "填入",
 	"characterCreation.method.pointBuyTitle": "购点 {points}",
 	"characterCreation.method.pointBuyIntro":
 		"主持人设定了购点：把 {points} 点分配到 STR/CON/SIZ/DEX/APP/INT/POW/EDU 八项（每项 {min}–{max}），幸运由服务端掷一次 3D6×5。",
@@ -428,6 +430,18 @@ export const zhCN: Record<string, string> = {
 	"characterCreation.method.youngLuck":
 		"15–19 岁可掷两次取较高：第二次 {luck}",
 	"characterCreation.method.applyLuck": "填入幸运",
+	"characterCreation.method.fallbackSwitch": "允许改购点",
+	"characterCreation.method.fallbackTotal": "转购点总数",
+	"characterCreation.method.fallbackTitle": "天命 {count} · 可改购点 {points}",
+	"characterCreation.method.fallbackCtaTitle": "对天命结果不满意？",
+	"characterCreation.method.fallbackIntro":
+		"可改用 {points} 点购点重新分配八项属性（每项 {min}–{max}）。幸运已由服务端预掷，转换后显示。",
+	"characterCreation.method.fallbackCta": "改用购点（{points} 点）",
+	"characterCreation.method.fallbackChosen": "已改用购点",
+	"characterCreation.method.fallbackPointBuyTitle": "改购点 {points}",
+	"characterCreation.method.fallbackPointBuyIntro":
+		"把 {points} 点分配到八项属性（每项 {min}–{max}）；幸运由服务端在天命掷骰时一并掷出。",
+	"characterCreation.method.locked": "人物已提交，掷骰选择已锁定",
 	"characterCreation.method.youngLuckApplied": "已按 15–19 岁取较高值",
 	"characterCreation.method.rollFailed": "掷骰失败",
 	"characterCreation.method.notRolled": "尚未掷骰",
@@ -441,11 +455,15 @@ export const zhCN: Record<string, string> = {
 	"characterCreation.method.pointBuyTotal": "购点总数",
 	"characterCreation.method.manualHint": "玩家自行填写属性，不提供掷骰。",
 	"characterCreation.method.destinyHint":
-		"玩家打开链接后由服务端一次掷出 {count} 套属性，任选其一，只能掷一次。",
+		"玩家打开链接后由服务端一次掷出 {count} 套属性，任选其一，只能掷一次；提交人物前可改选。",
+	"characterCreation.method.fallbackEditorHint":
+		"玩家打开链接后一次掷出 {count} 套属性；不满意可改用 {points} 点购点，提交人物前可来回切换。",
 	"characterCreation.method.pointBuyHint":
 		"玩家把 {points} 点分配到八项属性（每项 {min}–{max}），幸运由服务端掷一次。",
 	"characterCreation.method.reviewDestiny": "天命 {count} · 选定第 {index} 套",
 	"characterCreation.method.reviewDestinyUnchosen": "天命 {count} · 尚未选定",
+	"characterCreation.method.reviewDestinyFallback":
+		"天命 {count} · 改用购点 {points} · 已分配 {spent}",
 	"characterCreation.method.reviewPointBuy": "购点 {points} · 已分配 {spent}",
 	"characterCreation.method.reviewMatch": "提交属性与掷骰结果一致",
 	"characterCreation.method.reviewDiff": "{name}：掷出 {expected} → 提交 {submitted}",
@@ -1457,7 +1475,7 @@ export const zhCN: Record<string, string> = {
 	"error.CREATION_METHOD_UNSUPPORTED": "该规则不支持设定车卡方式",
 	"error.CREATION_ROLL_NOT_AVAILABLE": "这条链接没有设定车卡方式",
 	"error.CREATION_ROLL_NOT_FOUND": "还没有掷骰",
-	"error.CREATION_ROLL_ALREADY_CHOSEN": "已经选定过一套属性，不能更改",
+	"error.CREATION_ROLL_LOCKED": "人物已提交，掷骰选择已锁定",
 	"error.CREATION_ROLL_INVALID_CHOICE": "所选的属性不存在",
 	"error.CREATION_ROLL_REQUIRED": "请先完成车卡掷骰并选定属性再提交",
 	"error.LUCK_SPEND_NOT_ALLOWED": "这次检定不能花费幸运",

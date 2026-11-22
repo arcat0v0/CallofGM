@@ -564,8 +564,9 @@ export class Coc7eRuleSystem
 	}
 
 	creationChoiceCount(result: unknown): number {
-		const parsed = coc7e.Coc7eCreationRollResult.parse(result);
-		return parsed.method === "destiny" ? parsed.sets.length : 1;
+		return coc7e.coc7eCreationChoiceCount(
+			coc7e.Coc7eCreationRollResult.parse(result),
+		);
 	}
 
 	recoverLuck(

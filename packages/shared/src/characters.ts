@@ -234,7 +234,8 @@ export type CharacterInviteDto = z.infer<typeof CharacterInviteDto>;
 
 /**
  * 车卡属性生成记录：每位 PL 在每条提交链接上只能掷一次，结果由服务端生成并保存。
- * result 为规则专属结构；chosenIndex 为玩家最终选定的一套（规则不需要选择时为 0）。
+ * result 为规则专属结构；chosenIndex 为玩家当前选定的一项（规则不需要选择时为 0，
+ * 天命可改购点时最后一个候选项为改购点）。提交人物前可改选，lockedAt 写入后锁定。
  */
 export const CharacterCreationRollDto = z.object({
 	id: z.string(),
@@ -244,6 +245,7 @@ export const CharacterCreationRollDto = z.object({
 	chosenIndex: z.number().int().min(0).nullable(),
 	createdAt: z.number().int(),
 	chosenAt: z.number().int().nullable(),
+	lockedAt: z.number().int().nullable().default(null),
 });
 export type CharacterCreationRollDto = z.infer<typeof CharacterCreationRollDto>;
 

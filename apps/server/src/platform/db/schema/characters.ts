@@ -201,6 +201,8 @@ export const characterCreationRolls = sqliteTable(
 		resultJson: text("result_json").notNull(),
 		chosenIndex: integer("chosen_index"),
 		chosenAt: integer("chosen_at"),
+		/** 提交人物时锁定改选；NULL 表示仍可在提交前改选 */
+		lockedAt: integer("locked_at"),
 		createdAt: integer("created_at").notNull(),
 	},
 	(table) => [

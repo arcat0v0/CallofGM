@@ -174,9 +174,11 @@ export class CreationRollNotFoundError extends AppError {
 	}
 }
 
-export class CreationRollAlreadyChosenError extends AppError {
-	constructor(message = "A set has already been chosen for this roll") {
-		super("CREATION_ROLL_ALREADY_CHOSEN", message, 409);
+export class CreationRollLockedError extends AppError {
+	constructor(
+		message = "Creation roll is locked after the character was submitted",
+	) {
+		super("CREATION_ROLL_LOCKED", message, 409);
 	}
 }
 

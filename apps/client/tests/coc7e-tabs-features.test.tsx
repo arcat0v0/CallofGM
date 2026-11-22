@@ -123,6 +123,7 @@ describe("CoC 7e v2 7-tab features", () => {
 			chosenIndex: null,
 			createdAt: 1,
 			chosenAt: null,
+			lockedAt: null,
 		};
 		const calls: string[] = [];
 		function DestinyHarness({ onChange }: { onChange: (sheet: Sheet) => void }) {
@@ -162,11 +163,126 @@ describe("CoC 7e v2 7-tab features", () => {
 		expect(view.queryByRole("button", { name: /天命骰/ })).toBeNull();
 		fireEvent.click(view.getAllByRole("button", { name: "选这套" })[1]!);
 		fireEvent.click(
-			within(document.body).getByRole("button", { name: "选定" }),
+			within(document.body).getByRole("button", { name: "填入" }),
 		);
 		await waitFor(() => expect(latest.attributes).toEqual(setB));
 		expect(calls).toEqual(["roll", "choose:1"]);
+		expect(view.getAllByRole("button", { name: "选这套" })).toHaveLength(1);
+		expect(view.getByText("已选定")).toBeTruthy();
+	});
+
+	test("destiny fallback: converts to point buy, hides luck until conversion, switches back", async () => {
+		const setA = { ...baseAttributes, str: 80, luck: 35 };
+		const setB = { ...baseAttributes, str: 40, siz: 70, luck: 60 };
+		const rolled: CharacterCreationRollDto = {
+			id: "roll-fallback",
+			ruleId: "coc7e",
+			options: { method: "destiny", count: 2, fallbackPoints: 460 },
+			result: {
+				method: "destiny",
+				sets: [
+					{ attributes: setA, youngLuck: 20 },
+					{ attributes: setB, youngLuck: 75 },
+				],
+				fallback: { luck: 70, youngLuck: 20 },
+			},
+			chosenIndex: null,
+			createdAt: 1,
+			chosenAt: null,
+			lockedAt: null,
+		};
+		const calls: string[] = [];
+		function FallbackHarness({ onChange }: { onChange: (sheet: Sheet) => void }) {
+			const [roll, setRoll] = useState<CharacterCreationRollDto | null>(null);
+			return (
+				<Harness
+					onChange={onChange}
+					creation={{
+						options: rolled.options,
+						roll,
+						pending: false,
+						onRoll: async () => {
+							calls.push("roll");
+							setRoll(rolled);
+							return rolled;
+						},
+						onChoose: async (index) => {
+							calls.push(`choose:${index}`);
+							const next = { ...rolled, chosenIndex: index, chosenAt: 2 };
+							setRoll(next);
+							return next;
+						},
+					}}
+				/>
+			);
+		}
+		let latest = emptySheet();
+		const view = render(
+			<FallbackHarness
+				onChange={(next) => {
+					latest = next;
+				}}
+			/>,
+		);
+		fireEvent.click(view.getByRole("button", { name: "天命骰（2 套）" }));
+		await waitFor(() => expect(view.getByText("第 2 套")).toBeTruthy());
+		expect(view.queryByText("幸运 70")).toBeNull();
+
+		fireEvent.click(view.getByRole("button", { name: "改用购点（460 点）" }));
+		await waitFor(() => expect(latest.attributes.luck).toBe(70));
+		expect(calls).toEqual(["roll", "choose:2"]);
+		expect(view.getByText("已改用购点")).toBeTruthy();
+		expect(view.getByText("幸运 70")).toBeTruthy();
+		expect(view.getByText("已分配 400 / 460")).toBeTruthy();
+
+		// 提交前可切回天命套数
+		fireEvent.click(view.getAllByRole("button", { name: "选这套" })[1]!);
+		fireEvent.click(
+			within(document.body).getByRole("button", { name: "填入" }),
+		);
+		await waitFor(() => expect(latest.attributes).toEqual(setB));
+		expect(calls).toEqual(["roll", "choose:2", "choose:1"]);
+		expect(view.queryByText("幸运 70")).toBeNull();
+		expect(view.getByRole("button", { name: "改用购点（460 点）" })).toBeTruthy();
+	});
+
+	test("creation roll locks its choice after submission", async () => {
+		const setA = { ...baseAttributes, str: 80 };
+		const setB = { ...baseAttributes, str: 40 };
+		const rolled: CharacterCreationRollDto = {
+			id: "roll-locked",
+			ruleId: "coc7e",
+			options: { method: "destiny", count: 2, fallbackPoints: 460 },
+			result: {
+				method: "destiny",
+				sets: [
+					{ attributes: setA, youngLuck: 20 },
+					{ attributes: setB, youngLuck: 75 },
+				],
+				fallback: { luck: 70, youngLuck: 20 },
+			},
+			chosenIndex: 0,
+			createdAt: 1,
+			chosenAt: 2,
+			lockedAt: 3,
+		};
+		const view = render(
+			<Harness
+				onChange={() => undefined}
+				creation={{
+					options: rolled.options,
+					roll: rolled,
+					pending: false,
+					onRoll: async () => rolled,
+					onChoose: async () => null,
+				}}
+			/>,
+		);
+		expect(view.getByText("人物已提交，掷骰选择已锁定")).toBeTruthy();
 		expect(view.queryByRole("button", { name: "选这套" })).toBeNull();
+		expect(
+			view.queryByRole("button", { name: "改用购点（460 点）" }),
+		).toBeNull();
 		expect(view.getByText("已选定")).toBeTruthy();
 	});
 
@@ -179,6 +295,7 @@ describe("CoC 7e v2 7-tab features", () => {
 			chosenIndex: 0,
 			createdAt: 1,
 			chosenAt: 1,
+			lockedAt: null,
 		};
 		function PointBuyHarness({
 			onChange,

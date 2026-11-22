@@ -112,19 +112,30 @@ describe("车卡属性生成（CoC 7e 天命 / 购点）", () => {
 		expect(
 			(await createInvite({ method: "destiny", count: 11 })).status,
 		).toBe(400);
+		expect(
+			(await createInvite({ method: "destiny", fallbackPoints: 299 })).status,
+		).toBe(400);
 		expect((await createInvite({ method: "unknown" })).status).toBe(400);
 	});
 
-	test("天命 5：一次掷出 5 套，重复请求不重掷，选定后不可更改", async () => {
+	test("天命 5：一次掷出 5 套，重复请求不重掷，提交前可改选，提交后锁定", async () => {
 		const invite = await issuedInvite({ method: "destiny", count: 5 });
-		expect(invite.creationOptions).toEqual({ method: "destiny", count: 5 });
+		expect(invite.creationOptions).toEqual({
+			method: "destiny",
+			count: 5,
+			fallbackPoints: null,
+		});
 
 		const info = CharacterInviteInfoResponse.parse(
 			await (
 				await api(`/api/v1/pl/invites/${invite.token}`, { token: plToken })
 			).json(),
 		);
-		expect(info.creationOptions).toEqual({ method: "destiny", count: 5 });
+		expect(info.creationOptions).toEqual({
+			method: "destiny",
+			count: 5,
+			fallbackPoints: null,
+		});
 		expect(info.creationRoll).toBeNull();
 
 		const first = await roll(invite.token);
@@ -158,7 +169,12 @@ describe("车卡属性生成（CoC 7e 天命 / 购点）", () => {
 		expect(CharacterCreationRollDto.parse(await chosen.json()).chosenIndex).toBe(
 			2,
 		);
-		expect((await choose(invite.token, 1)).status).toBe(409);
+		const reselected = await choose(invite.token, 1);
+		expect(reselected.status).toBe(200);
+		expect(
+			CharacterCreationRollDto.parse(await reselected.json()).chosenIndex,
+		).toBe(1);
+		expect((await choose(invite.token, 2)).status).toBe(200);
 
 		// 其他玩家独立掷骰
 		const other = CharacterCreationRollDto.parse(
@@ -171,6 +187,12 @@ describe("车卡属性生成（CoC 7e 天命 / 购点）", () => {
 			str: chosenSet.attributes.str === 90 ? 85 : chosenSet.attributes.str + 5,
 		});
 		expect(submitted.status).toBe(200);
+
+		// 提交人物后掷骰选择锁定
+		const locked = await choose(invite.token, 1);
+		expect(locked.status).toBe(409);
+		const lockedBody = (await locked.json()) as { code: string };
+		expect(lockedBody.code).toBe("CREATION_ROLL_LOCKED");
 
 		const reviews = (
 			(await (
@@ -188,6 +210,76 @@ describe("车卡属性生成（CoC 7e 天命 / 购点）", () => {
 			sheet.age,
 		);
 		expect(differences.map((item) => item.key)).toEqual(["str"]);
+	});
+
+	test("天命可改购点：预掷幸运，提交前可双向切换，提交后锁定", async () => {
+		const invite = await issuedInvite({
+			method: "destiny",
+			count: 3,
+			fallbackPoints: 480,
+		});
+		expect(invite.creationOptions).toEqual({
+			method: "destiny",
+			count: 3,
+			fallbackPoints: 480,
+		});
+
+		const rolled = CharacterCreationRollDto.parse(
+			await (await roll(invite.token)).json(),
+		);
+		const result = coc7e.Coc7eCreationRollResult.parse(rolled.result);
+		if (result.method !== "destiny" || !result.fallback) {
+			throw new Error("fallback luck was not rolled");
+		}
+		const fallbackIndex = result.sets.length;
+		const attributes = {
+			str: 60,
+			con: 60,
+			siz: 60,
+			dex: 60,
+			app: 60,
+			int: 60,
+			pow: 60,
+			edu: 60,
+			luck: result.fallback.luck,
+		};
+
+		// 还没选定套数或购点时不能提交
+		expect((await submitNew(invite.token, attributes)).status).toBe(400);
+
+		const converted = await choose(invite.token, fallbackIndex);
+		expect(converted.status).toBe(200);
+		expect(
+			CharacterCreationRollDto.parse(await converted.json()).chosenIndex,
+		).toBe(fallbackIndex);
+
+		// 提交前可切回天命，再改回购点
+		expect((await choose(invite.token, 1)).status).toBe(200);
+		expect((await choose(invite.token, fallbackIndex)).status).toBe(200);
+
+		expect((await submitNew(invite.token, attributes)).status).toBe(200);
+
+		const locked = await choose(invite.token, 0);
+		expect(locked.status).toBe(409);
+		const lockedBody = (await locked.json()) as { code: string };
+		expect(lockedBody.code).toBe("CREATION_ROLL_LOCKED");
+
+		const reviews = (
+			(await (
+				await api("/api/v1/gm/reviews?status=pending", { token: ctx.gmToken })
+			).json()) as unknown[]
+		).map((item) => CharacterReviewDto.parse(item));
+		const review = reviews.find((item) => item.inviteId === invite.id);
+		expect(review?.creationRoll?.chosenIndex).toBe(fallbackIndex);
+		expect(review?.creationRoll?.lockedAt).toBeNumber();
+		const sheet = coc7e.Coc7eCharacterSheet.parse(review?.submittedSheet);
+		const differences = coc7e.coc7eCreationDifferences(
+			coc7e.Coc7eCreationRollResult.parse(review?.creationRoll?.result),
+			fallbackIndex,
+			sheet.attributes,
+			sheet.age,
+		);
+		expect(differences).toEqual([]);
 	});
 
 	test("购点 + 骰幸运：幸运掷一次即自动选定，可直接提交", async () => {

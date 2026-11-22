@@ -668,7 +668,21 @@ export class DrizzleCharactersRepository implements CharactersRepository {
 			.where(
 				and(
 					eq(characterCreationRolls.id, id),
-					isNull(characterCreationRolls.chosenIndex),
+					isNull(characterCreationRolls.lockedAt),
+				),
+			)
+			.returning({ id: characterCreationRolls.id });
+		return updated.length > 0;
+	}
+
+	async lockCreationRoll(id: string, lockedAt: number): Promise<boolean> {
+		const updated = await this.db
+			.update(characterCreationRolls)
+			.set({ lockedAt })
+			.where(
+				and(
+					eq(characterCreationRolls.id, id),
+					isNull(characterCreationRolls.lockedAt),
 				),
 			)
 			.returning({ id: characterCreationRolls.id });

@@ -12,8 +12,8 @@ import {
 	CharacterNotOwnedError,
 	CharacterVersionConflictError,
 	CreationMethodUnsupportedError,
-	CreationRollAlreadyChosenError,
 	CreationRollInvalidChoiceError,
+	CreationRollLockedError,
 	CreationRollNotAvailableError,
 	CreationRollNotFoundError,
 	CreationRollRequiredError,
@@ -45,6 +45,7 @@ export function toCreationRollDto(record: CharacterCreationRollRecord) {
 		chosenIndex: record.chosenIndex,
 		createdAt: record.createdAt,
 		chosenAt: record.chosenAt,
+		lockedAt: record.lockedAt,
 	};
 }
 
@@ -295,17 +296,18 @@ export class SubmitCharacterUseCase {
 			}
 			characterId = character.id;
 		} else {
-			if (invite.creationOptionsJson !== null) {
-				const roll = await this.repo.findCreationRoll(invite.id, input.userId);
-				if (!roll || roll.chosenIndex === null) {
-					throw new CreationRollRequiredError();
-				}
-			}
 			const ruleSystem = this.ruleRegistry.get(targetRuleId);
 			const sheet = ruleSystem.characterSheetSchema.parse(
 				input.sheetData ?? ruleSystem.createEmptySheet(),
 			);
 			const sheetJson = JSON.stringify(sheet);
+			if (invite.creationOptionsJson !== null) {
+				const roll = await this.repo.findCreationRoll(invite.id, input.userId);
+				if (!roll || roll.chosenIndex === null) {
+					throw new CreationRollRequiredError();
+				}
+				await this.repo.lockCreationRoll(roll.id, now);
+			}
 			characterId = this.idGenerator.nextId();
 			await this.repo.saveCharacter({
 				id: characterId,
@@ -415,13 +417,14 @@ export class RollCreationUseCase {
 			resultJson: JSON.stringify(result),
 			chosenIndex: singleChoice ? 0 : null,
 			chosenAt: singleChoice ? now : null,
+			lockedAt: null,
 			createdAt: now,
 		});
 		return toCreationRollDto(stored);
 	}
 }
 
-/** PL 从已掷出的多套属性中选定一套；选定后不可更改 */
+/** PL 在提交人物前可反复改选天命套数或改购点；提交后锁定 */
 export class ChooseCreationRollUseCase {
 	constructor(
 		private readonly repo: CharactersRepository,
@@ -441,8 +444,8 @@ export class ChooseCreationRollUseCase {
 		if (!roll) {
 			throw new CreationRollNotFoundError();
 		}
-		if (roll.chosenIndex !== null) {
-			throw new CreationRollAlreadyChosenError();
+		if (roll.lockedAt !== null) {
+			throw new CreationRollLockedError();
 		}
 		const capability = findCharacterCreationCapability(
 			this.ruleRegistry.get(ruleId),
@@ -456,7 +459,7 @@ export class ChooseCreationRollUseCase {
 		}
 		const chosenAt = this.clock.nowEpochMs();
 		if (!(await this.repo.chooseCreationRoll(roll.id, input.index, chosenAt))) {
-			throw new CreationRollAlreadyChosenError();
+			throw new CreationRollLockedError();
 		}
 		return toCreationRollDto({ ...roll, chosenIndex: input.index, chosenAt });
 	}
