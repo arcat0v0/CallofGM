@@ -51,7 +51,8 @@ function GmTopBar() {
 	const [settingsOpen, setSettingsOpen] = useState(false);
 	const [invitesOpen, setInvitesOpen] = useState(false);
 	const nextStatus = status ? nextSessionStatus(status) : null;
-	const title = moduleName ?? sessionName ?? scene?.name ?? sessionId;
+	const title =
+		moduleName ?? sessionName ?? scene?.name ?? t("gm.workbench.unnamedSession");
 	const subtitleBase =
 		sessionName && sessionName !== moduleName
 			? `${sessionName} · ${t("gm.workbench.role")}`
@@ -83,7 +84,7 @@ function GmTopBar() {
 
 	return (
 		<div className="flex h-16 items-center justify-between gap-4">
-			<div className="flex min-w-0 items-center gap-4">
+			<div className="flex min-w-0 items-center gap-4 xl:max-w-[calc(50%-15.5rem)]">
 				<Button
 					asChild
 					variant="tertiary"

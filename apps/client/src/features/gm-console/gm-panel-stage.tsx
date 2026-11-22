@@ -729,7 +729,7 @@ function AudioMiniCard() {
 						{current?.name ?? bgm?.name ?? t("gm.console.audioNone")}
 					</span>
 					<span className="text-md-on-surface-variant truncate text-label-small">
-						{current
+						{current || bgm?.trackId
 							? bgm?.playing
 								? t("gm.workbench.bgmLoopPlaying", {
 										loop: playbackModeLabel(bgm?.mode ?? "single"),

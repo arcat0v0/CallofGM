@@ -8,6 +8,7 @@ import { SessionTerminalOverlay } from "@/features/play/session-terminal-overlay
 import { DialogueBox } from "@/features/session-stage/dialogue-box";
 import { PortraitLayer } from "@/features/session-stage/portrait-layer";
 import { SceneAudioControl } from "@/features/session-stage/scene-audio-control";
+import { SessionLoadingTransition } from "@/features/session-stage/session-loading-transition";
 import { t, useI18nVersion } from "@/i18n";
 import { fetchAllPages, mediaUrl } from "@/lib/api";
 import { usePlayAudio } from "@/lib/bgm";
@@ -35,10 +36,14 @@ function GmConsoleView() {
 	const scene = usePlayStore((state) => state.scene);
 	const messages = usePlayStore((state) => state.messages);
 	const moduleId = usePlayStore((state) => state.moduleId);
+	const snapshotReady = usePlayStore((state) => state.snapshotReady);
+	const storeSessionId = usePlayStore((state) => state.sessionId);
+	const terminal = usePlayStore((state) => state.terminal);
 	const setCatalog = usePlayStore((state) => state.setCatalog);
 	const catalogRevision = usePlayStore((state) => state.catalogRevision);
 	const setCatalogStatus = usePlayStore((state) => state.setCatalogStatus);
 	const [historyOpen, setHistoryOpen] = useState(false);
+	const ready = snapshotReady && storeSessionId === sessionId;
 
 	useEffect(() => {
 		if (!moduleId) {
@@ -95,13 +100,15 @@ function GmConsoleView() {
 		/>
 	) : null;
 
+	const sceneBgUrl = mediaUrl(scene?.bgAssetId);
+
 	const stage = (
 		<ThemeSlot
 			name="gm-console.stage"
 			ctx={{
 				view: {
 					sceneName: scene?.name ?? t("play.consoleFallback"),
-					sceneBgUrl: mediaUrl(scene?.bgAssetId),
+					sceneBgUrl,
 					status,
 					phase,
 					hasDialogue: Boolean(latest),
@@ -116,34 +123,47 @@ function GmConsoleView() {
 		/>
 	);
 
+	const terminalOverlay = (
+		<SessionTerminalOverlay sessionId={sessionId} onRetry={retry} />
+	);
+
 	return (
 		<GmThemeScope>
 			<GmToolProvider>
 				<div className="bg-background relative h-dvh w-full overflow-hidden">
-					<ThemeSlot
-						name="gm-console.layout"
-						ctx={{
-							nodes: {
-								topbar: <GmTopBar />,
-								controls: <GmPanel />,
-								stage,
-								chat: (
-									<GmChatPanel onOpenHistory={() => setHistoryOpen(true)} />
-								),
-								dock: <GmToolDock voice={voice} />,
-								overlays: (
-									<SessionTerminalOverlay
-										sessionId={sessionId}
-										onRetry={retry}
-									/>
-								),
-								connection: <ConnectionBanner />,
-								endedBanner: null,
-							},
-							view: { sessionId, status },
-						}}
-					/>
-					<GmHistoryOverlay open={historyOpen} onOpenChange={setHistoryOpen} />
+					<SessionLoadingTransition
+						ready={ready}
+						suppressed={Boolean(terminal)}
+						variant="console"
+						eyebrow={t("gm.workbench.role")}
+						title={t("gm.workbench.loadingTitle")}
+						description={t("gm.workbench.loadingDescription")}
+						preloadImageUrl={sceneBgUrl}
+						fallbackOverlay={terminalOverlay}
+					>
+						<ThemeSlot
+							name="gm-console.layout"
+							ctx={{
+								nodes: {
+									topbar: <GmTopBar />,
+									controls: <GmPanel />,
+									stage,
+									chat: (
+										<GmChatPanel onOpenHistory={() => setHistoryOpen(true)} />
+									),
+									dock: <GmToolDock voice={voice} />,
+									overlays: terminalOverlay,
+									connection: <ConnectionBanner />,
+									endedBanner: null,
+								},
+								view: { sessionId, status },
+							}}
+						/>
+						<GmHistoryOverlay
+							open={historyOpen}
+							onOpenChange={setHistoryOpen}
+						/>
+					</SessionLoadingTransition>
 				</div>
 			</GmToolProvider>
 		</GmThemeScope>

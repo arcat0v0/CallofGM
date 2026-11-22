@@ -2,7 +2,6 @@ import type { ChatMessageView } from "@cogm/theme-sdk";
 import { Link, useParams } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { LoadingIndicator } from "@/components/ui/loading-indicator";
 import { isSystemMessage } from "@/features/chat/message-list";
 import { useDiceEventStore } from "@/features/dice-animation/dice-event-store";
 import { Composer } from "@/features/play/composer";
@@ -13,6 +12,10 @@ import { usePlayViewport } from "@/features/play/use-play-viewport";
 import { useSessionTheme } from "@/features/play/use-session-theme";
 import { PortraitLayer } from "@/features/session-stage/portrait-layer";
 import { SceneAudioControl } from "@/features/session-stage/scene-audio-control";
+import {
+	SessionLoadingCurtain,
+	SessionLoadingTransition,
+} from "@/features/session-stage/session-loading-transition";
 import { t, useI18nVersion } from "@/i18n";
 import { mediaUrl } from "@/lib/api";
 import { usePlayAudio } from "@/lib/bgm";
@@ -26,15 +29,6 @@ import { usePlayStore } from "@/stores/play-store";
 import { ThemeScope } from "@/themes/runtime/theme-scope";
 import { ThemeSlot } from "@/themes/runtime/theme-slot";
 import { usePlayEntry } from "./use-play-entry";
-
-function PlaySkeleton({ label }: { label: string }) {
-	return (
-		<div className="bg-background flex h-full w-full flex-col items-center justify-center gap-3">
-			<LoadingIndicator contained />
-			<h1 className="text-foreground-secondary text-body-medium">{label}</h1>
-		</div>
-	);
-}
 
 function PlayEntryNotice({
 	sessionId,
@@ -137,8 +131,12 @@ function PlayView() {
 
 	if (gate.state === "checking") {
 		return (
-			<main className="bg-background h-dvh w-full overflow-hidden">
-				<PlaySkeleton label={t("play.confirmingSeat")} />
+			<main className="bg-background relative h-dvh w-full overflow-hidden">
+				<SessionLoadingCurtain
+					variant="stage"
+					title={t("play.confirmingSeat")}
+					description={t("play.confirmingSeatDescription")}
+				/>
 			</main>
 		);
 	}
@@ -168,6 +166,7 @@ function PlaySession({ sessionId }: { sessionId: string }) {
 	const characters = usePlayStore((state) => state.characters);
 	const snapshotReady = usePlayStore((state) => state.snapshotReady);
 	const storeSessionId = usePlayStore((state) => state.sessionId);
+	const terminal = usePlayStore((state) => state.terminal);
 	const historyHasMore = usePlayStore((state) => state.historyHasMore);
 	const historyLoading = usePlayStore((state) => state.historyLoading);
 	const loadOlderHistory = usePlayStore((state) => state.loadOlderHistory);
@@ -231,24 +230,8 @@ function PlaySession({ sessionId }: { sessionId: string }) {
 		return () => window.removeEventListener("keydown", onKeyDown);
 	}, []);
 
-	if (!snapshotReady || storeSessionId !== sessionId) {
-		return (
-			<main className="bg-background relative h-dvh w-full overflow-hidden">
-				<ConnectionBanner />
-				<PlaySkeleton label={t("play.connecting")} />
-				<PlayOverlays
-					sessionId={sessionId}
-					retry={retry}
-					showRotateSuggestion={false}
-					onDismissRotate={() => undefined}
-					endDialogOpen={endDialogOpen}
-					onEndDialogChange={setEndDialogOpen}
-					handoutPromptEnabled={display.handoutPrompt}
-					onOpenHistory={() => setHistoryOpen(true)}
-				/>
-			</main>
-		);
-	}
+	const ready = snapshotReady && storeSessionId === sessionId;
+	const sceneBgUrl = mediaUrl(scene?.bgAssetId);
 
 	const sceneInfo = display.sceneInfo ? (
 		<ThemeSlot name="play.scene-info" ctx={{ variant: viewport }} />
@@ -290,7 +273,7 @@ function PlaySession({ sessionId }: { sessionId: string }) {
 				viewport,
 				view: {
 					sceneName: scene?.name ?? t("play.sceneFallback"),
-					sceneBgUrl: mediaUrl(scene?.bgAssetId),
+					sceneBgUrl,
 					status,
 					phase,
 					hasDialogue: Boolean(latest),
@@ -320,61 +303,82 @@ function PlaySession({ sessionId }: { sessionId: string }) {
 
 	return (
 		<ThemeScope themeId={themeId}>
-			<div className="bg-background relative h-dvh w-full overflow-hidden">
-				<ThemeSlot
-					name="play.layout"
-					ctx={{
-						viewport,
-						nodes: {
-							stage,
-							chat,
-							composer: <Composer compact={viewport !== "desktop"} />,
-							dock: <PlayerActionDock variant={viewport} voice={voice} />,
-							overlays: (
-								<PlayOverlays
-									sessionId={sessionId}
-									retry={retry}
-									showRotateSuggestion={
-										viewport === "portrait" && showRotateSuggestion
-									}
-									onDismissRotate={() => {
-										writeRotateSuggestionDismissed();
-										setShowRotateSuggestion(false);
-									}}
-									endDialogOpen={endDialogOpen}
-									onEndDialogChange={setEndDialogOpen}
-									handoutPromptEnabled={display.handoutPrompt}
-									onOpenHistory={() => setHistoryOpen(true)}
-								/>
-							),
-							connection: <ConnectionBanner />,
-						},
-						view: {
-							sessionId,
-							status,
-							phase,
-							landscapeChatOpen: display.chat,
-							chatOpen: display.chat,
-						},
-						actions: {
-							setLandscapeChatOpen: (open) => setDisplayVisible("chat", open),
-							setChatOpen: (open) => setDisplayVisible("chat", open),
-						},
-					}}
-				/>
-				<ThemeSlot
-					name="play.history"
-					ctx={{
-						open: historyOpen,
-						onClose: () => setHistoryOpen(false),
-						messages: buildChatMessages(messages, selfName),
-						selfName,
-						hasOlder: historyHasMore,
-						loadingOlder: historyLoading,
-						onLoadOlder: loadOlderHistory,
-					}}
-				/>
-			</div>
+			<main className="bg-background relative h-dvh w-full overflow-hidden">
+				<SessionLoadingTransition
+					ready={ready}
+					suppressed={Boolean(terminal)}
+					variant="stage"
+					title={t("play.connecting")}
+					description={t("play.connectingDescription")}
+					preloadImageUrl={sceneBgUrl}
+					fallbackOverlay={
+						<PlayOverlays
+							sessionId={sessionId}
+							retry={retry}
+							showRotateSuggestion={false}
+							onDismissRotate={() => undefined}
+							endDialogOpen={endDialogOpen}
+							onEndDialogChange={setEndDialogOpen}
+							handoutPromptEnabled={display.handoutPrompt}
+							onOpenHistory={() => setHistoryOpen(true)}
+						/>
+					}
+				>
+					<ThemeSlot
+						name="play.layout"
+						ctx={{
+							viewport,
+							nodes: {
+								stage,
+								chat,
+								composer: <Composer compact={viewport !== "desktop"} />,
+								dock: <PlayerActionDock variant={viewport} voice={voice} />,
+								overlays: (
+									<PlayOverlays
+										sessionId={sessionId}
+										retry={retry}
+										showRotateSuggestion={
+											viewport === "portrait" && showRotateSuggestion
+										}
+										onDismissRotate={() => {
+											writeRotateSuggestionDismissed();
+											setShowRotateSuggestion(false);
+										}}
+										endDialogOpen={endDialogOpen}
+										onEndDialogChange={setEndDialogOpen}
+										handoutPromptEnabled={display.handoutPrompt}
+										onOpenHistory={() => setHistoryOpen(true)}
+									/>
+								),
+								connection: <ConnectionBanner />,
+							},
+							view: {
+								sessionId,
+								status,
+								phase,
+								landscapeChatOpen: display.chat,
+								chatOpen: display.chat,
+							},
+							actions: {
+								setLandscapeChatOpen: (open) => setDisplayVisible("chat", open),
+								setChatOpen: (open) => setDisplayVisible("chat", open),
+							},
+						}}
+					/>
+					<ThemeSlot
+						name="play.history"
+						ctx={{
+							open: historyOpen,
+							onClose: () => setHistoryOpen(false),
+							messages: buildChatMessages(messages, selfName),
+							selfName,
+							hasOlder: historyHasMore,
+							loadingOlder: historyLoading,
+							onLoadOlder: loadOlderHistory,
+						}}
+					/>
+				</SessionLoadingTransition>
+			</main>
 		</ThemeScope>
 	);
 }

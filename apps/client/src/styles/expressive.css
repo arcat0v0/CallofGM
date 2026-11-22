@@ -1315,4 +1315,116 @@
 	[data-slot="calendar"] :is(.rdp-button_previous, .rdp-button_next):active {
 		background: var(--color-m3-state-pressed);
 	}
+	[data-slot="session-loading-overlay"] {
+		opacity: 1;
+	}
+	[data-slot="session-loading-overlay"][data-state="exiting"] {
+		pointer-events: none;
+		animation: m3-fade-out var(--duration-standard-slow-effects)
+			var(--ease-standard-slow-effects) forwards;
+	}
+	[data-slot="session-loading-overlay"][data-variant="stage"][data-state="exiting"] {
+		animation: m3-fade-out var(--duration-expressive-slow-effects)
+			var(--ease-expressive-slow-effects) forwards;
+	}
+	[data-slot="session-loading-overlay"][data-state="loading"]
+		[data-slot="session-loading-card"] {
+		animation: m3-session-loading-in var(--duration-standard-fast-spatial)
+			var(--ease-standard-fast-spatial);
+	}
+	[data-slot="session-loading-overlay"][data-state="exiting"]
+		[data-slot="session-loading-card"] {
+		animation: m3-session-loading-out var(--duration-standard-slow-effects)
+			var(--ease-standard-slow-effects) forwards;
+	}
+	[data-slot="session-loading-overlay"][data-variant="stage"][data-state="loading"]
+		[data-slot="session-loading-card"] {
+		animation: m3-session-loading-in var(--duration-expressive-fast-spatial)
+			var(--ease-expressive-fast-spatial);
+	}
+	[data-slot="session-loading-overlay"][data-variant="stage"][data-state="exiting"]
+		[data-slot="session-loading-card"] {
+		animation: m3-session-loading-out var(--duration-expressive-slow-effects)
+			var(--ease-expressive-slow-effects) forwards;
+	}
+	[data-slot="session-loading-ambient"] {
+		animation: m3-session-ambient var(--duration-loading-morph)
+			var(--ease-standard-slow-effects) infinite alternate;
+	}
+	[data-slot="session-loading-ambient"][data-ambient-role="secondary"] {
+		animation-delay: calc(var(--duration-loading-morph) * -0.5);
+	}
+	[data-slot="session-loading-pulse"] {
+		animation: m3-session-pulse calc(var(--duration-loading-rotation) * 1.5)
+			var(--ease-standard-slow-effects) infinite;
+	}
+	[data-slot="session-stage-reveal"][data-reveal="entering"] {
+		animation: m3-session-reveal var(--duration-standard-default-spatial)
+			var(--ease-standard-default-spatial);
+	}
+	[data-slot="session-stage-reveal"][data-variant="stage"][data-reveal="entering"] {
+		animation: m3-session-reveal var(--duration-expressive-default-spatial)
+			var(--ease-expressive-default-spatial);
+	}
+}
+@keyframes m3-session-loading-in {
+	from {
+		opacity: 0;
+		transform: translateY(10px) scale(0.96);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0) scale(1);
+	}
+}
+@keyframes m3-session-loading-out {
+	from {
+		opacity: 1;
+		transform: translateY(0) scale(1);
+	}
+	to {
+		opacity: 0;
+		transform: translateY(-10px) scale(0.96);
+	}
+}
+@keyframes m3-session-ambient {
+	from {
+		opacity: 0.65;
+		transform: scale(0.96);
+	}
+	to {
+		opacity: 1;
+		transform: scale(1.06);
+	}
+}
+@keyframes m3-session-pulse {
+	0% {
+		opacity: 0.45;
+		transform: scale(0.92);
+	}
+	100% {
+		opacity: 0;
+		transform: scale(1.42);
+	}
+}
+@keyframes m3-session-reveal {
+	from {
+		opacity: 0;
+		transform: scale(0.988);
+	}
+	to {
+		opacity: 1;
+		transform: scale(1);
+	}
+}
+@media (prefers-reduced-motion: reduce) {
+	[data-slot="session-loading-ambient"],
+	[data-slot="session-loading-pulse"],
+	[data-slot="session-loading-card"],
+	[data-slot="session-stage-reveal"] {
+		animation: none;
+	}
+	[data-slot="session-loading-pulse"] {
+		opacity: 0;
+	}
 }
