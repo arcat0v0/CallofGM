@@ -45,7 +45,7 @@ export function createTrashRoutes(container: Container) {
 			return { items };
 		})
 		.post("/api/v1/trash/restore", async ({ actor, body, request }) => {
-			assertTrustedOrigin(request, allowedOrigins);
+			assertTrustedOrigin(request, allowedOrigins, container.env.TRUST_PROXY);
 			if (!actor) {
 				throw new AuthRequiredError();
 			}

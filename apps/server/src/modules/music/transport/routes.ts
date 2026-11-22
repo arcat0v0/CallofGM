@@ -43,7 +43,7 @@ export function createMusicRoutes(container: Container) {
 		})
 		.post("/api/v1/gm/music/resolve", async ({ actor, body, request }) => {
 			requireGm(actor);
-			assertTrustedOrigin(request, allowedOrigins);
+			assertTrustedOrigin(request, allowedOrigins, container.env.TRUST_PROXY);
 			const parsed = ResolveMusicTrackRequest.safeParse(body);
 			if (!parsed.success) {
 				throw validationFailed(parsed.error);
@@ -59,7 +59,7 @@ export function createMusicRoutes(container: Container) {
 			"/api/v1/gm/music/playlists/resolve",
 			async ({ actor, body, request }) => {
 				requireGm(actor);
-				assertTrustedOrigin(request, allowedOrigins);
+				assertTrustedOrigin(request, allowedOrigins, container.env.TRUST_PROXY);
 				const parsed = ResolveMusicPlaylistRequest.safeParse(body);
 				if (!parsed.success) {
 					throw validationFailed(parsed.error);

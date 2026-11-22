@@ -79,7 +79,7 @@ export function createAdminRoutes(container: Container) {
 			return { items: rows.map(toUserDto) };
 		})
 		.post("/api/v1/admin/users", async ({ actor, body, request }) => {
-			assertTrustedOrigin(request, allowedOrigins);
+			assertTrustedOrigin(request, allowedOrigins, container.env.TRUST_PROXY);
 			requireAdmin(actor);
 			const parsed = CreateUserRequest.safeParse(body);
 			if (!parsed.success) {
@@ -95,7 +95,7 @@ export function createAdminRoutes(container: Container) {
 		.patch(
 			"/api/v1/admin/users/:id",
 			async ({ actor, body, params, request }) => {
-				assertTrustedOrigin(request, allowedOrigins);
+				assertTrustedOrigin(request, allowedOrigins, container.env.TRUST_PROXY);
 				const admin = requireAdmin(actor);
 				const parsed = UpdateUserRequest.safeParse(body);
 				if (!parsed.success) {
@@ -121,7 +121,7 @@ export function createAdminRoutes(container: Container) {
 		.post(
 			"/api/v1/admin/users/:id/password",
 			async ({ actor, body, params, request }) => {
-				assertTrustedOrigin(request, allowedOrigins);
+				assertTrustedOrigin(request, allowedOrigins, container.env.TRUST_PROXY);
 				requireAdmin(actor);
 				const parsed = ResetUserPasswordRequest.safeParse(body);
 				if (!parsed.success) {

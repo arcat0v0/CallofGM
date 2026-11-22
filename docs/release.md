@@ -69,6 +69,8 @@ curl -fsS https://cogm.example.com/api/health/ready
 curl -fsS https://cogm.example.com/api/version
 ```
 
+部署在 TLS 反向代理之后时，必须在部署目录的 `.env` 中设置 `TRUST_PROXY=true`，让服务端从代理的 `X-Forwarded-Proto` / `Host` 还原浏览器实际访问的来源；否则它看到的是内部 `http://127.0.0.1:15632`，浏览器带 `Origin` 的登录与写请求会被源校验以 403 拒绝，页面能打开但无法登录或操作。只有确认请求确实经由自己的代理到达时才开启。`CORS_ORIGINS`（逗号分隔）仅用于额外放行前端与 API 不同源的部署。
+
 再打开首页或登录页的版本入口，确认网页版本、后端版本与 commit 一致。游玩房间与沉浸舞台不显示版本入口。
 
 ## 数据库迁移与备份

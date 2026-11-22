@@ -157,7 +157,7 @@ export function createCatalogRoutes(container: Container) {
 				throw new AuthRequiredError();
 			}
 			if (request.method !== "GET" && request.method !== "HEAD") {
-				assertTrustedOrigin(request, allowedOrigins);
+				assertTrustedOrigin(request, allowedOrigins, container.env.TRUST_PROXY);
 			}
 		})
 		.post("/", async ({ body, actor }) => {

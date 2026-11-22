@@ -30,7 +30,7 @@ export function createMediaRoutes(container: Container) {
 			"/api/v1/media/upload",
 			async ({ body, actor, request, server }) => {
 				const ownerId = requireMediaUploader(actor);
-				assertTrustedOrigin(request, corsOriginsFor(container.env));
+				assertTrustedOrigin(request, corsOriginsFor(container.env), container.env.TRUST_PROXY);
 				container.httpLimits.uploadRateLimiter.assert(
 					clientIp(request, server, container.env.TRUST_PROXY),
 				);

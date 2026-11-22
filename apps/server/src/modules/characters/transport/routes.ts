@@ -230,7 +230,7 @@ export function createCharactersRoutes(container: Container) {
 
 	const writeGuard = (request: Request) => {
 		if (request.method !== "GET" && request.method !== "HEAD") {
-			assertTrustedOrigin(request, allowedOrigins);
+			assertTrustedOrigin(request, allowedOrigins, container.env.TRUST_PROXY);
 		}
 	};
 

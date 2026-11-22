@@ -65,7 +65,7 @@ export function createThemeRoutes(container: Container) {
 			"/api/v1/admin/themes",
 			async ({ actor, body, request, server }) => {
 				requireAdmin(actor);
-				assertTrustedOrigin(request, allowedOrigins);
+				assertTrustedOrigin(request, allowedOrigins, container.env.TRUST_PROXY);
 				container.httpLimits.uploadRateLimiter.assert(
 					clientIp(request, server, container.env.TRUST_PROXY),
 				);

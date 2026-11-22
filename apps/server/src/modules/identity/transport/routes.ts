@@ -56,7 +56,7 @@ export function createIdentityRoutes(container: Container) {
 	return new Elysia()
 		.use(authPlugin)
 		.post("/api/v1/auth/login", async ({ body, cookie, request, server }) => {
-			assertTrustedOrigin(request, allowedOrigins);
+			assertTrustedOrigin(request, allowedOrigins, container.env.TRUST_PROXY);
 			container.httpLimits.loginRateLimiter.assert(
 				clientIp(request, server, container.env.TRUST_PROXY),
 			);
@@ -110,7 +110,7 @@ export function createIdentityRoutes(container: Container) {
 			};
 		})
 		.post("/api/v1/auth/logout", async ({ actor, request, cookie }) => {
-			assertTrustedOrigin(request, allowedOrigins);
+			assertTrustedOrigin(request, allowedOrigins, container.env.TRUST_PROXY);
 			if (!actor || actor.type !== "user") {
 				throw new AuthRequiredError();
 			}
@@ -134,7 +134,7 @@ export function createIdentityRoutes(container: Container) {
 			};
 		})
 		.put("/api/v1/auth/password", async ({ actor, body, request, cookie }) => {
-			assertTrustedOrigin(request, allowedOrigins);
+			assertTrustedOrigin(request, allowedOrigins, container.env.TRUST_PROXY);
 			if (!actor || actor.type !== "user") {
 				throw new AuthRequiredError();
 			}
@@ -162,7 +162,7 @@ export function createIdentityRoutes(container: Container) {
 				.parse(await repo.listBlacklistEntries());
 		})
 		.post("/api/v1/gm/blacklist", async ({ actor, body, request }) => {
-			assertTrustedOrigin(request, allowedOrigins);
+			assertTrustedOrigin(request, allowedOrigins, container.env.TRUST_PROXY);
 			requireGm(actor);
 			const parsed = BanPlayerRequest.safeParse(body);
 			if (!parsed.success) {
@@ -233,7 +233,7 @@ export function createIdentityRoutes(container: Container) {
 			};
 		})
 		.post("/api/v1/gm/blacklist/unban", async ({ actor, body, request }) => {
-			assertTrustedOrigin(request, allowedOrigins);
+			assertTrustedOrigin(request, allowedOrigins, container.env.TRUST_PROXY);
 			requireGm(actor);
 			const parsed = UnbanFingerprintRequest.safeParse(body);
 			if (!parsed.success) {
@@ -255,7 +255,7 @@ export function createIdentityRoutes(container: Container) {
 		.post(
 			"/api/v1/player/identity",
 			async ({ body, cookie, request, server }) => {
-				assertTrustedOrigin(request, allowedOrigins);
+				assertTrustedOrigin(request, allowedOrigins, container.env.TRUST_PROXY);
 				container.httpLimits.identityRateLimiter.assert(
 					clientIp(request, server, container.env.TRUST_PROXY),
 				);
