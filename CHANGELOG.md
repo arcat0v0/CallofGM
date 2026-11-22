@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-22
+
 ### Added
 
 - GM 与玩家语音面板新增本地麦克风选择、浏览器音频约束、RNNoise 深度降噪、噪声门和压限器，显示实际应用状态与处理回退提示。
