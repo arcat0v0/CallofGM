@@ -126,11 +126,15 @@ export class DrizzleCatalogRepository implements CatalogRepository {
 	}
 
 	async listModules(options: {
+		ownerId?: string;
 		limit: number;
 		offset?: number;
 		cursor?: string;
 	}): Promise<{ items: CatalogModule[]; nextCursor: string | null }> {
 		const limit = options.limit;
+		const ownerFilter = options.ownerId
+			? eq(modules.ownerId, options.ownerId)
+			: undefined;
 		let items: CatalogModule[];
 		if (options.cursor) {
 			const cursorModule = await this.db
@@ -146,6 +150,7 @@ export class DrizzleCatalogRepository implements CatalogRepository {
 					.where(
 						and(
 							isNull(modules.deletedAt),
+							ownerFilter,
 							or(
 								gt(modules.createdAt, c.createdAt),
 								and(eq(modules.createdAt, c.createdAt), gt(modules.id, c.id)),
@@ -161,7 +166,7 @@ export class DrizzleCatalogRepository implements CatalogRepository {
 			items = await this.db
 				.select()
 				.from(modules)
-				.where(isNull(modules.deletedAt))
+				.where(and(isNull(modules.deletedAt), ownerFilter))
 				.orderBy(asc(modules.createdAt), asc(modules.id))
 				.limit(limit + 1)
 				.offset(options.offset);
@@ -169,7 +174,7 @@ export class DrizzleCatalogRepository implements CatalogRepository {
 			items = await this.db
 				.select()
 				.from(modules)
-				.where(isNull(modules.deletedAt))
+				.where(and(isNull(modules.deletedAt), ownerFilter))
 				.orderBy(asc(modules.createdAt), asc(modules.id))
 				.limit(limit + 1);
 		}
@@ -177,11 +182,16 @@ export class DrizzleCatalogRepository implements CatalogRepository {
 		return paginated(items, limit);
 	}
 
-	async listModuleSummaries(): Promise<ModuleSummary[]> {
+	async listModuleSummaries(ownerId?: string): Promise<ModuleSummary[]> {
 		const moduleRows = await this.db
 			.select()
 			.from(modules)
-			.where(isNull(modules.deletedAt));
+			.where(
+				and(
+					isNull(modules.deletedAt),
+					ownerId ? eq(modules.ownerId, ownerId) : undefined,
+				),
+			);
 		if (moduleRows.length === 0) {
 			return [];
 		}
@@ -194,6 +204,7 @@ export class DrizzleCatalogRepository implements CatalogRepository {
 						latest: max(scenes.createdAt),
 					})
 					.from(scenes)
+					.where(isNull(scenes.deletedAt))
 					.groupBy(scenes.moduleId),
 				this.db
 					.select({
@@ -202,6 +213,7 @@ export class DrizzleCatalogRepository implements CatalogRepository {
 						latest: max(handouts.createdAt),
 					})
 					.from(handouts)
+					.where(isNull(handouts.deletedAt))
 					.groupBy(handouts.moduleId),
 				this.db
 					.select({
@@ -219,11 +231,12 @@ export class DrizzleCatalogRepository implements CatalogRepository {
 						latest: max(moduleCharacters.createdAt),
 					})
 					.from(moduleCharacters)
+					.where(isNull(moduleCharacters.deletedAt))
 					.groupBy(moduleCharacters.moduleId),
 				this.db
 					.select({ moduleId: scenes.moduleId, bgAssetId: scenes.bgAssetId })
 					.from(scenes)
-					.where(isNotNull(scenes.bgAssetId))
+					.where(and(isNull(scenes.deletedAt), isNotNull(scenes.bgAssetId)))
 					.orderBy(
 						asc(scenes.sortOrder),
 						asc(scenes.createdAt),
@@ -271,7 +284,7 @@ export class DrizzleCatalogRepository implements CatalogRepository {
 		const result = await this.db
 			.select()
 			.from(scenes)
-			.where(eq(scenes.id, id))
+			.where(and(eq(scenes.id, id), isNull(scenes.deletedAt)))
 			.limit(1);
 		return result[0] || null;
 	}
@@ -287,7 +300,7 @@ export class DrizzleCatalogRepository implements CatalogRepository {
 		const result = await this.db
 			.update(scenes)
 			.set(updates)
-			.where(eq(scenes.id, id))
+			.where(and(eq(scenes.id, id), isNull(scenes.deletedAt)))
 			.returning();
 		const row = result[0];
 		if (!row) {
@@ -300,7 +313,7 @@ export class DrizzleCatalogRepository implements CatalogRepository {
 		const result = await this.db
 			.update(scenes)
 			.set({ deletedAt: Date.now() })
-			.where(eq(scenes.id, id))
+			.where(and(eq(scenes.id, id), isNull(scenes.deletedAt)))
 			.returning();
 		if (result.length === 0) {
 			throw new SceneNotFoundError();
@@ -317,7 +330,7 @@ export class DrizzleCatalogRepository implements CatalogRepository {
 			const cursorRow = await this.db
 				.select()
 				.from(scenes)
-				.where(eq(scenes.id, options.cursor))
+				.where(and(eq(scenes.id, options.cursor), isNull(scenes.deletedAt)))
 				.limit(1);
 			const c = cursorRow[0];
 			if (!c) {
@@ -329,6 +342,7 @@ export class DrizzleCatalogRepository implements CatalogRepository {
 				.where(
 					and(
 						eq(scenes.moduleId, moduleId),
+						isNull(scenes.deletedAt),
 						or(
 							gt(scenes.sortOrder, c.sortOrder),
 							and(
@@ -349,7 +363,7 @@ export class DrizzleCatalogRepository implements CatalogRepository {
 			items = await this.db
 				.select()
 				.from(scenes)
-				.where(eq(scenes.moduleId, moduleId))
+				.where(and(eq(scenes.moduleId, moduleId), isNull(scenes.deletedAt)))
 				.orderBy(asc(scenes.sortOrder), asc(scenes.createdAt), asc(scenes.id))
 				.limit(limit + 1)
 				.offset(options.offset);
@@ -357,7 +371,7 @@ export class DrizzleCatalogRepository implements CatalogRepository {
 			items = await this.db
 				.select()
 				.from(scenes)
-				.where(eq(scenes.moduleId, moduleId))
+				.where(and(eq(scenes.moduleId, moduleId), isNull(scenes.deletedAt)))
 				.orderBy(asc(scenes.sortOrder), asc(scenes.createdAt), asc(scenes.id))
 				.limit(limit + 1);
 		}
@@ -529,7 +543,7 @@ export class DrizzleCatalogRepository implements CatalogRepository {
 		const result = await this.db
 			.select()
 			.from(handouts)
-			.where(eq(handouts.id, id))
+			.where(and(eq(handouts.id, id), isNull(handouts.deletedAt)))
 			.limit(1);
 		return result[0] || null;
 	}
@@ -547,7 +561,7 @@ export class DrizzleCatalogRepository implements CatalogRepository {
 		const result = await this.db
 			.update(handouts)
 			.set(updates)
-			.where(eq(handouts.id, id))
+			.where(and(eq(handouts.id, id), isNull(handouts.deletedAt)))
 			.returning();
 		const row = result[0];
 		if (!row) {
@@ -560,7 +574,7 @@ export class DrizzleCatalogRepository implements CatalogRepository {
 		const result = await this.db
 			.update(handouts)
 			.set({ deletedAt: Date.now() })
-			.where(eq(handouts.id, id))
+			.where(and(eq(handouts.id, id), isNull(handouts.deletedAt)))
 			.returning();
 		if (result.length === 0) {
 			throw new HandoutNotFoundError();
@@ -577,7 +591,7 @@ export class DrizzleCatalogRepository implements CatalogRepository {
 			const cursorRow = await this.db
 				.select()
 				.from(handouts)
-				.where(eq(handouts.id, options.cursor))
+				.where(and(eq(handouts.id, options.cursor), isNull(handouts.deletedAt)))
 				.limit(1);
 			const c = cursorRow[0];
 			if (!c) {
@@ -589,6 +603,7 @@ export class DrizzleCatalogRepository implements CatalogRepository {
 				.where(
 					and(
 						eq(handouts.moduleId, moduleId),
+						isNull(handouts.deletedAt),
 						or(
 							gt(handouts.createdAt, c.createdAt),
 							and(eq(handouts.createdAt, c.createdAt), gt(handouts.id, c.id)),
@@ -601,7 +616,7 @@ export class DrizzleCatalogRepository implements CatalogRepository {
 			items = await this.db
 				.select()
 				.from(handouts)
-				.where(eq(handouts.moduleId, moduleId))
+				.where(and(eq(handouts.moduleId, moduleId), isNull(handouts.deletedAt)))
 				.orderBy(asc(handouts.createdAt), asc(handouts.id))
 				.limit(limit + 1)
 				.offset(options.offset);
@@ -609,7 +624,7 @@ export class DrizzleCatalogRepository implements CatalogRepository {
 			items = await this.db
 				.select()
 				.from(handouts)
-				.where(eq(handouts.moduleId, moduleId))
+				.where(and(eq(handouts.moduleId, moduleId), isNull(handouts.deletedAt)))
 				.orderBy(asc(handouts.createdAt), asc(handouts.id))
 				.limit(limit + 1);
 		}

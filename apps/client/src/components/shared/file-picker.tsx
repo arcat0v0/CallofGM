@@ -26,8 +26,15 @@ function FilePicker({
 				className,
 			)}
 		>
-			<Paperclip className="size-4 shrink-0" />
-			<span className="min-w-0 flex-1 truncate">{value || label}</span>
+			<Paperclip className="text-md-on-surface-variant size-4 shrink-0" />
+			<span
+				className={cn(
+					"min-w-0 flex-1 truncate",
+					value ? "text-field-foreground" : "text-field-placeholder",
+				)}
+			>
+				{value || label}
+			</span>
 			<input
 				id={id}
 				name={name}

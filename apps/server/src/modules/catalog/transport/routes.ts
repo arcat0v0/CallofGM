@@ -36,7 +36,12 @@ import {
 	UpdateSceneUseCase,
 	UpdateTrackUseCase,
 } from "../application/use-cases";
-import { ModuleNotFoundError, TrackNotFoundError } from "../domain/errors";
+import {
+	HandoutNotFoundError,
+	ModuleNotFoundError,
+	SceneNotFoundError,
+	TrackNotFoundError,
+} from "../domain/errors";
 
 function parsePageQuery(query: unknown) {
 	const parsed = CursorPageQuery.safeParse(query ?? {});
@@ -127,6 +132,24 @@ export function createCatalogRoutes(container: Container) {
 		return track;
 	};
 
+	const requireOwnedScene = async (sceneId: string, ownerId: string) => {
+		const scene = await repo.findSceneById(sceneId);
+		if (!scene) {
+			throw new SceneNotFoundError();
+		}
+		await requireOwnedModule(scene.moduleId, ownerId);
+		return scene;
+	};
+
+	const requireOwnedHandout = async (handoutId: string, ownerId: string) => {
+		const handout = await repo.findHandoutById(handoutId);
+		if (!handout) {
+			throw new HandoutNotFoundError();
+		}
+		await requireOwnedModule(handout.moduleId, ownerId);
+		return handout;
+	};
+
 	return new Elysia({ prefix: "/api/v1/gm/modules" })
 		.use(container.authPlugin)
 		.onBeforeHandle(({ actor, request }) => {
@@ -155,8 +178,10 @@ export function createCatalogRoutes(container: Container) {
 				}),
 			);
 		})
-		.get("/summaries", async () => {
-			return z.array(ModuleSummaryDto).parse(await repo.listModuleSummaries());
+		.get("/summaries", async ({ actor }) => {
+			return z
+				.array(ModuleSummaryDto)
+				.parse(await repo.listModuleSummaries(requireGm(actor).userId));
 		})
 		.get("/:id", async ({ params, actor }) => {
 			return ModuleDto.parse(
@@ -174,7 +199,8 @@ export function createCatalogRoutes(container: Container) {
 			await deleteModule.execute(params.id);
 			return { success: true };
 		})
-		.post("/:id/scenes", async ({ params, body }) => {
+		.post("/:id/scenes", async ({ params, body, actor }) => {
+			await requireOwnedModule(params.id, requireGm(actor).userId);
 			const parsed = parseBody(CreateSceneRequest, body);
 			return SceneDto.parse(
 				await createScene.execute({
@@ -183,12 +209,14 @@ export function createCatalogRoutes(container: Container) {
 				}),
 			);
 		})
-		.get("/:id/scenes", async ({ params, query }) => {
+		.get("/:id/scenes", async ({ params, query, actor }) => {
+			await requireOwnedModule(params.id, requireGm(actor).userId);
 			return CursorPageResponse(SceneDto).parse(
 				await listScenes.execute(params.id, parsePageQuery(query)),
 			);
 		})
-		.patch("/scenes/:id", async ({ params, body }) => {
+		.patch("/scenes/:id", async ({ params, body, actor }) => {
+			await requireOwnedScene(params.id, requireGm(actor).userId);
 			return SceneDto.parse(
 				await updateScene.execute(
 					params.id,
@@ -196,7 +224,8 @@ export function createCatalogRoutes(container: Container) {
 				),
 			);
 		})
-		.delete("/scenes/:id", async ({ params }) => {
+		.delete("/scenes/:id", async ({ params, actor }) => {
+			await requireOwnedScene(params.id, requireGm(actor).userId);
 			await repo.deleteScene(params.id);
 			return { success: true };
 		})
@@ -233,7 +262,8 @@ export function createCatalogRoutes(container: Container) {
 			await repo.deleteTrack(params.id);
 			return { success: true };
 		})
-		.post("/:id/handouts", async ({ params, body }) => {
+		.post("/:id/handouts", async ({ params, body, actor }) => {
+			await requireOwnedModule(params.id, requireGm(actor).userId);
 			const parsed = parseBody(CreateHandoutRequest, body);
 			return CatalogHandoutDto.parse(
 				await createHandout.execute({
@@ -242,12 +272,14 @@ export function createCatalogRoutes(container: Container) {
 				}),
 			);
 		})
-		.get("/:id/handouts", async ({ params, query }) => {
+		.get("/:id/handouts", async ({ params, query, actor }) => {
+			await requireOwnedModule(params.id, requireGm(actor).userId);
 			return CursorPageResponse(CatalogHandoutDto).parse(
 				await listHandouts.execute(params.id, parsePageQuery(query)),
 			);
 		})
-		.patch("/handouts/:id", async ({ params, body }) => {
+		.patch("/handouts/:id", async ({ params, body, actor }) => {
+			await requireOwnedHandout(params.id, requireGm(actor).userId);
 			return CatalogHandoutDto.parse(
 				await updateHandout.execute(
 					params.id,
@@ -255,7 +287,8 @@ export function createCatalogRoutes(container: Container) {
 				),
 			);
 		})
-		.delete("/handouts/:id", async ({ params }) => {
+		.delete("/handouts/:id", async ({ params, actor }) => {
+			await requireOwnedHandout(params.id, requireGm(actor).userId);
 			await repo.deleteHandout(params.id);
 			return { success: true };
 		});

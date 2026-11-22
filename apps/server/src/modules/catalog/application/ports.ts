@@ -77,7 +77,7 @@ export interface CatalogRepository {
 		offset?: number;
 		cursor?: string;
 	}): Promise<{ items: CatalogModule[]; nextCursor: string | null }>;
-	listModuleSummaries(): Promise<ModuleSummary[]>;
+	listModuleSummaries(ownerId?: string): Promise<ModuleSummary[]>;
 
 	findSceneById(id: string): Promise<CatalogScene | null>;
 	saveScene(scene: CatalogScene): Promise<void>;

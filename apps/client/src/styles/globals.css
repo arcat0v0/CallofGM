@@ -28,6 +28,6 @@
     user-select: text;
   }
   html {
-    @apply font-sans;
+    @apply bg-background font-sans;
   }
 }

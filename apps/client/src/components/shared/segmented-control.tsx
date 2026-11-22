@@ -53,10 +53,10 @@ function SegmentedControl<T extends string>({
 						aria-disabled={option.ariaDisabled || undefined}
 						disabled={option.disabled}
 						variant="tertiary"
-						size="sm"
+						size="xs"
 						onClick={() => onValueChange(option.value)}
 						className={cn(
-							"relative z-1 h-8 flex-1 rounded-full bg-transparent px-4",
+							"relative z-1 h-8 flex-1 rounded-full bg-transparent px-4 [&_svg]:size-4",
 							"disabled:bg-transparent! disabled:opacity-60",
 							selected
 								? "font-semibold text-segment-foreground hover:bg-transparent disabled:text-segment-foreground!"

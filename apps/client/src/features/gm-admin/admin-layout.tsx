@@ -142,11 +142,14 @@ function AdminLayout({
 	const content = (
 		<main
 			className={cn(
-				"bg-md-surface-container-low min-w-0 flex-1 overflow-y-auto rounded-tl-2xl",
-				!bleed && "px-4 py-6 sm:px-6 md:px-10 md:py-9",
+				"bg-md-surface-container-low min-h-0 min-w-0 flex-1 overflow-y-auto",
+				!bleed && "px-4 py-6 sm:px-6 md:rounded-tl-xl md:px-10 md:py-9",
 			)}
 		>
 			{children}
+			<footer className="flex justify-end px-4 pt-1 pb-4 md:hidden">
+				<VersionBadge className="h-7 px-2 text-md-on-surface-variant/80 hover:text-md-on-surface" />
+			</footer>
 		</main>
 	);
 
@@ -156,7 +159,9 @@ function AdminLayout({
 				name="gm-admin.shell"
 				ctx={{ nodes: { nav, content }, view: { active: current } }}
 			/>
-			<VersionBadge className="fixed right-4 bottom-3 z-40" />
+			<div className="fixed bottom-2 left-0 z-40 hidden w-24 justify-center md:flex">
+				<VersionBadge className="h-6 px-1.5 text-md-on-surface-variant/80 hover:text-md-on-surface" />
+			</div>
 		</GmThemeScope>
 	);
 }

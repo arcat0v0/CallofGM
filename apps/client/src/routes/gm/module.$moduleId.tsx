@@ -3,28 +3,56 @@ import type {
 	CharacterDto,
 	ModuleDto,
 	SceneDto,
+	ThemeSummaryDto,
 	TrackDto,
 } from "@cogm/shared";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { Howl } from "howler";
 import {
-	ChevronRight,
-	ImagePlus,
+	ArrowLeftRight,
+	Check,
+	ChevronLeft,
+	Disc3,
+	Ellipsis,
+	ExternalLink,
+	Link2,
 	Music2,
+	Pause,
+	Pencil,
+	Play,
 	Plus,
-	ScrollText,
+	Search,
 	Trash2,
 	Upload,
-	UserPlus,
+	Volume2,
+	X,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { FilePicker } from "@/components/shared/file-picker";
-import { PageHeader } from "@/components/shared/page-header";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogHeader,
+	DialogTitle,
+} from "@/components/ui/dialog";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuSeparator,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import {
+	InputGroup,
+	InputGroupAddon,
+	InputGroupInput,
+} from "@/components/ui/input-group";
 import {
 	Select,
 	SelectContent,
@@ -32,825 +60,1034 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
 import { AdminLayout } from "@/features/gm-admin/admin-layout";
 import { InviteLinksDialog } from "@/features/gm-admin/invite-links-dialog";
+import { trackSourceLabel } from "@/features/gm-console/gm-audio";
+import { MusicSourcePanel } from "@/features/gm-console/music-source-panel";
+import { ModuleCharactersTab } from "@/features/gm-modules/characters-tab";
+import { ModuleHandoutsTab } from "@/features/gm-modules/handouts-tab";
+import {
+	type ModuleDetailSearch,
+	type ModuleDetailTab,
+	parseModuleDetailSearch,
+} from "@/features/gm-modules/module-model";
+import { ModuleScenesTab } from "@/features/gm-modules/scenes-tab";
+import { ModuleSettingsTab } from "@/features/gm-modules/settings-tab";
 import { t, useI18nVersion } from "@/i18n";
 import { api, fetchAllPages, mediaUrl } from "@/lib/api";
 import { audioDurationMs } from "@/lib/audio-duration";
 import { errorText } from "@/lib/errors";
+import { formatDurationMmSs } from "@/lib/format";
 import { requireGmAuth } from "@/lib/identity";
 import { uploadMediaAsset } from "@/lib/media-upload";
-import { FALLBACK_RULE_ID } from "@/rules/registry";
+import { cn } from "@/lib/utils";
+import { getRuleComponent } from "@/rules/registry";
+import { listThemes } from "@/themes/themes-api";
 
 export const Route = createFileRoute("/gm/module/$moduleId")({
+	validateSearch: (search: Record<string, unknown>): ModuleDetailSearch =>
+		parseModuleDetailSearch(search),
 	beforeLoad: requireGmAuth,
 	component: ModuleDetailPage,
 });
 
-function SceneCard({
-	scene,
-	onReload,
-}: {
-	scene: SceneDto;
-	onReload: () => Promise<void>;
-}) {
-	const [name, setName] = useState(scene.name);
-
-	useEffect(() => {
-		setName(scene.name);
-	}, [scene.name]);
-
-	return (
-		<Card className="gap-0 overflow-hidden rounded-2xl p-0">
-			<div className="relative h-[150px]">
-				{scene.bgAssetId ? (
-					<img
-						src={mediaUrl(scene.bgAssetId) ?? undefined}
-						alt={scene.name}
-						className="absolute inset-0 size-full object-cover"
-					/>
-				) : (
-					<div className="bg-default absolute inset-0" />
-				)}
-			</div>
-			<div className="flex items-center gap-2 px-3 py-2.5">
-				<Input
-					value={name}
-					onChange={(event) => setName(event.target.value)}
-					aria-label={t("gm.module.sceneAria", { name: scene.name })}
-					className="h-8 flex-1"
-				/>
-				<Button
-					type="button"
-					variant="tertiary"
-					size="sm"
-					className="h-8"
-					disabled={!name.trim() || name.trim() === scene.name}
-					onClick={() => {
-						void api(`/gm/modules/scenes/${encodeURIComponent(scene.id)}`, {
-							method: "PATCH",
-							body: JSON.stringify({ name: name.trim() }),
-						})
-							.then(() => onReload())
-							.catch((error) =>
-								toast.error(errorText(error, "gm.module.saveFailed")),
-							);
-					}}
-				>
-					{t("gm.module.save")}
-				</Button>
-				<Button
-					variant="ghost"
-					size="icon-sm"
-					className="size-8"
-					aria-label={t("gm.module.deleteScene", { name: scene.name })}
-					onClick={() => {
-						void api(`/gm/modules/scenes/${encodeURIComponent(scene.id)}`, {
-							method: "DELETE",
-						})
-							.then(() => onReload())
-							.catch((error) =>
-								toast.error(errorText(error, "gm.module.deleteFailed")),
-							);
-					}}
-				>
-					<Trash2 />
-				</Button>
-			</div>
-		</Card>
-	);
+function padTrackIndex(index: number) {
+	return String(index + 1).padStart(2, "0");
 }
 
-function TrackRowItem({
+function trackPlaybackSrc(track: TrackDto): string | null {
+	if (track.source !== "upload") {
+		return `/api/v1/music/tracks/${encodeURIComponent(track.id)}/stream`;
+	}
+	return mediaUrl(track.audioAssetId);
+}
+
+function TrackStudioRow({
 	track,
+	index,
+	previewing,
+	onTogglePreview,
 	onReload,
+	onRequestDelete,
 }: {
 	track: TrackDto;
+	index: number;
+	previewing: boolean;
+	onTogglePreview: () => void;
 	onReload: () => Promise<void>;
+	onRequestDelete: () => void;
 }) {
-	const [name, setName] = useState(track.name);
+	const [renaming, setRenaming] = useState(false);
+	const [draftName, setDraftName] = useState(track.name);
+	const [busy, setBusy] = useState(false);
 
 	useEffect(() => {
-		setName(track.name);
+		setDraftName(track.name);
 	}, [track.name]);
 
+	async function commitRename() {
+		const trimmed = draftName.trim();
+		if (!trimmed || trimmed === track.name) {
+			setRenaming(false);
+			setDraftName(track.name);
+			return;
+		}
+		setBusy(true);
+		try {
+			await api(`/gm/modules/tracks/${encodeURIComponent(track.id)}`, {
+				method: "PATCH",
+				body: JSON.stringify({ name: trimmed }),
+			});
+			setRenaming(false);
+			await onReload();
+		} catch (error) {
+			toast.error(errorText(error, "gm.module.saveFailed"));
+		} finally {
+			setBusy(false);
+		}
+	}
+
+	async function toggleType() {
+		setBusy(true);
+		try {
+			await api(`/gm/modules/tracks/${encodeURIComponent(track.id)}`, {
+				method: "PATCH",
+				body: JSON.stringify({ type: track.type === "bgm" ? "se" : "bgm" }),
+			});
+			await onReload();
+		} catch (error) {
+			toast.error(errorText(error, "gm.module.saveFailed"));
+		} finally {
+			setBusy(false);
+		}
+	}
+
+	// 本地上传且无艺术家时不重复展示“本地上传”噪声副标题，仅展示外部来源或艺术家
+	const subtitle = [
+		track.source !== "upload" ? trackSourceLabel(track.source) : null,
+		track.artists.length > 0 ? track.artists.join(" / ") : null,
+	]
+		.filter(Boolean)
+		.join(" · ");
+
 	return (
-		<div className="bg-md-surface-container flex items-center gap-2 rounded-xl px-3 py-2">
-			<Input
-				value={name}
-				onChange={(event) => setName(event.target.value)}
-				aria-label={t("gm.module.trackAria", { name: track.name })}
-				className="h-8 flex-1"
-			/>
-			<Badge variant="soft" size="sm">
-				{track.type.toUpperCase()}
-			</Badge>
+		<li
+			className={cn(
+				"flex items-center gap-3 px-3.5 py-2.5 transition-colors",
+				previewing
+					? "bg-md-surface-container-high"
+					: "hover:bg-md-surface-container-high/50",
+			)}
+		>
+			<span className="w-5 shrink-0 font-mono text-label-small tabular-nums text-md-on-surface-variant">
+				{padTrackIndex(index)}
+			</span>
+
 			<Button
 				type="button"
-				variant="tertiary"
-				size="sm"
-				className="h-8"
-				disabled={!name.trim() || name.trim() === track.name}
-				onClick={() => {
-					void api(`/gm/modules/tracks/${encodeURIComponent(track.id)}`, {
-						method: "PATCH",
-						body: JSON.stringify({ name: name.trim() }),
-					})
-						.then(() => onReload())
-						.catch((error) =>
-							toast.error(errorText(error, "gm.module.saveFailed")),
-						);
-				}}
-			>
-				{t("gm.module.save")}
-			</Button>
-			<Button
-				variant="ghost"
+				variant={previewing ? "accentSoft" : "ghost"}
 				size="icon-sm"
-				className="size-8"
-				aria-label={t("gm.module.deleteTrack", { name: track.name })}
-				onClick={() => {
-					void api(`/gm/modules/tracks/${encodeURIComponent(track.id)}`, {
-						method: "DELETE",
-					})
-						.then(() => onReload())
-						.catch((error) =>
-							toast.error(errorText(error, "gm.module.deleteFailed")),
-						);
-				}}
+				className={cn(
+					"size-8 shrink-0 rounded-full border transition-colors",
+					previewing
+						? "border-accent/45"
+						: "border-md-outline-variant/80 bg-md-surface-container-low text-md-on-surface hover:border-accent/60 hover:text-accent",
+				)}
+				aria-label={
+					previewing
+						? t("gm.music.previewStopAria", { name: track.name })
+						: t("gm.music.previewAria", { name: track.name })
+				}
+				onClick={onTogglePreview}
 			>
-				<Trash2 />
+				{previewing ? (
+					<Pause className="size-3.5 fill-current" />
+				) : (
+					<Play className="ml-0.5 size-3.5 fill-current" />
+				)}
 			</Button>
-		</div>
-	);
-}
 
-function HandoutCard({
-	handout,
-	onReload,
-}: {
-	handout: CatalogHandoutDto;
-	onReload: () => Promise<void>;
-}) {
-	const [title, setTitle] = useState(handout.title);
-	const [content, setContent] = useState(handout.content);
-
-	useEffect(() => {
-		setTitle(handout.title);
-		setContent(handout.content);
-	}, [handout.title, handout.content]);
-
-	const unchanged =
-		title.trim() === handout.title && content === handout.content;
-
-	return (
-		<Card className="flex flex-col gap-2 rounded-2xl p-3">
-			<div className="flex items-center gap-2">
-				<Input
-					value={title}
-					onChange={(event) => setTitle(event.target.value)}
-					aria-label={t("gm.module.handoutTitleAria", { title: handout.title })}
-					className="h-8 flex-1"
-				/>
-				<Button
-					type="button"
-					variant="tertiary"
-					size="sm"
-					className="h-8"
-					disabled={!title.trim() || unchanged}
-					onClick={() => {
-						void api(`/gm/modules/handouts/${encodeURIComponent(handout.id)}`, {
-							method: "PATCH",
-							body: JSON.stringify({ title: title.trim(), content }),
-						})
-							.then(() => onReload())
-							.catch((error) =>
-								toast.error(errorText(error, "gm.module.saveFailed")),
-							);
+			{renaming ? (
+				<form
+					className="flex min-w-0 flex-1 items-center gap-1.5"
+					onSubmit={(event) => {
+						event.preventDefault();
+						void commitRename();
 					}}
 				>
-					{t("gm.module.save")}
-				</Button>
-				<Button
-					variant="ghost"
-					size="icon-sm"
-					className="size-8"
-					aria-label={t("gm.module.deleteHandout", { title: handout.title })}
-					onClick={() => {
-						void api(`/gm/modules/handouts/${encodeURIComponent(handout.id)}`, {
-							method: "DELETE",
-						})
-							.then(() => onReload())
-							.catch((error) =>
-								toast.error(errorText(error, "gm.module.deleteFailed")),
-							);
-					}}
-				>
-					<Trash2 />
-				</Button>
-			</div>
-			<Textarea
-				value={content}
-				onChange={(event) => setContent(event.target.value)}
-				aria-label={t("gm.module.handoutContentAria", { title: handout.title })}
-			/>
-		</Card>
+					<Input
+						value={draftName}
+						autoFocus
+						disabled={busy}
+						aria-label={t("gm.module.trackAria", { name: track.name })}
+						onChange={(event) => setDraftName(event.target.value)}
+						onKeyDown={(event) => {
+							if (event.key === "Escape") {
+								setRenaming(false);
+								setDraftName(track.name);
+							}
+						}}
+						className="h-8 min-w-0 flex-1 rounded-sm"
+					/>
+					<Button
+						type="submit"
+						variant="primary"
+						size="icon-sm"
+						disabled={busy || !draftName.trim()}
+						aria-label={t("gm.module.save")}
+						className="size-8 shrink-0"
+					>
+						<Check className="size-4" />
+					</Button>
+					<Button
+						type="button"
+						variant="ghost"
+						size="icon-sm"
+						disabled={busy}
+						aria-label={t("common.cancel")}
+						className="size-8 shrink-0"
+						onClick={() => {
+							setRenaming(false);
+							setDraftName(track.name);
+						}}
+					>
+						<X className="size-4" />
+					</Button>
+				</form>
+			) : (
+				<div className="flex min-w-0 flex-1 flex-col">
+					<span
+						className={cn(
+							"truncate text-body-medium-emph",
+							previewing ? "text-accent" : "text-md-on-surface",
+						)}
+					>
+						{track.name}
+					</span>
+					{subtitle ? (
+						<span className="truncate text-body-small text-md-on-surface-variant">
+							{subtitle}
+						</span>
+					) : null}
+				</div>
+			)}
+
+			{!renaming ? (
+				<div className="flex shrink-0 items-center gap-1">
+					<span className="w-12 text-right font-mono text-label-medium tabular-nums text-md-on-surface-variant">
+						{formatDurationMmSs(track.duration)}
+					</span>
+					<DropdownMenu>
+						<DropdownMenuTrigger asChild>
+							<Button
+								type="button"
+								variant="ghost"
+								size="icon-sm"
+								disabled={busy}
+								aria-label={t("gm.module.trackActionsAria", {
+									name: track.name,
+								})}
+								className="size-10 rounded-full text-md-on-surface-variant hover:bg-md-on-surface/8 hover:text-md-on-surface sm:size-9"
+							>
+								<Ellipsis className="size-4" />
+							</Button>
+						</DropdownMenuTrigger>
+						<DropdownMenuContent align="end">
+							<DropdownMenuItem onClick={() => setRenaming(true)}>
+								<Pencil />
+								{t("gm.module.rename")}
+							</DropdownMenuItem>
+							<DropdownMenuItem onClick={() => void toggleType()}>
+								<ArrowLeftRight />
+								{track.type === "bgm"
+									? t("gm.module.switchToSe")
+									: t("gm.module.switchToBgm")}
+							</DropdownMenuItem>
+							{track.sourceUrl ? (
+								<DropdownMenuItem asChild>
+									<a href={track.sourceUrl} target="_blank" rel="noreferrer">
+										<ExternalLink />
+										{t("gm.module.openSourceLink")}
+									</a>
+								</DropdownMenuItem>
+							) : null}
+							<DropdownMenuSeparator />
+							<DropdownMenuItem
+								variant="destructive"
+								onClick={onRequestDelete}
+							>
+								<Trash2 />
+								{t("gm.module.deleteTrackTitle")}
+							</DropdownMenuItem>
+						</DropdownMenuContent>
+					</DropdownMenu>
+				</div>
+			) : null}
+		</li>
 	);
 }
 
 function ModuleDetailPage() {
 	useI18nVersion();
 	const { moduleId } = Route.useParams();
+	const search = Route.useSearch();
+	const navigate = useNavigate({ from: Route.fullPath });
+	const activeTab: ModuleDetailTab = search.tab ?? "scenes";
+
 	const [module, setModule] = useState<ModuleDto | null>(null);
-	const [moduleName, setModuleName] = useState("");
-	const [moduleDescription, setModuleDescription] = useState("");
+	const [themes, setThemes] = useState<ThemeSummaryDto[]>([]);
 	const [scenes, setScenes] = useState<SceneDto[]>([]);
 	const [tracks, setTracks] = useState<TrackDto[]>([]);
 	const [handouts, setHandouts] = useState<CatalogHandoutDto[]>([]);
-	const [linked, setLinked] = useState<CharacterDto[]>([]);
-	const [allCharacters, setAllCharacters] = useState<CharacterDto[]>([]);
-	const [sceneName, setSceneName] = useState("");
-	const [sceneBgName, setSceneBgName] = useState("");
+	const [linkedCount, setLinkedCount] = useState(0);
+	const [loading, setLoading] = useState(true);
+	const [loadError, setLoadError] = useState<unknown>(null);
+
+	// 音乐上传、拖放、搜索与试听状态
+	const [trackQuery, setTrackQuery] = useState("");
 	const [trackName, setTrackName] = useState("");
 	const [trackFileName, setTrackFileName] = useState("");
+	const [droppedFile, setDroppedFile] = useState<File | null>(null);
+	const [dropTarget, setDropTarget] = useState<"bgm" | "se" | null>(null);
 	const [trackType, setTrackType] = useState<"bgm" | "se">("bgm");
-	const [handoutTitle, setHandoutTitle] = useState("");
-	const [handoutContent, setHandoutContent] = useState("");
-	const [handoutImageName, setHandoutImageName] = useState("");
+	const [uploadingTrack, setUploadingTrack] = useState(false);
+	const [platformOpen, setPlatformOpen] = useState(false);
+	const [deleteTrackTarget, setDeleteTrackTarget] = useState<TrackDto | null>(
+		null,
+	);
+	const [previewTrackId, setPreviewTrackId] = useState<string | null>(null);
+	const previewRef = useRef<Howl | null>(null);
+	const audioFormRef = useRef<HTMLFormElement | null>(null);
+
 	const [invitesOpen, setInvitesOpen] = useState(false);
 
-	async function reload() {
+	const setTab = useCallback(
+		(tab: ModuleDetailTab) => {
+			void navigate({
+				search: (prev: ModuleDetailSearch) => ({
+					...prev,
+					tab: tab === "scenes" ? undefined : tab,
+				}),
+				replace: true,
+			});
+		},
+		[navigate],
+	);
+
+	const stopPreview = useCallback(() => {
+		previewRef.current?.unload();
+		previewRef.current = null;
+		setPreviewTrackId(null);
+	}, []);
+
+	useEffect(() => () => stopPreview(), [stopPreview]);
+	useEffect(() => {
+		if (activeTab !== "music") stopPreview();
+	}, [activeTab, stopPreview]);
+
+	const reload = useCallback(async () => {
+		setLoading(true);
+		setLoadError(null);
 		try {
-			const [
-				mod,
-				nextScenes,
-				nextTracks,
-				nextHandouts,
-				nextLinked,
-				nextCharacters,
-			] = await Promise.all([
-				api<ModuleDto>(`/gm/modules/${encodeURIComponent(moduleId)}`),
-				fetchAllPages<SceneDto>(
-					`/gm/modules/${encodeURIComponent(moduleId)}/scenes`,
-				),
-				fetchAllPages<TrackDto>(
-					`/gm/modules/${encodeURIComponent(moduleId)}/tracks`,
-				),
-				fetchAllPages<CatalogHandoutDto>(
-					`/gm/modules/${encodeURIComponent(moduleId)}/handouts`,
-				),
-				fetchAllPages<CharacterDto>(
-					`/gm/modules/${encodeURIComponent(moduleId)}/characters`,
-				),
-				fetchAllPages<CharacterDto>("/gm/characters"),
-			]);
+			const [mod, nextScenes, nextTracks, nextHandouts, nextLinked] =
+				await Promise.all([
+					api<ModuleDto>(`/gm/modules/${encodeURIComponent(moduleId)}`),
+					fetchAllPages<SceneDto>(
+						`/gm/modules/${encodeURIComponent(moduleId)}/scenes`,
+					),
+					fetchAllPages<TrackDto>(
+						`/gm/modules/${encodeURIComponent(moduleId)}/tracks`,
+					),
+					fetchAllPages<CatalogHandoutDto>(
+						`/gm/modules/${encodeURIComponent(moduleId)}/handouts`,
+					),
+					fetchAllPages<CharacterDto>(
+						`/gm/modules/${encodeURIComponent(moduleId)}/characters`,
+					),
+				]);
 			setModule(mod);
-			setModuleName(mod.name);
-			setModuleDescription(mod.description);
 			setScenes(nextScenes);
 			setTracks(nextTracks);
 			setHandouts(nextHandouts);
-			setLinked(nextLinked);
-			setAllCharacters(nextCharacters);
+			setLinkedCount(nextLinked.length);
 		} catch (error) {
+			setLoadError(error);
 			toast.error(errorText(error, "gm.module.loadFailed"));
+		} finally {
+			setLoading(false);
 		}
-	}
+	}, [moduleId]);
 
 	useEffect(() => {
 		void reload();
-	}, [moduleId]);
+		void listThemes()
+			.then((list) => setThemes(Array.isArray(list) ? list : []))
+			.catch(() => undefined);
+	}, [reload]);
 
-	async function saveModule() {
-		const name = moduleName.trim();
-		if (!name) {
-			toast.error(t("gm.module.nameRequired"));
+	function togglePreview(track: TrackDto) {
+		if (previewTrackId === track.id) {
+			stopPreview();
 			return;
 		}
-		try {
-			await api(`/gm/modules/${encodeURIComponent(moduleId)}`, {
-				method: "PATCH",
-				body: JSON.stringify({ name, description: moduleDescription }),
-			});
-			await reload();
-		} catch (error) {
-			toast.error(errorText(error, "gm.module.saveFailed"));
+		stopPreview();
+		const src = trackPlaybackSrc(track);
+		if (!src) {
+			toast.error(t("gm.music.audioUnavailable"));
+			return;
 		}
+		const howl = new Howl({
+			src: [src],
+			html5: true,
+			xhr: { withCredentials: true },
+			volume: 0.8,
+			onloaderror: () => {
+				toast.error(t("gm.music.audioUnavailable"));
+				stopPreview();
+			},
+			onplayerror: () => {
+				toast.error(t("gm.music.audioUnavailable"));
+				stopPreview();
+			},
+		});
+		howl.once("end", () => {
+			if (previewRef.current === howl) {
+				previewRef.current = null;
+				setPreviewTrackId(null);
+			}
+			howl.unload();
+		});
+		howl.play();
+		previewRef.current = howl;
+		setPreviewTrackId(track.id);
 	}
 
-	const moduleUnchanged =
-		moduleName.trim() === (module?.name ?? "") &&
-		moduleDescription === (module?.description ?? "");
+	function clearPendingAudio() {
+		setTrackName("");
+		setTrackFileName("");
+		setDroppedFile(null);
+		const fileInput = audioFormRef.current?.querySelector<HTMLInputElement>(
+			'input[name="audio"]',
+		);
+		if (fileInput) fileInput.value = "";
+	}
+
+	function handleDeckDrop(
+		event: React.DragEvent<HTMLElement>,
+		targetType: "bgm" | "se",
+	) {
+		event.preventDefault();
+		setDropTarget(null);
+		const file = event.dataTransfer.files?.[0];
+		if (!file) return;
+		setTrackType(targetType);
+		setDroppedFile(file);
+		setTrackFileName(file.name);
+	}
+
+	const ruleComponent = module ? getRuleComponent(module.ruleId) : null;
+	const activeThemeName = module?.themeId
+		? (themes.find((item) => item.id === module.themeId)?.name ??
+			module.themeId)
+		: null;
+
+	const trackNeedle = trackQuery.trim().toLowerCase();
+	const filteredTracks = trackNeedle
+		? tracks.filter((track) =>
+				[track.name, ...track.artists].some((value) =>
+					value.toLowerCase().includes(trackNeedle),
+				),
+			)
+		: tracks;
+	const bgmTracks = filteredTracks.filter((track) => track.type === "bgm");
+	const seTracks = filteredTracks.filter((track) => track.type === "se");
+	const hasAnyArtist = tracks.some((track) => track.artists.length > 0);
+
+	const tabs: Array<{
+		id: ModuleDetailTab;
+		label: string;
+		count?: number;
+	}> = [
+		{
+			id: "scenes",
+			label: t("gm.module.tabLabelScenes"),
+			count: scenes.length,
+		},
+		{
+			id: "characters",
+			label: t("gm.module.tabLabelCharacters"),
+			count: linkedCount,
+		},
+		{
+			id: "music",
+			label: t("gm.module.tabLabelMusic"),
+			count: tracks.length,
+		},
+		{
+			id: "handouts",
+			label: t("gm.module.tabLabelHandouts"),
+			count: handouts.length,
+		},
+		{
+			id: "settings",
+			label: t("gm.module.tabLabelSettings"),
+		},
+	];
+
+	const inviteButton = (
+		<Button
+			type="button"
+			variant="outline"
+			size="sm"
+			className="h-9 shrink-0 border-md-outline-variant/80 px-3.5 text-label-medium text-md-on-surface hover:border-md-outline hover:bg-md-on-surface/8 sm:px-4 sm:text-label-large"
+			onClick={() => setInvitesOpen(true)}
+		>
+			<Link2 className="size-4" />
+			{t("gm.invites.open")}
+		</Button>
+	);
 
 	return (
-		<AdminLayout>
-			<div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
-				<PageHeader
-					title={
-						<span className="flex items-center gap-1.5">
-							<span>{module?.name ?? t("gm.module.moduleFallback")}</span>
-							<Badge tone="success" variant="soft" size="sm">
-								{module?.ruleId ?? FALLBACK_RULE_ID}
-							</Badge>
-						</span>
-					}
-					eyebrow={
-						<div className="flex items-center gap-1.5">
-							<Link
-								to="/gm/modules"
-								className="text-foreground-tertiary text-body-small"
-							>
-								{t("gm.module.breadcrumbModules")}
-							</Link>
-							<ChevronRight className="text-foreground-tertiary size-[13px]" />
-							<span className="text-foreground-secondary text-body-small-emph">
-								{module?.name ?? ""}
-							</span>
-						</div>
-					}
-					description={t("gm.module.pageDescription")}
-					actions={
-						<Button
-							type="button"
-							variant="tertiary"
-							onClick={() => setInvitesOpen(true)}
+		<AdminLayout bleed>
+			<div className="flex min-h-full flex-col">
+				{/* 顶部工作台头部：移动端提交链接置于返回栏避免标题拥挤，桌面端与主标题同轴对齐 */}
+				<header className="border-b border-md-outline-variant/60 bg-md-surface px-4 pt-3 sm:px-6 lg:px-8">
+					<div className="flex items-center justify-between gap-2">
+						<Link
+							to="/gm/modules"
+							className="inline-flex min-h-11 items-center gap-1 rounded-xs py-1 text-label-medium text-md-on-surface-variant transition-colors hover:text-md-on-surface focus-visible:ring-2 focus-visible:ring-focus-ring sm:min-h-9"
 						>
-							<UserPlus />
-							{t("gm.invites.open")}
-						</Button>
-					}
-				/>
+							<ChevronLeft className="size-4" aria-hidden />
+							<span>{t("gm.module.breadcrumbModules")}</span>
+						</Link>
+						<div className="sm:hidden">{inviteButton}</div>
+					</div>
 
-				<div className="grid items-start gap-6 xl:grid-cols-[18rem_minmax(0,1fr)]">
-					<section className="flex flex-col gap-5 rounded-2xl bg-md-surface-container p-4 sm:p-5">
-						<h2 className="text-foreground font-sans text-title-large-emph">
-							{t("gm.module.settingsTitle")}
-						</h2>
-						<div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
-							<label htmlFor="module-name" className="flex flex-col gap-1.5">
-								<span className="text-md-on-surface-variant text-label-medium">
-									{t("gm.module.nameLabel")}
+					<div className="mt-1 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+						<div className="flex min-w-0 flex-wrap items-center gap-2.5">
+							<h1 className="text-headline-small-emph text-md-on-surface sm:text-headline-medium-emph">
+								{module?.name ?? t("gm.module.moduleFallback")}
+							</h1>
+							{ruleComponent ? (
+								<span className="rounded-xs border border-md-outline-variant/70 bg-md-surface-container-high px-2 py-0.5 font-mono text-label-small tracking-[0.04em] text-md-on-surface-variant">
+									{ruleComponent.shortName}
 								</span>
-								<Input
-									id="module-name"
-									value={moduleName}
-									onChange={(event) => setModuleName(event.target.value)}
-									placeholder={t("gm.module.moduleNamePlaceholder")}
-									aria-label={t("gm.module.nameLabel")}
-								/>
-							</label>
-							<label
-								htmlFor="module-description"
-								className="flex flex-col gap-1.5"
-							>
-								<span className="text-md-on-surface-variant text-label-medium">
-									{t("gm.module.descriptionLabel")}
+							) : null}
+							{activeThemeName ? (
+								<span className="text-label-medium text-md-on-surface-variant">
+									{activeThemeName}
 								</span>
-								<Textarea
-									id="module-description"
-									value={moduleDescription}
-									onChange={(event) => setModuleDescription(event.target.value)}
-									placeholder={t("gm.module.moduleDescriptionPlaceholder")}
-									aria-label={t("gm.module.descriptionLabel")}
-									className="min-h-28"
-								/>
-							</label>
+							) : null}
 						</div>
-						<Button
-							type="button"
-							variant="primary"
-							size="sm"
-							className="w-full sm:w-auto sm:self-end xl:w-full"
-							disabled={!moduleName.trim() || moduleUnchanged}
-							onClick={() => void saveModule()}
-						>
-							{t("gm.module.saveModule")}
-						</Button>
-					</section>
 
-					<section className="overflow-hidden rounded-2xl bg-md-surface-container-low">
-						<Tabs defaultValue="scene" className="gap-0">
-							<div className="flex flex-col gap-4 px-4 pt-4 sm:px-5 lg:flex-row lg:items-center lg:justify-between">
-								<h2 className="text-foreground font-sans text-title-large-emph">
-									{t("gm.module.resourcesTitle")}
-								</h2>
-								<div className="min-w-0">
-									<TabsList className="grid h-auto w-full grid-cols-2 rounded-2xl sm:inline-flex sm:h-10 sm:w-fit sm:rounded-full">
-										<TabsTrigger value="scene">
-											{t("gm.module.tabScene", { count: scenes.length })}
-										</TabsTrigger>
-										<TabsTrigger value="npc">
-											{t("gm.module.tabCharacters", { count: linked.length })}
-										</TabsTrigger>
-										<TabsTrigger value="music">
-											{t("gm.module.tabMusic", { count: tracks.length })}
-										</TabsTrigger>
-										<TabsTrigger value="handout">
-											{t("gm.module.tabHandout", { count: handouts.length })}
-										</TabsTrigger>
-									</TabsList>
+						<div className="hidden sm:block">{inviteButton}</div>
+					</div>
+
+					{module?.description ? (
+						<p className="mt-2.5 max-w-[36rem] text-body-medium text-md-on-surface-variant [text-wrap:pretty] select-text">
+							{module.description}
+						</p>
+					) : null}
+
+					{/* 横向可滚下划线页签栏：首项与标题/工具栏严格左缘齐平，44px 触控高度 */}
+					<div
+						role="tablist"
+						aria-label={t("gm.module.tabsAria")}
+						className="mt-4 -mb-px flex items-center gap-5 overflow-x-auto sm:gap-7 [scrollbar-width:none]"
+					>
+						{tabs.map((tab) => {
+							const active = activeTab === tab.id;
+							return (
+								<button
+									key={tab.id}
+									type="button"
+									role="tab"
+									aria-selected={active}
+									onClick={() => setTab(tab.id)}
+									className={cn(
+										"relative flex h-11 min-w-11 shrink-0 cursor-pointer items-center justify-center gap-1.5 px-0.5 outline-none transition-colors sm:min-w-0 sm:px-0",
+										"focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring",
+										active
+											? "text-label-large-emph text-md-on-surface"
+											: "text-label-large text-md-on-surface-variant hover:text-md-on-surface",
+									)}
+								>
+									<span>{tab.label}</span>
+									{tab.count !== undefined ? (
+										<span
+											className={cn(
+												"text-label-medium tabular-nums",
+												active ? "text-accent" : "text-md-on-surface-variant",
+											)}
+										>
+											{tab.count}
+										</span>
+									) : null}
+									<span
+										aria-hidden
+										className={cn(
+											"absolute inset-x-0 bottom-0 h-0.5 rounded-t-full transition-colors",
+											active ? "bg-accent" : "bg-transparent",
+										)}
+									/>
+								</button>
+							);
+						})}
+					</div>
+				</header>
+
+				{/* 主内容画布：100% 宽度给资源工作区 */}
+				<div className="flex-1 px-4 pt-5 pb-10 sm:px-6 lg:px-8 lg:pt-6 lg:pb-10">
+					{loadError && !module ? (
+						<EmptyState
+							icon={Music2}
+							title={errorText(loadError, "gm.module.loadFailed")}
+							action={
+								<Button
+									type="button"
+									variant="outline"
+									size="sm"
+									onClick={() => void reload()}
+								>
+									{t("gm.library.retry")}
+								</Button>
+							}
+							className="bg-transparent"
+						/>
+					) : loading && !module ? (
+						<div
+							className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
+							aria-busy
+						>
+							{[0, 1, 2].map((idx) => (
+								<div
+									key={idx}
+									className="h-52 animate-pulse rounded-lg bg-md-surface-container"
+								/>
+							))}
+						</div>
+					) : activeTab === "scenes" ? (
+						<ModuleScenesTab
+							moduleId={moduleId}
+							scenes={scenes}
+							onReload={reload}
+						/>
+					) : activeTab === "characters" && module ? (
+						<ModuleCharactersTab
+							moduleId={moduleId}
+							ruleId={module.ruleId}
+							onCountChange={setLinkedCount}
+							onOpenInvites={() => setInvitesOpen(true)}
+						/>
+					) : activeTab === "music" ? (
+						<div className="flex flex-col gap-5">
+							{/* 顶栏：胶囊搜索 + 中性平台导入 + 主色上传音频 */}
+							<div className="flex flex-wrap items-center justify-between gap-3">
+								<div className="flex min-w-0 flex-1 items-center gap-3">
+									{tracks.length > 0 ? (
+										<InputGroup className="h-10 max-w-xs min-w-0 flex-1 rounded-full border-md-outline-variant/80 px-4">
+											<InputGroupAddon className="text-md-on-surface-variant">
+												<Search aria-hidden />
+											</InputGroupAddon>
+											<InputGroupInput
+												value={trackQuery}
+												onChange={(event) => setTrackQuery(event.target.value)}
+												placeholder={
+													hasAnyArtist
+														? t("gm.module.searchTracksPlaceholder")
+														: t("gm.module.searchTracksShortPlaceholder")
+												}
+												aria-label={t("gm.module.searchTracksPlaceholder")}
+												className="placeholder:text-md-on-surface-variant/80"
+											/>
+										</InputGroup>
+									) : null}
+								</div>
+								<div className="flex shrink-0 flex-wrap items-center gap-2">
+									<Button
+										type="button"
+										variant="outline"
+										size="sm"
+										className="border-md-outline-variant/80 text-md-on-surface hover:border-md-outline hover:bg-md-on-surface/8"
+										onClick={() => setPlatformOpen(true)}
+									>
+										<Plus />
+										{t("gm.workbench.addPlatformTracks")}
+									</Button>
+									<Button
+										type="button"
+										variant="primary"
+										size="sm"
+										onClick={() =>
+											audioFormRef.current
+												?.querySelector<HTMLInputElement>('input[name="audio"]')
+												?.click()
+										}
+									>
+										<Upload />
+										{t("gm.module.uploadAudioTrigger")}
+									</Button>
 								</div>
 							</div>
 
-							<TabsContent value="scene" className="p-4 sm:p-5">
-								<form
-									className="mb-5 grid gap-3 rounded-xl bg-md-surface-container p-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] md:items-end"
-									onSubmit={(event) => {
-										event.preventDefault();
-										const form = event.currentTarget;
-										const file = (
-											form.elements.namedItem("bg") as HTMLInputElement
-										).files?.[0];
-										void (async () => {
-											try {
-												const bgAssetId = file
-													? await uploadMediaAsset(file, "scene")
-													: null;
-												await api(
-													`/gm/modules/${encodeURIComponent(moduleId)}/scenes`,
-													{
-														method: "POST",
-														body: JSON.stringify({
-															name: sceneName || t("gm.module.unnamedScene"),
-															sortOrder: scenes.length,
-															bgAssetId,
-														}),
-													},
-												);
-												setSceneName("");
-												setSceneBgName("");
-												await reload();
-											} catch (error) {
-												toast.error(
-													errorText(error, "gm.module.createSceneFailed"),
-												);
-											}
-										})();
-									}}
-								>
-									<label htmlFor="scene-name" className="flex flex-col gap-1.5">
-										<span className="text-md-on-surface-variant text-label-medium">
-											{t("gm.module.sceneNameLabel")}
-										</span>
-										<Input
-											id="scene-name"
-											value={sceneName}
-											onChange={(event) => setSceneName(event.target.value)}
-											placeholder={t("gm.module.sceneNamePlaceholder")}
-											className="w-full"
-										/>
-									</label>
-									<div className="flex flex-col gap-1.5">
-										<span className="text-md-on-surface-variant text-label-medium">
-											{t("gm.module.sceneBgAria")}
-										</span>
-										<FilePicker
-											name="bg"
-											accept="image/*"
-											label={t("gm.module.chooseSceneBg")}
-											value={sceneBgName}
-											className="w-full max-w-none"
-											onChange={(event) =>
-												setSceneBgName(event.target.files?.[0]?.name ?? "")
-											}
-										/>
-									</div>
-									<Button
-										type="submit"
-										variant="primary"
-										className="h-10 w-full self-end md:w-auto"
-									>
-										<ImagePlus />
-										{t("gm.module.createScene")}
-									</Button>
-								</form>
-								{scenes.length === 0 ? (
-									<EmptyState
-										icon={ImagePlus}
-										title={t("gm.module.emptyScenes")}
-										description={t("gm.module.emptyScenesHint")}
-										className="bg-transparent py-10"
-									/>
-								) : (
-									<div className="animate-in fade-in slide-in-from-bottom-4 grid gap-4 duration-500 ease-standard-default-spatial sm:grid-cols-2 xl:grid-cols-3">
-										{scenes.map((scene) => (
-											<SceneCard
-												key={scene.id}
-												scene={scene}
-												onReload={reload}
-											/>
-										))}
-									</div>
+							{/* 上传表单容器：有曲目且未选文件时完全静默零表单噪点，仅在选定/拖入文件或空曲库时呈现 */}
+							<form
+								ref={audioFormRef}
+								className={cn(
+									trackFileName
+										? "flex flex-col gap-3 rounded-lg border border-accent/40 bg-md-surface-container p-4"
+										: tracks.length === 0
+											? "flex flex-col gap-3"
+											: "sr-only",
 								)}
-							</TabsContent>
-
-							<TabsContent value="npc" className="p-4 sm:p-5">
-								{allCharacters.length === 0 ? (
-									<EmptyState
-										icon={UserPlus}
-										title={t("gm.module.emptyCharacters")}
-										description={t("gm.module.emptyCharactersHint")}
-										className="bg-transparent py-10"
-									/>
-								) : (
-									<div className="animate-in fade-in slide-in-from-bottom-4 flex flex-col gap-2 duration-500 ease-standard-default-spatial">
-										{allCharacters.map((character) => {
-											const isLinked = linked.some(
-												(item) => item.id === character.id,
+								onSubmit={(event) => {
+									event.preventDefault();
+									const form = event.currentTarget;
+									const fileInput = form.elements.namedItem(
+										"audio",
+									) as HTMLInputElement;
+									const file = droppedFile ?? fileInput.files?.[0];
+									if (!file) {
+										toast.error(t("gm.module.chooseAudio"));
+										return;
+									}
+									setUploadingTrack(true);
+									void (async () => {
+										try {
+											const audioAssetId = await uploadMediaAsset(file, "audio");
+											const duration = await audioDurationMs(file);
+											await api(
+												`/gm/modules/${encodeURIComponent(moduleId)}/tracks`,
+												{
+													method: "POST",
+													body: JSON.stringify({
+														name: trackName.trim() || file.name,
+														audioAssetId,
+														type: trackType,
+														duration,
+													}),
+												},
 											);
-											return (
-												<div
-													key={character.id}
-													className="bg-md-surface-container flex items-center gap-2 rounded-xl px-3 py-2"
-												>
-													<span className="flex-1 text-body-medium">
-														{character.name}
-													</span>
-													<Badge variant="soft" size="sm">
-														{character.kind.toUpperCase()}
-													</Badge>
-													<Button
-														size="sm"
-														variant={isLinked ? "tertiary" : "primary"}
-														className="h-7"
-														onClick={() => {
-															void (
-																isLinked
-																	? api(
-																			`/gm/modules/${encodeURIComponent(moduleId)}/characters/${encodeURIComponent(character.id)}`,
-																			{ method: "DELETE" },
-																		)
-																	: api(
-																			`/gm/modules/${encodeURIComponent(moduleId)}/characters`,
-																			{
-																				method: "POST",
-																				body: JSON.stringify({
-																					characterId: character.id,
-																				}),
-																			},
-																		)
-															)
-																.then(() => reload())
-																.catch((error) =>
-																	toast.error(
-																		errorText(
-																			error,
-																			"gm.module.operationFailed",
-																		),
-																	),
-																);
-														}}
-													>
-														{isLinked
-															? t("gm.module.unlink")
-															: t("gm.module.link")}
-													</Button>
-												</div>
-											);
-										})}
-									</div>
-								)}
-							</TabsContent>
-
-							<TabsContent value="music" className="p-4 sm:p-5">
-								<form
-									className="mb-5 grid gap-3 rounded-xl bg-md-surface-container p-4 lg:grid-cols-[minmax(0,1fr)_8rem_minmax(0,1fr)_auto] lg:items-end"
-									onSubmit={(event) => {
-										event.preventDefault();
-										const file = (
-											event.currentTarget.elements.namedItem(
-												"audio",
-											) as HTMLInputElement
-										).files?.[0];
-										if (!file) {
-											toast.error(t("gm.module.chooseAudio"));
-											return;
+											clearPendingAudio();
+											await reload();
+										} catch (error) {
+											toast.error(errorText(error, "gm.module.uploadFailed"));
+										} finally {
+											setUploadingTrack(false);
 										}
-										void (async () => {
-											try {
-												const audioAssetId = await uploadMediaAsset(file, "audio");
-												const duration = await audioDurationMs(file);
-												await api(
-													`/gm/modules/${encodeURIComponent(moduleId)}/tracks`,
-													{
-														method: "POST",
-														body: JSON.stringify({
-															name: trackName || file.name,
-															audioAssetId,
-															type: trackType,
-															duration,
-														}),
-													},
-												);
-												setTrackName("");
-												setTrackFileName("");
-												await reload();
-											} catch (error) {
-												toast.error(errorText(error, "gm.module.uploadFailed"));
-											}
-										})();
-									}}
-								>
-									<label htmlFor="track-name" className="flex flex-col gap-1.5">
-										<span className="text-md-on-surface-variant text-label-medium">
-											{t("gm.module.trackNameLabel")}
-										</span>
-										<Input
-											id="track-name"
-											value={trackName}
-											onChange={(event) => setTrackName(event.target.value)}
-											placeholder={t("gm.module.trackNamePlaceholder")}
-											className="w-full"
+									})();
+								}}
+							>
+								{tracks.length === 0 && !trackFileName ? (
+									<div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-md-outline-variant/60 px-6 py-12 text-center">
+										<Music2
+											className="size-8 text-md-on-surface-variant"
+											aria-hidden
 										/>
-									</label>
-									<div className="flex flex-col gap-1.5">
-										<span className="text-md-on-surface-variant text-label-medium">
-											{t("gm.module.audioTypeLabel")}
-										</span>
-										<Select
-											value={trackType}
-											onValueChange={(value) =>
-												setTrackType(value as "bgm" | "se")
-											}
+										<div className="flex flex-col gap-1">
+											<p className="text-title-medium text-md-on-surface">
+												{t("gm.module.emptyTracks")}
+											</p>
+											<p className="text-body-small text-md-on-surface-variant">
+												{t("gm.module.emptyTracksHint")}
+											</p>
+										</div>
+										<div className="mt-1 w-full max-w-xs">
+											<FilePicker
+												name="audio"
+												accept=".mp3,audio/mpeg,.wav,audio/wav,.ogg,audio/ogg,.flac,audio/flac,.m4a,audio/mp4"
+												label={t("gm.module.chooseAudio")}
+												value={trackFileName}
+												className="h-10 w-full max-w-none"
+												onChange={(event) => {
+													setDroppedFile(null);
+													setTrackFileName(
+														event.target.files?.[0]?.name ?? "",
+													);
+												}}
+											/>
+										</div>
+										<p className="text-body-small text-md-on-surface-variant">
+											{t("gm.module.audioFormatHint")}
+										</p>
+									</div>
+								) : (
+									<>
+										<div className="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:gap-3">
+											<FilePicker
+												name="audio"
+												accept=".mp3,audio/mpeg,.wav,audio/wav,.ogg,audio/ogg,.flac,audio/flac,.m4a,audio/mp4"
+												label={t("gm.module.chooseAudio")}
+												value={trackFileName}
+												className="h-10 w-full max-w-none lg:w-64 lg:shrink-0"
+												onChange={(event) => {
+													setDroppedFile(null);
+													setTrackFileName(
+														event.target.files?.[0]?.name ?? "",
+													);
+												}}
+											/>
+											{trackFileName ? (
+												<>
+													<Input
+														id="track-name"
+														value={trackName}
+														onChange={(event) =>
+															setTrackName(event.target.value)
+														}
+														placeholder={t("gm.module.trackNamePlaceholder")}
+														aria-label={t("gm.module.trackNameLabel")}
+														className="h-10 min-w-0 flex-1"
+													/>
+													<Select
+														value={trackType}
+														onValueChange={(value) =>
+															setTrackType(value as "bgm" | "se")
+														}
+													>
+														<SelectTrigger
+															className="h-10 w-full lg:w-28"
+															aria-label={t("gm.module.audioTypeAria")}
+														>
+															<SelectValue />
+														</SelectTrigger>
+														<SelectContent>
+															<SelectItem value="bgm">BGM</SelectItem>
+															<SelectItem value="se">SE</SelectItem>
+														</SelectContent>
+													</Select>
+													<div className="flex shrink-0 items-center gap-2">
+														<Button
+															type="button"
+															variant="tertiary"
+															size="sm"
+															disabled={uploadingTrack}
+															onClick={clearPendingAudio}
+														>
+															{t("common.cancel")}
+														</Button>
+														<Button
+															type="submit"
+															variant="primary"
+															size="sm"
+															disabled={uploadingTrack}
+														>
+															<Upload />
+															{t("gm.module.confirmUpload")}
+														</Button>
+													</div>
+												</>
+											) : null}
+										</div>
+										{trackFileName ? (
+											<p className="text-body-small text-md-on-surface-variant">
+												{t("gm.module.audioFormatHint")}
+											</p>
+										) : null}
+									</>
+								)}
+							</form>
+
+							{/* 读优先：纯粹 50/50 双栏 BGM / SE 可试听音轨台（无孤立底部格式说明） */}
+							{tracks.length === 0 ? null : filteredTracks.length === 0 ? (
+								<EmptyState
+									icon={Search}
+									title={t("gm.module.noSearchResults")}
+									action={
+										<Button
+											type="button"
+											variant="outline"
+											size="sm"
+											onClick={() => setTrackQuery("")}
 										>
-											<SelectTrigger
-												className="w-full"
-												aria-label={t("gm.module.audioTypeAria")}
-											>
-												<SelectValue />
-											</SelectTrigger>
-											<SelectContent>
-												<SelectItem value="bgm">BGM</SelectItem>
-												<SelectItem value="se">SE</SelectItem>
-											</SelectContent>
-										</Select>
-									</div>
-									<div className="flex flex-col gap-1.5">
-										<span className="text-md-on-surface-variant text-label-medium">
-											{t("gm.module.audioFileLabel")}
-										</span>
-										<FilePicker
-											name="audio"
-											accept=".mp3,audio/mpeg,.wav,audio/wav,.ogg,audio/ogg,.flac,audio/flac,.m4a,audio/mp4"
-											label={t("gm.module.chooseAudio")}
-											value={trackFileName}
-											className="w-full max-w-none"
-											onChange={(event) =>
-												setTrackFileName(event.target.files?.[0]?.name ?? "")
-											}
-										/>
-									</div>
-									<Button
-										type="submit"
-										variant="primary"
-										className="h-10 w-full self-end md:w-auto"
+											{t("gm.library.clearSearch")}
+										</Button>
+									}
+									className="bg-transparent py-10"
+								/>
+							) : (
+								<div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+									<section
+										onDragOver={(event) => {
+											event.preventDefault();
+											setDropTarget("bgm");
+										}}
+										onDragLeave={() => setDropTarget(null)}
+										onDrop={(event) => handleDeckDrop(event, "bgm")}
+										className={cn(
+											"flex flex-col overflow-hidden rounded-lg border bg-md-surface-container transition-colors",
+											dropTarget === "bgm"
+												? "border-accent"
+												: "border-md-outline-variant/55",
+										)}
 									>
-										<Upload />
-										{t("gm.module.upload")}
-									</Button>
-									<p className="text-foreground-tertiary text-label-small lg:col-span-full">
-										{t("gm.module.audioFormatHint")}
-									</p>
-								</form>
+										<header className="flex items-center justify-between gap-2 border-b border-md-outline-variant/45 px-4 py-3">
+											<div className="flex items-center gap-2">
+												<Disc3
+													className="size-4 text-md-on-surface-variant"
+													aria-hidden
+												/>
+												<h2 className="text-title-small-emph text-md-on-surface">
+													{t("gm.module.musicHeadingBgm")}
+												</h2>
+												<span className="rounded-xs border border-md-outline-variant/65 bg-md-surface-container-high px-1.5 py-0.5 font-mono text-label-small tracking-[0.04em] text-md-on-surface-variant">
+													{t("gm.music.bgm")}
+												</span>
+											</div>
+											<span className="text-label-medium tabular-nums text-md-on-surface-variant">
+												{dropTarget === "bgm"
+													? t("gm.module.dropToUploadBgm")
+													: t("gm.music.bgmCount", {
+															count: bgmTracks.length,
+														})}
+											</span>
+										</header>
+										{bgmTracks.length === 0 ? (
+											<p className="px-4 py-8 text-center text-body-small text-md-on-surface-variant">
+												{t("gm.music.noBgm")}
+											</p>
+										) : (
+											<ul className="divide-y divide-md-outline-variant/40">
+												{bgmTracks.map((track, idx) => (
+													<TrackStudioRow
+														key={track.id}
+														track={track}
+														index={idx}
+														previewing={previewTrackId === track.id}
+														onTogglePreview={() => togglePreview(track)}
+														onReload={reload}
+														onRequestDelete={() => setDeleteTrackTarget(track)}
+													/>
+												))}
+											</ul>
+										)}
+									</section>
 
-								{tracks.length === 0 ? (
-									<EmptyState
-										icon={Music2}
-										title={t("gm.module.emptyTracks")}
-										description={t("gm.module.emptyTracksHint")}
-										className="bg-transparent py-10"
-									/>
-								) : (
-									<div className="animate-in fade-in slide-in-from-bottom-4 flex flex-col gap-2 duration-500 ease-standard-default-spatial">
-										{tracks.map((track) => (
-											<TrackRowItem
-												key={track.id}
-												track={track}
-												onReload={reload}
-											/>
-										))}
-									</div>
-								)}
-							</TabsContent>
-
-							<TabsContent value="handout" className="p-4 sm:p-5">
-								<form
-									className="mb-5 grid gap-3 rounded-xl bg-md-surface-container p-4 md:grid-cols-[minmax(0,1fr)_16rem]"
-									onSubmit={(event) => {
-										event.preventDefault();
-										const file = (
-											event.currentTarget.elements.namedItem(
-												"image",
-											) as HTMLInputElement
-										).files?.[0];
-										void (async () => {
-											try {
-												const imageAssetId = file
-													? await uploadMediaAsset(file, "handout")
-													: null;
-												await api(
-													`/gm/modules/${encodeURIComponent(moduleId)}/handouts`,
-													{
-														method: "POST",
-														body: JSON.stringify({
-															title: handoutTitle,
-															content: handoutContent,
-															imageAssetId,
-														}),
-													},
-												);
-												setHandoutTitle("");
-												setHandoutContent("");
-												setHandoutImageName("");
-												await reload();
-											} catch (error) {
-												toast.error(
-													errorText(error, "gm.module.createHandoutFailed"),
-												);
-											}
-										})();
-									}}
-								>
-									<label
-										htmlFor="handout-title"
-										className="flex flex-col gap-1.5"
+									<section
+										onDragOver={(event) => {
+											event.preventDefault();
+											setDropTarget("se");
+										}}
+										onDragLeave={() => setDropTarget(null)}
+										onDrop={(event) => handleDeckDrop(event, "se")}
+										className={cn(
+											"flex flex-col overflow-hidden rounded-lg border bg-md-surface-container transition-colors",
+											dropTarget === "se"
+												? "border-accent"
+												: "border-md-outline-variant/55",
+										)}
 									>
-										<span className="text-md-on-surface-variant text-label-medium">
-											{t("gm.module.handoutTitleLabel")}
-										</span>
-										<Input
-											id="handout-title"
-											value={handoutTitle}
-											onChange={(event) => setHandoutTitle(event.target.value)}
-											placeholder={t("gm.module.handoutTitlePlaceholder")}
-											required
-										/>
-									</label>
-									<label
-										htmlFor="handout-content"
-										className="flex flex-col gap-1.5 md:col-span-2"
-									>
-										<span className="text-md-on-surface-variant text-label-medium">
-											{t("gm.module.handoutContentLabel")}
-										</span>
-										<Textarea
-											id="handout-content"
-											value={handoutContent}
-											onChange={(event) =>
-												setHandoutContent(event.target.value)
-											}
-											placeholder={t("gm.module.handoutContentPlaceholder")}
-										/>
-									</label>
-									<div className="flex flex-col gap-1.5 md:col-start-2 md:row-start-1">
-										<span className="text-md-on-surface-variant text-label-medium">
-											{t("gm.module.handoutImageLabel")}
-										</span>
-										<FilePicker
-											name="image"
-											accept="image/*"
-											label={t("gm.module.chooseHandoutImage")}
-											value={handoutImageName}
-											className="w-full max-w-none"
-											onChange={(event) =>
-												setHandoutImageName(event.target.files?.[0]?.name ?? "")
-											}
-										/>
-									</div>
-									<Button
-										type="submit"
-										variant="primary"
-										className="h-10 w-full md:col-span-2 md:justify-self-end md:w-auto"
-									>
-										<Plus />
-										{t("gm.module.createHandout")}
-									</Button>
-								</form>
-								{handouts.length === 0 ? (
-									<EmptyState
-										icon={ScrollText}
-										title={t("gm.module.emptyHandouts")}
-										description={t("gm.module.emptyHandoutsHint")}
-										className="bg-transparent py-10"
-									/>
-								) : (
-									<div className="animate-in fade-in slide-in-from-bottom-4 flex flex-col gap-2 duration-500 ease-standard-default-spatial">
-										{handouts.map((handout) => (
-											<HandoutCard
-												key={handout.id}
-												handout={handout}
-												onReload={reload}
-											/>
-										))}
-									</div>
-								)}
-							</TabsContent>
-						</Tabs>
-					</section>
+										<header className="flex items-center justify-between gap-2 border-b border-md-outline-variant/45 px-4 py-3">
+											<div className="flex items-center gap-2">
+												<Volume2
+													className="size-4 text-md-on-surface-variant"
+													aria-hidden
+												/>
+												<h2 className="text-title-small-emph text-md-on-surface">
+													{t("gm.module.musicHeadingSe")}
+												</h2>
+												<span className="rounded-xs border border-md-outline-variant/65 bg-md-surface-container-high px-1.5 py-0.5 font-mono text-label-small tracking-[0.04em] text-md-on-surface-variant">
+													{t("gm.music.se")}
+												</span>
+											</div>
+											<span className="text-label-medium tabular-nums text-md-on-surface-variant">
+												{dropTarget === "se"
+													? t("gm.module.dropToUploadSe")
+													: t("gm.music.seCount", {
+															count: seTracks.length,
+														})}
+											</span>
+										</header>
+										{seTracks.length === 0 ? (
+											<p className="px-4 py-8 text-center text-body-small text-md-on-surface-variant">
+												{t("gm.music.noSe")}
+											</p>
+										) : (
+											<ul className="divide-y divide-md-outline-variant/40">
+												{seTracks.map((track, idx) => (
+													<TrackStudioRow
+														key={track.id}
+														track={track}
+														index={idx}
+														previewing={previewTrackId === track.id}
+														onTogglePreview={() => togglePreview(track)}
+														onReload={reload}
+														onRequestDelete={() => setDeleteTrackTarget(track)}
+													/>
+												))}
+											</ul>
+										)}
+									</section>
+								</div>
+							)}
+						</div>
+					) : activeTab === "handouts" ? (
+						<ModuleHandoutsTab
+							moduleId={moduleId}
+							handouts={handouts}
+							onReload={reload}
+						/>
+					) : activeTab === "settings" && module ? (
+						<ModuleSettingsTab
+							module={module}
+							themes={themes}
+							onSaved={reload}
+							onDeleted={() => void navigate({ to: "/gm/modules" })}
+						/>
+					) : null}
 				</div>
 			</div>
+
+			{/* 网易云 / QQ 平台曲目与歌单导入弹窗 */}
+			<Dialog open={platformOpen} onOpenChange={setPlatformOpen}>
+				<DialogContent className="flex max-h-[85vh] w-[calc(100vw-2rem)] max-w-2xl flex-col overflow-hidden">
+					<DialogHeader className="shrink-0 pr-8">
+						<DialogTitle>{t("gm.workbench.addPlatformTracks")}</DialogTitle>
+						<DialogDescription>
+							{t("gm.workbench.addPlatformTracksDescription")}
+						</DialogDescription>
+					</DialogHeader>
+					<div className="min-h-0 flex-1 overflow-y-auto pr-1 pb-1.5">
+						<MusicSourcePanel
+							moduleId={moduleId}
+							tracks={tracks}
+							onAdded={(added) => {
+								setTracks((current) =>
+									current.some((item) => item.id === added.id)
+										? current
+										: [...current, added],
+								);
+							}}
+						/>
+					</div>
+				</DialogContent>
+			</Dialog>
+
+			<ConfirmDialog
+				open={deleteTrackTarget !== null}
+				onOpenChange={(open) => !open && setDeleteTrackTarget(null)}
+				icon={Trash2}
+				confirmIcon={Trash2}
+				title={t("gm.module.deleteTrackTitle")}
+				description={t("gm.module.deleteTrackDescription", {
+					name: deleteTrackTarget?.name ?? "",
+				})}
+				confirmLabel={t("common.delete")}
+				onConfirm={() => {
+					const target = deleteTrackTarget;
+					setDeleteTrackTarget(null);
+					if (!target) return;
+					if (previewTrackId === target.id) stopPreview();
+					void api(`/gm/modules/tracks/${encodeURIComponent(target.id)}`, {
+						method: "DELETE",
+					})
+						.then(() => reload())
+						.catch((error) =>
+							toast.error(errorText(error, "gm.module.deleteFailed")),
+						);
+				}}
+			/>
+
 			<InviteLinksDialog
 				open={invitesOpen}
 				onOpenChange={setInvitesOpen}

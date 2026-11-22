@@ -23,6 +23,14 @@ export function formatStamp(epochMs: number): string {
 	return `${month}-${day} ${formatClock(epochMs)}`;
 }
 
+export function formatDateTime(epochMs: number): string {
+	const date = new Date(epochMs);
+	const year = date.getFullYear();
+	const month = String(date.getMonth() + 1).padStart(2, "0");
+	const day = String(date.getDate()).padStart(2, "0");
+	return `${year}-${month}-${day} ${formatClock(epochMs)}`;
+}
+
 export function formatDurationMmSs(ms: number): string {
 	const total = Math.max(0, Math.floor(ms / 1000));
 	const minutes = Math.floor(total / 60);
