@@ -93,7 +93,9 @@ function NameText({ name }: { name: string }) {
 	if (space <= 0) return <>{name}</>;
 	return (
 		<>
-			<span className="text-md-on-surface-variant">{name.slice(0, space)} </span>
+			<span className="text-md-on-surface-variant">
+				{name.slice(0, space)}{" "}
+			</span>
 			{name.slice(space + 1)}
 		</>
 	);
@@ -158,23 +160,17 @@ function LoadMoreSentinel({
 export function LibraryList(props: ResultsProps) {
 	const { items, selectedId, onSelect, onOpen } = props;
 	return (
-		<div className="isolate overflow-clip rounded-xl bg-md-surface-container-low">
+		<div className="isolate overflow-clip rounded-lg-inc bg-md-surface-container-low">
 			<table className="w-full table-fixed border-separate border-spacing-0 text-left">
-				<thead className="sticky top-0 z-10 bg-md-surface-container max-lg:top-13">
-					<tr className="text-label-medium-emph text-md-on-surface-variant [&>th]:h-8">
-						<th scope="col" className="pl-3">
+				<thead className="sticky top-0 z-10 bg-md-surface-container-low max-lg:top-13">
+					<tr className="text-label-medium text-md-on-surface-variant [&>th]:h-8 [&>th]:border-b [&>th]:border-md-outline-variant/60">
+						<th scope="col" className="pl-4">
 							{t("gm.library.colName")}
 						</th>
-						<th scope="col" className="hidden w-14 sm:table-cell">
-							{t("gm.library.colKind")}
-						</th>
-						<th scope="col" className="hidden w-[30%] xl:table-cell">
+						<th scope="col" className="hidden w-1/3 px-3 sm:table-cell xl:w-2/5">
 							{t("gm.library.colModules")}
 						</th>
-						<th scope="col" className="hidden w-24 lg:table-cell">
-							{t("gm.library.colOwner")}
-						</th>
-						<th scope="col" className="w-20 pr-3 text-right">
+						<th scope="col" className="w-24 pr-4 text-right">
 							{t("gm.library.colUpdated")}
 						</th>
 					</tr>
@@ -189,14 +185,9 @@ export function LibraryList(props: ResultsProps) {
 								aria-selected={selected}
 								onClick={() => onSelect(item.id)}
 								onDoubleClick={() => onOpen(item.id)}
-								className={cn(
-									"cursor-pointer align-middle text-body-medium [&>td]:transition-colors [&>td]:duration-150 [&>td]:ease-standard-fast-effects motion-reduce:[&>td]:transition-none [&>td:first-child]:rounded-l-md [&>td:last-child]:rounded-r-md",
-									selected
-										? "[&>td]:bg-accent-soft"
-										: "hover:[&>td]:bg-md-surface-container",
-								)}
+								className="group cursor-pointer align-middle aria-selected:bg-md-surface-container-high hover:bg-md-surface-container focus-within:bg-md-surface-container aria-selected:hover:bg-md-surface-container-high aria-selected:focus-within:bg-md-surface-container-high motion-safe:transition-colors motion-safe:duration-150 motion-safe:ease-standard-fast-effects [&:not(:last-child)>td]:border-b [&:not(:last-child)>td]:border-md-outline-variant/35"
 							>
-								<td className="h-9 pr-3 pl-3 max-sm:h-14">
+								<td className="relative h-9 pr-1 pl-4 max-sm:h-14 group-aria-selected:before:absolute group-aria-selected:before:inset-y-2 group-aria-selected:before:left-1 group-aria-selected:before:w-0.5 group-aria-selected:before:rounded-full group-aria-selected:before:bg-accent">
 									<button
 										type="button"
 										tabIndex={selected ? 0 : -1}
@@ -209,17 +200,22 @@ export function LibraryList(props: ResultsProps) {
 										<PortraitFrame
 											name={item.name}
 											src={mediaUrl(item.portraitAssetId)}
+											className="size-7 rounded-sm bg-md-surface-container-highest"
 										/>
 										<span className="flex min-w-0 flex-col">
-											<span
-												className={cn(
-													"truncate",
-													selected
-														? "text-label-large-emph text-accent-soft-foreground"
-														: "text-label-large text-md-on-surface",
-												)}
-											>
-												{selected ? item.name : <NameText name={item.name} />}
+											<span className="flex min-w-0 items-center gap-1.5">
+												<span
+													className="truncate text-title-small-emph text-md-on-surface"
+													title={item.name}
+												>
+													<NameText name={item.name} />
+												</span>
+												<span className="hidden shrink-0 rounded-xs bg-md-surface-container-highest px-1.5 text-label-small text-md-on-surface-variant sm:inline">
+													{kindLabel(item.kind)}
+												</span>
+												<span className="hidden min-w-0 max-w-24 text-body-small sm:flex">
+													<OwnerText item={item} short />
+												</span>
 											</span>
 											<span className="sm:hidden">
 												<MetaLine item={item} />
@@ -227,20 +223,12 @@ export function LibraryList(props: ResultsProps) {
 										</span>
 									</button>
 								</td>
-								<td className="hidden sm:table-cell">
-									<KindText kind={item.kind} />
-								</td>
-								<td className="hidden pr-4 text-body-small text-md-on-surface-variant xl:table-cell">
+								<td className="hidden px-3 text-body-medium text-md-on-surface-variant sm:table-cell">
 									<div className="flex min-w-0">
 										<ModulesText item={item} max={1} />
 									</div>
 								</td>
-								<td className="hidden pr-4 text-body-small text-md-on-surface-variant lg:table-cell">
-									<div className="flex min-w-0">
-										<OwnerText item={item} short />
-									</div>
-								</td>
-								<td className="pr-3 text-right text-label-medium tabular-nums text-md-on-surface-variant">
+								<td className="pr-4 pl-1 text-right text-label-medium whitespace-nowrap tabular-nums text-md-on-surface-variant">
 									{formatUpdated(item.updatedAt)}
 								</td>
 							</tr>

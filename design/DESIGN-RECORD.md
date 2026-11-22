@@ -145,6 +145,9 @@ Port notes: 页面 apps/client/src/routes/gm/characters.tsx；业务组件 apps/
 - 2026-11-22 圆角与表面色阶调整。人物库和模组库共用二级导航外壳、分组和筛选项。Chromium 实测两页在 1024px 和 1440px 视口下分别为 176px 和 208px。人物台账保持 36px 行高，窄屏从详情顶部展示立绘。
 - 独立截图快评（`scout` 默认模型）明确偏好新版。分面目录、台账与检视器更易区分，画廊保留三列。评审建议加深搜索框边界并补列表分隔线，本轮保留低对比表面以减少连续线条。截图见 `shots/gm-characters/spot-expressive-*` 和 `shots/gm-modules/spot-expressive-*`。
 
+- 2026-11-22 人物台账调整为人物、模组、更新时间三列。类型与玩家归属紧贴姓名，表体用细分隔线，选中行用中性表面与短强调线。Chromium 使用两条搜索结果和 64 人名单，验证 390–1920px 布局、36px 桌面行高、键盘切换和滚动表头。截图见 `shots/gm-characters/spot-ledger-*`。
+- 截图快评（`scout` 默认模型）略偏好三列版，认为姓名更易扫读。保留中性选中底色与强调线，PC/NPC 标记采用现有容器色。
+
 ---
 
 # Design record: CoGM — GM 音乐管理（/gm/music）
