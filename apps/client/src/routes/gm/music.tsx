@@ -1,73 +1,257 @@
-import type { ModuleDto, TrackDto } from "@cogm/shared";
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { Howl } from "howler";
-import { Disc3, Pause, Pencil, Play, Trash2, Upload, Zap } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import type {
+	GmTrackLibraryItemDto,
+	ModuleDto,
+	ModuleSummaryDto,
+	TrackDto,
+} from "@cogm/shared";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { AudioLines, Plus, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
-import { PageHeader } from "@/components/shared/page-header";
-import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { AdminLayout } from "@/features/gm-admin/admin-layout";
+import {
+	AddTracksDialog,
+	type AddTracksTab,
+} from "@/features/gm-music/add-tracks-dialog";
+import { AuditionBar } from "@/features/gm-music/audition-bar";
+import { MusicToolbar } from "@/features/gm-music/music-toolbar";
+import {
+	ModuleNav,
+	ModulePicker,
+	type MusicModuleOption,
+} from "@/features/gm-music/module-nav";
+import {
+	ALL_MODULES,
+	filterTracks,
+	formatTotalDuration,
+	type LibraryTrack,
+	libraryStats,
+	sortTracks,
+	type TrackSort,
+	type TrackTypeFilter,
+} from "@/features/gm-music/music-library-model";
+import {
+	TrackLedger,
+	type LedgerEmpty,
+} from "@/features/gm-music/track-ledger";
+import type { TrackRowAction } from "@/features/gm-music/track-row";
+import { useAudition } from "@/features/gm-music/use-audition";
 import { t, useI18nVersion } from "@/i18n";
-import { api, fetchAllPages, isApiError, mediaUrl } from "@/lib/api";
+import { api, fetchAllPages, isApiError } from "@/lib/api";
 import { errorText } from "@/lib/errors";
-import { formatDurationMmSs } from "@/lib/format";
 import { requireGmAuth } from "@/lib/identity";
+import { readGmMusicModule, writeGmMusicModule } from "@/lib/storage";
+import { useMediaQuery } from "@/lib/use-media-query";
 import { cn } from "@/lib/utils";
 
+type MusicSearch = { module?: string };
+
 export const Route = createFileRoute("/gm/music")({
+	validateSearch: (search: Record<string, unknown>): MusicSearch => ({
+		module:
+			typeof search.module === "string" && search.module
+				? search.module
+				: undefined,
+	}),
 	beforeLoad: requireGmAuth,
-	component: MusicResourcesPage,
+	component: MusicLibraryPage,
 });
 
-function formatStamp(epochMs: number | null): string {
-	if (epochMs === null) {
-		return "—";
-	}
-	return new Date(epochMs).toLocaleString("zh-CN", {
-		month: "2-digit",
-		day: "2-digit",
-		hour: "2-digit",
-		minute: "2-digit",
-	});
-}
+type DeleteTarget = { tracks: LibraryTrack[] } | null;
 
-function TrackRow({
-	track,
-	previewing,
-	onTogglePreview,
-	onReload,
-	onDelete,
-}: {
-	track: TrackDto;
-	previewing: boolean;
-	onTogglePreview: () => void;
-	onReload: () => Promise<void>;
-	onDelete: () => void;
-}) {
-	const [renaming, setRenaming] = useState(false);
-	const [name, setName] = useState(track.name);
+function MusicLibraryPage() {
+	useI18nVersion();
+	const search = Route.useSearch();
+	const navigate = useNavigate({ from: Route.fullPath });
+	const wide = useMediaQuery("(min-width: 1024px)", true);
+	const audition = useAudition();
+
+	const [modules, setModules] = useState<ModuleDto[]>([]);
+	const [counts, setCounts] = useState<Map<string, number>>(new Map());
+	const [modulesReady, setModulesReady] = useState(false);
+	const [tracks, setTracks] = useState<LibraryTrack[]>([]);
+	const [tracksReady, setTracksReady] = useState(false);
+
+	const [type, setType] = useState<TrackTypeFilter>("all");
+	const [query, setQuery] = useState("");
+	const [sort, setSort] = useState<TrackSort>("added");
+	const [selection, setSelection] = useState<Set<string>>(new Set());
+	const [renamingId, setRenamingId] = useState<string | null>(null);
+	const [deleteTarget, setDeleteTarget] = useState<DeleteTarget>(null);
+	const [addOpen, setAddOpen] = useState(false);
+	const [addTab, setAddTab] = useState<AddTracksTab>("upload");
+	const [droppedFiles, setDroppedFiles] = useState<File[]>([]);
+	const [dragging, setDragging] = useState(false);
+	const searchRef = useRef<HTMLInputElement>(null);
+
+	const moduleIds = useMemo(() => modules.map((module) => module.id), [modules]);
+	// URL 优先，其次是上次使用的模组，最后落到第一个模组
+	const stored = readGmMusicModule();
+	const isValid = (id: string | null | undefined): id is string =>
+		Boolean(id) && (id === ALL_MODULES || moduleIds.includes(id as string));
+	const activeId = !modulesReady
+		? ""
+		: isValid(search.module)
+			? search.module
+			: isValid(stored)
+				? stored
+				: (moduleIds[0] ?? ALL_MODULES);
+	const activeModule = modules.find((module) => module.id === activeId);
+	const isAllView = activeId === ALL_MODULES;
 
 	useEffect(() => {
-		setName(track.name);
-	}, [track.name]);
+		if (activeId) {
+			writeGmMusicModule(activeId);
+		}
+	}, [activeId]);
 
-	async function saveName() {
+	const loadCounts = useCallback(async () => {
+		try {
+			const summaries = await api<ModuleSummaryDto[]>("/gm/modules/summaries");
+			setCounts(
+				new Map(summaries.map((item) => [item.moduleId, item.trackCount])),
+			);
+		} catch {
+			// 计数只是辅助信息，失败时保留旧值
+		}
+	}, []);
+
+	useEffect(() => {
+		void (async () => {
+			try {
+				setModules(await fetchAllPages<ModuleDto>("/gm/modules"));
+				await loadCounts();
+			} catch (error) {
+				toast.error(errorText(error, "gm.music.loadModulesFailed"));
+			} finally {
+				setModulesReady(true);
+			}
+		})();
+	}, [loadCounts]);
+
+	useEffect(() => {
+		if (!activeId) {
+			return;
+		}
+		let cancelled = false;
+		setTracksReady(false);
+		const path = isAllView
+			? "/gm/modules/tracks"
+			: `/gm/modules/${encodeURIComponent(activeId)}/tracks`;
+		void fetchAllPages<GmTrackLibraryItemDto | TrackDto>(path)
+			.then((items) => {
+				if (cancelled) {
+					return;
+				}
+				const owner = modules.find((module) => module.id === activeId);
+				setTracks(
+					items.map((item) => ({
+						...item,
+						moduleName:
+							"moduleName" in item ? item.moduleName : owner?.name,
+					})),
+				);
+			})
+			.catch((error) => {
+				if (!cancelled) {
+					setTracks([]);
+					toast.error(errorText(error, "gm.music.loadTracksFailed"));
+				}
+			})
+			.finally(() => {
+				if (!cancelled) {
+					setTracksReady(true);
+				}
+			});
+		return () => {
+			cancelled = true;
+		};
+	}, [activeId, isAllView, modules]);
+
+	const selectModule = useCallback(
+		(id: string) => {
+			setSelection(new Set());
+			setRenamingId(null);
+			setQuery("");
+			setType("all");
+			void navigate({ search: { module: id }, replace: true });
+		},
+		[navigate],
+	);
+
+	const visible = useMemo(
+		() => sortTracks(filterTracks(tracks, { type, query }), sort),
+		[tracks, type, query, sort],
+	);
+	const stats = useMemo(() => libraryStats(tracks), [tracks]);
+	const empty: LedgerEmpty = !tracksReady
+		? null
+		: tracks.length === 0
+			? isAllView
+				? "all"
+				: "module"
+			: visible.length === 0
+				? "filtered"
+				: null;
+
+	const moduleOptions: MusicModuleOption[] = modules.map((module) => ({
+		id: module.id,
+		name: module.name,
+		count: counts.get(module.id) ?? 0,
+	}));
+	const totalCount = moduleOptions.reduce((sum, item) => sum + item.count, 0);
+
+	function addLocal(track: TrackDto) {
+		setTracks((current) =>
+			current.some((item) => item.id === track.id)
+				? current
+				: [...current, { ...track, moduleName: activeModule?.name }],
+		);
+		void loadCounts();
+	}
+
+	function removeLocal(ids: readonly string[]) {
+		const gone = new Set(ids);
+		setTracks((current) => current.filter((item) => !gone.has(item.id)));
+		setSelection((current) => {
+			const next = new Set(current);
+			for (const id of ids) {
+				next.delete(id);
+			}
+			return next;
+		});
+		if (audition.track && gone.has(audition.track.id)) {
+			audition.stop();
+		}
+		void loadCounts();
+	}
+
+	async function patchTrack(
+		track: LibraryTrack,
+		patch: { name?: string; type?: TrackDto["type"] },
+	) {
+		const updated = await api<TrackDto>(
+			`/gm/modules/tracks/${encodeURIComponent(track.id)}`,
+			{ method: "PATCH", body: JSON.stringify(patch) },
+		);
+		setTracks((current) =>
+			current.map((item) =>
+				item.id === track.id ? { ...item, ...updated } : item,
+			),
+		);
+	}
+
+	async function commitRename(track: LibraryTrack, name: string) {
 		const trimmed = name.trim();
+		setRenamingId(null);
 		if (!trimmed || trimmed === track.name) {
-			setRenaming(false);
-			setName(track.name);
 			return;
 		}
 		try {
-			await api(`/gm/modules/tracks/${encodeURIComponent(track.id)}`, {
-				method: "PATCH",
-				body: JSON.stringify({ name: trimmed }),
-			});
-			setRenaming(false);
-			await onReload();
+			await patchTrack(track, { name: trimmed });
 		} catch (error) {
 			toast.error(
 				isApiError(error) ? error.message : t("gm.music.renameFailed"),
@@ -75,300 +259,329 @@ function TrackRow({
 		}
 	}
 
-	return (
-		<div className="animate-in fade-in slide-in-from-bottom-4 border-separator-secondary/40 flex items-center gap-3 border-b px-1 py-2.5 duration-500 ease-standard-default-spatial last:border-b-0">
-			<Button
-				type="button"
-				variant={previewing ? "accentSoft" : "tertiary"}
-				size="icon-sm"
-				className="size-8 shrink-0"
-				aria-label={
-					previewing
-						? t("gm.music.previewStopAria", { name: track.name })
-						: t("gm.music.previewAria", { name: track.name })
-				}
-				onClick={onTogglePreview}
-			>
-				{previewing ? (
-					<Pause className="size-4" />
-				) : (
-					<Play className="size-4" />
-				)}
-			</Button>
-			<div className="flex min-w-0 flex-1 flex-col">
-				{renaming ? (
-					<Input
-						value={name}
-						autoFocus
-						aria-label={t("gm.music.renameAria", { name: track.name })}
-						onChange={(event) => setName(event.target.value)}
-						onBlur={() => void saveName()}
-						onKeyDown={(event) => {
-							if (event.key === "Enter") {
-								void saveName();
-							}
-							if (event.key === "Escape") {
-								setRenaming(false);
-								setName(track.name);
-							}
-						}}
-						className="h-7 text-label-medium"
-					/>
-				) : (
-					<span className="truncate text-body-medium-emph">{track.name}</span>
-				)}
-				<span className="text-foreground-tertiary text-label-small">
-					{formatDurationMmSs(track.duration)} ·{" "}
-					{t("gm.music.uploaded", { time: formatStamp(track.audioUploadedAt) })}
-				</span>
-			</div>
-			<Button
-				type="button"
-				variant="ghost"
-				size="icon-sm"
-				aria-label={t("gm.music.renameAria", { name: track.name })}
-				className="size-7 shrink-0 text-foreground-tertiary"
-				onClick={() => setRenaming(true)}
-			>
-				<Pencil className="size-3.5" />
-			</Button>
-			<Button
-				type="button"
-				variant="ghost"
-				size="icon-sm"
-				aria-label={t("gm.music.deleteAria", { name: track.name })}
-				className="size-7 shrink-0 text-danger-soft-foreground"
-				onClick={onDelete}
-			>
-				<Trash2 className="size-3.5" />
-			</Button>
-		</div>
-	);
-}
-
-function MusicResourcesPage() {
-	useI18nVersion();
-	const [modules, setModules] = useState<ModuleDto[]>([]);
-	const [moduleId, setModuleId] = useState("");
-	const [tracks, setTracks] = useState<TrackDto[]>([]);
-	const [previewId, setPreviewId] = useState<string | null>(null);
-	const [deleteTarget, setDeleteTarget] = useState<TrackDto | null>(null);
-	const previewRef = useRef<Howl | null>(null);
-
-	function stopPreview() {
-		previewRef.current?.unload();
-		previewRef.current = null;
-		setPreviewId(null);
-	}
-
-	function togglePreview(track: TrackDto) {
-		if (previewId === track.id) {
-			stopPreview();
-			return;
-		}
-		stopPreview();
-		const src = mediaUrl(track.audioAssetId);
-		if (!src) {
-			toast.error(t("gm.music.audioUnavailable"));
-			return;
-		}
-		const howl = new Howl({
-			src: [src],
-			html5: true,
-			xhr: { withCredentials: true },
-			volume: 0.8,
-		});
-		howl.once("end", () => {
-			if (previewRef.current === howl) {
-				previewRef.current = null;
-				setPreviewId(null);
+	async function runBulk(
+		targets: readonly LibraryTrack[],
+		job: (track: LibraryTrack) => Promise<void>,
+	) {
+		let done = 0;
+		let failed = 0;
+		for (const track of targets) {
+			try {
+				await job(track);
+				done += 1;
+			} catch {
+				failed += 1;
 			}
-			howl.unload();
-		});
-		howl.play();
-		previewRef.current = howl;
-		setPreviewId(track.id);
+		}
+		if (failed === 0) {
+			toast.success(t("gm.music.bulkDone", { count: done }));
+		} else {
+			toast.error(t("gm.music.bulkPartial", { done, failed }));
+		}
 	}
 
-	useEffect(() => () => stopPreview(), []);
+	async function retype(targets: readonly LibraryTrack[], next: TrackDto["type"]) {
+		const changing = targets.filter((track) => track.type !== next);
+		await runBulk(changing, (track) => patchTrack(track, { type: next }));
+		setSelection(new Set());
+	}
+
+	async function confirmDelete() {
+		const target = deleteTarget;
+		setDeleteTarget(null);
+		if (!target) {
+			return;
+		}
+		const removed: string[] = [];
+		await runBulk(target.tracks, async (track) => {
+			await api(`/gm/modules/tracks/${encodeURIComponent(track.id)}`, {
+				method: "DELETE",
+			});
+			removed.push(track.id);
+		});
+		removeLocal(removed);
+	}
+
+	function handleAction(track: LibraryTrack, action: TrackRowAction) {
+		if (action === "rename") {
+			setRenamingId(track.id);
+		} else if (action === "retype") {
+			void retype([track], track.type === "bgm" ? "se" : "bgm");
+		} else if (action === "select") {
+			toggleSelect(track);
+		} else {
+			setDeleteTarget({ tracks: [track] });
+		}
+	}
+
+	function toggleSelect(track: LibraryTrack) {
+		setSelection((current) => {
+			const next = new Set(current);
+			if (next.has(track.id)) {
+				next.delete(track.id);
+			} else {
+				next.add(track.id);
+			}
+			return next;
+		});
+	}
+
+	function openAdd(tab: AddTracksTab = "upload") {
+		if (!activeModule) {
+			return;
+		}
+		setAddTab(tab);
+		setAddOpen(true);
+	}
+
+	const selectedTracks = tracks.filter((track) => selection.has(track.id));
 
 	useEffect(() => {
-		void (async () => {
-			try {
-				const next = await fetchAllPages<ModuleDto>("/gm/modules");
-				setModules(next);
-				setModuleId((current) => current || next[0]?.id || "");
-			} catch (error) {
-				toast.error(errorText(error, "gm.music.loadModulesFailed"));
+		function onKeyDown(event: KeyboardEvent) {
+			const target = event.target;
+			const typing =
+				target instanceof HTMLElement &&
+				(target.isContentEditable ||
+					["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
+			if (event.key === "/" && !typing) {
+				event.preventDefault();
+				searchRef.current?.focus();
+			} else if (event.key === "Escape" && !typing) {
+				setSelection((current) => (current.size > 0 ? new Set() : current));
 			}
-		})();
+		}
+		window.addEventListener("keydown", onKeyDown);
+		return () => window.removeEventListener("keydown", onKeyDown);
 	}, []);
 
-	useEffect(() => {
-		if (!moduleId) {
-			return;
-		}
-		void fetchAllPages<TrackDto>(
-			`/gm/modules/${encodeURIComponent(moduleId)}/tracks`,
-		)
-			.then(setTracks)
-			.catch((error) =>
-				toast.error(errorText(error, "gm.music.loadTracksFailed")),
-			);
-	}, [moduleId]);
-
-	async function reloadTracks() {
-		if (!moduleId) {
-			return;
-		}
-		try {
-			setTracks(
-				await fetchAllPages<TrackDto>(
-					`/gm/modules/${encodeURIComponent(moduleId)}/tracks`,
-				),
-			);
-		} catch (error) {
-			toast.error(
-				isApiError(error) ? error.message : t("gm.music.loadTracksFailed"),
-			);
-		}
+	function hasFiles(event: React.DragEvent) {
+		return Array.from(event.dataTransfer?.types ?? []).includes("Files");
 	}
 
-	const bgmTracks = tracks.filter((track) => track.type === "bgm");
-	const soundEffects = tracks.filter((track) => track.type === "se");
+	const stage = (
+		<div
+			className="relative flex min-h-0 flex-1 flex-col"
+			onDragOver={(event) => {
+				if (hasFiles(event)) {
+					event.preventDefault();
+					if (!isAllView) {
+						setDragging(true);
+					}
+				}
+			}}
+			onDragLeave={(event) => {
+				if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+					setDragging(false);
+				}
+			}}
+			onDrop={(event) => {
+				if (!hasFiles(event)) {
+					return;
+				}
+				event.preventDefault();
+				setDragging(false);
+				if (isAllView || !activeModule) {
+					toast.message(t("gm.music.dropNeedModule"));
+					return;
+				}
+				setDroppedFiles(Array.from(event.dataTransfer.files));
+				setAddTab("upload");
+				setAddOpen(true);
+			}}
+		>
+			{dragging && activeModule ? (
+				<div
+					role="status"
+					className="pointer-events-none absolute inset-3 z-30 grid place-items-center rounded-lg border-2 border-dashed border-accent bg-md-surface/85 text-title-medium text-accent"
+				>
+					{t("gm.music.dropActive", { module: activeModule.name })}
+				</div>
+			) : null}
+			<div className="flex flex-col gap-1 px-4 pt-5 md:px-6">
+				<div className="flex min-h-10 items-center gap-3">
+					<h1 className="min-w-0 flex-1 truncate text-headline-small-emph text-md-on-surface">
+						{isAllView ? t("gm.music.allTracks") : (activeModule?.name ?? "")}
+					</h1>
+					{!isAllView && activeModule ? (
+						<Button type="button" size="sm" onClick={() => openAdd("upload")}>
+							<Plus />
+							{t("gm.music.add")}
+						</Button>
+					) : null}
+				</div>
+				<p
+					data-music-stats
+					className="min-h-5 text-body-medium tabular-nums text-md-on-surface-variant"
+				>
+					{tracksReady ? (
+						<>
+							{t("gm.music.statsCount", { count: stats.count })}
+							{stats.count > 0 ? (
+								<>
+									{" · "}
+									<span className="font-mono">
+										{formatTotalDuration(stats.totalMs)}
+									</span>
+								</>
+							) : null}
+						</>
+					) : null}
+				</p>
+				{isAllView ? (
+					<p className="text-body-small text-md-on-surface-variant">
+						{t("gm.music.pickModuleHint")}
+					</p>
+				) : null}
+			</div>
+			<MusicToolbar
+				visible={tracks.length > 0}
+				query={query}
+				onQueryChange={setQuery}
+				type={type}
+				onTypeChange={setType}
+				sort={sort}
+				onSortChange={setSort}
+				selectedCount={selection.size}
+				onClearSelection={() => setSelection(new Set())}
+				onBulkRetype={(next) => void retype(selectedTracks, next)}
+				onBulkDelete={() => setDeleteTarget({ tracks: selectedTracks })}
+				searchRef={searchRef}
+			/>
+			<div
+				data-scroll
+				className={cn("min-h-0 flex-1 overflow-y-auto px-4 pb-8 md:px-6")}
+			>
+				{tracksReady ? (
+					<TrackLedger
+						tracks={visible}
+						groupByModule={isAllView}
+						moduleOrder={moduleIds}
+						empty={empty}
+						auditionId={audition.track?.id ?? null}
+						auditionProgress={
+							audition.track
+								? audition.positionMs / Math.max(1, audition.track.duration)
+								: 0
+						}
+						selection={selection}
+						renamingId={renamingId}
+						onToggleAudition={audition.toggle}
+						onToggleSelect={toggleSelect}
+						onAction={handleAction}
+						onRenameCommit={(track, name) => void commitRename(track, name)}
+						onRenameCancel={() => setRenamingId(null)}
+						onClearFilters={() => {
+							setQuery("");
+							setType("all");
+						}}
+					/>
+				) : (
+					<div aria-busy className="flex flex-col">
+						{[0, 1, 2, 3].map((row) => (
+							<div
+								key={row}
+								className="h-11 animate-pulse border-b border-md-outline-variant/40"
+							/>
+						))}
+					</div>
+				)}
+			</div>
+			{audition.track ? (
+				<AuditionBar
+					track={audition.track}
+					positionMs={audition.positionMs}
+					volume={audition.volume}
+					onStop={audition.stop}
+					onSeek={audition.seek}
+					onVolume={audition.setVolume}
+				/>
+			) : null}
+		</div>
+	);
 
 	return (
-		<AdminLayout>
-			<div className="flex h-full min-h-0 flex-col gap-5">
-				<PageHeader
-					title={t("gm.music.title")}
-					description={t("gm.music.description")}
-					actions={
-						moduleId ? (
-							<Button asChild variant="primary" className="h-12 px-6">
-								<Link to="/gm/module/$moduleId" params={{ moduleId }}>
-									<Upload />
-									{t("gm.music.goUpload")}
-								</Link>
+		<AdminLayout bleed>
+			{modulesReady && modules.length === 0 ? (
+				<div className="p-6">
+					<EmptyState
+						icon={AudioLines}
+						title={t("gm.music.noModulesTitle")}
+						description={t("gm.music.noModulesHint")}
+						action={
+							<Button asChild variant="tonal" size="sm">
+								<Link to="/gm/modules">{t("gm.music.goModules")}</Link>
 							</Button>
-						) : null
-					}
+						}
+					/>
+				</div>
+			) : wide ? (
+				<div className="flex h-full min-h-0">
+					<aside
+						data-scroll
+						className="flex w-60 shrink-0 flex-col border-r border-md-outline-variant/60 bg-md-surface xl:w-64"
+					>
+						<ModuleNav
+							modules={moduleOptions}
+							totalCount={totalCount}
+							activeId={activeId}
+							onSelect={selectModule}
+						/>
+					</aside>
+					{stage}
+				</div>
+			) : (
+				<div className="flex h-full min-h-0 flex-col">
+					<div className="border-b border-md-outline-variant/60 bg-md-surface px-4 py-3">
+						<ModulePicker
+							modules={moduleOptions}
+							totalCount={totalCount}
+							activeId={activeId}
+							onSelect={selectModule}
+						/>
+					</div>
+					{stage}
+				</div>
+			)}
+			{activeModule ? (
+				<AddTracksDialog
+					open={addOpen}
+					onOpenChange={setAddOpen}
+					moduleId={activeModule.id}
+					moduleName={activeModule.name}
+					tracks={tracks}
+					defaultTab={addTab}
+					droppedFiles={droppedFiles}
+					onDroppedFilesConsumed={() => setDroppedFiles([])}
+					onAdded={addLocal}
 				/>
-				<div className="flex flex-wrap gap-2">
-					{modules.map((module) => (
-						<Button
-							key={module.id}
-							type="button"
-							variant={module.id === moduleId ? "primary" : "tertiary"}
-							onClick={() => {
-								stopPreview();
-								setModuleId(module.id);
-							}}
-						>
-							{module.name}
-						</Button>
-					))}
-				</div>
-				<div className="flex flex-wrap items-stretch gap-5 xl:flex-row">
-					<section className="bg-md-surface-container border-md-outline-variant/50 animate-in fade-in slide-in-from-bottom-4 flex min-w-0 flex-1 flex-col gap-3 rounded-xl-inc border p-4 duration-500 ease-standard-default-spatial">
-						<div className="flex items-center gap-2">
-							<Disc3 className="text-accent-hover size-4" />
-							<span className="text-foreground text-title-small-emph">
-								{t("gm.music.bgm")}
-							</span>
-							<Badge variant="soft" size="sm">
-								{t("gm.music.bgmCount", { count: bgmTracks.length })}
-							</Badge>
-						</div>
-						<div className="flex flex-1 flex-col overflow-y-auto">
-							{bgmTracks.map((track) => (
-								<TrackRow
-									key={track.id}
-									track={track}
-									previewing={previewId === track.id}
-									onTogglePreview={() => togglePreview(track)}
-									onReload={reloadTracks}
-									onDelete={() => setDeleteTarget(track)}
-								/>
-							))}
-							{bgmTracks.length === 0 ? (
-								<div className="flex flex-1 flex-col items-center justify-center gap-2 px-4 py-6 text-center">
-									<Disc3 className="text-md-on-surface-variant/40 size-6" />
-									<p className="text-md-on-surface-variant text-label-medium">
-										{t("gm.music.noBgm")}
-									</p>
-									<p className="text-md-on-surface-variant/70 max-w-xs text-label-small">
-										{t("gm.music.noBgmHint")}
-									</p>
-								</div>
-							) : null}
-						</div>
-					</section>
-					<section className="bg-md-surface-container border-md-outline-variant/50 animate-in fade-in slide-in-from-bottom-4 flex w-full shrink-0 flex-col gap-3 rounded-xl-inc border p-4 delay-75 duration-500 ease-standard-default-spatial xl:w-[400px]">
-						<div className="flex items-center gap-2">
-							<Zap className="text-warning size-4" />
-							<span className="text-foreground text-title-small-emph">
-								{t("gm.music.se")}
-							</span>
-							<Badge variant="soft" size="sm">
-								{t("gm.music.seCount", { count: soundEffects.length })}
-							</Badge>
-						</div>
-						<div className="flex flex-1 flex-col overflow-y-auto">
-							{soundEffects.map((track) => (
-								<TrackRow
-									key={track.id}
-									track={track}
-									previewing={previewId === track.id}
-									onTogglePreview={() => togglePreview(track)}
-									onReload={reloadTracks}
-									onDelete={() => setDeleteTarget(track)}
-								/>
-							))}
-							{soundEffects.length === 0 ? (
-								<div className="flex flex-1 flex-col items-center justify-center gap-2 px-4 py-6 text-center">
-									<Zap className="text-md-on-surface-variant/40 size-6" />
-									<p className="text-md-on-surface-variant text-label-medium">
-										{t("gm.music.noSe")}
-									</p>
-									<p className="text-md-on-surface-variant/70 max-w-xs text-label-small">
-										{t("gm.music.noSeHint")}
-									</p>
-								</div>
-							) : null}
-						</div>
-					</section>
-				</div>
-			</div>
+			) : null}
 			<ConfirmDialog
 				open={deleteTarget !== null}
-				onOpenChange={(open) => !open && setDeleteTarget(null)}
-				icon={Trash2}
-				confirmIcon={Trash2}
-				title={t("gm.music.deleteTitle")}
-				description={t("gm.music.deleteDescription", {
-					name: deleteTarget?.name ?? "",
-				})}
-				confirmLabel={t("common.delete")}
-				onConfirm={() => {
-					const target = deleteTarget;
-					setDeleteTarget(null);
-					if (!target) {
-						return;
+				onOpenChange={(open) => {
+					if (!open) {
+						setDeleteTarget(null);
 					}
-					if (previewId === target.id) {
-						stopPreview();
-					}
-					void api(`/gm/modules/tracks/${encodeURIComponent(target.id)}`, {
-						method: "DELETE",
-					})
-						.then(() => reloadTracks())
-						.catch((error) =>
-							toast.error(
-								isApiError(error) ? error.message : t("gm.music.deleteFailed"),
-							),
-						);
 				}}
+				icon={Trash2}
+				title={
+					deleteTarget && deleteTarget.tracks.length > 1
+						? t("gm.music.bulkDeleteTitle", {
+								count: deleteTarget.tracks.length,
+							})
+						: t("gm.music.deleteTitle")
+				}
+				description={
+					deleteTarget && deleteTarget.tracks.length > 1
+						? t("gm.music.bulkDeleteDescription", {
+								count: deleteTarget.tracks.length,
+							})
+						: t("gm.music.deleteDescription", {
+								name: deleteTarget?.tracks[0]?.name ?? "",
+							})
+				}
+				confirmLabel={t("gm.music.menuDelete")}
+				confirmIcon={Trash2}
+				onConfirm={() => void confirmDelete()}
 			/>
 		</AdminLayout>
 	);

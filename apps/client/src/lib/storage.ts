@@ -6,6 +6,7 @@ export const LOCAL_VOLUME_KEY = "cogm.localVolume";
 export const LOCAL_MUTED_KEY = "cogm.localMuted";
 export const PLAY_DISPLAY_KEY = "cogm.playDisplay";
 export const GM_LIBRARY_RULE_KEY = "cogm.gmLibraryRule";
+export const GM_MUSIC_MODULE_KEY = "cogm.gmMusicModule";
 export const VOICE_MEMBER_VOLUMES_PREFIX = "cogm.voiceMemberVolumes.";
 
 export type PlayDisplayKey =
@@ -178,4 +179,19 @@ export function writeGmLibraryRule(ruleId: string): void {
 		return;
 	}
 	localStorage.setItem(GM_LIBRARY_RULE_KEY, ruleId);
+}
+
+/** 音乐页上次使用的模组（模组 id 或 "all"）。 */
+export function readGmMusicModule(): string | null {
+	if (typeof localStorage === "undefined") {
+		return null;
+	}
+	return localStorage.getItem(GM_MUSIC_MODULE_KEY);
+}
+
+export function writeGmMusicModule(moduleId: string): void {
+	if (typeof localStorage === "undefined") {
+		return;
+	}
+	localStorage.setItem(GM_MUSIC_MODULE_KEY, moduleId);
 }

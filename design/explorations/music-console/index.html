@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>音乐 · 调音台</title>
+<link rel="stylesheet" href="../_shared/base.css">
+<style>
+/* —— 提示单：一行一条 cue，台账式，试听就在行里 —— */
+.mods{width:272px;flex:none;border-right:1px solid color-mix(in oklab,var(--outline-var) 70%,transparent);display:flex;flex-direction:column;min-height:0}
+.mods h2{font-size:12px;letter-spacing:.14em;color:var(--outline);font-weight:500;padding:26px 20px 10px}
+.mods .field{margin:0 14px 10px;height:36px;font-size:13px}
+.mlist{flex:1;overflow:auto;padding:0 8px 16px}
+.mi{width:100%;display:flex;align-items:center;gap:8px;padding:0 12px;height:40px;border-radius:12px;color:var(--on-var);position:relative;text-align:left}
+.mi .nm{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mi .ct{font-size:12px;color:var(--outline)}
+.mi:hover{background:color-mix(in oklab,var(--on) 6%,transparent)}
+.mi[aria-current=true]{background:var(--c-high);color:var(--on)}
+.mi[aria-current=true]::before{content:"";position:absolute;left:0;top:10px;bottom:10px;width:3px;border-radius:2px;background:var(--primary)}
+.mi[aria-current=true] .ct{color:var(--primary)}
+.mi.all{margin-bottom:6px}
+.msep{height:1px;background:color-mix(in oklab,var(--outline-var) 60%,transparent);margin:6px 12px 8px}
+.sheet{flex:1;min-width:0;display:flex;flex-direction:column;position:relative}
+.head{display:flex;align-items:flex-end;gap:16px;padding:22px 28px 14px}
+.head .t{flex:1;min-width:0}
+.head .eyebrow{font-size:12px;letter-spacing:.14em;color:var(--outline)}
+.head h1{font-size:26px;line-height:1.2;font-weight:500;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.head .stats{margin-top:4px;color:var(--on-var);font-size:13px;display:flex;gap:6px;flex-wrap:wrap}
+.head .stats i{opacity:.4;font-style:normal}
+.tools{display:flex;align-items:center;gap:10px;padding:6px 28px 14px;flex-wrap:wrap}
+.tools .field{flex:1;min-width:180px;max-width:380px}
+.tools .sort{margin-left:auto}
+.bulk{display:flex;align-items:center;gap:10px;padding:0 20px;margin:6px 28px 14px;height:48px;border-radius:24px;background:var(--primary-c);color:var(--primary);font-weight:500}
+.bulk .sp{flex:1}
+.bulk .btn{height:34px;color:var(--on);background:color-mix(in oklab,var(--on) 10%,transparent)}
+.ledger{flex:1;overflow:auto;padding:0 20px 90px;min-height:0}
+.row,.hd{display:grid;align-items:center;column-gap:12px;grid-template-columns:28px 40px minmax(0,1fr) 96px 56px 124px 40px;padding:0 8px;position:relative}
+.ledger.all .row,.ledger.all .hd{grid-template-columns:28px 40px minmax(0,1fr) 140px 96px 56px 124px 40px}
+.hd{height:34px;font-size:12px;letter-spacing:.1em;color:var(--outline);position:sticky;top:0;background:var(--surface);z-index:2;border-bottom:1px solid var(--outline-var)}
+.hd .r,.row .r{text-align:right}
+.row{height:56px;border-bottom:1px solid color-mix(in oklab,var(--outline-var) 45%,transparent)}
+.row:hover{background:color-mix(in oklab,var(--on) 4%,transparent)}
+.row .chk{width:18px;height:18px;border-radius:5px;border:1.5px solid var(--outline);display:grid;place-items:center;opacity:0;color:transparent}
+.row:hover .chk,.row:focus-within .chk,.ledger.selecting .chk{opacity:1}
+.row .chk[aria-checked=true]{background:var(--primary);border-color:var(--primary);color:var(--on-primary);opacity:1}
+.cue{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;color:var(--outline);font-size:13px}
+.cue .i{display:none}
+.row:hover .cue,.row:focus-within .cue{background:var(--c-highest);color:var(--on)}
+.row:hover .cue .n,.row:focus-within .cue .n{display:none}
+.row:hover .cue .i,.row:focus-within .cue .i{display:block}
+.row.on .cue{background:var(--primary);color:var(--on-primary)}
+.row.on .cue .n{display:none}.row.on .cue .i{display:block}
+.ttl{min-width:0}
+.ttl b{display:block;font-weight:500;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ttl span{display:block;font-size:12.5px;color:var(--on-var);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row.on .ttl b{color:var(--primary)}
+.src{font-size:13px;color:var(--on-var)}
+.tag{justify-self:start;font-family:var(--mono);font-size:11px;letter-spacing:.06em;padding:2px 7px;border-radius:6px;border:1px solid var(--outline-var);color:var(--on-var);display:inline-flex;gap:5px;align-items:center}
+.row .dur{font-size:13px;color:var(--on-var)}
+.row.on .dur{color:var(--primary)}
+.row .more{opacity:0}
+.row:hover .more,.row:focus-within .more,.row.on .more{opacity:1}
+.prog{position:absolute;left:8px;right:8px;bottom:-1px;height:2px;background:transparent}
+.prog i{display:block;height:100%;background:var(--primary);width:0}
+/* 试听条：始终贴在列表底部，滚走也能控制 */
+.dock{position:absolute;left:20px;right:20px;bottom:16px;display:none;align-items:center;gap:14px;padding:10px 14px 10px 10px;border-radius:20px;background:var(--c-highest);box-shadow:0 8px 28px rgba(0,0,0,.45)}
+.dock.on{display:flex}
+.dock .pp{width:44px;height:44px;border-radius:50%;background:var(--primary);color:var(--on-primary);display:grid;place-items:center}
+.dock .meta{width:200px;min-width:0}
+.dock .meta b{display:block;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dock .meta span{font-size:12px;color:var(--on-var)}
+.dock .scrub{flex:1;display:flex;align-items:center;gap:10px;font-size:12px;color:var(--on-var)}
+.dock .bar{flex:1;height:4px;border-radius:2px;background:color-mix(in oklab,var(--on) 18%,transparent);position:relative}
+.dock .bar i{position:absolute;left:0;top:0;bottom:0;border-radius:2px;background:var(--primary)}
+.dock .bar u{position:absolute;top:50%;width:12px;height:12px;border-radius:50%;background:var(--primary);transform:translate(-50%,-50%);box-shadow:0 0 0 4px color-mix(in oklab,var(--primary) 25%,transparent)}
+.dock .vol{display:flex;align-items:center;gap:6px;width:110px;color:var(--on-var)}
+.dock .vol .bar{height:3px}
+/* 空状态 */
+.empty{margin:8px 28px;border:1.5px dashed var(--outline-var);border-radius:24px;padding:40px 36px;display:flex;flex-direction:column;gap:6px;align-items:flex-start}
+.empty h3{font-size:18px;font-weight:500}
+.empty p{color:var(--on-var);max-width:46ch}
+.empty .acts{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+/* 添加对话框 */
+.dlg{width:min(600px,calc(100vw - 32px));max-height:calc(100vh - 48px);overflow:auto;background:var(--c);border-radius:28px;display:flex;flex-direction:column}
+.dlg header{display:flex;align-items:center;padding:20px 20px 4px 28px;gap:8px}
+.dlg header h2{flex:1;font-size:20px;font-weight:500}
+.dlg header .sub{display:block;font-size:13px;color:var(--on-var);font-weight:400}
+.tabs{display:flex;gap:4px;padding:8px 20px 0;border-bottom:1px solid var(--outline-var)}
+.tabs button{height:44px;padding:0 12px;color:var(--on-var);position:relative}
+.tabs button[aria-selected=true]{color:var(--primary)}
+.tabs button[aria-selected=true]::after{content:"";position:absolute;left:8px;right:8px;bottom:-1px;height:3px;border-radius:2px 2px 0 0;background:var(--primary)}
+.dlg .body{padding:20px 28px;display:flex;flex-direction:column;gap:14px}
+.drop{border:1.5px dashed var(--outline);border-radius:20px;padding:26px;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;background:color-mix(in oklab,var(--primary) 5%,transparent)}
+.drop b{font-weight:500}
+.drop span{color:var(--on-var);font-size:13px}
+.q{display:flex;flex-direction:column}
+.qi{display:grid;grid-template-columns:minmax(0,1fr) auto 52px 36px;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid color-mix(in oklab,var(--outline-var) 45%,transparent)}
+.qi .nm{min-width:0;background:none;border:0;border-bottom:1px solid transparent;height:32px;outline:0}
+.qi .nm:focus{border-color:var(--primary)}
+.qi .st{font-size:12px;color:var(--on-var);text-align:right}
+.qi .st.ok{color:var(--primary)}
+.seg.sm button{height:26px;padding:0 10px;font-size:12px}
+.seg.sm{padding:2px}
+.dlg footer{display:flex;align-items:center;gap:8px;padding:12px 20px 20px 28px}
+.dlg footer .hint{flex:1;font-size:12.5px;color:var(--on-var)}
+/* 菜单 */
+.menu{position:fixed;min-width:200px;background:var(--c-highest);border-radius:14px;padding:6px;box-shadow:0 10px 30px rgba(0,0,0,.5);z-index:40;display:none}
+.menu.on{display:block}
+.menu button{display:flex;gap:10px;align-items:center;width:100%;height:40px;padding:0 12px;border-radius:10px;text-align:left}
+.menu button:hover{background:color-mix(in oklab,var(--on) 8%,transparent)}
+.menu .danger{color:var(--error)}
+.menu hr{border:0;height:1px;background:var(--outline-var);margin:4px 6px}
+/* 移动端 */
+.picker{display:none}
+@media (max-width:760px){
+  .mods{display:none}
+  .picker{display:flex;align-items:center;gap:8px;margin:14px 14px 0;height:44px;padding:0 14px;border-radius:14px;background:var(--c);border:1px solid var(--outline-var);width:calc(100% - 28px);text-align:left}
+  .picker b{flex:1;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .picker .ct{color:var(--primary);font-size:12px}
+  .head{padding:14px 14px 10px;flex-wrap:wrap;align-items:center}
+  .head h1{font-size:20px}
+  .head .btn{height:40px;padding:0 14px}
+  .head .btn .lbl{display:none}
+  .tools{padding:4px 14px 10px}
+  .tools .field{min-width:0;flex-basis:100%;max-width:none}
+  .tools .sort{display:none}
+  .seg button{padding:0 11px}
+  .ledger{padding:0 8px 90px}
+  .row,.hd,.ledger.all .row,.ledger.all .hd{grid-template-columns:40px minmax(0,1fr) auto 36px;column-gap:6px;padding:0 4px}
+  .row .dur .e{display:none}
+  .hd{display:none}
+  .row{height:60px}
+  .row .chk,.row .src,.row .tag{display:none}
+  .row .more{opacity:1;width:36px;height:36px}
+  .cue .n{display:none}.cue .i{display:block}.cue{background:var(--c-highest);color:var(--on)}
+  .ttl b{font-size:14.5px}
+  .dock{left:8px;right:8px;bottom:10px;gap:10px;padding:8px 10px 8px 8px}
+  .dock .meta{width:auto;flex:1}
+  .dock .scrub .bar,.dock .vol{display:none}
+  .empty{margin:8px 14px;padding:26px 20px}
+  .bulk{margin:4px 14px 10px;padding:0 12px}
+  .bulk .btn .lbl{display:none}
+}
+
+/* —— 调音台：BGM 是通道条（循环、有进度灯带），SE 是音效垫（一次、数字键） —— */
+.sec{display:flex;align-items:baseline;gap:10px;padding:18px 8px 8px;font-size:12px;letter-spacing:.14em;color:var(--outline)}
+.sec b{font-weight:500;color:var(--on);letter-spacing:.06em;font-size:14px}
+.sec .l{flex:1;height:1px;background:var(--outline-var);align-self:center;opacity:.7}
+.strip{display:grid;align-items:center;column-gap:14px;grid-template-columns:28px 52px minmax(0,1fr) 220px 112px 40px;padding:0 8px;height:68px;border-radius:14px;background:var(--c);margin-bottom:6px;box-shadow:inset 0 1px 0 rgba(255,255,255,.05),inset 0 -1px 0 rgba(0,0,0,.35);position:relative}
+.strip:hover{background:var(--c-high)}
+.strip .chno{font-family:var(--mono);font-size:11px;color:var(--outline);letter-spacing:.08em;text-align:center}
+.key{width:44px;height:44px;border-radius:10px;display:grid;place-items:center;background:var(--c-highest);color:var(--on);box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 2px 0 rgba(0,0,0,.5)}
+.key:active{transform:translateY(1px);box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 1px 0 rgba(0,0,0,.5)}
+.strip .chk{width:18px;height:18px;border-radius:5px;border:1.5px solid var(--outline);display:grid;place-items:center;opacity:0;color:transparent}
+.strip:hover .chk,.strip:focus-within .chk,.ledger.selecting .chk{opacity:1}
+.strip .chk[aria-checked=true]{background:var(--primary);border-color:var(--primary);color:var(--on-primary);opacity:1}
+.strip.on{background:color-mix(in oklab,var(--primary) 9%,var(--c))}
+.strip.on .key{background:var(--primary);color:var(--on-primary)}
+.strip.on .ttl b{color:var(--primary)}
+.leds{height:14px;border-radius:3px;position:relative;background:repeating-linear-gradient(90deg,color-mix(in oklab,var(--on) 12%,transparent) 0 5px,transparent 5px 8px)}
+.leds i{position:absolute;left:0;top:0;bottom:0;background:repeating-linear-gradient(90deg,var(--primary) 0 5px,transparent 5px 8px)}
+.loop{display:flex;gap:6px;align-items:center;font-size:12px;color:var(--outline)}
+.pads{display:grid;grid-template-columns:repeat(auto-fill,minmax(172px,1fr));gap:10px;padding:0 0 10px}
+.pad{height:104px;border-radius:14px;background:var(--c);padding:10px 12px;display:flex;flex-direction:column;text-align:left;position:relative;box-shadow:inset 0 1px 0 rgba(255,255,255,.06),inset 0 -2px 0 rgba(0,0,0,.45);color:var(--on)}
+.pad:hover{background:var(--c-high)}
+.pad .kc{font-family:var(--mono);font-size:12px;color:var(--outline);width:22px;height:22px;border:1px solid var(--outline-var);border-radius:6px;display:grid;place-items:center}
+.pad b{margin-top:auto;font-weight:500;font-size:14px;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.pad .d{position:absolute;right:12px;top:12px;font-family:var(--mono);font-size:12px;color:var(--on-var)}
+.pad.on{background:var(--primary);color:var(--on-primary)}
+.pad.on .kc{border-color:var(--on-primary);color:var(--on-primary)}.pad.on .d{color:var(--on-primary)}
+.pad .mo{position:absolute;right:4px;bottom:4px;width:32px;height:32px;opacity:0}
+.pad:hover .mo,.pad:focus-within .mo{opacity:1}
+@media (max-width:760px){
+  .strip{grid-template-columns:44px minmax(0,1fr) auto 36px;column-gap:8px;height:64px;padding:0 6px}
+  .strip .dur .e{display:none}
+  .strip .chno,.strip .leds,.strip .loop,.strip .chk{display:none}
+  .pads{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .pad{height:88px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <script src="../_shared/data.js"></script>
+  <script>document.write(railHTML())</script>
+  <main class="surface">
+    <aside class="mods" aria-label="模组">
+      <h2>模组</h2>
+      <label class="field"><span id="ms"></span><input id="mq" type="search" placeholder="找模组" aria-label="找模组"></label>
+      <div class="mlist" id="mlist"></div>
+    </aside>
+    <section class="sheet">
+      <button class="picker" id="picker" aria-haspopup="listbox"></button>
+      <div class="head" id="head"></div>
+      <div id="toolsHost"></div>
+      <div class="ledger" id="ledger"></div>
+      <div class="dock" id="dock" role="region" aria-label="正在试听"></div>
+    </section>
+  </main>
+</div>
+<div class="scrim" id="scrim"></div>
+<div class="menu" id="menu" role="menu"></div>
+<script>
+const S={mod:"雾港疑案",type:"all",q:"",sort:"added",play:null,prog:0,sel:new Set(),mq:""};
+const $=(id)=>document.getElementById(id);
+const st=new URLSearchParams(location.search).get("state")||"";
+if(st==="empty")S.mod="无名小镇";
+if(st==="all")S.mod="*";
+const inMod=()=>TRACKS.filter(t=>S.mod==="*"||t.m===S.mod);
+const view=()=>{let a=inMod();if(S.type!=="all")a=a.filter(t=>t.type===S.type);if(S.q)a=a.filter(t=>(t.name+(t.artists||"")+(t.album||"")).toLowerCase().includes(S.q.toLowerCase()));
+  if(S.sort==="name")a=[...a].sort((x,y)=>x.name.localeCompare(y.name,"zh"));if(S.sort==="dur")a=[...a].sort((x,y)=>y.dur-x.dur);return a;};
+function renderMods(){
+  const cnt=(m)=>TRACKS.filter(t=>t.m===m).length;
+  const q=S.mq.trim();const ms=MODULES.filter(m=>!q||m.includes(q));
+  $("ms").innerHTML=ic("search",16);
+  $("mlist").innerHTML=`<button class="mi all" aria-current="${S.mod==="*"}" data-m="*"><span class="nm">全部曲目</span><span class="ct num">${TRACKS.length}</span></button><div class="msep"></div>`+
+   ms.map(m=>`<button class="mi" aria-current="${S.mod===m}" data-m="${m}"><span class="nm">${m}</span><span class="ct num">${cnt(m)}</span></button>`).join("");
+  $("picker").innerHTML=`<span style="color:var(--outline);font-size:12px;letter-spacing:.1em">模组</span><b>${S.mod==="*"?"全部曲目":S.mod}</b><span class="ct num">${inMod().length}</span>${ic("chevs",16)}`;
+}
+function renderHead(){
+  const a=inMod(),b=a.filter(t=>t.type==="bgm"),s=a.filter(t=>t.type==="se");const tot=a.reduce((x,t)=>x+t.dur,0);
+  const h=Math.floor(tot/3600),mn=Math.floor(tot%3600/60);
+  $("head").innerHTML=`<div class="t"><div class="eyebrow">调音台</div><h1>${S.mod==="*"?"全部曲目":S.mod}</h1>
+   <div class="stats num">${a.length?`<span>${a.length} 首</span><i>·</i><span>BGM ${b.length}</span><i>·</i><span>SE ${s.length}</span><i>·</i><span>共 ${h?h+" 小时 ":""}${mn} 分</span>`:`<span>暂无曲目</span>`}</div></div>
+   <button class="btn fill" id="add" ${S.mod==="*"?'title="先选一个模组"':""}>${ic("plus",18)}<span class="lbl">添加曲目</span></button>`;
+}
+function renderTools(){
+  const a=inMod();const nb=a.filter(t=>t.type==="bgm").length,ns=a.length-nb;
+  if(S.sel.size){
+    $("toolsHost").innerHTML=`<div class="bulk"><button class="iconbtn" id="clr" aria-label="取消选择" style="color:var(--primary)">${ic("x")}</button><span class="num">已选 ${S.sel.size} 首</span><span class="sp"></span>
+     <button class="btn sm" data-b="bgm">${ic("repeat",16)}<span class="lbl">设为 BGM</span></button><button class="btn sm" data-b="se">${ic("zap",16)}<span class="lbl">设为 SE</span></button><button class="btn sm" style="color:var(--error)" data-b="del">${ic("trash",16)}<span class="lbl">删除</span></button></div>`;return;
+  }
+  $("toolsHost").innerHTML=a.length?`<div class="tools"><label class="field">${ic("search",16)}<input id="q" type="search" value="${S.q}" placeholder="${S.mod==="*"?"在全部曲目中搜索":"在这个模组中搜索"}曲名、艺术家" aria-label="搜索曲目"></label>
+   <button class="btn tonal sm sort" id="sort">${ic("sliders",16)}${{added:"最近添加",name:"按名称",dur:"按时长"}[S.sort]}</button></div>`:"";
+}
+function renderLedger(){
+  const L=$("ledger");const a=view();const all=S.mod==="*";
+  L.className="ledger"+(all?" all":"")+(S.sel.size?" selecting":"");
+  if(!inMod().length){
+    L.innerHTML=`<div class="empty fade"><h3>这个模组还没有曲目</h3><p>拖入音频文件就能开始，也可以从网易云音乐、QQ 音乐按歌曲或歌单添加。</p>
+     <div class="acts"><button class="btn fill" data-open="upload">${ic("upload",18)}上传文件</button><button class="btn tonal" data-open="search">${ic("search",18)}搜索平台</button><button class="btn tonal" data-open="list">${ic("list",18)}导入歌单</button></div></div>`;return;
+  }
+  if(!a.length){L.innerHTML=`<div class="empty" style="border:0;padding:24px 8px"><h3>没有符合的曲目</h3><p>换个关键词，或者清掉类型筛选。</p><div class="acts"><button class="btn text" id="reset">清除筛选</button></div></div>`;return;}
+  const bg=a.filter(t=>t.type==="bgm"),se=a.filter(t=>t.type==="se");
+  const sub=(t)=>t.src==="upload"?`${t.size} · ${SRC.upload}`:`${t.artists} · ${SRC[t.src]}`;
+  L.innerHTML=(bg.length?`<div class="sec"><b>BGM</b><span class="num">${bg.length}</span><span class="l"></span><span>循环 · 一次只放一首</span></div>`+
+   bg.map((t,i)=>{const on=S.play===t.id;
+    return `<div class="strip${on?" on":""}" data-id="${t.id}"><button class="chk" role="checkbox" aria-checked="${S.sel.has(t.id)}" aria-label="选择 ${t.name}" data-chk="${t.id}">${ic("check",13)}</button><button class="key" data-play="${t.id}" aria-label="${on?"暂停":"试听"} ${t.name}">${ic(on?"pause":"play",20)}</button>
+    <div class="ttl"><b>${t.name}</b><span>${sub(t)}${S.mod==="*"?" · "+t.m:""}</span></div>
+    <div class="leds"><i style="width:${on?S.prog*100:0}%"></i></div><span class="mono dur" style="text-align:right;color:${on?"var(--primary)":"var(--on-var)"}">${on?`${mmss(Math.floor(t.dur*S.prog))}<span class="e"> / ${mmss(t.dur)}</span>`:mmss(t.dur)}</span>
+    <button class="iconbtn more" data-more="${t.id}" aria-label="${t.name} 的更多操作">${ic("more")}</button></div>`}).join(""):"")+
+   (se.length?`<div class="sec"><b>SE</b><span class="num">${se.length}</span><span class="l"></span><span>点一下播一次 · 数字键触发</span></div><div class="pads">`+
+   se.map((t,i)=>{const on=S.play===t.id;return `<div class="pad${on?" on":""}" data-id="${t.id}" role="button" tabindex="0" data-play="${t.id}" aria-label="试听 ${t.name}"><span class="kc">${(i+1)%10}</span><span class="d">${mmss(t.dur)}</span><b>${t.name}</b>
+    <button class="iconbtn mo" data-more="${t.id}" aria-label="${t.name} 的更多操作" style="color:${on?"var(--on-primary)":"var(--on-var)"}">${ic("more",16)}</button></div>`}).join("")+`</div>`:"");
+}
+function renderDock(){
+  const t=TRACKS.find(x=>x.id===S.play);const d=$("dock");if(!t){d.className="dock";return}
+  d.className="dock on";
+  d.innerHTML=`<button class="pp" id="pp" aria-label="暂停">${ic("pause",22)}</button><div class="meta"><b>${t.name}</b><span>${t.type==="bgm"?"BGM · 循环试听":"SE · 播放一次"}</span></div>
+   <div class="scrub"><span class="mono" id="el">${mmss(Math.floor(t.dur*S.prog))}</span><div class="bar" id="bar"><i style="width:${S.prog*100}%"></i><u style="left:${S.prog*100}%"></u></div><span class="mono">${mmss(t.dur)}</span></div>
+   <div class="vol">${ic("vol",18)}<div class="bar"><i style="width:80%"></i></div></div><button class="iconbtn" id="stop" aria-label="停止试听">${ic("x")}</button>`;
+}
+function renderAll(){renderMods();renderHead();renderTools();renderLedger();renderDock();}
+let timer=null;
+function play(id,start){S.play=id;S.prog=start||0;clearInterval(timer);const t=TRACKS.find(x=>x.id===id);
+  timer=setInterval(()=>{S.prog+=0.25/Math.min(t.dur,40);if(S.prog>=1){S.prog=t.type==="bgm"?0:1;if(t.type==="se"){stop();return}}tick()},250);renderAll()}
+function tick(){const r=document.querySelector(".row.on .prog i");if(r)r.style.width=S.prog*100+"%";const lg=document.querySelector(".strip.on .leds i");if(lg)lg.style.width=S.prog*100+"%";const t=TRACKS.find(x=>x.id===S.play);if(!t)return;
+  const bi=document.querySelector("#bar i"),bu=document.querySelector("#bar u"),el=$("el"),dur=document.querySelector(".row.on .dur, .strip.on .dur");
+  if(bi){bi.style.width=S.prog*100+"%";bu.style.left=S.prog*100+"%";el.textContent=mmss(Math.floor(t.dur*S.prog))}
+  if(dur)dur.innerHTML=mmss(Math.floor(t.dur*S.prog))+`<span class="e"> / ${mmss(t.dur)}</span>`}
+function stop(){clearInterval(timer);S.play=null;renderAll()}
+// 事件
+document.addEventListener("click",(e)=>{
+  const c=(s)=>e.target.closest(s);let x;
+  if(!c("#menu")&&!c("[data-more]"))$("menu").className="menu";
+  if(x=c("[data-m]")){S.mod=x.dataset.m;S.q="";S.type="all";S.sel.clear();renderAll()}
+  else if(x=c("[data-t]")){S.type=x.dataset.t;renderAll()}
+  else if(x=c("[data-play]")){const id=+x.dataset.play;if(S.play===id&&TRACKS.find(x=>x.id===id).type==='bgm')stop();else play(id)}
+  else if(c("#pp")||c("#stop"))stop();
+  else if(x=c("[data-chk]")){const id=+x.dataset.chk;S.sel.has(id)?S.sel.delete(id):S.sel.add(id);renderAll()}
+  else if(c("#clr")){S.sel.clear();renderAll()}
+  else if(c("#sort")){S.sort=S.sort==="added"?"name":S.sort==="name"?"dur":"added";renderAll()}
+  else if(c("#reset")){S.q="";S.type="all";renderAll()}
+  else if(c("#add")||(x=c("[data-open]")))openDlg(x?x.dataset.open:"upload");
+  else if(c("#closeDlg")||e.target.id==="scrim")$("scrim").className="scrim";
+  else if(x=c("[data-tab]"))openDlg(x.dataset.tab);
+  else if(x=c("[data-more]")){const r=x.getBoundingClientRect();const m=$("menu");const t=TRACKS.find(y=>y.id==x.dataset.more);
+    m.innerHTML=`<button role="menuitem">${ic("pencil",18)}重命名</button><button role="menuitem">${ic(t.type==="bgm"?"zap":"repeat",18)}改为 ${t.type==="bgm"?"SE":"BGM"}</button>${t.src!=="upload"?`<button role="menuitem">${ic("ext",18)}在${SRC[t.src]}打开</button>`:""}<hr><button role="menuitem" class="danger">${ic("trash",18)}删除</button>`;
+    m.className="menu on";m.style.top=Math.min(r.bottom+4,innerHeight-m.offsetHeight-8)+"px";m.style.left=Math.max(8,r.right-m.offsetWidth)+"px"}
+});
+document.addEventListener("input",(e)=>{if(e.target.id==="q"){S.q=e.target.value;renderLedger();}if(e.target.id==="mq"){S.mq=e.target.value;renderMods()}});
+document.addEventListener("keydown",(e)=>{if(e.key==="Escape"){$("scrim").className="scrim";$("menu").className="menu"}
+  if(e.key==="/"&&!/INPUT/.test(document.activeElement.tagName)){e.preventDefault();($("q")||$("mq")).focus()}
+  if(e.key===" "&&S.play&&!/INPUT|BUTTON/.test(document.activeElement.tagName)){e.preventDefault();stop()}});
+function openDlg(tab){
+  const mod=S.mod==="*"?"雾港疑案":S.mod;
+  const tabs=[["upload","上传文件"],["search","搜索平台"],["list","导入歌单"]];
+  let body="";
+  if(tab==="upload")body=`<div class="drop"><span style="color:var(--primary)">${ic("upload",28)}</span><b>拖入音频文件</b><span>或 <u>选择文件</u>，可以一次放入多个</span></div>
+   <div class="q">${[["夜雨 · 檐下","bgm","03:12","ok"],["敲门声（三下）","se","00:02","ok"],["远处的警笛","se","00:09","58%"]].map(([n,ty,d,s])=>`<div class="qi"><input class="nm" value="${n}" aria-label="曲名"><div class="seg sm"><button aria-pressed="${ty==="bgm"}">BGM</button><button aria-pressed="${ty==="se"}">SE</button></div><span class="st mono">${d}</span><span class="st ${s==="ok"?"ok":""} mono">${s==="ok"?ic("check",16):s}</span></div>`).join("")}</div>`;
+  if(tab==="search")body=`<div class="seg" style="align-self:flex-start"><button aria-pressed="true">网易云音乐</button><button aria-pressed="false">QQ 音乐</button></div>
+   <label class="field">${ic("search",16)}<input placeholder="搜索歌曲，或粘贴歌曲 ID / 分享链接" aria-label="搜索歌曲" value="Satie"></label>
+   <div class="q">${[["Gymnopédie No.1","Erik Satie / Alexandre Tharaud","03:11",1],["Gymnopédie No.3","Erik Satie","02:30",0],["Gnossienne No.1","Erik Satie","03:41",0]].map(([n,a,d,ad])=>`<div class="qi" style="grid-template-columns:minmax(0,1fr) 52px 78px"><div class="ttl"><b style="font-size:14px">${n}</b><span>${a}</span></div><span class="st mono">${d}</span><button class="btn sm ${ad?"text":"tonal"}" ${ad?"disabled style='opacity:.7'":""}>${ad?ic("check",14)+"已添加":"添加"}</button></div>`).join("")}</div>`;
+  if(tab==="list")body=`<div class="seg" style="align-self:flex-start"><button aria-pressed="true">网易云音乐</button><button aria-pressed="false">QQ 音乐</button></div>
+   <label class="field">${ic("list",16)}<input placeholder="粘贴歌单链接或歌单 ID" aria-label="歌单链接"></label>
+   <p style="color:var(--on-var);font-size:13px">歌单每页载入 50 首，勾选的曲目会跨页保留；逐首添加，已存在的会跳过。</p>`;
+  const d=document.createElement("div");
+  $("scrim").innerHTML=`<div class="dlg fade" role="dialog" aria-modal="true" aria-label="添加曲目"><header><h2>添加曲目<span class="sub">到「${mod}」</span></h2><button class="iconbtn" id="closeDlg" aria-label="关闭">${ic("x")}</button></header>
+   <div class="tabs" role="tablist">${tabs.map(([k,l])=>`<button role="tab" aria-selected="${tab===k}" data-tab="${k}">${l}</button>`).join("")}</div><div class="body">${body}</div>
+   <footer><span class="hint">${tab==="upload"?"30 秒以内的默认记为 SE，可以逐个改。":""}</span><button class="btn text" id="closeDlg">取消</button>${tab==="upload"?'<button class="btn fill">添加 3 首</button>':""}</footer></div>`;
+  $("scrim").className="scrim on";
+}
+renderAll();
+if(st==="playing")play(3,.38);
+if(st==="select"){S.sel=new Set([2,3,5]);renderAll()}
+if(st==="add")openDlg("upload");
+if(st==="addsearch")openDlg("search");
+if(st==="menu"){setTimeout(()=>document.querySelector("[data-more='4']").click(),50)}
+if(st==="all"){S.mod="*";renderAll()}
+</script>
+</body>
+</html>

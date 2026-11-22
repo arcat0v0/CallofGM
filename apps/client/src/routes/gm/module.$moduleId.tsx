@@ -41,24 +41,13 @@ import { api, fetchAllPages, mediaUrl } from "@/lib/api";
 import { audioDurationMs } from "@/lib/audio-duration";
 import { errorText } from "@/lib/errors";
 import { requireGmAuth } from "@/lib/identity";
+import { uploadMediaAsset } from "@/lib/media-upload";
 import { FALLBACK_RULE_ID } from "@/rules/registry";
 
 export const Route = createFileRoute("/gm/module/$moduleId")({
 	beforeLoad: requireGmAuth,
 	component: ModuleDetailPage,
 });
-
-async function uploadAsset(file: File, purpose: string): Promise<string> {
-	const body = new FormData();
-	body.append("file", file);
-	body.append("purpose", purpose);
-	body.append("filename", file.name);
-	const asset = await api<{ id: string }>("/media/upload", {
-		method: "POST",
-		body,
-	});
-	return asset.id;
-}
 
 function SceneCard({
 	scene,
@@ -477,7 +466,7 @@ function ModuleDetailPage() {
 										void (async () => {
 											try {
 												const bgAssetId = file
-													? await uploadAsset(file, "scene")
+													? await uploadMediaAsset(file, "scene")
 													: null;
 												await api(
 													`/gm/modules/${encodeURIComponent(moduleId)}/scenes`,
@@ -641,7 +630,7 @@ function ModuleDetailPage() {
 										}
 										void (async () => {
 											try {
-												const audioAssetId = await uploadAsset(file, "audio");
+												const audioAssetId = await uploadMediaAsset(file, "audio");
 												const duration = await audioDurationMs(file);
 												await api(
 													`/gm/modules/${encodeURIComponent(moduleId)}/tracks`,
@@ -759,7 +748,7 @@ function ModuleDetailPage() {
 										void (async () => {
 											try {
 												const imageAssetId = file
-													? await uploadAsset(file, "handout")
+													? await uploadMediaAsset(file, "handout")
 													: null;
 												await api(
 													`/gm/modules/${encodeURIComponent(moduleId)}/handouts`,

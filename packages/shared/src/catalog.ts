@@ -127,6 +127,12 @@ export const TrackDto = z.object({
 });
 export type TrackDto = z.infer<typeof TrackDto>;
 
+/** GM 曲库的跨模组列表项：曲目 + 所属模组名，供“全部曲目”视图展示。 */
+export const GmTrackLibraryItemDto = TrackDto.extend({
+	moduleName: z.string(),
+});
+export type GmTrackLibraryItemDto = z.infer<typeof GmTrackLibraryItemDto>;
+
 export const ModuleSummaryDto = z.object({
 	moduleId: z.string(),
 	sceneCount: z.number().int(),

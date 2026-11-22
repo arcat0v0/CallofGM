@@ -8,6 +8,7 @@ import {
 	isNull,
 	max,
 	or,
+	type SQL,
 } from "drizzle-orm";
 import type { DbClient } from "@/platform/db/client";
 import {
@@ -209,6 +210,7 @@ export class DrizzleCatalogRepository implements CatalogRepository {
 						latest: max(tracks.createdAt),
 					})
 					.from(tracks)
+					.where(isNull(tracks.deletedAt))
 					.groupBy(tracks.moduleId),
 				this.db
 					.select({
@@ -371,7 +373,7 @@ export class DrizzleCatalogRepository implements CatalogRepository {
 			})
 			.from(tracks)
 			.leftJoin(mediaAssets, eq(tracks.audioAssetId, mediaAssets.id))
-			.where(eq(tracks.id, id))
+			.where(and(eq(tracks.id, id), isNull(tracks.deletedAt)))
 			.limit(1);
 		const row = rows[0];
 		return row ? mapTrackRow(row) : null;
@@ -410,7 +412,7 @@ export class DrizzleCatalogRepository implements CatalogRepository {
 				...columns,
 				...(artists ? { artistsJson: JSON.stringify(artists) } : {}),
 			})
-			.where(eq(tracks.id, id))
+			.where(and(eq(tracks.id, id), isNull(tracks.deletedAt)))
 			.returning({ id: tracks.id });
 		if (result.length === 0) {
 			throw new TrackNotFoundError();
@@ -426,40 +428,45 @@ export class DrizzleCatalogRepository implements CatalogRepository {
 		const result = await this.db
 			.update(tracks)
 			.set({ deletedAt: Date.now() })
-			.where(eq(tracks.id, id))
+			.where(and(eq(tracks.id, id), isNull(tracks.deletedAt)))
 			.returning();
 		if (result.length === 0) {
 			throw new TrackNotFoundError();
 		}
 	}
 
-	async listTracksByModuleId(
-		moduleId: string,
+	private async pageTrackRows(
+		scope: SQL | undefined,
 		options: CursorPageOptions,
-	): Promise<{ items: CatalogTrack[]; nextCursor: string | null }> {
+	) {
 		const limit = options.limit;
-		const selectTracks = () =>
+		const alive = scope
+			? and(isNull(tracks.deletedAt), scope)
+			: isNull(tracks.deletedAt);
+		const selectRows = () =>
 			this.db
 				.select({
 					track: tracks,
 					assetSize: mediaAssets.size,
 					assetCreatedAt: mediaAssets.createdAt,
+					moduleName: modules.name,
 				})
 				.from(tracks)
+				.innerJoin(modules, eq(tracks.moduleId, modules.id))
 				.leftJoin(mediaAssets, eq(tracks.audioAssetId, mediaAssets.id));
-		let rows: Array<Parameters<typeof mapTrackRow>[0]>;
+		let rows: Awaited<ReturnType<ReturnType<typeof selectRows>["limit"]>>;
 		if (options.cursor) {
-			const cursorRow = await selectTracks()
+			const cursorRow = await selectRows()
 				.where(eq(tracks.id, options.cursor))
 				.limit(1);
 			const c = cursorRow[0]?.track;
 			if (!c) {
-				return { items: [], nextCursor: null };
+				return { rows: [], nextCursor: null };
 			}
-			rows = await selectTracks()
+			rows = await selectRows()
 				.where(
 					and(
-						eq(tracks.moduleId, moduleId),
+						alive,
 						or(
 							gt(tracks.createdAt, c.createdAt),
 							and(eq(tracks.createdAt, c.createdAt), gt(tracks.id, c.id)),
@@ -468,22 +475,54 @@ export class DrizzleCatalogRepository implements CatalogRepository {
 				)
 				.orderBy(asc(tracks.createdAt), asc(tracks.id))
 				.limit(limit + 1);
-		} else if (options.offset !== undefined) {
-			rows = await selectTracks()
-				.where(eq(tracks.moduleId, moduleId))
-				.orderBy(asc(tracks.createdAt), asc(tracks.id))
-				.limit(limit + 1)
-				.offset(options.offset);
 		} else {
-			rows = await selectTracks()
-				.where(eq(tracks.moduleId, moduleId))
+			const query = selectRows()
+				.where(alive)
 				.orderBy(asc(tracks.createdAt), asc(tracks.id))
 				.limit(limit + 1);
+			rows = await (options.offset !== undefined
+				? query.offset(options.offset)
+				: query);
 		}
-		return paginated(
-			rows.map((row) => mapTrackRow(row)),
+		const page = paginated(
+			rows.map((row) => ({ ...row, id: row.track.id })),
 			limit,
 		);
+		return { rows: page.items, nextCursor: page.nextCursor };
+	}
+
+	async listTracksByModuleId(
+		moduleId: string,
+		options: CursorPageOptions,
+	): Promise<{ items: CatalogTrack[]; nextCursor: string | null }> {
+		const page = await this.pageTrackRows(
+			eq(tracks.moduleId, moduleId),
+			options,
+		);
+		return {
+			items: page.rows.map((row) => mapTrackRow(row)),
+			nextCursor: page.nextCursor,
+		};
+	}
+
+	async listTracksByOwnerId(
+		ownerId: string,
+		options: CursorPageOptions,
+	): Promise<{
+		items: Array<CatalogTrack & { moduleName: string }>;
+		nextCursor: string | null;
+	}> {
+		const page = await this.pageTrackRows(
+			and(eq(modules.ownerId, ownerId), isNull(modules.deletedAt)),
+			options,
+		);
+		return {
+			items: page.rows.map((row) => ({
+				...mapTrackRow(row),
+				moduleName: row.moduleName,
+			})),
+			nextCursor: page.nextCursor,
+		};
 	}
 
 	async findHandoutById(id: string): Promise<CatalogHandout | null> {

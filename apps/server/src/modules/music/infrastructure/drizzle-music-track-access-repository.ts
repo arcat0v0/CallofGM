@@ -22,7 +22,7 @@ export class DrizzleMusicTrackAccessRepository
 			})
 			.from(tracks)
 			.innerJoin(modules, eq(tracks.moduleId, modules.id))
-			.where(eq(tracks.id, id))
+			.where(and(eq(tracks.id, id), isNull(tracks.deletedAt)))
 			.limit(1);
 		return track;
 	}

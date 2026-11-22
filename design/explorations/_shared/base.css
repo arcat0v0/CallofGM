@@ -1,0 +1,50 @@
+/* 原型共用：全站 token 的镜像（来自 apps/client/src/styles/theme.css）+ 外壳 */
+:root{
+  --surface:#12140e;--c-low:#1a1c16;--c:#1e2019;--c-high:#292b23;--c-highest:#33362e;
+  --on:#e2e3d8;--on-var:#c5c8b9;--outline:#8f9285;--outline-var:#45483d;
+  --primary:#b4d087;--primary-c:#374d13;--on-primary:#223600;--error:#ffb4a6;
+  --sans:system-ui,-apple-system,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  --mono:ui-monospace,"SFMono-Regular",Menlo,Consolas,"Liberation Mono",monospace;
+}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%;background:var(--c-low);color:var(--on);font:14px/1.45 var(--sans);-webkit-font-smoothing:antialiased}
+button,input,select{font:inherit;color:inherit}
+button{background:none;border:0;cursor:pointer}
+svg{flex:none}
+.num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+.app{display:flex;height:100vh;overflow:hidden}
+.rail{width:96px;flex:none;display:flex;flex-direction:column;align-items:center;gap:6px;padding:20px 0 16px;background:var(--c-low)}
+.rail .logo{width:36px;height:36px;border-radius:12px 12px 12px 4px;background:var(--primary);margin-bottom:14px;opacity:.9}
+.rail a{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:12px;color:var(--on-var);text-decoration:none;width:100%;padding:6px 0}
+.rail a .pill{width:56px;height:32px;border-radius:16px;display:grid;place-items:center}
+.rail a.on{color:var(--on)}
+.rail a.on .pill{background:var(--primary-c);color:var(--primary)}
+.rail .avatar{margin-top:auto;width:40px;height:40px;border-radius:50%;background:var(--primary-c);color:var(--primary);display:grid;place-items:center;font-weight:700;font-size:13px}
+.surface{flex:1;min-width:0;background:var(--surface);border-radius:28px 0 0 0;display:flex;overflow:hidden}
+.btn{display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 18px;border-radius:20px;font-weight:500;white-space:nowrap}
+.btn.fill{background:var(--primary);color:var(--on-primary)}
+.btn.fill:hover{filter:brightness(1.06)}
+.btn.tonal{background:var(--c-highest);color:var(--on)}
+.btn.text{color:var(--primary);padding:0 12px}
+.btn.sm{height:32px;padding:0 12px;border-radius:16px;font-size:13px}
+.iconbtn{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;color:var(--on-var)}
+.iconbtn:hover{background:color-mix(in oklab,var(--on) 9%,transparent);color:var(--on)}
+.field{display:flex;align-items:center;gap:8px;height:40px;padding:0 14px;border-radius:20px;background:var(--c);border:1px solid var(--outline-var);color:var(--on-var)}
+.field:focus-within{border-color:var(--primary);color:var(--on)}
+.field input{flex:1;min-width:0;background:none;border:0;outline:0;color:var(--on)}
+.field input::placeholder{color:var(--outline)}
+.seg{display:inline-flex;border:1px solid var(--outline-var);border-radius:20px;padding:3px;gap:2px;background:var(--c)}
+.seg button{height:32px;padding:0 14px;border-radius:16px;color:var(--on-var);font-size:13px;display:inline-flex;align-items:center;gap:6px}
+.seg button .n{font-size:12px;opacity:.7}
+.seg button[aria-pressed=true]{background:var(--primary-c);color:var(--primary)}
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:30}
+.scrim.on{display:flex}
+@media (max-width:760px){
+  .rail .logo{margin-bottom:8px}
+}
+@media (prefers-reduced-motion:no-preference){
+  .fade{animation:fade .35s cubic-bezier(.2,0,0,1) both}
+  @keyframes fade{from{opacity:0;transform:translateY(4px)}}
+}

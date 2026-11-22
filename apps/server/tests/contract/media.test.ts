@@ -278,6 +278,62 @@ describe("Media Storage contract tests", () => {
 		expect(buffer.byteLength).toBe(12);
 	});
 
+	test("Download media - Range requests return partial content so browsers can seek", async () => {
+		const bytes = new Uint8Array(40).map((_, index) => index);
+		bytes.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+		const formData = new FormData();
+		formData.append("file", new Blob([bytes], { type: "image/png" }), "ranged.png");
+		formData.append("purpose", "general");
+		formData.append("filename", "ranged.png");
+		const uploadRes = await app.handle(
+			new Request("http://localhost/api/v1/media/upload", {
+				method: "POST",
+				headers: { Authorization: `Bearer ${gmToken}` },
+				body: formData,
+			}),
+		);
+		const asset = await uploadRes.json();
+		const get = (range?: string) =>
+			app.handle(
+				new Request(`http://localhost/api/v1/media/${asset.id}`, {
+					headers: {
+						Authorization: `Bearer ${gmToken}`,
+						...(range ? { Range: range } : {}),
+					},
+				}),
+			);
+
+		const full = await get();
+		expect(full.status).toBe(200);
+		expect(full.headers.get("accept-ranges")).toBe("bytes");
+
+		const middle = await get("bytes=10-19");
+		expect(middle.status).toBe(206);
+		expect(middle.headers.get("content-range")).toBe("bytes 10-19/40");
+		expect(middle.headers.get("content-length")).toBe("10");
+		expect(Array.from(new Uint8Array(await middle.arrayBuffer()))).toEqual(
+			Array.from(bytes.subarray(10, 20)),
+		);
+
+		const open = await get("bytes=30-");
+		expect(open.status).toBe(206);
+		expect(open.headers.get("content-range")).toBe("bytes 30-39/40");
+
+		const suffix = await get("bytes=-5");
+		expect(suffix.status).toBe(206);
+		expect(suffix.headers.get("content-range")).toBe("bytes 35-39/40");
+
+		const clamped = await get("bytes=35-999");
+		expect(clamped.headers.get("content-range")).toBe("bytes 35-39/40");
+
+		const beyond = await get("bytes=40-");
+		expect(beyond.status).toBe(416);
+		expect(beyond.headers.get("content-range")).toBe("bytes */40");
+
+		const ignored = await get("bytes=0-1,5-6");
+		expect(ignored.status).toBe(200);
+	});
+
 	test("Download media - Player unauthorized forbidden access", async () => {
 		const formData = new FormData();
 		formData.append(

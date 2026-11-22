@@ -9,6 +9,7 @@ import {
 	ModuleDto,
 	ModuleSummaryDto,
 	SceneDto,
+	GmTrackLibraryItemDto,
 	TrackDto,
 	UpdateHandoutRequest,
 	UpdateModuleRequest,
@@ -213,6 +214,14 @@ export function createCatalogRoutes(container: Container) {
 				await repo.listTracksByModuleId(params.id, parsePageQuery(query)),
 			);
 		})
+		.get("/tracks", async ({ query, actor }) =>
+			CursorPageResponse(GmTrackLibraryItemDto).parse(
+				await repo.listTracksByOwnerId(
+					requireGm(actor).userId,
+					parsePageQuery(query),
+				),
+			),
+		)
 		.patch("/tracks/:id", async ({ params, body, actor }) => {
 			const track = await requireOwnedTrack(params.id, requireGm(actor).userId);
 			return TrackDto.parse(

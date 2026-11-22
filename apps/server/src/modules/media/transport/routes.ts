@@ -59,17 +59,60 @@ export function createMediaRoutes(container: Container) {
 				}),
 			},
 		)
-		.get("/api/v1/media/:id", async ({ params, actor }) => {
-			const { data, mimeType, size } = await readUseCase.execute(
-				actor,
-				params.id,
-			);
-
+		.get("/api/v1/media/:id", async ({ params, actor, request }) => {
+			const { data, mimeType } = await readUseCase.execute(actor, params.id);
+			const total = data.byteLength;
+			const baseHeaders = {
+				"Content-Type": mimeType,
+				"Accept-Ranges": "bytes",
+			};
+			const range = parseByteRange(request.headers.get("range"), total);
+			if (range === "unsatisfiable") {
+				return new Response(null, {
+					status: 416,
+					headers: { ...baseHeaders, "Content-Range": `bytes */${total}` },
+				});
+			}
+			if (range) {
+				const chunk = data.subarray(range.start, range.end + 1);
+				return new Response(chunk, {
+					status: 206,
+					headers: {
+						...baseHeaders,
+						"Content-Length": chunk.byteLength.toString(),
+						"Content-Range": `bytes ${range.start}-${range.end}/${total}`,
+					},
+				});
+			}
 			return new Response(data, {
-				headers: {
-					"Content-Type": mimeType,
-					"Content-Length": size.toString(),
-				},
+				headers: { ...baseHeaders, "Content-Length": total.toString() },
 			});
 		});
+}
+
+/**
+ * 解析单段 `Range: bytes=a-b`（浏览器 <audio> 跳转与续传用）。
+ * 没有或格式不认识时返回 null，按整文件响应；越界返回 "unsatisfiable"。
+ */
+function parseByteRange(
+	header: string | null,
+	total: number,
+): { start: number; end: number } | "unsatisfiable" | null {
+	const match = header?.match(/^bytes=(\d*)-(\d*)$/);
+	if (!match || (match[1] === "" && match[2] === "")) {
+		return null;
+	}
+	if (match[1] === "") {
+		const suffix = Number(match[2]);
+		if (suffix === 0) {
+			return "unsatisfiable";
+		}
+		return { start: Math.max(0, total - suffix), end: total - 1 };
+	}
+	const start = Number(match[1]);
+	if (start >= total) {
+		return "unsatisfiable";
+	}
+	const end = match[2] === "" ? total - 1 : Math.min(Number(match[2]), total - 1);
+	return end < start ? "unsatisfiable" : { start, end };
 }

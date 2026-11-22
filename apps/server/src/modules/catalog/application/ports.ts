@@ -111,6 +111,18 @@ export interface CatalogRepository {
 		},
 	): Promise<{ items: CatalogTrack[]; nextCursor: string | null }>;
 
+	listTracksByOwnerId(
+		ownerId: string,
+		options: {
+			limit: number;
+			offset?: number;
+			cursor?: string;
+		},
+	): Promise<{
+		items: Array<CatalogTrack & { moduleName: string }>;
+		nextCursor: string | null;
+	}>;
+
 	findHandoutById(id: string): Promise<CatalogHandout | null>;
 	saveHandout(handout: CatalogHandout): Promise<void>;
 	updateHandout(

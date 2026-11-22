@@ -142,3 +142,117 @@ Port notes: 页面 apps/client/src/routes/gm/characters.tsx；业务组件 apps/
 ## 交付后修订
 
 - 2026-11-21 用户反馈“规则切换的逻辑不好，规则多了怎么办”：左栏堆叠的规则块与移动端分段控件均随规则数线性增长。改为 `LibraryRulePicker`——单个触发器（当前规则简称、全名、人数）+ 弹层；弹层按“有人物（按人数降序）/暂无人物（按名称）”分组，规则超过 6 套出现搜索框（匹配简称、全名、id，回车选第一项），方向键在选项间移动；桌面与移动端共用，移动端为单行形态。无 `?rule=` 时恢复上次使用的规则（localStorage `cogm.gmLibraryRule`）。截图：`shots/gm-characters/picker-*`；8 套规则的分组/搜索行为由 `apps/client/tests/library-rule-picker.test.tsx` 覆盖。未重跑评审轮。
+
+---
+
+# Design record: CoGM — GM 音乐管理（/gm/music）
+
+Status: 已移植到工作区（未提交）；评审收尾，中位数 6（基线 4）
+Next step: 用户验收；后续用 spot 模式检查改动；移动端导航壳另行处理
+Last updated: 2026-11-21
+Reviewers: critic opus（与 gm-characters 同配置）· spot check sonnet
+Screenshots: design/shots/gm-music/（r0 = 现状基线；评审用的中性副本在 .critic/ 下，已 gitignore）
+
+## Brief (gm-music)
+Product and audience: CoGM 的 GM 后台音乐库；GM 备团时按模组管理 BGM（循环长曲）与 SE（一次性音效），来源有上传、网易云、QQ 音乐。
+Surfaces: /gm/music（apps/client/src/routes/gm/music.tsx）；与之相邻：模组页的上传表单、开团工作台的声音面板（不在本次范围，但添加曲目的组件可复用）。
+用户原话：“整个音乐相关的页面我也不满意，包括 UI/UX、布局、操作逻辑等等”。沿用前一轮的常驻指令：不再逐步确认，直接做到全部完成。
+Emotional target（按产品与受众推导，未单独访谈）：像剧场调度员的提示单——精确、克制、一眼能找到、点一下就能听。
+Risk dial: 3。约束：必须移植回现有 React 19 + shadcn/ui + Tailwind v4；token 只来自 theme.css；通用组件优先。
+
+### 现状（r0）诊断
+- 数据：曲目归属模组；API 已支持改类型（bgm/se）、平台来源、艺术家/专辑，页面一个都没用上。
+- 逻辑：本页不能添加曲目（只有“去模组上传”跳转）；平台搜索与歌单导入只存在于开团工作台；无搜索/排序/筛选/批量；改名与删除是逐行图标；平台曲目被标成“上传 —”；没有试听进度与当前播放态。
+- 布局：模组选择是整行大胶囊（随模组数线性增长，且是页面最重的元素）；BGM/SE 左右两卡，SE 常常只有两行；桌面下半屏空；移动端被全站 96px 导航栏挤压（全站壳层问题，非本页范围）。
+
+## Baseline (gm-music)
+| Surface | Baseline (median) | Spread | Critic model | Date | Set by |
+|---|---|---|---|---|---|
+| /gm/music (current) | 4 | 4-4-4（桌面 5 / 移动 3） | opus | 2026-11-21 | r0 |
+
+三位评审一致的 gaps：①选择器压过内容；②行内无播放态/进度，无搜索排序；③删除/编辑红色图标逐行重复；④桌面空白、SE 卡空；⑤主 CTA 把人送走；⑥副标题解释系统、计数药丸、双色图标、空状态怯懦；⑦移动端被导航栏挤（壳层）。KEEP：克制的暗色鼠尾草绿单一强调色；BGM/SE 的区分概念；导航栏激活态。
+截图工具注意：主表面在内部容器里滚动，fullPage 截图不会展开——后续轮次需要展开内部滚动容器再截。
+
+## Seed (gm-music)
+Rolls：era 7 speculative future · material 1 metal, machined · color 0 monochrome plus one accent · type 6 blackletter/unusual revival · layout 7 map or spatial canvas · motion 2 organic and slow · imagery 0 photography · density 1 airy editorial · wildcard 2 everything is a list。Neighbors：type→handwritten/stencil；layout→table/ledger/document。
+取舍：blackletter 对中文 UI 不成立（CJK 没有对应字形），保留“单色＋一个强调色”“万物皆列表”“机加工的雕刻线”，丢弃“空间画布”“摄影”（管理页的真实内容是曲目，不是图）。
+
+## Directions considered (gm-music)
+1 提示单 · 2 调音台 · 3 唱片箱 · 4 馆藏目录 · 5 机架 · 6 波形片段 · 7 目录页 · 8 终端 ls -l · 9 听音室 · 10 磁带书脊 · 11 广播节目单 · 12 文件管理器＋底部播放条（对照组） · 13 星图（听起来行不通） · 14 发车时刻表翻页板（听起来行不通）
+PoC：1 与 2。其余原因：3/10 偏拟物，易“戴戏服”；4/7/11 是 1 的变体；5 装饰大于功能；6 的波形需真实解码，只在试听行做；8 键盘优先作为 1 的增强吸收（空格试听、/ 搜索）；9 列表退居次要，与管理页职责冲突；12 作为对照，不单独做；13/14 见下表。
+
+### Rejected prompts (gm-music)
+| Idea | Build prompt | Model/date | Result |
+|---|---|---|---|
+| 星图 | “曲库是一张星图：每个模组是一个星座，曲目是星，亮度=时长，连线=同一模组；正在试听的星脉冲发光；点星试听，框选批量。深蓝黑底，小型大写标签，单一强调色。” | claude-sonnet-5-5 · 2026-11-21 | 未建（上百首曲目时无法按名称扫读，违背管理页职责） |
+| 发车时刻表 | “曲库是一块翻页板：每首曲目一行班次，曲名逐字翻动，时长是‘到站时间’，正在试听的行高亮闪动。” | claude-sonnet-5-5 · 2026-11-21 | 未建 |
+
+### 逻辑缺陷（实测，随本次移植一并修）
+- 删除曲目无效：`DELETE /gm/modules/tracks/:id` 返回 200 但只写了 `deletedAt`，`listTracksByModuleId`、`findTrackById`、模组列表的 `trackCount`、`drizzle-music-track-access-repository`（流代理）都没有过滤软删除，列表刷新后曲目还在。已用演示库复现：删除前后列表相同。
+- 现页把所有曲目标成“上传”（含网易云/QQ），平台曲目显示“上传 —”。
+
+## PoC 评审（gm-music，critic opus ×3 / 方向）
+| 方向 | 截图 | 中位数 | 分布 | 结论 | 主要 gaps |
+|---|---|---|---|---|---|
+| 1 提示单 | shots/gm-music/poc-a-* | 5 | 6/5/5（桌面 6 / 移动 5·4·5） | POLISH | 台账感只在文案与编号；全是胶囊控件像消费类 App；悬浮圆角播放卡与行内读数重复；移动端播放条文字折行、丢掉编号与类型；来源列重复且中间 570px 空白；空状态是通用虚线框；左边缘对不齐 |
+| 2 调音台 | shots/gm-music/poc-b-* | 5 | 5/5/5（桌面 6 / 移动 5） | POLISH | 强调色没有只留给“正在发声”（CTA、选中条、计数都是 sage）；通道条是带 8px 间隙的卡片，左 50px、中 350px 死区；静态 LED 条像骨架屏；SE 垫只有两块像存根卡；移动端播放条折行、丢掉 LED |
+
+### 方向取舍（gm-music）
+两者中位数打平（5）。选 **提示单** 为底：可撑到上百首（台账行 vs 随数量变散的音效垫），且“点编号即播、行内进度线”是两边评审都点名保留的最好点子。吸收调音台的：分段标尺（`BGM ── 循环 · 一次只放一首` / `SE ── 点一下播一次`），因此逐行类型徽标取消；强调色只留给“正在发声”与唯一主操作，模组选中改中性条。
+两边评审一致、必改：①试听条改为贴边通栏（无圆角卡、顶部发丝线），与行内读数不重复（行内只留已播时间+进度线，条里才有 `02:14 / 05:12`）；②取消“来源”列，来源并入副行（`艺术家 · 专辑 · 网易云`；上传只写“上传”，去掉文件大小与时间）；③移动端播放条两行、进度发丝线、保留编号；④所有左边缘对齐同一内容边；⑤空状态画出“空的提示单”（表头 + 虚影行 + 三个添加动作），不用虚线盒；⑥头部去掉“提示单”眉标，统计用等宽数字，空模组不显示 0；⑦桌面静止态就看得出可播（常驻播放键），行菜单常驻低对比而非仅悬停；⑧触控目标 ≥44px。
+评审建议“所有控件改 4–6px 小圆角”：属全站设计系统（MD3 胶囊按钮/输入框）的决定，不在本页范围内改；本页的台账行、试听条、徽标按“方角/发丝线”处理。
+
+## Critic rounds (gm-music，原型 music-cuesheet)
+| Round | Date | Screenshots | Median (spread) | Verdict | Top gaps | Changes next |
+|---|---|---|---|---|---|---|
+| r0 | 2026-11-21 | shots/gm-music/r0-* | 4 (4-4-4) | RETHINK: structure ×3 | 选择器压过内容；无播放态/搜索；红色删除逐行；桌面空白 | 进入方向探索 |
+| r1 | 2026-11-21 | shots/gm-music/r1-* | 6 (6-6-6；桌面 7/6/7，移动 5/5/6) | POLISH ×3 | 空状态像骨架屏；筛选分段高亮用了 sage；计数重复 4 处；每行 36px 描边圆圈太响；移动端标题被截成 9 字；全部视图的“模组”列重复且远离标题；试听条与台账列不对齐；“上传”副行是噪音；头部在视图间跳动 | 空的提示单（分段标尺+空行）；筛选分段改中性；计数只留分段标尺与侧栏；播放键静止态无描边；移动端时长并入副行；去掉列头行与模组列（模组名并入副行）；试听条对齐台账列、时间去斜杠；上传行不写副行；锁定头部高度 |
+| r2 | 2026-11-21 | shots/gm-music/r2-* | 6 (6-6-6；桌面 6/7/6，移动 6/6/6) | POLISH ×3 | 行还是播放列表而非台账：单行也 56px、中间 600–800px 空白、副行“上传”是填充；桌面静止态播放键只有 8px 三角无命中区；空状态仍重复入口（顶栏添加 + 三个胶囊）、说明排在虚影表下面、移动端写“拖到这里”；头部在视图间跳动 7px；全部曲目视图连续编号 01–16 且模组名逐行重复；移动端丢了右对齐时长列；右缘不对齐 | 见下 |
+
+### r2 → 移植时一并落实（不再单做 r3 原型）
+- 行：单行 44px；播放键 28px 圆形命中区（静止 40% 描边，悬停全显，发声时实心 sage 同直径）；整行标题区也可点击试听；平台曲目的“艺术家 · 专辑”放在中间列、上传曲目该列留空（不写“上传”）；来源只对平台曲目写；行菜单常驻低对比（悬停/聚焦全显）。
+- 全部曲目：每幕内按模组分组，组头为等宽小标尺 `雾港疑案 · 5`，编号按组重置，行内不再写模组名。
+- 空状态：幕标尺 + 两行 `--:--` 虚影行（同样的实线、方角），说明与唯一入口文案放在虚影表上方；顶栏的“添加曲目”是唯一入口，不再有三个胶囊；移动端文案不写“拖”。
+- 头部高度锁定：全部曲目视图保留“添加曲目”占位；统计行用 tabular-nums 的无衬线（不再整行等宽）；侧栏计数用 tabular-nums；选中项只留一种标记。
+- 移动端：时长保持右对齐的等宽列，副行仅在有平台信息时出现，类型分段铺满一行；试听条两行 + 顶部进度发丝线（保留）。
+- 试听条：左侧空位写 `BGM 03` 之类的等宽幕号，与台账同列；顶部一条与幕标尺同权重的发丝线。
+- 记录：前后两轮评审对“来源列”意见相反（r1 嫌重复、r2 要真正的列）；取舍——来源只在平台曲目上出现，作为中间列内容，不为上传曲目写占位。
+
+## Ported app (gm-music)
+- 页面 `apps/client/src/routes/gm/music.tsx`；业务组件 `apps/client/src/features/gm-music/`：`music-library-model.ts`（筛选/排序/分幕/统计/试听地址，纯函数）、`use-audition.ts`（单实例 Howl 试听）、`use-upload-queue.ts`（多文件上传队列）、`module-nav.tsx`（侧栏 + 移动端选择器）、`music-toolbar.tsx`（搜索/类型/排序/批量条）、`track-ledger.tsx` + `track-row.tsx`（提示单）、`audition-bar.tsx`、`add-tracks-dialog.tsx`（上传 + 复用开团工作台的 `MusicSourcePanel` 平台搜索/单曲/歌单）。
+- 全站通用件优先：Button、SegmentedControl、Checkbox、Slider、DropdownMenu、Dialog、Tabs、ConfirmDialog、EmptyState、InputGroup、Popover；没有新增 CSS，全部 Tailwind + 语义 token。`uploadMediaAsset` 抽到 `lib/media-upload.ts`，模组页复用。
+- 服务端：`GET /api/v1/gm/modules/tracks`（跨模组曲库，`GmTrackLibraryItemDto`）；修复软删除曲目仍出现在列表/计数/流代理里的缺陷（`drizzle-catalog-repository.ts`、`drizzle-music-track-access-repository.ts`）。
+- 测试：`apps/client/tests/music-library-model.test.ts`（18）、`music-ledger.test.tsx`（13）、`music-page.test.tsx`（15，覆盖加载/切换/记忆模组/搜索筛选/全部曲目/删除/改名/改类型/批量/试听/平台流/上传队列/拖入）；服务端 `catalog.test.ts` 新增软删除回归与曲库列表。客户端全量 548 通过，服务端全量 465 通过，typecheck、check:boundaries、biome 均通过。
+- 实现中发现并修复的缺陷：从行菜单进入“重命名”时，Radix 菜单的焦点管理让输入框立刻失焦并提交，改名模式一闪而过——改为菜单完全关闭后再进入改名（`onCloseAutoFocus`）。
+
+## Lighthouse (gm-music)
+- 桌面：Accessibility 100 · Best Practices 96；移动：Accessibility 98（修复前）→ 修复后同桌面。首轮 98 的两处问题已修：标题层级跳级（侧栏小标题与幕标尺改为 h1 → h2 结构）、两个按钮可访问名称与可见文字不一致（排序按钮、模组选择器）。
+- Performance 为 dev server（未压缩）结果，桌面 40 / 移动 35，不具参考意义；按规则只报告不设门槛。
+- 报告：`design/audits/gm-music/lighthouse-*.report.{json,html}`（已 gitignore）。
+| gate (real app) | 2026-11-21 | shots/gm-music/p3-* | 6 (6-6-6；桌面 6/6/7，移动 5/5/6) | POLISH ×3 | 时间码不是等宽（行内时长/总时长/统计/侧栏计数用了比例字体）；数字列前 44px 空槽（给悬停复选框预留）破坏左缘；试听条不在台账列上、进度条只有 120px 且“BGM”出现两次；行内进度条在 0% 附近像渲染故障；移动端标题被截到 5–8 字；sage 外泄（取消链接、勾选框、批量删除实心红圆、分段高亮）；全部曲目分组顺序与侧栏不一致；幕标尺与行分隔线几乎同权重；移动端批量动作只有图标；空状态提示“添加曲目”但移动端按钮只有“+” | 见下 |
+
+### gate 后修复（同一轮内完成，随后再评一次）
+时间码与计数全部等宽；数字与复选框同一格互换（左缘成一条脊）；试听条改为 `幕 · 暂停 · 曲名 · 进度(拉满) · 音量 · 停止`；行内进度条画满整行底线（0% 也有轨道）；移动端时长并入副行、播放键去描边；来源用窄标签、艺术家先截断；取消/勾选/批量删除去 sage 与实心红；全部曲目分组按侧栏顺序，组头加发丝线；幕标尺 2px 全强度；移动端批量条带文字标签；“添加曲目”在移动端也显示文字。
+说明：评审对“分段控件高亮是 sage”“滑块粗”的意见属全站设计系统，不改。截图脚本在选择态下点击串位（选择态会多渲染一个仅移动端可见的复选框），已修脚本；真实浏览器里桌面选择功能正常（已验证出现“已选 N 首”条并勾选）。
+
+| final (real app, after fixes) | 2026-11-21 | shots/gm-music/p6-* | 6 (6-6-6；桌面 7/7/7，移动 6/6/6) | POLISH ×3 | 无列头行、艺术家列“浮”在行中间；全部曲目的模组分组仍偏弱、编号每组重置；移动端序号+播放键占 ~76px 致标题仍被截；试听条滑块较粗（全站 Slider）；分段控件/对话框页签高亮是 sage（全站）；空状态应让虚影行本身成为投放区；移动端命中区 36px | 停止（见下） |
+
+## Stopping note (gm-music)
+r1/r2/gate/final 四轮中位数都是 6（桌面最后一轮升到 7/7/7）。按规则“两轮没有整分提升即停”收尾，没有再开新一轮。基线 4 → 6：桌面 5 → 7，移动 3 → 6。继续提分需要动全站设计系统（分段控件高亮色、Slider 粗细、胶囊控件）或为移动端重做导航壳——超出本页范围。
+
+## Remaining gaps (not fixed, with reason)
+- 评审意见互相矛盾：r1 要求取消“来源列”与列头行（嫌重复/双线），r2 之后要求真正的列与列头行。保持“平台曲目才有说明列、无列头行”，避免为上传曲目写占位。
+- 分段控件、对话框页签的 sage 高亮，Slider 的粗滑块与高拇指，胶囊按钮与输入框：全站设计系统（MD3 Expressive），不在本页改。
+- 移动端 96px 全站导航栏占去四分之一宽度，是标题被截的最大原因；属于壳层，需单独处理（底部标签栏或抽屉）。
+- 移动端命中区：播放键与菜单键是 36px（评审建议 44px）；行高已 56px，进一步放大需要牺牲标题宽度，未改。
+- 空状态让虚影行本身成为投放区、列头行、每幕运行时：留待后续迭代（整页已是投放区，拖入时有虚线遮罩）。
+- Lighthouse Performance 为 dev server 结果，未做生产构建的性能评估。
+
+## States (gm-music)
+- 已设计并截图：默认、试听中（行内进度线 + 贴边试听条）、空模组（空白提示单）、全部曲目（按模组分组）、添加对话框（上传 / 音乐平台）、多选（批量条）、模组选择器（移动）、无匹配结果、加载骨架。
+- 未单独设计：加载失败（用 toast）、上传队列失败重试的细节视觉、平台歌单导入的进度（复用开团工作台面板）。
+
+## Handoff (gm-music)
+- 页面 `apps/client/src/routes/gm/music.tsx`；业务组件 `apps/client/src/features/gm-music/`；服务端 `GET /api/v1/gm/modules/tracks`、软删除修复、媒体 `Range` 支持；文档 `docs/product.md`（音乐库页）、`docs/architecture.md`（曲库列表、Range）。
+- 原型与评审素材：`design/explorations/music-cuesheet*`、`music-console`、`_shared`；截图 `design/shots/gm-music/`（r0 基线、poc-a/b、r1、r2、p0–p6 真实页面；评审用副本在 `.critic/`，已忽略）。
+- 未提交：工作区改动尚未 commit（用户未要求）。

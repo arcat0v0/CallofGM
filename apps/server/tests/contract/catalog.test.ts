@@ -393,6 +393,183 @@ describe("Catalog contract tests", () => {
 		expect(deleteRes.status).toBe(200);
 	});
 
+	test("Deleted tracks disappear from lists, counts and further edits", async () => {
+		const headers = {
+			"Content-Type": "application/json",
+			Authorization: `Bearer ${gmToken}`,
+		};
+		const modRes = await app.handle(
+			new Request("http://localhost/api/v1/gm/modules", {
+				method: "POST",
+				headers,
+				body: JSON.stringify({
+					name: "Module for Track Deletion",
+					description: "Description",
+					ruleId: "coc7e",
+				}),
+			}),
+		);
+		const mod = await modRes.json();
+		const createTrack = async (name: string) => {
+			const res = await app.handle(
+				new Request(`http://localhost/api/v1/gm/modules/${mod.id}/tracks`, {
+					method: "POST",
+					headers,
+					body: JSON.stringify({
+						name,
+						audioAssetId: "audio-asset-id",
+						type: "bgm",
+						duration: 1000,
+					}),
+				}),
+			);
+			expect(res.status).toBe(200);
+			return (await res.json()) as { id: string };
+		};
+		const keep = await createTrack("Keep");
+		const drop = await createTrack("Drop");
+		const listNames = async () => {
+			const res = await app.handle(
+				new Request(`http://localhost/api/v1/gm/modules/${mod.id}/tracks`, {
+					headers,
+				}),
+			);
+			return ((await res.json()).items as Array<{ name: string }>).map(
+				(item) => item.name,
+			);
+		};
+		const trackCount = async () => {
+			const res = await app.handle(
+				new Request("http://localhost/api/v1/gm/modules/summaries", {
+					headers,
+				}),
+			);
+			const summaries = (await res.json()) as Array<{
+				moduleId: string;
+				trackCount: number;
+			}>;
+			return summaries.find((item) => item.moduleId === mod.id)?.trackCount;
+		};
+		expect((await listNames()).sort()).toEqual(["Drop", "Keep"]);
+		expect(await trackCount()).toBe(2);
+
+		const deleteRes = await app.handle(
+			new Request(`http://localhost/api/v1/gm/modules/tracks/${drop.id}`, {
+				method: "DELETE",
+				headers,
+			}),
+		);
+		expect(deleteRes.status).toBe(200);
+		expect(await listNames()).toEqual(["Keep"]);
+		expect(await trackCount()).toBe(1);
+
+		const again = await app.handle(
+			new Request(`http://localhost/api/v1/gm/modules/tracks/${drop.id}`, {
+				method: "DELETE",
+				headers,
+			}),
+		);
+		expect(again.status).toBe(404);
+		const patch = await app.handle(
+			new Request(`http://localhost/api/v1/gm/modules/tracks/${drop.id}`, {
+				method: "PATCH",
+				headers,
+				body: JSON.stringify({ name: "Renamed" }),
+			}),
+		);
+		expect(patch.status).toBe(404);
+		const kept = await app.handle(
+			new Request(`http://localhost/api/v1/gm/modules/tracks/${keep.id}`, {
+				method: "PATCH",
+				headers,
+				body: JSON.stringify({ name: "Kept", type: "se" }),
+			}),
+		);
+		expect(kept.status).toBe(200);
+		expect(await kept.json()).toMatchObject({ name: "Kept", type: "se" });
+	});
+
+	test("GM track library lists tracks across modules with module names", async () => {
+		const headers = {
+			"Content-Type": "application/json",
+			Authorization: `Bearer ${gmToken}`,
+		};
+		const makeModule = async (name: string) => {
+			const res = await app.handle(
+				new Request("http://localhost/api/v1/gm/modules", {
+					method: "POST",
+					headers,
+					body: JSON.stringify({ name, description: "", ruleId: "coc7e" }),
+				}),
+			);
+			return (await res.json()) as { id: string };
+		};
+		const addTrack = async (moduleId: string, name: string) => {
+			const res = await app.handle(
+				new Request(`http://localhost/api/v1/gm/modules/${moduleId}/tracks`, {
+					method: "POST",
+					headers,
+					body: JSON.stringify({
+						name,
+						audioAssetId: "audio-asset-id",
+						type: "se",
+						duration: 500,
+					}),
+				}),
+			);
+			expect(res.status).toBe(200);
+			return (await res.json()) as { id: string };
+		};
+		const first = await makeModule("Library Module A");
+		const second = await makeModule("Library Module B");
+		await addTrack(first.id, "Library Track A");
+		const doomed = await addTrack(second.id, "Library Track B");
+		await addTrack(second.id, "Library Track C");
+		await app.handle(
+			new Request(`http://localhost/api/v1/gm/modules/tracks/${doomed.id}`, {
+				method: "DELETE",
+				headers,
+			}),
+		);
+
+		const res = await app.handle(
+			new Request("http://localhost/api/v1/gm/modules/tracks?limit=100", {
+				headers,
+			}),
+		);
+		expect(res.status).toBe(200);
+		const page = (await res.json()) as {
+			items: Array<{ name: string; moduleId: string; moduleName: string }>;
+			nextCursor: string | null;
+		};
+		const mine = page.items.filter((item) =>
+			item.name.startsWith("Library Track"),
+		);
+		expect(
+			mine.map((item) => [item.name, item.moduleName]).sort(),
+		).toEqual([
+			["Library Track A", "Library Module A"],
+			["Library Track C", "Library Module B"],
+		]);
+
+		const firstPage = await app.handle(
+			new Request("http://localhost/api/v1/gm/modules/tracks?limit=1", {
+				headers,
+			}),
+		);
+		const paged = (await firstPage.json()) as {
+			items: unknown[];
+			nextCursor: string | null;
+		};
+		expect(paged.items).toHaveLength(1);
+		expect(paged.nextCursor).not.toBeNull();
+
+		const anonymous = await app.handle(
+			new Request("http://localhost/api/v1/gm/modules/tracks"),
+		);
+		expect(anonymous.status).toBeGreaterThanOrEqual(401);
+	});
+
 	test("Handouts with media assets validation", async () => {
 		const modRes = await app.handle(
 			new Request("http://localhost/api/v1/gm/modules", {
