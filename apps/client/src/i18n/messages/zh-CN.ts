@@ -2220,7 +2220,23 @@ export const zhCN: Record<string, string> = {
 	"gm.workbench.layoutScaleLg": "大",
 	"gm.workbench.layoutHint": "布局会实时同步给全团，玩家无需刷新。",
 	"gm.workbench.onlineCount": "{count} 人在线",
-	"gm.workbench.moreActions": "团设置与结束团",
+	"gm.workbench.statusTitle": "团状态",
+	"gm.workbench.statusSwitchAria": "团状态：{status}，点击切换",
+	"gm.workbench.statusActionSuccess": "团状态已切换为「{status}」",
+	"gm.workbench.statusRuleHint":
+		"状态按等待开始 → 准备中 → 进行中 → 已结团单向推进。",
+	"gm.workbench.statusDetail.waiting":
+		"玩家可认领座位与场外交流，尚未启用舞台控场",
+	"gm.workbench.statusDetail.preparing":
+		"可调试场景、立绘、BGM、情报与语音，尚未正式开团",
+	"gm.workbench.statusDetail.active":
+		"全面开放团内阶段、骰点鉴定、状态编辑与剧情推进",
+	"gm.workbench.statusDetail.ended":
+		"锁定控场与状态变更，团记录进入只读回看与成长确认",
+	"gm.workbench.statusStateCurrent": "当前",
+	"gm.workbench.statusStatePassed": "已完成",
+	"gm.workbench.statusStateRequiresActive": "开团后可结团",
+	"gm.workbench.moreActions": "团设置与更多操作",
 	"gm.workbench.settings": "团设置",
 	"gm.workbench.settingsDescription": "这些可见性设置会立即同步给全团。",
 	"gm.workbench.theme": "界面主题",
@@ -2258,6 +2274,9 @@ export const zhCN: Record<string, string> = {
 	"gm.workbench.openAudio": "调整声音",
 	"gm.workbench.phaseUnset": "尚未设置阶段",
 	"gm.workbench.switchPhase": "切换团内阶段",
+	"gm.workbench.phaseRequiresActive": "仅「进行中」可切换团内阶段",
+	"gm.workbench.phaseRequiresActiveHint":
+		"当前团状态为「{status}」，请在顶部栏将团状态切换为「进行中」后再调整团内阶段。",
 	"gm.workbench.phaseSummary.free_discussion": "全员场外交流",
 	"gm.workbench.phaseSummary.performance_time": "逐条放行角色发言",
 	"gm.workbench.phaseSummary.forced_cg": "玩家全部禁言",

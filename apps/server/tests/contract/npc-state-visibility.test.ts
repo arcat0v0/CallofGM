@@ -383,4 +383,62 @@ describe("NPC state visibility contract tests", () => {
 		expect(rejected.type).toBe("command:rejected");
 		await closeWs(gm);
 	});
+
+	test("等待开始与准备中状态也允许 GM 配置 NPC 公开字段", async () => {
+		const prepCtx = await setupTestApp({
+			characters: [
+				{ id: "char-npc-prep", name: "测试NPC", kind: "npc", sheet: defaultSheet },
+			],
+		});
+		const prepServer = listenTestApp(prepCtx.app);
+		try {
+			const ws = await connectWs(
+				`ws://localhost:${prepServer.server?.port}/api/v1/sessions/${prepCtx.sessionId}/ws`,
+				prepCtx.gmToken,
+			);
+			await ws.waitFor((m) => m.type === "snapshot");
+
+			sendCommand(
+				ws,
+				"npc:state-visibility",
+				{ characterId: "char-npc-prep", fields: ["hp"] },
+				"visibility-in-waiting",
+			);
+			const waitingReply = await ws.waitFor(
+				(m) => m.commandId === "visibility-in-waiting",
+			);
+			expect(waitingReply.type).toBe("command:accepted");
+
+			const prepRes = await prepCtx.app.handle(
+				new Request(
+					`http://localhost/api/v1/gm/sessions/${prepCtx.sessionId}/status`,
+					{
+						method: "POST",
+						headers: {
+							"Content-Type": "application/json",
+							Authorization: `Bearer ${prepCtx.gmToken}`,
+						},
+						body: JSON.stringify({ status: "preparing" }),
+					},
+				),
+			);
+			expect(prepRes.status).toBe(200);
+
+			sendCommand(
+				ws,
+				"npc:state-visibility",
+				{ characterId: "char-npc-prep", fields: ["hp", "san"] },
+				"visibility-in-preparing",
+			);
+			const prepReply = await ws.waitFor(
+				(m) => m.commandId === "visibility-in-preparing",
+			);
+			expect(prepReply.type).toBe("command:accepted");
+
+			await closeWs(ws);
+		} finally {
+			await stopServer(prepServer);
+			prepCtx.container.dbContext.sqlite.close();
+		}
+	});
 });

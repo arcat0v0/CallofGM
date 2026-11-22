@@ -35,6 +35,7 @@ export type SessionSlice = {
 	setConnected: (connected: boolean) => void;
 	setTerminal: (terminal: ConnectionTerminal | null) => void;
 	setThemeId: (themeId: string | null) => void;
+	setStatus: (status: SessionStatus) => void;
 	markEnded: () => void;
 };
 
@@ -64,5 +65,6 @@ export const createSessionSlice: PlaySliceCreator<SessionSlice> = (set) => ({
 	setConnected: (connected) => set({ connected }),
 	setTerminal: (terminal) => set({ terminal }),
 	setThemeId: (themeId) => set({ themeId }),
+	setStatus: (status) => set({ status }),
 	markEnded: () => set({ status: "ended" }),
 });

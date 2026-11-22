@@ -1,11 +1,10 @@
-import type { SessionStatus } from "@cogm/shared";
+import type { SessionDto, SessionStatus } from "@cogm/shared";
 import { Link, useParams } from "@tanstack/react-router";
 import {
 	ArrowLeft,
 	ArrowRight,
 	Ellipsis,
 	Link as LinkIcon,
-	Palette,
 	Settings2,
 	SquarePower,
 	UserPlus,
@@ -13,7 +12,6 @@ import {
 import { useState } from "react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
 	DropdownMenu,
@@ -28,20 +26,18 @@ import { t } from "@/i18n";
 import { sessionStatusLabel } from "@/i18n/labels";
 import { api } from "@/lib/api";
 import { errorText } from "@/lib/errors";
-import {
-	nextSessionStatus,
-	nextStatusActionLabel,
-	statusTone,
-} from "@/lib/format";
+import { nextSessionStatus, nextStatusActionLabel } from "@/lib/format";
 import { usePlayStore } from "@/stores/play-store";
 import { GmOnlinePopover } from "./gm-online-popover";
 import { GmSessionSettingsDialog } from "./gm-session-settings-dialog";
+import { GmSessionStatusControl } from "./gm-session-status-control";
 import { PlayerStagePreview } from "./player-stage-preview";
 import { StageLayoutControl } from "./stage-layout-control";
 
 function GmTopBar() {
 	const { sessionId } = useParams({ from: "/gm/session/$sessionId" });
 	const status = usePlayStore((state) => state.status);
+	const setStatus = usePlayStore((state) => state.setStatus);
 	const moduleName = usePlayStore((state) => state.moduleName);
 	const sessionName = usePlayStore((state) => state.sessionName);
 	const ruleId = usePlayStore((state) => state.ruleId);
@@ -50,6 +46,7 @@ function GmTopBar() {
 	const [endOpen, setEndOpen] = useState(false);
 	const [settingsOpen, setSettingsOpen] = useState(false);
 	const [invitesOpen, setInvitesOpen] = useState(false);
+	const [statusPending, setStatusPending] = useState(false);
 	const nextStatus = status ? nextSessionStatus(status) : null;
 	const title =
 		moduleName ?? sessionName ?? scene?.name ?? t("gm.workbench.unnamedSession");
@@ -62,14 +59,38 @@ function GmTopBar() {
 			? `${subtitleBase} · ${t("gm.workbench.endedLock")}`
 			: subtitleBase;
 
-	async function patchStatus(next: SessionStatus) {
-		try {
-			await api(`/gm/sessions/${encodeURIComponent(sessionId)}/status`, {
+	async function postStatus(next: SessionStatus) {
+		const updated = await api<SessionDto>(
+			`/gm/sessions/${encodeURIComponent(sessionId)}/status`,
+			{
 				method: "POST",
 				body: JSON.stringify({ status: next }),
-			});
+			},
+		);
+		setStatus(updated.status);
+		return updated.status;
+	}
+
+	async function patchStatus(next: SessionStatus) {
+		if (statusPending || !status || next === status) {
+			return;
+		}
+		setStatusPending(true);
+		try {
+			// Backend enforces sequential transitions (waiting -> preparing -> active -> ended).
+			const finalStatus =
+				status === "waiting" && next === "active"
+					? (await postStatus("preparing"), await postStatus("active"))
+					: await postStatus(next);
+			toast.success(
+				t("gm.workbench.statusActionSuccess", {
+					status: sessionStatusLabel(finalStatus),
+				}),
+			);
 		} catch (error) {
 			toast.error(errorText(error, "play.statusUpdateFailed"));
+		} finally {
+			setStatusPending(false);
 		}
 	}
 
@@ -105,18 +126,14 @@ function GmTopBar() {
 				</div>
 			</div>
 
-			<div className="flex shrink-0 items-center gap-3">
+			<div className="flex shrink-0 items-center gap-2 2xl:gap-3">
 				<VersionBadge className="text-foreground-secondary" />
-				{status ? (
-					<Badge
-						variant="soft"
-						tone={status === "active" ? "accent" : statusTone(status)}
-						size="lg"
-						className="h-7 px-4 text-label-large-emph"
-					>
-						{sessionStatusLabel(status)}
-					</Badge>
-				) : null}
+				<GmSessionStatusControl
+					status={status}
+					pending={statusPending}
+					onSelectStatus={(next) => void patchStatus(next)}
+					onRequestEnd={() => setEndOpen(true)}
+				/>
 				<PlayerStagePreview />
 				<StageLayoutControl />
 				{presenceAvailable ? <GmOnlinePopover /> : null}
@@ -134,7 +151,10 @@ function GmTopBar() {
 					</DropdownMenuTrigger>
 					<DropdownMenuContent align="end" className="w-56">
 						{status && nextStatus && nextStatus !== "ended" ? (
-							<DropdownMenuItem onSelect={() => void patchStatus(nextStatus)}>
+							<DropdownMenuItem
+								disabled={statusPending}
+								onSelect={() => void patchStatus(nextStatus)}
+							>
 								<ArrowRight />
 								{nextStatusActionLabel(status) ?? t("play.advance")}
 							</DropdownMenuItem>

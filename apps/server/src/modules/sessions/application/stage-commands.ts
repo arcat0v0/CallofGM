@@ -414,6 +414,7 @@ export class UpdateSessionSettingsHandler implements CommandHandler {
 
 export class UpdateNpcStateVisibilityHandler implements CommandHandler {
 	readonly type = "npc:state-visibility" as const;
+	readonly allowedStatuses = ["waiting", "preparing", "active"] as const;
 
 	constructor(
 		private readonly ruleRegistry: RuleRegistry,

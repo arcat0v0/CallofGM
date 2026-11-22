@@ -41,7 +41,7 @@ import {
 import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
 import { t } from "@/i18n";
-import { sessionPhaseLabel } from "@/i18n/labels";
+import { sessionPhaseLabel, sessionStatusLabel } from "@/i18n/labels";
 import { api } from "@/lib/api";
 import {
 	speakerInitialsOf,
@@ -81,9 +81,14 @@ function queueContext(
 function PhaseCard() {
 	const { sessionId } = useParams({ from: "/gm/session/$sessionId" });
 	const active = usePlayStore((state) => state.phase);
+	const status = usePlayStore((state) => state.status);
 	const [open, setOpen] = useState(false);
+	const phaseLocked = status !== null && status !== "active";
 
 	function changePhase(phase: SessionPhase) {
+		if (phaseLocked) {
+			return;
+		}
 		setOpen(false);
 		void api(`/gm/sessions/${encodeURIComponent(sessionId)}/phase`, {
 			method: "POST",
@@ -117,9 +122,11 @@ function PhaseCard() {
 						{active ? sessionPhaseLabel(active) : "—"}
 					</span>
 					<span className="text-md-on-surface-variant text-label-large">
-						{active
-							? t(`gm.workbench.phaseSummary.${active}`)
-							: t("gm.workbench.phaseUnset")}
+						{phaseLocked
+							? t("gm.workbench.phaseRequiresActive")
+							: active
+								? t(`gm.workbench.phaseSummary.${active}`)
+								: t("gm.workbench.phaseUnset")}
 					</span>
 				</button>
 			</PopoverTrigger>
@@ -144,6 +151,13 @@ function PhaseCard() {
 						<X className="size-4" />
 					</Button>
 				</div>
+				{phaseLocked && status ? (
+					<p className="bg-md-surface-container text-md-on-surface-variant mx-1 mb-2 rounded-lg px-3 py-2 text-label-small">
+						{t("gm.workbench.phaseRequiresActiveHint", {
+							status: sessionStatusLabel(status),
+						})}
+					</p>
+				) : null}
 				<div className="flex flex-col gap-1">
 					{SESSION_PHASES.map((phase) => {
 						const selected = phase.key === active;
@@ -151,10 +165,11 @@ function PhaseCard() {
 							<button
 								key={phase.key}
 								type="button"
+								disabled={phaseLocked}
 								aria-current={selected ? "true" : undefined}
 								onClick={() => changePhase(phase.key)}
 								className={cn(
-									"flex h-22 w-full items-center gap-3.5 rounded-lg-inc p-3 px-4 text-left outline-none transition-colors duration-200 ease-standard-fast-effects focus-visible:ring-4 focus-visible:ring-focus-ring/50",
+									"flex h-22 w-full items-center gap-3.5 rounded-lg-inc p-3 px-4 text-left outline-none transition-colors duration-200 ease-standard-fast-effects focus-visible:ring-4 focus-visible:ring-focus-ring/50 disabled:cursor-not-allowed disabled:opacity-50",
 									selected
 										? "bg-md-primary-container text-md-on-primary-container"
 										: "text-md-on-surface hover:bg-md-on-surface/8",
