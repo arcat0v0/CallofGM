@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-11-22
+
+### Fixed
+
+- 修复 TLS 反向代理部署下浏览器登录与写请求被源校验拒绝（403）的问题：开启 `TRUST_PROXY` 时按 `X-Forwarded-Proto` / `Host` 还原公网同源，compose 透传该开关；`CORS_ORIGINS` 仅用于额外来源。
+
 ## [0.2.0] - 2026-11-22
 
 ### Added
