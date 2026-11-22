@@ -24,17 +24,22 @@ export function AuditionBar({
 	const ratio = Math.min(1, positionMs / Math.max(1, track.duration));
 	const elapsed = formatDurationMmSs(positionMs);
 	const total = formatDurationMmSs(track.duration);
-	const kind = t(track.type === "bgm" ? "gm.music.dockLoop" : "gm.music.dockOnce");
+	const kind = t(
+		track.type === "bgm" ? "gm.music.dockLoop" : "gm.music.dockOnce",
+	);
 
 	return (
 		<section
 			aria-label={t("gm.music.dockAria")}
-			className="relative grid grid-cols-[2.25rem_minmax(0,1fr)_2.25rem] items-center gap-x-3 border-t border-md-outline bg-md-surface-container-low px-4 py-2.5 md:h-16 md:grid-cols-[1.75rem_2rem_13rem_minmax(0,1fr)_7rem_2.5rem] md:px-6 md:py-0"
+			className="relative grid grid-cols-[2.25rem_minmax(0,1fr)_2.25rem] items-center gap-x-3 overflow-clip rounded-xl bg-md-surface-container-high px-4 py-2.5 md:h-16 md:grid-cols-[1.75rem_2rem_13rem_minmax(0,1fr)_7rem_2.5rem] md:px-6 md:py-0"
 		>
-			<div aria-hidden className="absolute inset-x-0 -top-px h-0.5 md:hidden">
-				<div className="h-full bg-accent" style={{ width: `${ratio * 100}%` }} />
+			<div aria-hidden className="absolute inset-x-0 top-0 h-0.5 md:hidden">
+				<div
+					className="h-full bg-accent"
+					style={{ width: `${ratio * 100}%` }}
+				/>
 			</div>
-			<span className="hidden font-mono text-label-medium tracking-widest text-md-on-surface-variant md:block">
+			<span className="hidden text-label-medium text-md-on-surface-variant md:block">
 				{track.type === "bgm"
 					? t("gm.music.sectionBgm")
 					: t("gm.music.sectionSe")}
@@ -53,7 +58,7 @@ export function AuditionBar({
 				<span className="truncate text-body-large-emph text-md-on-surface">
 					{track.name}
 				</span>
-				<span className="truncate font-mono text-label-small text-md-on-surface-variant">
+				<span className="truncate text-label-small text-md-on-surface-variant">
 					<span className="hidden md:inline">{kind}</span>
 					<span className="tabular-nums md:hidden">
 						{track.type === "bgm"
@@ -64,7 +69,7 @@ export function AuditionBar({
 				</span>
 			</div>
 			<div className="hidden min-w-0 items-center gap-3 md:flex">
-				<span className="font-mono text-label-medium tabular-nums text-md-on-surface-variant">
+				<span className="text-label-medium tabular-nums text-md-on-surface-variant">
 					{elapsed}
 				</span>
 				<Slider
@@ -76,7 +81,7 @@ export function AuditionBar({
 					aria-label={t("gm.music.dockSeekAria")}
 					className="min-w-24 flex-1"
 				/>
-				<span className="font-mono text-label-medium tabular-nums text-md-on-surface-variant">
+				<span className="text-label-medium tabular-nums text-md-on-surface-variant">
 					{total}
 				</span>
 			</div>

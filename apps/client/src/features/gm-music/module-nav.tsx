@@ -5,7 +5,11 @@ import {
 	InputGroupAddon,
 	InputGroupInput,
 } from "@/components/ui/input-group";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+	Popover,
+	PopoverContent,
+	PopoverTrigger,
+} from "@/components/ui/popover";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { ALL_MODULES, filterModulesByQuery } from "./music-library-model";
@@ -40,22 +44,22 @@ function ModuleOptionButton({
 			aria-current={selected ? "true" : undefined}
 			onClick={onClick}
 			className={cn(
-				"flex h-10 w-full shrink-0 items-center gap-3 rounded-sm px-3 text-left text-body-large outline-none transition-colors",
-				"hover:bg-md-surface-container-high focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring",
+				"flex h-9 w-full shrink-0 cursor-pointer items-center gap-3 rounded-md px-3 text-left outline-none transition-colors duration-150 ease-standard-fast-effects motion-reduce:transition-none max-lg:h-11",
+				"focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring",
 				selected
-					? "bg-md-surface-container-high text-md-on-surface"
-					: "text-md-on-surface-variant",
+					? "bg-accent-soft text-accent-soft-foreground"
+					: "text-md-on-surface-variant hover:bg-md-surface-container-high hover:text-md-on-surface",
 			)}
 		>
-			<span className="min-w-0 flex-1 truncate">{label}</span>
 			<span
 				className={cn(
-					"font-mono text-label-large tabular-nums",
-					selected ? "text-md-on-surface" : "text-md-on-surface-variant",
+					"min-w-0 flex-1 truncate",
+					selected ? "text-label-large-emph" : "text-label-large",
 				)}
 			>
-				{count}
+				{label}
 			</span>
+			<span className="text-label-medium tabular-nums">{count}</span>
 		</button>
 	);
 }
@@ -92,8 +96,9 @@ function ModuleOptions({
 	};
 
 	return (
-		<div
-			className="flex min-h-0 flex-1 flex-col gap-1"
+		<fieldset
+			aria-label={t("gm.music.modulesLabel")}
+			className="flex min-h-0 min-w-0 flex-1 flex-col gap-1"
 			onKeyDown={(event) => {
 				if (event.key === "ArrowDown") {
 					event.preventDefault();
@@ -105,7 +110,7 @@ function ModuleOptions({
 			}}
 		>
 			{searchable ? (
-				<InputGroup className="mx-1 h-9 w-auto">
+				<InputGroup className="mx-0.5 h-9 w-auto rounded-full border-transparent bg-md-surface-container">
 					<InputGroupAddon>
 						<Search aria-hidden />
 					</InputGroupAddon>
@@ -127,9 +132,7 @@ function ModuleOptions({
 			) : null}
 			<div
 				ref={listRef}
-				role="group"
-				aria-label={t("gm.music.modulesLabel")}
-				className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-1 pb-4"
+				className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-0.5 pb-2"
 			>
 				{query.trim() === "" ? (
 					<>
@@ -160,7 +163,7 @@ function ModuleOptions({
 					</p>
 				) : null}
 			</div>
-		</div>
+		</fieldset>
 	);
 }
 
@@ -169,12 +172,9 @@ export function ModuleNav(props: ModuleNavProps) {
 	return (
 		<nav
 			aria-label={t("gm.music.modulesLabel")}
-			className="flex min-h-0 flex-1 flex-col gap-2 pt-5"
+			className="flex min-h-0 flex-1 flex-col gap-1"
 		>
-			<p
-				aria-hidden
-				className="px-4 text-label-medium tracking-widest text-md-on-surface-variant"
-			>
+			<p className="px-3 pt-1.5 text-label-medium text-md-on-surface-variant">
 				{t("gm.music.modulesLabel")}
 			</p>
 			<ModuleOptions {...props} />
@@ -200,15 +200,15 @@ export function ModulePicker(props: ModuleNavProps) {
 			<PopoverTrigger asChild>
 				<button
 					type="button"
-					className="flex h-11 w-full items-center gap-3 rounded-md border border-md-outline-variant bg-md-surface-container-low px-3 text-left outline-none transition-colors hover:bg-md-surface-container focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring"
+					className="group flex h-11 w-full items-center gap-3 rounded-full bg-md-surface-container px-4 text-left outline-none transition-colors duration-150 ease-standard-fast-effects hover:bg-md-surface-container-high focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring data-[state=open]:bg-md-surface-container-high motion-reduce:transition-none"
 				>
-					<span className="text-label-medium tracking-widest text-md-on-surface-variant">
+					<span className="text-label-medium text-md-on-surface-variant">
 						{t("gm.music.modulesLabel")}
 					</span>
 					<span className="min-w-0 flex-1 truncate text-title-small text-md-on-surface">
 						{activeName}
 					</span>
-					<span className="font-mono text-label-large tabular-nums text-md-on-surface-variant">
+					<span className="text-label-medium-emph tabular-nums text-accent">
 						{activeCount}
 					</span>
 					<ChevronsUpDown

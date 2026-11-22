@@ -1,20 +1,20 @@
 import type { TrackDto } from "@cogm/shared";
-import { ArrowDownUp, Repeat, Search, Trash2, X, Zap } from "lucide-react";
+import { Repeat, Search, Trash2, X, Zap } from "lucide-react";
 import type { RefObject } from "react";
 import { SegmentedControl } from "@/components/shared/segmented-control";
 import { Button } from "@/components/ui/button";
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuRadioGroup,
-	DropdownMenuRadioItem,
-	DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
 	InputGroup,
 	InputGroupAddon,
 	InputGroupInput,
 } from "@/components/ui/input-group";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
 import { t } from "@/i18n";
 import type { TrackSort, TrackTypeFilter } from "./music-library-model";
 
@@ -54,10 +54,10 @@ export function MusicToolbar({
 }) {
 	if (selectedCount > 0) {
 		return (
-			<div className="px-4 py-3 md:px-6">
+			<div>
 				<div
 					role="toolbar"
-					className="flex flex-wrap items-center gap-x-1 gap-y-1 rounded-3xl bg-md-surface-container-highest py-1 pr-2 pl-1 sm:flex-nowrap sm:rounded-full"
+					className="flex flex-wrap items-center gap-x-1 gap-y-1 rounded-3xl bg-md-surface-container-high py-1 pr-2 pl-1 sm:flex-nowrap sm:rounded-full"
 				>
 					<Button
 						type="button"
@@ -109,10 +109,10 @@ export function MusicToolbar({
 	}
 
 	return (
-		<div className="min-h-[3.75rem] px-4 py-3 md:px-6">
+		<div className="min-h-11">
 			{visible ? (
 				<div className="flex flex-wrap items-center gap-2">
-					<InputGroup className="h-10 min-w-0 flex-1 basis-full sm:basis-48 sm:max-w-sm">
+					<InputGroup className="h-10 min-w-0 flex-1 basis-full rounded-full border-transparent bg-md-surface-container max-lg:h-11 sm:basis-auto sm:max-w-md">
 						<InputGroupAddon>
 							<Search aria-hidden />
 						</InputGroupAddon>
@@ -124,44 +124,41 @@ export function MusicToolbar({
 							placeholder={t("gm.music.searchPlaceholder")}
 							aria-label={t("gm.music.searchAria")}
 						/>
+						<InputGroupAddon className="hidden lg:flex">
+							<kbd className="rounded-sm bg-md-surface-container-high px-2 font-mono text-label-small text-md-on-surface-variant">
+								/
+							</kbd>
+						</InputGroupAddon>
 					</InputGroup>
 					<SegmentedControl
 						value={type}
 						aria-label={t("gm.music.typeFilterAria")}
 						onValueChange={onTypeChange}
-						className="min-w-0 flex-1 sm:flex-none"
+						className="min-w-0 max-lg:flex-1"
 						options={[
 							{ value: "all", label: t("gm.music.typeAll") },
 							{ value: "bgm", label: t("gm.music.bgm") },
 							{ value: "se", label: t("gm.music.se") },
 						]}
 					/>
-					<DropdownMenu>
-						<DropdownMenuTrigger asChild>
-							<Button
-								type="button"
-								variant="tertiary"
-								size="sm"
-								aria-label={`${t("gm.music.sortAria")}：${t(SORT_KEYS[sort])}`}
-								className="shrink-0 sm:ml-auto"
-							>
-								<ArrowDownUp />
-								<span className="sr-only sm:not-sr-only">{t(SORT_KEYS[sort])}</span>
-							</Button>
-						</DropdownMenuTrigger>
-						<DropdownMenuContent align="end">
-							<DropdownMenuRadioGroup
-								value={sort}
-								onValueChange={(value) => onSortChange(value as TrackSort)}
-							>
-								{(Object.keys(SORT_KEYS) as TrackSort[]).map((key) => (
-									<DropdownMenuRadioItem key={key} value={key}>
-										{t(SORT_KEYS[key])}
-									</DropdownMenuRadioItem>
-								))}
-							</DropdownMenuRadioGroup>
-						</DropdownMenuContent>
-					</DropdownMenu>
+					<Select
+						value={sort}
+						onValueChange={(value) => onSortChange(value as TrackSort)}
+					>
+						<SelectTrigger
+							aria-label={`${t("gm.music.sortAria")}：${t(SORT_KEYS[sort])}`}
+							className="h-10 w-auto shrink-0 rounded-full px-4 max-lg:h-11"
+						>
+							<SelectValue />
+						</SelectTrigger>
+						<SelectContent align="end">
+							{(Object.keys(SORT_KEYS) as TrackSort[]).map((key) => (
+								<SelectItem key={key} value={key}>
+									{t(SORT_KEYS[key])}
+								</SelectItem>
+							))}
+						</SelectContent>
+					</Select>
 				</div>
 			) : null}
 		</div>

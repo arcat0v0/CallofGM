@@ -31,11 +31,11 @@ import {
 } from "./music-library-model";
 
 /**
- * 提示单的列：序号（悬停/选择时换成复选框）· 试听 · 曲目 · 说明 · 时长 · 菜单。
+ * 提示单的列：序号（悬停/选择时换成复选框）· 试听 · 曲目与说明 · 来源 · 时长 · 菜单。
  * 桌面与移动端各一套；空白提示单共用，保证左缘是一条脊。
  */
 export const LEDGER_GRID =
-	"grid grid-cols-[1.375rem_2.25rem_minmax(0,1fr)_2.25rem] items-center gap-x-1.5 md:grid-cols-[1.75rem_2rem_minmax(0,1.4fr)_minmax(0,1fr)_4.5rem_2.5rem] md:gap-x-3";
+	"grid grid-cols-[1.375rem_2.25rem_minmax(0,1fr)_2.25rem] items-center gap-x-1.5 md:grid-cols-[1.75rem_2rem_minmax(0,1fr)_4.5rem_4.5rem_2.5rem] md:gap-x-3";
 
 export type TrackRowAction = "rename" | "retype" | "select" | "delete";
 
@@ -79,9 +79,12 @@ export function TrackRow({
 	const meta = trackMetaParts(track).join(" · ");
 	const sourceTag = trackSourceTag(track);
 	const duration = trackDurationText(track);
-	const label = t(active ? "gm.music.previewStopAria" : "gm.music.previewAria", {
-		name: track.name,
-	});
+	const label = t(
+		active ? "gm.music.previewStopAria" : "gm.music.previewAria",
+		{
+			name: track.name,
+		},
+	);
 	const serial = String(number).padStart(2, "0");
 	const nextType = track.type === "bgm" ? "se" : "bgm";
 	const showCheckbox = selecting || selected;
@@ -92,14 +95,15 @@ export function TrackRow({
 			data-active={active || undefined}
 			className={cn(
 				LEDGER_GRID,
-				"group/row relative min-h-14 border-b border-md-outline-variant/30 transition-colors hover:bg-md-on-surface/4 md:h-11 md:min-h-0",
-				selected && "bg-md-on-surface/10",
+				"group/row relative min-h-14 border-b border-md-outline-variant/30 px-3 transition-colors duration-150 ease-standard-fast-effects hover:bg-md-surface-container motion-reduce:transition-none md:h-11 md:min-h-0",
+				selected &&
+					"bg-md-surface-container-high before:absolute before:inset-y-2 before:left-1.5 before:w-0.5 before:rounded-full before:bg-accent hover:bg-md-surface-container-high",
 			)}
 		>
 			<div className="group/cell relative flex items-center">
 				<span
 					className={cn(
-						"font-mono text-label-medium tabular-nums",
+						"text-label-medium tabular-nums",
 						active ? "text-accent" : "text-md-on-surface-variant",
 						showCheckbox && "invisible",
 						"group-hover/row:invisible group-has-focus-visible/cell:invisible",
@@ -133,7 +137,7 @@ export function TrackRow({
 			>
 				{active ? <Pause fill="currentColor" /> : <Play fill="currentColor" />}
 			</Button>
-			<div className="flex min-w-0 flex-col justify-center py-1.5 md:py-0">
+			<div className="flex min-w-0 flex-col justify-center py-1.5 md:flex-row md:items-baseline md:justify-start md:gap-2.5 md:py-0">
 				{renaming ? (
 					<Input
 						value={name}
@@ -156,29 +160,24 @@ export function TrackRow({
 						type="button"
 						onClick={onToggleAudition}
 						tabIndex={-1}
-						title={track.name}
-						className="truncate text-left text-body-large-emph text-md-on-surface outline-none"
+						className="min-w-0 max-w-full truncate text-left text-body-large-emph text-md-on-surface outline-none md:max-w-[70%]"
 					>
 						{track.name}
 					</button>
 				)}
+				<span className="hidden min-w-0 truncate text-body-small text-md-on-surface-variant md:block">
+					{meta}
+				</span>
 				<span className="truncate text-body-small text-md-on-surface-variant md:hidden">
-					<span className="font-mono tabular-nums">{duration}</span>
+					<span className="tabular-nums">{duration}</span>
 					{meta ? ` · ${meta}` : ""}
 					{sourceTag ? ` · ${sourceTag}` : ""}
 				</span>
 			</div>
-			<div className="hidden min-w-0 items-center gap-3 md:flex">
-				<span className="min-w-0 flex-1 truncate text-body-medium text-md-on-surface-variant">
-					{meta}
-				</span>
-				{sourceTag ? (
-					<span className="shrink-0 text-label-small text-md-on-surface-variant">
-						{sourceTag}
-					</span>
-				) : null}
-			</div>
-			<span className="hidden text-right font-mono text-body-medium tabular-nums text-md-on-surface-variant md:block">
+			<span className="hidden truncate text-right text-label-medium text-md-on-surface-variant md:block">
+				{sourceTag}
+			</span>
+			<span className="hidden text-right text-body-medium tabular-nums text-md-on-surface-variant md:block">
 				{duration}
 			</span>
 			<DropdownMenu>

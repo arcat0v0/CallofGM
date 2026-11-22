@@ -12,12 +12,12 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
 import { AdminLayout } from "@/features/gm-admin/admin-layout";
+import { LibraryNavigation } from "@/features/gm-admin/library-navigation";
 import {
 	AddTracksDialog,
 	type AddTracksTab,
 } from "@/features/gm-music/add-tracks-dialog";
 import { AuditionBar } from "@/features/gm-music/audition-bar";
-import { MusicToolbar } from "@/features/gm-music/music-toolbar";
 import {
 	ModuleNav,
 	ModulePicker,
@@ -33,9 +33,10 @@ import {
 	type TrackSort,
 	type TrackTypeFilter,
 } from "@/features/gm-music/music-library-model";
+import { MusicToolbar } from "@/features/gm-music/music-toolbar";
 import {
-	TrackLedger,
 	type LedgerEmpty,
+	TrackLedger,
 } from "@/features/gm-music/track-ledger";
 import type { TrackRowAction } from "@/features/gm-music/track-row";
 import { useAudition } from "@/features/gm-music/use-audition";
@@ -45,7 +46,6 @@ import { errorText } from "@/lib/errors";
 import { requireGmAuth } from "@/lib/identity";
 import { readGmMusicModule, writeGmMusicModule } from "@/lib/storage";
 import { useMediaQuery } from "@/lib/use-media-query";
-import { cn } from "@/lib/utils";
 
 type MusicSearch = { module?: string };
 
@@ -87,7 +87,10 @@ function MusicLibraryPage() {
 	const [dragging, setDragging] = useState(false);
 	const searchRef = useRef<HTMLInputElement>(null);
 
-	const moduleIds = useMemo(() => modules.map((module) => module.id), [modules]);
+	const moduleIds = useMemo(
+		() => modules.map((module) => module.id),
+		[modules],
+	);
 	// URL 优先，其次是上次使用的模组，最后落到第一个模组
 	const stored = readGmMusicModule();
 	const isValid = (id: string | null | undefined): id is string =>
@@ -150,8 +153,7 @@ function MusicLibraryPage() {
 				setTracks(
 					items.map((item) => ({
 						...item,
-						moduleName:
-							"moduleName" in item ? item.moduleName : owner?.name,
+						moduleName: "moduleName" in item ? item.moduleName : owner?.name,
 					})),
 				);
 			})
@@ -280,7 +282,10 @@ function MusicLibraryPage() {
 		}
 	}
 
-	async function retype(targets: readonly LibraryTrack[], next: TrackDto["type"]) {
+	async function retype(
+		targets: readonly LibraryTrack[],
+		next: TrackDto["type"],
+	) {
 		const changing = targets.filter((track) => track.type !== next);
 		await runBulk(changing, (track) => patchTrack(track, { type: next }));
 		setSelection(new Set());
@@ -358,188 +363,231 @@ function MusicLibraryPage() {
 		return Array.from(event.dataTransfer?.types ?? []).includes("Files");
 	}
 
-	const stage = (
-		<div
-			className="relative flex min-h-0 flex-1 flex-col"
-			onDragOver={(event) => {
-				if (hasFiles(event)) {
-					event.preventDefault();
-					if (!isAllView) {
-						setDragging(true);
-					}
-				}
-			}}
-			onDragLeave={(event) => {
-				if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
-					setDragging(false);
-				}
-			}}
-			onDrop={(event) => {
-				if (!hasFiles(event)) {
-					return;
-				}
+	const dropHandlers = {
+		onDragOver: (event: React.DragEvent) => {
+			if (hasFiles(event)) {
 				event.preventDefault();
-				setDragging(false);
-				if (isAllView || !activeModule) {
-					toast.message(t("gm.music.dropNeedModule"));
-					return;
+				if (!isAllView) {
+					setDragging(true);
 				}
-				setDroppedFiles(Array.from(event.dataTransfer.files));
-				setAddTab("upload");
-				setAddOpen(true);
-			}}
-		>
-			{dragging && activeModule ? (
-				<div
-					role="status"
-					className="pointer-events-none absolute inset-3 z-30 grid place-items-center rounded-lg border-2 border-dashed border-accent bg-md-surface/85 text-title-medium text-accent"
-				>
-					{t("gm.music.dropActive", { module: activeModule.name })}
-				</div>
-			) : null}
-			<div className="flex flex-col gap-1 px-4 pt-5 md:px-6">
-				<div className="flex min-h-10 items-center gap-3">
-					<h1 className="min-w-0 flex-1 truncate text-headline-small-emph text-md-on-surface">
+			}
+		},
+		onDragLeave: (event: React.DragEvent) => {
+			if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+				setDragging(false);
+			}
+		},
+		onDrop: (event: React.DragEvent) => {
+			if (!hasFiles(event)) {
+				return;
+			}
+			event.preventDefault();
+			setDragging(false);
+			if (isAllView || !activeModule) {
+				toast.message(t("gm.music.dropNeedModule"));
+				return;
+			}
+			setDroppedFiles(Array.from(event.dataTransfer.files));
+			setAddTab("upload");
+			setAddOpen(true);
+		},
+	};
+
+	const dropOverlay =
+		dragging && activeModule ? (
+			<div
+				role="status"
+				className="pointer-events-none absolute inset-3 z-30 grid place-items-center rounded-xl border-2 border-dashed border-accent bg-md-surface/85 text-title-medium text-accent"
+			>
+				{t("gm.music.dropActive", { module: activeModule.name })}
+			</div>
+		) : null;
+
+	const header = (
+		<div className="flex items-center justify-between gap-3">
+			<div className="flex min-w-0 flex-col gap-0.5">
+				<div className="flex min-w-0 items-baseline gap-2.5">
+					<h1 className="truncate text-headline-small-emph text-md-on-surface">
 						{isAllView ? t("gm.music.allTracks") : (activeModule?.name ?? "")}
 					</h1>
-					{!isAllView && activeModule ? (
-						<Button type="button" size="sm" onClick={() => openAdd("upload")}>
-							<Plus />
-							{t("gm.music.add")}
-						</Button>
-					) : null}
+					<span
+						data-music-stats
+						className="shrink-0 text-label-large tabular-nums text-md-on-surface-variant"
+					>
+						{tracksReady ? (
+							<>
+								{t("gm.music.statsCount", { count: stats.count })}
+								{stats.count > 0 ? (
+									<>
+										{" · "}
+										<span>{formatTotalDuration(stats.totalMs)}</span>
+									</>
+								) : null}
+							</>
+						) : null}
+					</span>
 				</div>
-				<p
-					data-music-stats
-					className="min-h-5 text-body-medium tabular-nums text-md-on-surface-variant"
-				>
-					{tracksReady ? (
-						<>
-							{t("gm.music.statsCount", { count: stats.count })}
-							{stats.count > 0 ? (
-								<>
-									{" · "}
-									<span className="font-mono">
-										{formatTotalDuration(stats.totalMs)}
-									</span>
-								</>
-							) : null}
-						</>
-					) : null}
-				</p>
 				{isAllView ? (
 					<p className="text-body-small text-md-on-surface-variant">
 						{t("gm.music.pickModuleHint")}
 					</p>
 				) : null}
 			</div>
-			<MusicToolbar
-				visible={tracks.length > 0}
-				query={query}
-				onQueryChange={setQuery}
-				type={type}
-				onTypeChange={setType}
-				sort={sort}
-				onSortChange={setSort}
-				selectedCount={selection.size}
-				onClearSelection={() => setSelection(new Set())}
-				onBulkRetype={(next) => void retype(selectedTracks, next)}
-				onBulkDelete={() => setDeleteTarget({ tracks: selectedTracks })}
-				searchRef={searchRef}
-			/>
-			<div
-				data-scroll
-				className={cn("min-h-0 flex-1 overflow-y-auto px-4 pb-8 md:px-6")}
-			>
-				{tracksReady ? (
-					<TrackLedger
-						tracks={visible}
-						groupByModule={isAllView}
-						moduleOrder={moduleIds}
-						empty={empty}
-						auditionId={audition.track?.id ?? null}
-						auditionProgress={
-							audition.track
-								? audition.positionMs / Math.max(1, audition.track.duration)
-								: 0
-						}
-						selection={selection}
-						renamingId={renamingId}
-						onToggleAudition={audition.toggle}
-						onToggleSelect={toggleSelect}
-						onAction={handleAction}
-						onRenameCommit={(track, name) => void commitRename(track, name)}
-						onRenameCancel={() => setRenamingId(null)}
-						onClearFilters={() => {
-							setQuery("");
-							setType("all");
-						}}
-					/>
-				) : (
-					<div aria-busy className="flex flex-col">
-						{[0, 1, 2, 3].map((row) => (
-							<div
-								key={row}
-								className="h-11 animate-pulse border-b border-md-outline-variant/40"
-							/>
-						))}
-					</div>
-				)}
-			</div>
-			{audition.track ? (
-				<AuditionBar
-					track={audition.track}
-					positionMs={audition.positionMs}
-					volume={audition.volume}
-					onStop={audition.stop}
-					onSeek={audition.seek}
-					onVolume={audition.setVolume}
-				/>
+			{!isAllView && activeModule ? (
+				<Button
+					type="button"
+					size="sm"
+					className="shrink-0"
+					onClick={() => openAdd("upload")}
+				>
+					<Plus />
+					{t("gm.music.add")}
+				</Button>
 			) : null}
 		</div>
 	);
 
+	const toolbar = (
+		<MusicToolbar
+			visible={tracks.length > 0}
+			query={query}
+			onQueryChange={setQuery}
+			type={type}
+			onTypeChange={setType}
+			sort={sort}
+			onSortChange={setSort}
+			selectedCount={selection.size}
+			onClearSelection={() => setSelection(new Set())}
+			onBulkRetype={(next) => void retype(selectedTracks, next)}
+			onBulkDelete={() => setDeleteTarget({ tracks: selectedTracks })}
+			searchRef={searchRef}
+		/>
+	);
+
+	const ledger = tracksReady ? (
+		<TrackLedger
+			tracks={visible}
+			groupByModule={isAllView}
+			moduleOrder={moduleIds}
+			empty={empty}
+			auditionId={audition.track?.id ?? null}
+			auditionProgress={
+				audition.track
+					? audition.positionMs / Math.max(1, audition.track.duration)
+					: 0
+			}
+			selection={selection}
+			renamingId={renamingId}
+			onToggleAudition={audition.toggle}
+			onToggleSelect={toggleSelect}
+			onAction={handleAction}
+			onRenameCommit={(track, name) => void commitRename(track, name)}
+			onRenameCancel={() => setRenamingId(null)}
+			onClearFilters={() => {
+				setQuery("");
+				setType("all");
+			}}
+		/>
+	) : (
+		<div
+			aria-busy
+			className="flex flex-col gap-1 overflow-clip rounded-xl bg-md-surface-container-low p-1"
+		>
+			{[0, 1, 2, 3].map((row) => (
+				<div
+					key={row}
+					className="h-11 rounded-md bg-md-surface-container motion-safe:animate-pulse"
+				/>
+			))}
+		</div>
+	);
+
+	const noModules = (
+		<EmptyState
+			icon={AudioLines}
+			title={t("gm.music.noModulesTitle")}
+			description={t("gm.music.noModulesHint")}
+			action={
+				<Button asChild variant="tonal" size="sm">
+					<Link to="/gm/modules">{t("gm.music.goModules")}</Link>
+				</Button>
+			}
+			className="bg-md-surface-container-low"
+		/>
+	);
+
+	const auditionBar = audition.track ? (
+		<AuditionBar
+			track={audition.track}
+			positionMs={audition.positionMs}
+			volume={audition.volume}
+			onStop={audition.stop}
+			onSeek={audition.seek}
+			onVolume={audition.setVolume}
+		/>
+	) : null;
+
 	return (
 		<AdminLayout bleed>
-			{modulesReady && modules.length === 0 ? (
-				<div className="p-6">
-					<EmptyState
-						icon={AudioLines}
-						title={t("gm.music.noModulesTitle")}
-						description={t("gm.music.noModulesHint")}
-						action={
-							<Button asChild variant="tonal" size="sm">
-								<Link to="/gm/modules">{t("gm.music.goModules")}</Link>
-							</Button>
-						}
-					/>
-				</div>
-			) : wide ? (
-				<div className="flex h-full min-h-0">
-					<aside
-						data-scroll
-						className="flex w-60 shrink-0 flex-col border-r border-md-outline-variant/60 bg-md-surface xl:w-64"
-					>
+			{wide ? (
+				<div className="flex h-full min-h-0 gap-3 bg-md-surface p-3 xl:gap-4 xl:p-4">
+					<LibraryNavigation>
 						<ModuleNav
 							modules={moduleOptions}
 							totalCount={totalCount}
 							activeId={activeId}
 							onSelect={selectModule}
 						/>
-					</aside>
-					{stage}
+					</LibraryNavigation>
+					<section
+						data-music-dropzone
+						aria-label={t("gm.music.stageAria")}
+						className="relative flex min-w-0 flex-1 flex-col gap-3"
+						{...dropHandlers}
+					>
+						{dropOverlay}
+						{modulesReady && modules.length === 0 ? (
+							noModules
+						) : (
+							<>
+								<div className="flex flex-col gap-3 px-1 pt-1">
+									{header}
+									{toolbar}
+								</div>
+								<div data-scroll className="min-h-0 flex-1 overflow-y-auto">
+									{ledger}
+								</div>
+								{auditionBar}
+							</>
+						)}
+					</section>
 				</div>
 			) : (
-				<div className="flex h-full min-h-0 flex-col">
-					<div className="border-b border-md-outline-variant/60 bg-md-surface px-4 py-3">
-						<ModulePicker
-							modules={moduleOptions}
-							totalCount={totalCount}
-							activeId={activeId}
-							onSelect={selectModule}
-						/>
-					</div>
-					{stage}
+				<div className="flex min-h-full flex-col gap-3 bg-md-surface px-3 pt-3 pb-2">
+					<ModulePicker
+						modules={moduleOptions}
+						totalCount={totalCount}
+						activeId={activeId}
+						onSelect={selectModule}
+					/>
+					{modulesReady && modules.length === 0 ? (
+						noModules
+					) : (
+						<section
+							data-music-dropzone
+							aria-label={t("gm.music.stageAria")}
+							className="relative flex min-h-0 flex-1 flex-col gap-2"
+							{...dropHandlers}
+						>
+							{dropOverlay}
+							{header}
+							<div className="sticky top-0 z-20 -mx-1 bg-md-surface px-1 py-1">
+								{toolbar}
+							</div>
+							<div className="flex-1">{ledger}</div>
+							{auditionBar}
+						</section>
+					)}
 				</div>
 			)}
 			{activeModule ? (

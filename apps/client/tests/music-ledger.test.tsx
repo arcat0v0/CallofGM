@@ -95,7 +95,7 @@ describe("TrackLedger", () => {
 		fireEvent.click(view.getByRole("button", { name: "试听 夜航" }));
 		expect(props.onToggleAudition).toHaveBeenCalledTimes(1);
 		expect(props.onToggleAudition.mock.calls[0]?.[0].id).toBe("夜航");
-		fireEvent.click(view.getByTitle("汽笛"));
+		fireEvent.click(view.getByRole("button", { name: "汽笛" }));
 		expect(props.onToggleAudition.mock.calls[1]?.[0].id).toBe("汽笛");
 	});
 

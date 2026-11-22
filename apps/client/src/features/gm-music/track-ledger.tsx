@@ -1,4 +1,5 @@
 import type { TrackDto } from "@cogm/shared";
+import { Disc3, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
@@ -33,22 +34,22 @@ function SectionRule({
 	type: TrackDto["type"];
 	count: number;
 }) {
+	const Icon = type === "bgm" ? Disc3 : Zap;
 	return (
 		<div
 			role="presentation"
-			className="flex h-9 items-center gap-3 border-b-2 border-md-outline"
+			className="flex h-10 items-center gap-2 border-b border-md-outline-variant/40 bg-md-surface-container px-3"
 		>
-			<h2 className="font-mono text-label-large-emph tracking-widest text-md-on-surface">
+			<Icon className="size-3.5 text-md-on-surface-variant" aria-hidden />
+			<h2 className="text-label-large-emph text-md-on-surface">
 				{t(type === "bgm" ? "gm.music.sectionBgm" : "gm.music.sectionSe")}
 			</h2>
-			<span className="font-mono text-label-large tabular-nums text-md-on-surface-variant">
+			<span className="rounded-full bg-md-surface-container-high px-2 py-0.5 text-label-small tabular-nums text-md-on-surface-variant">
 				{count}
 			</span>
-			<span className="ml-auto font-mono text-label-medium text-md-on-surface-variant">
+			<span className="ml-auto truncate text-label-medium text-md-on-surface-variant">
 				{t(
-					type === "bgm"
-						? "gm.music.sectionBgmHint"
-						: "gm.music.sectionSeHint",
+					type === "bgm" ? "gm.music.sectionBgmHint" : "gm.music.sectionSeHint",
 				)}
 			</span>
 		</div>
@@ -57,8 +58,8 @@ function SectionRule({
 
 function GroupRule({ label, count }: { label: string; count: number }) {
 	return (
-		<div className="mt-1 flex h-9 items-end gap-2 border-t border-md-outline-variant/40 pb-1 font-mono text-label-medium text-md-on-surface-variant first:mt-0 first:border-t-0">
-			<span className="truncate">{label}</span>
+		<div className="flex h-8 items-center gap-2 border-b border-md-outline-variant/30 px-3 text-label-medium text-md-on-surface-variant">
+			<span className="min-w-0 truncate">{label}</span>
 			<span className="tabular-nums">{count}</span>
 		</div>
 	);
@@ -90,28 +91,36 @@ function groupByModuleId(
 /** 空模组：画出一张空白的提示单，说明与入口放在它上面。 */
 function BlankSheet() {
 	return (
-		<div aria-hidden className="select-none">
+		<div
+			aria-hidden
+			className="select-none overflow-clip rounded-xl bg-md-surface-container-low"
+		>
 			{(["bgm", "se"] as const).map((type) => (
-				<div key={type} className="not-first:mt-8">
+				<div
+					key={type}
+					className="not-first:border-t not-first:border-md-outline-variant/40"
+				>
 					<SectionRule type={type} count={0} />
 					{[1, 2].map((row) => (
 						<div
 							key={row}
 							className={cn(
 								LEDGER_GRID,
-								"h-11 border-b border-md-outline-variant/30 text-md-on-surface-variant/60",
+								"h-11 border-b border-md-outline-variant/30 px-3 text-md-on-surface-variant/60 last:border-b-0",
 							)}
 						>
-							<span className="font-mono text-label-medium tabular-nums">
+							<span className="text-label-medium tabular-nums">
 								{String(row).padStart(2, "0")}
 							</span>
 							<span />
-							<span className="font-mono text-body-medium md:hidden">--:--</span>
-							<span className="hidden md:block" />
-							<span className="hidden md:block" />
-							<span className="hidden text-right font-mono text-body-medium md:block">
+							<span className="text-body-medium tabular-nums md:hidden">
 								--:--
 							</span>
+							<span className="hidden md:block" />
+							<span className="hidden text-right text-body-medium tabular-nums md:block">
+								--:--
+							</span>
+							<span className="hidden md:block" />
 						</div>
 					))}
 				</div>
@@ -130,7 +139,7 @@ function EmptyMessage({
 	action?: { label: string; onClick: () => void };
 }) {
 	return (
-		<div className="flex flex-col items-start gap-1 pb-6">
+		<div className="flex flex-col items-start gap-1 rounded-xl bg-md-surface-container-low p-6">
 			<h3 className="text-title-medium-emph text-md-on-surface">{title}</h3>
 			<p className="max-w-prose text-body-medium text-md-on-surface-variant">
 				{hint}
@@ -175,7 +184,7 @@ export function TrackLedger(props: TrackLedgerProps) {
 	}
 	if (empty === "module") {
 		return (
-			<div>
+			<div className="flex flex-col gap-3">
 				<EmptyMessage
 					title={t("gm.music.emptyTitle")}
 					hint={t("gm.music.emptyHint")}
@@ -210,7 +219,7 @@ export function TrackLedger(props: TrackLedgerProps) {
 	};
 
 	return (
-		<div>
+		<div className="overflow-clip rounded-xl bg-md-surface-container-low">
 			{(["bgm", "se"] as const).map((type) => {
 				const list = sections[type];
 				if (list.length === 0) {
@@ -220,14 +229,17 @@ export function TrackLedger(props: TrackLedgerProps) {
 					<section
 						key={type}
 						aria-label={type.toUpperCase()}
-						className="not-first:mt-8"
+						className="not-first:border-t not-first:border-md-outline-variant/40"
 					>
 						<SectionRule type={type} count={list.length} />
 						{groupByModule
 							? groupByModuleId(list, props.moduleOrder).map(
 									([moduleId, group]) => (
 										<div key={moduleId}>
-											<GroupRule label={group.label} count={group.tracks.length} />
+											<GroupRule
+												label={group.label}
+												count={group.tracks.length}
+											/>
 											{group.tracks.map((track, index) =>
 												renderRow(track, index + 1),
 											)}

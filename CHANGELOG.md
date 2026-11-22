@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GM 人物库采用 Material 3 Expressive 圆角和表面色阶，更新侧栏、台账、立绘墙与检视器样式，保持 36px 桌面台账行高。
 - 人物台账把类型和玩家归属移到姓名旁，保留对齐的模组和更新时间列。选中行改用中性色阶和短强调线。
 - 团管理、模组模板、音乐、黑名单、提交审核和回收站统一为紧凑的 Material 3 Expressive 管理页，采用与模组库、人物库一致的页头、圆角面板和表面色阶。
+- GM 音乐库对齐模组库与人物库的 M3 Expressive 工作台：圆角模组侧栏、胶囊工具栏、圆角曲目台账面板与底部试听浮岛。
 
 ### Tests
 

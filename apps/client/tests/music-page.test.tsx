@@ -461,7 +461,7 @@ describe("music page", () => {
 	test("dropping audio files on the page opens the upload queue", async () => {
 		await renderPage();
 		await waitFor(() => view().getByText("River Flows In You"));
-		const stage = view().getByRole("heading", { level: 1 }).closest("div[class*='relative']");
+		const stage = document.querySelector("[data-music-dropzone]");
 		const file = new File(["x"], "落雨.mp3", { type: "audio/mpeg" });
 		await act(async () => {
 			fireEvent.drop(stage as HTMLElement, {
@@ -477,7 +477,7 @@ describe("music page", () => {
 	test("dropping in the all-tracks view asks to pick a module first", async () => {
 		await renderPage({ module: "all" });
 		await waitFor(() => view().getByText("灯塔风"));
-		const stage = view().getByRole("heading", { level: 1 }).closest("div[class*='relative']");
+		const stage = document.querySelector("[data-music-dropzone]");
 		fireEvent.drop(stage as HTMLElement, {
 			dataTransfer: { files: [new File(["x"], "落雨.mp3", { type: "audio/mpeg" })], types: ["Files"] },
 		});
