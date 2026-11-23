@@ -37,9 +37,15 @@ async function serveClient(pathname: string): Promise<Response> {
 	}
 	const asset = Bun.file(requested);
 	if (relativePath && (await asset.exists())) {
-		return new Response(asset, {
-			headers: { "Content-Type": asset.type || "application/octet-stream" },
-		});
+		const headers: Record<string, string> = {
+			"Content-Type": asset.type || "application/octet-stream",
+		};
+		// Vite content-hashes everything under assets/ (including the
+		// DeepFilterNet3 voice model), so those files never change in place.
+		if (relativePath.startsWith("assets/")) {
+			headers["Cache-Control"] = "public, max-age=31536000, immutable";
+		}
+		return new Response(asset, { headers });
 	}
 	if (relativePath && extname(relativePath))
 		return new Response("Not Found", { status: 404 });

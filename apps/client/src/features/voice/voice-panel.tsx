@@ -428,7 +428,7 @@ function VoiceMicTestCard({
 
 type AudioProcessingSetting = Exclude<
 	keyof VoiceAudioSettings,
-	"deviceId" | "pushToTalk" | "pushToTalkKey"
+	"deviceId" | "pushToTalk" | "pushToTalkKey" | "noiseSuppressionEngine"
 >;
 
 /** Row in a grouped settings list: label + hint on the left, switch on the right. */
@@ -505,6 +505,7 @@ function VoiceProcessingSwitch({
 	label,
 	hint,
 	applied,
+	children,
 }: {
 	voice: VoiceController;
 	settings: VoiceAudioSettings;
@@ -512,6 +513,7 @@ function VoiceProcessingSwitch({
 	label: string;
 	hint?: string;
 	applied?: boolean | null;
+	children?: ReactNode;
 }) {
 	const checked = settings[setting];
 	// Only surface the browser-reported state when it disagrees with the
@@ -534,7 +536,9 @@ function VoiceProcessingSwitch({
 			onCheckedChange={(next) => {
 				void voice.updateAudioSettings({ [setting]: next });
 			}}
-		/>
+		>
+			{children}
+		</SwitchRow>
 	);
 }
 
@@ -629,6 +633,7 @@ function VoiceAudioSettingsSection({
 	const [refreshing, setRefreshing] = useState(false);
 	const deviceId = useId();
 	const keyId = useId();
+	const engineId = useId();
 	const { audioSettings, audioDevices, audioProcessing } = snapshot;
 	// Before capture starts nothing has been applied yet, so there is no
 	// browser-reported state to compare against.
@@ -848,7 +853,54 @@ function VoiceAudioSettingsSection({
 									? "voice.audio.deepNoiseSuppressionHint"
 									: "voice.audio.deepNoiseSuppressionOffHint",
 							)}
-						/>
+						>
+							{audioSettings.deepNoiseSuppression ? (
+								<div className="flex min-w-0 flex-col gap-1">
+									<div className="flex min-w-0 items-center justify-between gap-3">
+										<label
+											htmlFor={engineId}
+											className="text-md-on-surface-variant shrink-0 text-body-medium"
+										>
+											{t("voice.audio.noiseSuppressionEngine")}
+										</label>
+										<Select
+											value={audioSettings.noiseSuppressionEngine}
+											onValueChange={(value) => {
+												if (value !== "deepfilter" && value !== "rnnoise") return;
+												void voice.updateAudioSettings({
+													noiseSuppressionEngine: value,
+												});
+											}}
+										>
+											<SelectTrigger
+												id={engineId}
+												aria-label={t("voice.audio.noiseSuppressionEngine")}
+												className="w-48 min-w-0"
+											>
+												<SelectValue />
+											</SelectTrigger>
+											<SelectContent position="popper" align="end">
+												<SelectGroup>
+													<SelectItem value="deepfilter">
+														{t("voice.audio.engine.deepfilter")}
+													</SelectItem>
+													<SelectItem value="rnnoise">
+														{t("voice.audio.engine.rnnoise")}
+													</SelectItem>
+												</SelectGroup>
+											</SelectContent>
+										</Select>
+									</div>
+									<p className="text-md-on-surface-variant text-body-small">
+										{t(
+											audioSettings.noiseSuppressionEngine === "deepfilter"
+												? "voice.audio.engine.deepfilterHint"
+												: "voice.audio.engine.rnnoiseHint",
+										)}
+									</p>
+								</div>
+							) : null}
+						</VoiceProcessingSwitch>
 						<VoiceProcessingSwitch
 							voice={voice}
 							settings={audioSettings}

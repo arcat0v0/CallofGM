@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- 语音深度降噪新增 DeepFilterNet3 模型并设为默认（可在面板切回轻量的 RNNoise）。模型由上游源码自行编译、随客户端自托管，首次使用后台下载约 11 MB，加载完成前由 RNNoise 处理，加载或运行失败时自动回退。
+- 噪声门改为由 RNNoise 人声概率驱动：开启深度降噪时只在检测到人声时放行，压住说话间隙的呼吸声与底噪。
+- 深度降噪、噪声门与压限器改为默认开启；已保存过音频设置的用户会一次性切换到新的默认值，其余偏好保留。
+- 服务端为 `/assets/` 下带内容哈希的静态资源返回长期缓存头。
+
 ## [0.2.3] - 2026-11-23
 
 ### Changed

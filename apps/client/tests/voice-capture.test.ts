@@ -2,6 +2,7 @@ import { afterEach, describe, expect, mock, test } from "bun:test";
 import {
 	DEFAULT_VOICE_AUDIO_SETTINGS,
 	readVoiceAudioSettings,
+	type VoiceAudioSettings,
 	writeVoiceAudioSettings,
 } from "@/features/voice/voice-audio-settings";
 import {
@@ -9,6 +10,17 @@ import {
 	type VoiceAudioWorkletNodeLike,
 	VoiceCapturePipeline,
 } from "@/features/voice/voice-capture";
+
+/** Defaults with every enhancement off: browser processing only. */
+const PLAIN_SETTINGS: VoiceAudioSettings = {
+	...DEFAULT_VOICE_AUDIO_SETTINGS,
+	deepNoiseSuppression: false,
+	noiseGate: false,
+	compressor: false,
+};
+
+/** DeepFilterNet3 assets that never arrive: RNNoise keeps running. */
+const pendingDeepFilter = () => new Promise<never>(() => {});
 
 function constraintBoolean(value: unknown, fallback: boolean): boolean {
 	if (
@@ -170,6 +182,7 @@ describe("voice capture pipeline", () => {
 			capture,
 			createContext: () => graph.context,
 			createWorkletNode: graph.createWorkletNode,
+			loadDeepFilterAssets: pendingDeepFilter,
 		});
 		const stream = await pipeline.start({
 			...DEFAULT_VOICE_AUDIO_SETTINGS,
@@ -211,6 +224,7 @@ describe("voice capture pipeline", () => {
 			capture: async () => fakeStream(rawTrack),
 			createContext: () => graph.context,
 			createWorkletNode: graph.createWorkletNode,
+			loadDeepFilterAssets: pendingDeepFilter,
 			onChanged: () => {
 				if (
 					pipeline.processing === "fallback" &&
@@ -258,7 +272,7 @@ describe("voice capture pipeline", () => {
 		expect(rawTrack.stop).not.toHaveBeenCalled();
 		expect(graph.source.connect).toHaveBeenCalled();
 		await pipeline.update({
-			...DEFAULT_VOICE_AUDIO_SETTINGS,
+			...PLAIN_SETTINGS,
 			deviceId: "mic-a",
 		});
 		expect(pipeline.processing).toBe("native");
@@ -278,9 +292,9 @@ describe("voice capture pipeline", () => {
 				captures.shift() ?? Promise.reject(new Error("missing")),
 			createContext: () => graph.context,
 		});
-		const output = await pipeline.start(DEFAULT_VOICE_AUDIO_SETTINGS);
+		const output = await pipeline.start(PLAIN_SETTINGS);
 		await pipeline.update({
-			...DEFAULT_VOICE_AUDIO_SETTINGS,
+			...PLAIN_SETTINGS,
 			deviceId: "mic-b",
 		});
 		expect(pipeline.stream).toBe(output);
@@ -312,7 +326,7 @@ describe("runtime voice processing nodes", () => {
 			createWorkletNode: graph.createWorkletNode,
 		});
 		await pipeline.start({
-			...DEFAULT_VOICE_AUDIO_SETTINGS,
+			...PLAIN_SETTINGS,
 			deviceId: "mic-a",
 			noiseGate: true,
 			compressor: true,
@@ -320,14 +334,13 @@ describe("runtime voice processing nodes", () => {
 		expect(pipeline.processing).toBe("native");
 		expect(graph.createWorkletNode.mock.calls[0]?.[2]).toMatchObject({
 			processorOptions: {
-				rnnoise: false,
-				gate: { enabled: true },
+				settings: { engine: "none", gate: { enabled: true } },
 			},
 		});
 		expect(graph.compressor.ratio.value).toBe(3);
 		expect(graph.compressor.threshold.value).toBe(-24);
 		await pipeline.update({
-			...DEFAULT_VOICE_AUDIO_SETTINGS,
+			...PLAIN_SETTINGS,
 			deviceId: "mic-a",
 		});
 		expect(graph.workletNode.port.postMessage).toHaveBeenCalledWith({
@@ -383,7 +396,7 @@ describe("runtime voice processing nodes", () => {
 			capture: async () => rawStream,
 			createContext: () => graph.context,
 		});
-		await pipeline.start(DEFAULT_VOICE_AUDIO_SETTINGS);
+		await pipeline.start(PLAIN_SETTINGS);
 		expect(mutableContext.resume).toHaveBeenCalled();
 		expect(pipeline.getAudioTap()).toEqual({
 			context: graph.context,
@@ -400,5 +413,150 @@ describe("runtime voice processing nodes", () => {
 		pipeline.close();
 		expect(gains[0]?.disconnect).toHaveBeenCalled();
 		expect(gains[1]?.disconnect).toHaveBeenCalled();
+	});
+});
+
+describe("voice audio settings migration", () => {
+	test("stores from before v2 pick up the new enhancement defaults once", () => {
+		localStorage.setItem(
+			"cogm.voiceAudioSettings",
+			JSON.stringify({
+				...PLAIN_SETTINGS,
+				echoCancellation: false,
+				noiseSuppressionEngine: undefined,
+			}),
+		);
+		expect(readVoiceAudioSettings()).toEqual({
+			...DEFAULT_VOICE_AUDIO_SETTINGS,
+			echoCancellation: false,
+		});
+		writeVoiceAudioSettings({
+			...readVoiceAudioSettings(),
+			noiseGate: false,
+			noiseSuppressionEngine: "rnnoise",
+		});
+		expect(readVoiceAudioSettings()).toMatchObject({
+			echoCancellation: false,
+			noiseGate: false,
+			deepNoiseSuppression: true,
+			noiseSuppressionEngine: "rnnoise",
+		});
+		localStorage.setItem(
+			"cogm.voiceAudioSettings",
+			JSON.stringify({ version: 2, noiseSuppressionEngine: "krisp" }),
+		);
+		expect(readVoiceAudioSettings().noiseSuppressionEngine).toBe("deepfilter");
+	});
+});
+
+describe("DeepFilterNet3 engine", () => {
+	function deepFilterAssets() {
+		return { wasm: new ArrayBuffer(8), model: new ArrayBuffer(8) };
+	}
+
+	function emit(
+		graph: ReturnType<typeof fakeContext>,
+		data: { type: string; engine?: string },
+	) {
+		graph.workletNode.port.onmessage?.(
+			new MessageEvent("message", { data }) as MessageEvent<never>,
+		);
+	}
+
+	test("starts on RNNoise, hands the assets over, then reports DeepFilterNet3", async () => {
+		const rawTrack = fakeTrack();
+		const graph = fakeContext();
+		const assets = Promise.withResolvers<ReturnType<typeof deepFilterAssets>>();
+		const loadDeepFilterAssets = mock(() => assets.promise);
+		const pipeline = new VoiceCapturePipeline({
+			capture: async () => fakeStream(rawTrack),
+			createContext: () => graph.context,
+			createWorkletNode: graph.createWorkletNode,
+			loadDeepFilterAssets,
+		});
+		await pipeline.start(DEFAULT_VOICE_AUDIO_SETTINGS);
+		expect(pipeline.processing).toBe("rnnoise");
+		expect(loadDeepFilterAssets).toHaveBeenCalledTimes(1);
+		expect(graph.createWorkletNode.mock.calls[0]?.[2]).toMatchObject({
+			processorOptions: {
+				settings: { engine: "deepfilter", gate: { enabled: true } },
+			},
+		});
+
+		const loaded = deepFilterAssets();
+		assets.resolve(loaded);
+		await assets.promise;
+		await Promise.resolve();
+		expect(graph.workletNode.port.postMessage).toHaveBeenCalledWith(
+			expect.objectContaining({
+				type: "settings",
+				deepFilterAssets: loaded,
+				settings: expect.objectContaining({ engine: "deepfilter" }),
+			}),
+			{ transfer: [loaded.wasm, loaded.model] },
+		);
+
+		emit(graph, { type: "engine", engine: "deepfilter" });
+		expect(pipeline.processing).toBe("deepfilter");
+		await pipeline.update(DEFAULT_VOICE_AUDIO_SETTINGS);
+		expect(rawTrack.applyConstraints).toHaveBeenLastCalledWith(
+			expect.objectContaining({ noiseSuppression: { ideal: false } }),
+		);
+		// A runtime failure inside the worklet drops back to RNNoise.
+		emit(graph, { type: "deepfilter-error" });
+		emit(graph, { type: "engine", engine: "rnnoise" });
+		expect(pipeline.processing).toBe("rnnoise");
+		await pipeline.update(DEFAULT_VOICE_AUDIO_SETTINGS);
+		expect(graph.workletNode.port.postMessage).toHaveBeenLastCalledWith({
+			type: "settings",
+			settings: expect.objectContaining({ engine: "rnnoise" }),
+		});
+		expect(loadDeepFilterAssets).toHaveBeenCalledTimes(1);
+		pipeline.close();
+	});
+
+	test("keeps RNNoise when the assets cannot be loaded", async () => {
+		const rawTrack = fakeTrack();
+		const graph = fakeContext();
+		const failed = Promise.withResolvers<void>();
+		const pipeline = new VoiceCapturePipeline({
+			capture: async () => fakeStream(rawTrack),
+			createContext: () => graph.context,
+			createWorkletNode: graph.createWorkletNode,
+			loadDeepFilterAssets: async () => {
+				queueMicrotask(() => failed.resolve());
+				throw new Error("no SIMD");
+			},
+		});
+		await pipeline.start(DEFAULT_VOICE_AUDIO_SETTINGS);
+		await failed.promise;
+		await Promise.resolve();
+		expect(graph.workletNode.port.postMessage).toHaveBeenLastCalledWith({
+			type: "settings",
+			settings: expect.objectContaining({ engine: "rnnoise" }),
+		});
+		expect(pipeline.processing).toBe("rnnoise");
+		pipeline.close();
+	});
+
+	test("the RNNoise engine never downloads DeepFilterNet3", async () => {
+		const graph = fakeContext();
+		const loadDeepFilterAssets = mock(pendingDeepFilter);
+		const pipeline = new VoiceCapturePipeline({
+			capture: async () => fakeStream(fakeTrack()),
+			createContext: () => graph.context,
+			createWorkletNode: graph.createWorkletNode,
+			loadDeepFilterAssets,
+		});
+		await pipeline.start({
+			...DEFAULT_VOICE_AUDIO_SETTINGS,
+			noiseSuppressionEngine: "rnnoise",
+		});
+		expect(pipeline.processing).toBe("rnnoise");
+		expect(loadDeepFilterAssets).not.toHaveBeenCalled();
+		expect(graph.createWorkletNode.mock.calls[0]?.[2]).toMatchObject({
+			processorOptions: { settings: { engine: "rnnoise" } },
+		});
+		pipeline.close();
 	});
 });

@@ -6,7 +6,7 @@ import { plugin } from "bun";
 plugin({
 	name: "vite-worker-url",
 	setup(build) {
-		build.onResolve({ filter: /\?worker&url$/ }, (args) => ({
+		build.onResolve({ filter: /\?(worker&)?url$/ }, (args) => ({
 			path: args.path,
 			namespace: "vite-worker-url",
 		}));

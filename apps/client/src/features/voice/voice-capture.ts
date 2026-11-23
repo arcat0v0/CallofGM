@@ -3,11 +3,22 @@ import {
 	normalizeVoiceAudioSettings,
 	type VoiceAudioSettings,
 } from "./voice-audio-settings";
+import type { DeepFilterAssets } from "./voice-deepfilter";
+import {
+	type DeepFilterAssetLoader,
+	loadDeepFilterAssets,
+} from "./voice-deepfilter-assets";
 import {
 	DEFAULT_NOISE_GATE_SETTINGS,
 	VOICE_SAMPLE_RATE,
+	type VoiceNoiseEngine,
 } from "./voice-processing";
-import type { VoiceWorkletMessage } from "./voice-processing-worklet";
+import type {
+	VoiceWorkletEvent,
+	VoiceWorkletMessage,
+	VoiceWorkletOptions,
+	VoiceWorkletSettings,
+} from "./voice-processing-worklet";
 import processingWorkletUrl from "./voice-processing-worklet.ts?worker&url";
 
 export type VoiceAudioProcessing =
@@ -15,6 +26,7 @@ export type VoiceAudioProcessing =
 	| "starting"
 	| "native"
 	| "rnnoise"
+	| "deepfilter"
 	| "fallback";
 
 export type AppliedAudioConstraints = {
@@ -25,9 +37,12 @@ export type AppliedAudioConstraints = {
 
 export type VoiceAudioWorkletNodeLike = {
 	port: {
-		postMessage: (message: VoiceWorkletMessage) => void;
+		postMessage: (
+			message: VoiceWorkletMessage,
+			options?: StructuredSerializeOptions,
+		) => void;
 		close: () => void;
-		onmessage: ((event: MessageEvent<{ type: string }>) => void) | null;
+		onmessage: ((event: MessageEvent<VoiceWorkletEvent>) => void) | null;
 	};
 	connect: (destination: AudioNode) => void;
 	disconnect: () => void;
@@ -48,6 +63,8 @@ export type VoiceCapturePipelineOptions = VoiceCapturePipelineEvents & {
 		options: AudioWorkletNodeOptions,
 	) => VoiceAudioWorkletNodeLike;
 	workletUrl?: string;
+	/** Fetches the DeepFilterNet3 runtime and model (tests inject a fake). */
+	loadDeepFilterAssets?: DeepFilterAssetLoader;
 };
 
 export interface VoiceCapturePipelineLike {
@@ -157,6 +174,11 @@ export class VoiceCapturePipeline implements VoiceCapturePipelineLike {
 	private previousAudioSessionType: string | null = null;
 	private workletFailed = false;
 	private rnnoiseFailed = false;
+	private deepFilterFailed = false;
+	/** Assets were handed to the current worklet, or are on their way. */
+	private deepFilterRequested = false;
+	/** Denoiser the current worklet reports as heard. */
+	private workletEngine: VoiceNoiseEngine | null = null;
 	private starting = false;
 	private closed = false;
 	private generation = 0;
@@ -387,7 +409,7 @@ export class VoiceCapturePipeline implements VoiceCapturePipelineLike {
 			this.connectGraph();
 			this.resume();
 			this.updateProcessing();
-			if (this.settings.deepNoiseSuppression && this.state !== "rnnoise") {
+			if (this.settings.deepNoiseSuppression && !this.ownsNoiseSuppression()) {
 				await this.applyNativeConstraints();
 			}
 			this.readAppliedConstraints();
@@ -492,7 +514,10 @@ export class VoiceCapturePipeline implements VoiceCapturePipelineLike {
 			this.replaceRawStream(raw, track);
 		}
 		this.settings = next;
-		if (!next.deepNoiseSuppression) this.rnnoiseFailed = false;
+		if (!next.deepNoiseSuppression) {
+			this.rnnoiseFailed = false;
+			this.deepFilterFailed = false;
+		}
 		if (this.closed || revision !== this.revision) return;
 		await this.ensureProcessingNodes();
 		if (this.closed || revision !== this.revision) return;
@@ -509,7 +534,7 @@ export class VoiceCapturePipeline implements VoiceCapturePipelineLike {
 		if (typeof track.applyConstraints === "function") {
 			const { audio } = buildVoiceCaptureConstraints(
 				this.settings,
-				this.state === "rnnoise",
+				this.ownsNoiseSuppression(),
 			);
 			delete audio.deviceId;
 			try {
@@ -632,18 +657,16 @@ export class VoiceCapturePipeline implements VoiceCapturePipelineLike {
 					channelCount: 1,
 					channelCountMode: "explicit",
 					channelInterpretation: "speakers",
-					processorOptions: this.workletSettings(),
+					processorOptions: {
+						settings: this.workletSettings(),
+					} satisfies VoiceWorkletOptions,
 				};
 				const name = "cogm-voice-processing";
 				this.worklet = this.options.createWorkletNode
 					? this.options.createWorkletNode(context, name, options)
 					: new AudioWorkletNode(context, name, options);
 				this.worklet.port.onmessage = (event) => {
-					if (event.data.type !== "rnnoise-error" || this.closed) return;
-					this.rnnoiseFailed = true;
-					this.updateProcessing();
-					this.queue = this.queue.then(() => this.applyNativeConstraints());
-					this.options.onChanged?.();
+					this.handleWorkletEvent(event.data);
 				};
 				this.worklet.onprocessorerror = () => {
 					if (this.closed) return;
@@ -665,7 +688,9 @@ export class VoiceCapturePipeline implements VoiceCapturePipelineLike {
 			this.disposeWorklet();
 			this.workletFailed = false;
 			this.rnnoiseFailed = false;
+			this.deepFilterFailed = false;
 		}
+		this.requestDeepFilterAssets();
 		if (this.settings.compressor && !this.compressor) {
 			try {
 				this.compressor = context.createDynamicsCompressor();
@@ -675,12 +700,25 @@ export class VoiceCapturePipeline implements VoiceCapturePipelineLike {
 		}
 	}
 
-	private workletSettings() {
+	private requestedEngine(): VoiceNoiseEngine {
+		if (
+			!this.settings.deepNoiseSuppression ||
+			this.context?.sampleRate !== VOICE_SAMPLE_RATE
+		) {
+			return "none";
+		}
+		if (
+			this.settings.noiseSuppressionEngine === "deepfilter" &&
+			!this.deepFilterFailed
+		) {
+			return "deepfilter";
+		}
+		return this.rnnoiseFailed ? "none" : "rnnoise";
+	}
+
+	private workletSettings(): VoiceWorkletSettings {
 		return {
-			rnnoise:
-				this.settings.deepNoiseSuppression &&
-				!this.rnnoiseFailed &&
-				this.context?.sampleRate === VOICE_SAMPLE_RATE,
+			engine: this.requestedEngine(),
 			gate: {
 				...DEFAULT_NOISE_GATE_SETTINGS,
 				enabled: this.settings.noiseGate,
@@ -688,17 +726,90 @@ export class VoiceCapturePipeline implements VoiceCapturePipelineLike {
 		};
 	}
 
-	private postWorkletSettings(): void {
+	private postWorkletSettings(assets?: DeepFilterAssets): void {
 		if (!this.worklet) return;
 		const message: VoiceWorkletMessage = {
 			type: "settings",
 			settings: this.workletSettings(),
+			...(assets ? { deepFilterAssets: assets } : {}),
 		};
 		try {
-			this.worklet.port.postMessage(message);
+			if (assets) {
+				this.worklet.port.postMessage(message, {
+					transfer: [assets.wasm, assets.model],
+				});
+			} else {
+				this.worklet.port.postMessage(message);
+			}
 		} catch {
-			this.rnnoiseFailed = true;
+			if (assets) this.deepFilterFailed = true;
+			else this.rnnoiseFailed = true;
 		}
+	}
+
+	/**
+	 * DeepFilterNet3 assets load in the background: RNNoise is heard from the
+	 * start and the worklet switches over once the model is ready.
+	 */
+	private requestDeepFilterAssets(): void {
+		const worklet = this.worklet;
+		if (
+			!worklet ||
+			this.deepFilterRequested ||
+			this.requestedEngine() !== "deepfilter"
+		) {
+			return;
+		}
+		this.deepFilterRequested = true;
+		const load = this.options.loadDeepFilterAssets ?? loadDeepFilterAssets;
+		let pending: Promise<DeepFilterAssets>;
+		try {
+			pending = load();
+		} catch (error) {
+			pending = Promise.reject(error);
+		}
+		void pending.then(
+			(assets) => {
+				if (this.closed || this.worklet !== worklet) return;
+				if (this.requestedEngine() !== "deepfilter") {
+					// Switched away meanwhile; load again if switched back.
+					this.deepFilterRequested = false;
+					return;
+				}
+				this.postWorkletSettings(assets);
+			},
+			() => {
+				if (this.closed || this.worklet !== worklet) return;
+				this.deepFilterFailed = true;
+				this.postWorkletSettings();
+				this.updateProcessing();
+				this.options.onChanged?.();
+			},
+		);
+	}
+
+	private handleWorkletEvent(event: VoiceWorkletEvent): void {
+		if (this.closed) return;
+		const owned = this.ownsNoiseSuppression();
+		if (event.type === "engine") {
+			this.workletEngine = event.engine;
+		} else if (event.type === "deepfilter-error") {
+			this.deepFilterFailed = true;
+		} else if (event.type === "rnnoise-error") {
+			this.rnnoiseFailed = true;
+		} else {
+			return;
+		}
+		this.updateProcessing();
+		if (event.type === "rnnoise-error" || owned !== this.ownsNoiseSuppression()) {
+			this.queue = this.queue.then(() => this.applyNativeConstraints());
+		}
+		this.options.onChanged?.();
+	}
+
+	/** Our worklet suppresses noise, so the browser's own suppression stays off. */
+	private ownsNoiseSuppression(): boolean {
+		return this.state === "rnnoise" || this.state === "deepfilter";
 	}
 
 	private connectGraph(): void {
@@ -737,20 +848,27 @@ export class VoiceCapturePipeline implements VoiceCapturePipelineLike {
 			(!this.context || this.workletFailed);
 		const compressorFallback =
 			this.settings.compressor && (!this.context || !this.compressor);
-		const rnnoise =
+		const workletUsable =
 			this.settings.deepNoiseSuppression &&
 			Boolean(this.worklet) &&
-			!this.rnnoiseFailed &&
 			!this.workletFailed &&
 			this.context?.sampleRate === VOICE_SAMPLE_RATE;
+		const deepFilter =
+			workletUsable &&
+			this.settings.noiseSuppressionEngine === "deepfilter" &&
+			!this.deepFilterFailed &&
+			this.workletEngine === "deepfilter";
+		const rnnoise = workletUsable && !this.rnnoiseFailed;
 		const rnnoiseFallback =
 			this.settings.deepNoiseSuppression && this.rnnoiseFailed;
 		this.setProcessing(
-			rnnoise
-				? "rnnoise"
-				: workletFallback || compressorFallback || rnnoiseFallback
-					? "fallback"
-					: "native",
+			deepFilter
+				? "deepfilter"
+				: rnnoise
+					? "rnnoise"
+					: workletFallback || compressorFallback || rnnoiseFallback
+						? "fallback"
+						: "native",
 		);
 	}
 
@@ -791,6 +909,8 @@ export class VoiceCapturePipeline implements VoiceCapturePipelineLike {
 		const worklet = this.worklet;
 		if (!worklet) return;
 		this.worklet = null;
+		this.workletEngine = null;
+		this.deepFilterRequested = false;
 		worklet.onprocessorerror = null;
 		worklet.port.onmessage = null;
 		try {

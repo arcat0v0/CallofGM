@@ -17,6 +17,7 @@ import {
 } from "./voice-audio-settings";
 import {
 	type AppliedAudioConstraints,
+	type VoiceAudioProcessing,
 	VoiceCapturePipeline,
 	type VoiceCapturePipelineLike,
 } from "./voice-capture";
@@ -60,7 +61,7 @@ export type VoiceSnapshot = {
 	audioSettings: VoiceAudioSettings;
 	audioDevices: Array<{ deviceId: string; label: string }>;
 	appliedAudioConstraints: AppliedAudioConstraints;
-	audioProcessing: "idle" | "starting" | "native" | "rnnoise" | "fallback";
+	audioProcessing: VoiceAudioProcessing;
 	pushToTalkActive: boolean;
 	playbackMuted: boolean;
 	playbackBlocked: boolean;

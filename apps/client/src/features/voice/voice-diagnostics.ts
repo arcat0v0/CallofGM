@@ -1,5 +1,7 @@
+import type { VoiceAudioProcessing } from "./voice-capture";
+
 type MicState = "off" | "requesting" | "on" | "denied" | "unavailable";
-type AudioProcessing = "idle" | "starting" | "native" | "rnnoise" | "fallback";
+type AudioProcessing = VoiceAudioProcessing;
 type LocalDiagnosticsState = {
 	localMicState: MicState;
 	audioProcessing: AudioProcessing;

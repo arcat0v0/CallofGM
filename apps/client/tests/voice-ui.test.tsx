@@ -184,6 +184,7 @@ function renderAudioSettings(overrides: Record<string, unknown> = {}) {
 			noiseSuppression: true,
 			autoGainControl: false,
 			deepNoiseSuppression: false,
+			noiseSuppressionEngine: "deepfilter",
 			noiseGate: false,
 			compressor: false,
 			pushToTalk: false,
@@ -390,6 +391,23 @@ describe("voice panel & speaker popup UI", () => {
 });
 
 describe("voice audio settings UI", () => {
+	test("deep noise suppression offers the model choice and shows the active engine", async () => {
+		const { view, section, updateAudioSettings } = renderAudioSettings({
+			audioSettings: { deepNoiseSuppression: true },
+			audioProcessing: "deepfilter",
+		});
+		expect(within(section).getByRole("status").textContent).toBe(
+			"DeepFilterNet3 处理中",
+		);
+		const engine = within(section).getByRole("combobox", { name: "降噪模型" });
+		expect(engine.textContent).toContain("DeepFilterNet3（高质量）");
+		fireEvent.keyDown(engine, { key: "ArrowDown" });
+		fireEvent.click(await view.findByRole("option", { name: "RNNoise（轻量）" }));
+		expect(updateAudioSettings).toHaveBeenLastCalledWith({
+			noiseSuppressionEngine: "rnnoise",
+		});
+	});
+
 	test("processing switches and device selection submit independent patches", async () => {
 		const { view, section, updateAudioSettings, refreshAudioDevices } =
 			renderAudioSettings();
@@ -399,7 +417,7 @@ describe("voice audio settings UI", () => {
 			["回声消除", { echoCancellation: false }],
 			["浏览器降噪", { noiseSuppression: false }],
 			["自动增益", { autoGainControl: true }],
-			["深度降噪（RNNoise）", { deepNoiseSuppression: true }],
+			["深度降噪", { deepNoiseSuppression: true }],
 			["噪声门", { noiseGate: true }],
 			["压限器", { compressor: true }],
 		] as const;
@@ -413,6 +431,9 @@ describe("voice audio settings UI", () => {
 		);
 		await waitFor(() => expect(refreshAudioDevices).toHaveBeenCalledTimes(2));
 
+		expect(
+			within(section).queryByRole("combobox", { name: "降噪模型" }),
+		).toBeNull();
 		const trigger = within(section).getByRole("combobox", {
 			name: "麦克风设备",
 		});
