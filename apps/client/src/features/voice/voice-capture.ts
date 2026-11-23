@@ -57,10 +57,25 @@ export interface VoiceCapturePipelineLike {
 	readonly appliedAudioConstraints: AppliedAudioConstraints;
 	start: (settings: VoiceAudioSettings) => Promise<MediaStream>;
 	update: (settings: VoiceAudioSettings) => Promise<void>;
+	resume?: () => void;
+	getAudioTap?: () => { context: AudioContext; node: AudioNode } | null;
+	getMonitorStream?: () => MediaStream | null;
 	close: () => void;
 }
 
-function defaultContext(): AudioContext | null {
+type AudioSessionNavigator = Navigator & {
+	audioSession?: { type: string };
+};
+
+function isContextRunning(context: AudioContext): boolean {
+	return (context.state as string) === "running";
+}
+
+function isContextClosed(context: AudioContext): boolean {
+	return (context.state as string) === "closed";
+}
+
+function defaultContext(preferVoiceRate: boolean): AudioContext | null {
 	const audioGlobal = globalThis as typeof globalThis & {
 		webkitAudioContext?: typeof AudioContext;
 	};
@@ -68,10 +83,11 @@ function defaultContext(): AudioContext | null {
 		audioGlobal.AudioContext ?? audioGlobal.webkitAudioContext;
 	if (!AudioContextConstructor) return null;
 	try {
-		return new AudioContextConstructor({
-			sampleRate: VOICE_SAMPLE_RATE,
-			latencyHint: "interactive",
-		});
+		return new AudioContextConstructor(
+			preferVoiceRate
+				? { sampleRate: VOICE_SAMPLE_RATE, latencyHint: "interactive" }
+				: { latencyHint: "interactive" },
+		);
 	} catch {
 		try {
 			return new AudioContextConstructor();
@@ -131,9 +147,14 @@ export class VoiceCapturePipeline implements VoiceCapturePipelineLike {
 	private rawTrack: MediaStreamTrack | null = null;
 	private outputStream: MediaStream | null = null;
 	private source: MediaStreamAudioSourceNode | null = null;
+	private outputNode: GainNode | null = null;
+	private keepaliveGain: GainNode | null = null;
 	private destination: MediaStreamAudioDestinationNode | null = null;
 	private compressor: DynamicsCompressorNode | null = null;
 	private worklet: VoiceAudioWorkletNodeLike | null = null;
+	private unlockAttached = false;
+	private stateListenerAttached: AudioContext | null = null;
+	private previousAudioSessionType: string | null = null;
 	private workletFailed = false;
 	private rnnoiseFailed = false;
 	private starting = false;
@@ -169,6 +190,134 @@ export class VoiceCapturePipeline implements VoiceCapturePipelineLike {
 		return { ...this.applied };
 	}
 
+	getAudioTap(): { context: AudioContext; node: AudioNode } | null {
+		if (!this.context || !this.outputNode || this.closed) return null;
+		return { context: this.context, node: this.outputNode };
+	}
+
+	getMonitorStream(): MediaStream | null {
+		if (this.closed) return null;
+		const hasDspNodes = Boolean(
+			this.worklet || (this.settings.compressor && this.compressor),
+		);
+		if (!hasDspNodes && this.rawStream) {
+			return this.rawStream;
+		}
+		return this.outputStream;
+	}
+
+	resume(): void {
+		const context = this.context;
+		if (!context || this.closed || isContextClosed(context)) return;
+		if (isContextRunning(context)) {
+			this.detachUnlock();
+			return;
+		}
+		this.attachUnlock(context);
+		try {
+			void context
+				.resume()
+				.then(() => {
+					if (this.context === context && isContextRunning(context)) {
+						this.detachUnlock();
+					}
+				})
+				.catch(() => {});
+		} catch {}
+	}
+
+	private readonly handleContextUnlock = (): void => {
+		this.resume();
+	};
+
+	private readonly handleContextStateChange = (): void => {
+		const context = this.context;
+		if (!context || this.closed) return;
+		if (isContextRunning(context)) {
+			this.detachUnlock();
+			return;
+		}
+		if (!isContextClosed(context)) {
+			this.resume();
+		}
+	};
+
+	private attachUnlock(context: AudioContext): void {
+		if (
+			this.stateListenerAttached !== context &&
+			typeof context.addEventListener === "function"
+		) {
+			this.detachStateListener();
+			this.stateListenerAttached = context;
+			context.addEventListener("statechange", this.handleContextStateChange);
+		}
+		if (this.unlockAttached || typeof window === "undefined" || this.closed) {
+			return;
+		}
+		this.unlockAttached = true;
+		window.addEventListener("pointerdown", this.handleContextUnlock, {
+			passive: true,
+		});
+		window.addEventListener("touchend", this.handleContextUnlock, {
+			passive: true,
+		});
+		window.addEventListener("click", this.handleContextUnlock, {
+			passive: true,
+		});
+		window.addEventListener("keydown", this.handleContextUnlock, {
+			passive: true,
+		});
+	}
+
+	private detachStateListener(): void {
+		const attached = this.stateListenerAttached;
+		if (attached && typeof attached.removeEventListener === "function") {
+			attached.removeEventListener(
+				"statechange",
+				this.handleContextStateChange,
+			);
+		}
+		this.stateListenerAttached = null;
+	}
+
+	private detachUnlock(): void {
+		if (!this.unlockAttached || typeof window === "undefined") return;
+		this.unlockAttached = false;
+		window.removeEventListener("pointerdown", this.handleContextUnlock);
+		window.removeEventListener("touchend", this.handleContextUnlock);
+		window.removeEventListener("click", this.handleContextUnlock);
+		window.removeEventListener("keydown", this.handleContextUnlock);
+	}
+
+	private claimAudioSession(): void {
+		if (typeof navigator === "undefined") return;
+		const session = (navigator as AudioSessionNavigator).audioSession;
+		if (!session || typeof session.type !== "string") return;
+		if (this.previousAudioSessionType === null) {
+			this.previousAudioSessionType = session.type;
+		}
+		try {
+			session.type = "play-and-record";
+		} catch {}
+	}
+
+	private restoreAudioSession(): void {
+		if (
+			this.previousAudioSessionType === null ||
+			typeof navigator === "undefined"
+		) {
+			this.previousAudioSessionType = null;
+			return;
+		}
+		const previous = this.previousAudioSessionType;
+		this.previousAudioSessionType = null;
+		const session = (navigator as AudioSessionNavigator).audioSession;
+		if (!session) return;
+		try {
+			session.type = previous;
+		} catch {}
+	}
+
 	async start(settings: VoiceAudioSettings): Promise<MediaStream> {
 		if (this.closed || this.starting || this.outputStream) {
 			throw new Error("Voice capture pipeline cannot be restarted");
@@ -176,12 +325,18 @@ export class VoiceCapturePipeline implements VoiceCapturePipelineLike {
 		this.starting = true;
 		this.settings = normalizeVoiceAudioSettings(settings);
 		this.setProcessing("starting");
+		this.claimAudioSession();
 		const generation = this.generation;
 		try {
-			const createContext = this.options.createContext ?? defaultContext;
-			const context = createContext();
+			const createContext =
+				this.options.createContext ??
+				(() => defaultContext(this.settings.deepNoiseSuppression));
+			let context = createContext();
 			this.context = context;
-			if (context?.state === "suspended") void context.resume().catch(() => {});
+			if (context) {
+				this.attachUnlock(context);
+				this.resume();
+			}
 			const raw = await this.capture(this.settings);
 			if (this.closed || generation !== this.generation) {
 				stopTracks(raw);
@@ -191,6 +346,24 @@ export class VoiceCapturePipeline implements VoiceCapturePipelineLike {
 			if (!track) {
 				stopTracks(raw);
 				throw new Error("No audio capture track");
+			}
+			const trackSampleRate = track.getSettings?.().sampleRate;
+			if (
+				!this.options.createContext &&
+				!this.settings.deepNoiseSuppression &&
+				context &&
+				typeof trackSampleRate === "number" &&
+				trackSampleRate > 0 &&
+				context.sampleRate !== trackSampleRate
+			) {
+				this.detachStateListener();
+				if (!isContextClosed(context)) void context.close().catch(() => {});
+				context = defaultContext(false);
+				this.context = context;
+			}
+			if (context) {
+				this.attachUnlock(context);
+				this.resume();
 			}
 			this.rawStream = raw;
 			this.rawTrack = track;
@@ -212,6 +385,7 @@ export class VoiceCapturePipeline implements VoiceCapturePipelineLike {
 			}
 			this.updateCompressor();
 			this.connectGraph();
+			this.resume();
 			this.updateProcessing();
 			if (this.settings.deepNoiseSuppression && this.state !== "rnnoise") {
 				await this.applyNativeConstraints();
@@ -258,9 +432,14 @@ export class VoiceCapturePipeline implements VoiceCapturePipelineLike {
 		}
 		this.rawEnded = null;
 		this.disposeWorklet();
+		this.detachUnlock();
+		this.detachStateListener();
+		this.restoreAudioSession();
 		try {
 			this.source?.disconnect();
 			this.compressor?.disconnect();
+			this.outputNode?.disconnect();
+			this.keepaliveGain?.disconnect();
 			this.destination?.disconnect();
 		} catch {}
 		const tracks = new Set<MediaStreamTrack>();
@@ -271,12 +450,14 @@ export class VoiceCapturePipeline implements VoiceCapturePipelineLike {
 		for (const track of tracks) track.stop();
 		const context = this.context;
 		this.context = null;
-		if (context && context.state !== "closed")
+		if (context && !isContextClosed(context))
 			void context.close().catch(() => {});
 		this.rawStream = null;
 		this.rawTrack = null;
 		this.outputStream = null;
 		this.source = null;
+		this.outputNode = null;
+		this.keepaliveGain = null;
 		this.destination = null;
 		this.compressor = null;
 		this.applied = {
@@ -360,18 +541,34 @@ export class VoiceCapturePipeline implements VoiceCapturePipelineLike {
 			this.source = context.createMediaStreamSource(raw);
 			this.destination = context.createMediaStreamDestination();
 			this.destination.channelCount = 1;
+			if (typeof context.createGain === "function") {
+				const outputNode = context.createGain();
+				outputNode.gain.value = 1;
+				const keepaliveGain = context.createGain();
+				keepaliveGain.gain.value = 0;
+				outputNode.connect(this.destination);
+				outputNode.connect(keepaliveGain);
+				keepaliveGain.connect(context.destination);
+				this.outputNode = outputNode;
+				this.keepaliveGain = keepaliveGain;
+			}
 			this.outputStream = this.destination.stream;
 			return true;
 		} catch {
 			try {
 				this.source?.disconnect();
+				this.outputNode?.disconnect();
+				this.keepaliveGain?.disconnect();
 				this.destination?.disconnect();
 			} catch {}
 			this.source = null;
+			this.outputNode = null;
+			this.keepaliveGain = null;
 			this.destination = null;
 			this.outputStream = raw;
+			this.detachStateListener();
 			this.context = null;
-			if (context.state !== "closed") void context.close().catch(() => {});
+			if (!isContextClosed(context)) void context.close().catch(() => {});
 			return false;
 		}
 	}
@@ -510,18 +707,18 @@ export class VoiceCapturePipeline implements VoiceCapturePipelineLike {
 			this.source.disconnect();
 			this.worklet?.disconnect();
 			this.compressor?.disconnect();
-			this.destination.disconnect();
 		} catch {}
 		let tail: AudioNode | VoiceAudioWorkletNodeLike = this.source;
 		if (this.worklet) {
 			this.source.connect(this.worklet as unknown as AudioNode);
 			tail = this.worklet;
 		}
+		const sink: AudioNode = this.outputNode ?? this.destination;
 		if (this.settings.compressor && this.compressor) {
 			tail.connect(this.compressor);
-			this.compressor.connect(this.destination);
+			this.compressor.connect(sink);
 		} else {
-			tail.connect(this.destination);
+			tail.connect(sink);
 		}
 	}
 

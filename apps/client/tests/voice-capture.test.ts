@@ -337,4 +337,68 @@ describe("runtime voice processing nodes", () => {
 		expect(pipeline.processing).toBe("native");
 		pipeline.close();
 	});
+
+	test("resumes interrupted Safari contexts, keeps graph pulled via silent sink, and exposes direct monitor stream", async () => {
+		const rawTrack = fakeTrack("safari-mic");
+		const rawStream = fakeStream(rawTrack);
+		const graph = fakeContext();
+		const gains: Array<{
+			gain: { value: number };
+			connect: ReturnType<typeof mock>;
+			disconnect: ReturnType<typeof mock>;
+		}> = [];
+		const listeners = new Map<string, Set<() => void>>();
+		const mutableContext = graph.context as unknown as {
+			state: string;
+			destination: Record<string, unknown>;
+			createGain: () => unknown;
+			resume: ReturnType<typeof mock>;
+			addEventListener: (event: string, cb: () => void) => void;
+			removeEventListener: (event: string, cb: () => void) => void;
+		};
+		mutableContext.state = "interrupted";
+		mutableContext.destination = { kind: "destination" };
+		mutableContext.createGain = () => {
+			const node = {
+				gain: { value: 1 },
+				connect: mock(() => {}),
+				disconnect: mock(() => {}),
+			};
+			gains.push(node);
+			return node;
+		};
+		mutableContext.resume = mock(async () => {
+			mutableContext.state = "running";
+		});
+		mutableContext.addEventListener = (event: string, cb: () => void) => {
+			const bucket = listeners.get(event) ?? new Set<() => void>();
+			bucket.add(cb);
+			listeners.set(event, bucket);
+		};
+		mutableContext.removeEventListener = (event: string, cb: () => void) => {
+			listeners.get(event)?.delete(cb);
+		};
+
+		const pipeline = new VoiceCapturePipeline({
+			capture: async () => rawStream,
+			createContext: () => graph.context,
+		});
+		await pipeline.start(DEFAULT_VOICE_AUDIO_SETTINGS);
+		expect(mutableContext.resume).toHaveBeenCalled();
+		expect(pipeline.getAudioTap()).toEqual({
+			context: graph.context,
+			node: gains[0] as unknown as AudioNode,
+		});
+		expect(pipeline.getMonitorStream()).toBe(rawStream);
+		expect(gains[1]?.gain.value).toBe(0);
+		expect(gains[1]?.connect).toHaveBeenCalledWith(mutableContext.destination);
+
+		mutableContext.state = "interrupted";
+		for (const cb of listeners.get("statechange") ?? []) cb();
+		expect(mutableContext.state).toBe("running");
+
+		pipeline.close();
+		expect(gains[0]?.disconnect).toHaveBeenCalled();
+		expect(gains[1]?.disconnect).toHaveBeenCalled();
+	});
 });
