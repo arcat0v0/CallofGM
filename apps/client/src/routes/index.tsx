@@ -87,7 +87,7 @@ export function HomePage() {
 	}
 
 	return (
-		<main className="bg-background relative flex min-h-dvh w-full flex-col items-center justify-center gap-12 overflow-hidden px-6">
+		<main className="bg-background relative flex min-h-dvh w-full flex-col items-center justify-center gap-8 overflow-x-hidden px-4 py-12 sm:gap-12 sm:px-6">
 			<div
 				aria-hidden
 				className="bg-md-primary/12 pointer-events-none absolute -top-32 -left-32 size-105 rounded-full blur-3xl"
@@ -97,9 +97,9 @@ export function HomePage() {
 				className="bg-md-tertiary/12 pointer-events-none absolute -right-40 -bottom-40 size-120 rounded-full blur-3xl"
 			/>
 
-			<div className="animate-in fade-in slide-in-from-bottom-4 ease-expressive-default-spatial flex flex-col items-center gap-4 duration-500">
-				<Logo className="size-16" />
-				<h1 className="text-foreground font-serif text-display-large-emph">
+			<div className="animate-in fade-in slide-in-from-bottom-4 ease-expressive-default-spatial flex flex-col items-center gap-4 text-center duration-500">
+				<Logo className="size-14 sm:size-16" />
+				<h1 className="text-foreground font-serif text-display-medium-emph sm:text-display-large-emph">
 					{t("app.name")}
 				</h1>
 				<p className="text-md-on-surface-variant text-title-medium tracking-[2px]">
@@ -114,8 +114,8 @@ export function HomePage() {
 				onSubmit={handleSubmit}
 				className="animate-in fade-in slide-in-from-bottom-4 ease-expressive-default-spatial flex w-full max-w-105 flex-col gap-2 delay-150 duration-500"
 			>
-				<div className="flex w-full items-center gap-2.5">
-					<InputGroup className="h-14 flex-1 px-4">
+				<div className="flex w-full items-center gap-2 sm:gap-2.5">
+					<InputGroup className="h-12 flex-1 px-3.5 sm:h-14 sm:px-4">
 						<InputGroupAddon>
 							<LinkIcon />
 						</InputGroupAddon>
@@ -150,7 +150,7 @@ export function HomePage() {
 						type="submit"
 						variant="primary"
 						disabled={resolving}
-						className="h-14 shrink-0 px-8"
+						className="h-12 shrink-0 px-5 sm:h-14 sm:px-8"
 					>
 						{resolving ? t("home.resolving") : t("home.enter")}
 					</Button>
@@ -166,7 +166,7 @@ export function HomePage() {
 				</p>
 			</form>
 
-			<div className="animate-in fade-in ease-standard-default-effects absolute bottom-6 flex items-center gap-2 delay-300 duration-300">
+			<div className="animate-in fade-in ease-standard-default-effects flex items-center gap-2 delay-300 duration-300 sm:pt-2">
 				<Button
 					asChild
 					variant="ghost"

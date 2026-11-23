@@ -36,15 +36,21 @@ function GmOnlinePopover() {
 						type="button"
 						variant="tertiary"
 						size="sm"
-						className="bg-md-surface-container-low text-md-on-surface-variant border border-md-outline-variant/50 h-10 gap-2 rounded-full px-4"
+						aria-label={t("gm.workbench.onlineCount", {
+							count: presence.length,
+						})}
+						className="bg-md-surface-container-low text-md-on-surface-variant border border-md-outline-variant/50 h-9 gap-1.5 rounded-full px-2.5 sm:px-4 lg:h-10 lg:gap-2"
 					>
-						<Users className="size-5" />
-						{t("gm.workbench.onlineCount", { count: presence.length })}
+						<Users className="size-4 lg:size-5" />
+						<span className="hidden sm:inline">
+							{t("gm.workbench.onlineCount", { count: presence.length })}
+						</span>
+						<span className="tabular-nums sm:hidden">{presence.length}</span>
 					</Button>
 				</PopoverTrigger>
 				<PopoverContent
 					align="end"
-					className="bg-md-surface-container-low w-80 p-0"
+					className="bg-md-surface-container-low w-[min(20rem,calc(100vw-1.5rem))] p-0"
 				>
 					<div className="flex max-h-[min(60dvh,380px)] flex-col">
 						<p className="text-label-medium-emph px-4 pt-4 pb-2">

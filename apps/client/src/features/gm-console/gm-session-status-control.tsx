@@ -36,8 +36,7 @@ const TRIGGER_TONES: Record<Exclude<SessionStatus, "ended">, string> = {
 		"bg-md-surface-container-low text-md-on-surface border-md-outline-variant/50",
 	preparing:
 		"bg-md-secondary-container text-md-on-secondary-container border-md-secondary/30",
-	active:
-		"bg-accent-soft text-accent-soft-foreground border-md-primary/30",
+	active: "bg-accent-soft text-accent-soft-foreground border-md-primary/30",
 };
 
 const DOT_TONES: Record<Exclude<SessionStatus, "ended">, string> = {
@@ -121,7 +120,7 @@ function GmSessionStatusControl({
 					})}
 					title={t("gm.workbench.statusTitle")}
 					className={cn(
-						"h-10 gap-2 rounded-full border px-3.5 text-label-large-emph",
+						"h-9 gap-1.5 rounded-full border px-2.5 text-label-medium sm:gap-2 sm:px-3.5 lg:h-10 lg:text-label-large-emph",
 						TRIGGER_TONES[status],
 					)}
 				>
@@ -136,7 +135,7 @@ function GmSessionStatusControl({
 			<PopoverContent
 				align="end"
 				sideOffset={10}
-				className="bg-md-surface-container-high shadow-overlay w-80 rounded-xl p-3"
+				className="bg-md-surface-container-high shadow-overlay max-h-[70dvh] w-[min(20rem,calc(100vw-1.5rem))] overflow-y-auto rounded-xl p-3"
 			>
 				<div className="flex h-10 items-center justify-between gap-3 px-3">
 					<span className="text-md-on-surface text-title-small-emph">

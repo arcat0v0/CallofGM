@@ -43,12 +43,12 @@ export function PlayLayout({ viewport, nodes, view, actions }: PlayLayoutCtx) {
 		return (
 			<div className="bg-md-surface-container-lowest relative flex h-full w-full flex-col gap-2 overflow-hidden p-2">
 				{nodes.connection}
-				<div className="relative h-[clamp(280px,46dvh,430px)] w-full shrink-0 overflow-hidden rounded-xl">
+				<div className="relative h-[clamp(160px,40dvh,410px)] w-full shrink-0 overflow-hidden rounded-xl">
 					{nodes.stage}
 				</div>
 				<div className="stage-glass shadow-overlay relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl">
 					{nodes.chat}
-					<div className="flex shrink-0 justify-center px-3 pb-1">
+					<div className="flex shrink-0 justify-center px-2.5 pb-1">
 						{nodes.dock}
 					</div>
 					{nodes.composer}
@@ -59,7 +59,9 @@ export function PlayLayout({ viewport, nodes, view, actions }: PlayLayoutCtx) {
 	}
 
 	if (viewport === "landscape") {
-		const chatInset = chatOpen ? "calc(300px + 1rem)" : "0px";
+		const chatInset = chatOpen
+			? "calc(clamp(256px, 38vw, 320px) + 1rem)"
+			: "0px";
 		return (
 			<div
 				className="bg-background relative h-full w-full overflow-hidden"
@@ -68,9 +70,9 @@ export function PlayLayout({ viewport, nodes, view, actions }: PlayLayoutCtx) {
 				{nodes.connection}
 				<div className="absolute inset-0">{nodes.stage}</div>
 				{chatOpen ? (
-					<div className="stage-glass shadow-overlay animate-in fade-in absolute top-2 right-2 bottom-2 z-20 flex w-[300px] flex-col duration-350 ease-expressive-fast-effects overflow-hidden rounded-xl">
+					<div className="stage-glass shadow-overlay animate-in fade-in absolute top-2 right-2 bottom-2 z-20 flex w-[clamp(256px,38vw,320px)] flex-col duration-350 ease-expressive-fast-effects overflow-hidden rounded-xl">
 						{nodes.chat}
-						<div className="flex shrink-0 justify-center px-3 pb-1">
+						<div className="flex shrink-0 justify-center px-2.5 pb-1 [@media(max-height:430px)]:pb-0.5">
 							{nodes.dock}
 						</div>
 						{nodes.composer}

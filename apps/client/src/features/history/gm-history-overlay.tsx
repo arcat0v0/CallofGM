@@ -404,14 +404,14 @@ function GmHistoryOverlay({
 	}
 
 	return (
-		<div className="bg-background/80 fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+		<div className="bg-background/80 fixed inset-0 z-50 flex items-center justify-center p-2 backdrop-blur-sm sm:p-4">
 			<div
 				role="dialog"
 				aria-modal="true"
 				aria-label={t("history.title")}
-				className="bg-md-surface-container border-md-outline-variant/40 shadow-modal flex h-[90dvh] w-[min(1200px,96vw)] flex-col overflow-hidden rounded-modal border"
+				className="bg-md-surface-container border-md-outline-variant/40 shadow-modal flex h-[92dvh] w-[min(1200px,96vw)] flex-col overflow-hidden rounded-modal border sm:h-[90dvh]"
 			>
-				<header className="border-separator-secondary flex shrink-0 items-center gap-3 border-b px-5 py-3.5">
+				<header className="border-separator-secondary flex shrink-0 flex-wrap items-center gap-2.5 border-b px-3.5 py-3 sm:gap-3 sm:px-5 sm:py-3.5">
 					<History className="text-accent size-5 shrink-0" />
 					<h2 className="text-foreground shrink-0 font-sans text-title-medium-emph">
 						{t("history.title")}
@@ -425,7 +425,7 @@ function GmHistoryOverlay({
 						]}
 						onValueChange={setTab}
 						aria-label={t("history.title")}
-						className="w-72"
+						className="order-last w-full sm:order-none sm:w-72"
 						itemClassName="text-label-small"
 					/>
 					<Button
@@ -442,7 +442,7 @@ function GmHistoryOverlay({
 				</header>
 
 				{tab === "timeline" ? (
-					<div className="flex min-h-0 flex-1">
+					<div className="flex min-h-0 flex-1 flex-col md:flex-row">
 						<div className="flex min-h-0 flex-1 flex-col">
 							<div className="border-separator-secondary flex shrink-0 flex-wrap items-center gap-2 border-b px-4 py-3">
 								<InputGroup className="h-9 min-w-44 flex-1">
@@ -609,7 +609,7 @@ function GmHistoryOverlay({
 								)}
 							</div>
 						</div>
-						<aside className="bg-md-surface-container-low border-separator-secondary w-80 shrink-0 overflow-y-auto border-l p-4">
+						<aside className="bg-md-surface-container-low border-separator-secondary max-h-[42dvh] w-full shrink-0 overflow-y-auto border-t p-3 md:max-h-none md:w-80 md:border-t-0 md:border-l md:p-4">
 							<h3 className="text-md-on-surface mb-3 font-sans text-title-small-emph">
 								{t("history.previewTitle")}
 							</h3>

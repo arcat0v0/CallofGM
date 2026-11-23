@@ -53,15 +53,17 @@ function StageLayoutControl() {
 					disabled={ended}
 					aria-label={t("gm.workbench.stageLayout")}
 					title={t("gm.workbench.stageLayout")}
-					className="bg-md-surface-container-low text-md-on-surface-variant border-md-outline-variant/50 h-10 gap-2 rounded-full border px-4"
+					className="bg-md-surface-container-low text-md-on-surface-variant border-md-outline-variant/50 size-9 rounded-full border px-0 sm:size-auto sm:h-9 sm:gap-2 sm:px-3.5 lg:h-10 lg:px-4"
 				>
-					<LayoutPanelLeft className="size-5" />
-					{t("gm.workbench.stageLayoutShort")}
+					<LayoutPanelLeft className="size-4 lg:size-5" />
+					<span className="hidden sm:inline">
+						{t("gm.workbench.stageLayoutShort")}
+					</span>
 				</Button>
 			</PopoverTrigger>
 			<PopoverContent
 				align="end"
-				className="bg-md-surface-container-high w-80 p-4"
+				className="bg-md-surface-container-high max-h-[70dvh] w-[min(20rem,calc(100vw-1.5rem))] overflow-y-auto p-4"
 			>
 				<div className="flex flex-col gap-4">
 					<div className="flex flex-col gap-2">

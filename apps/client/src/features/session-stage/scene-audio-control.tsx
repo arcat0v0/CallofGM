@@ -15,9 +15,12 @@ function SceneAudioControl({ variant }: { variant: PlayViewport }) {
 	const setLocalVolume = usePlayStore((state) => state.setLocalVolume);
 	const label = muted ? t("stage.unmute") : t("stage.mute");
 
-	if (variant === "portrait") {
+	if (variant !== "desktop") {
 		return (
-			<div className="flex shrink-0 items-center gap-1.5">
+			<div
+				className="flex shrink-0 items-center gap-1.5"
+				title={bgmStatusLabel(bgm)}
+			>
 				<Button
 					type="button"
 					variant="tertiary"
@@ -47,7 +50,6 @@ function SceneAudioControl({ variant }: { variant: PlayViewport }) {
 			trackName={bgmStatusLabel(bgm)}
 			volume={muted ? 0 : (bgm?.volume ?? 0)}
 			showProgress={bgmShowsProgress(bgm)}
-			compact={variant !== "desktop"}
 			muted={muted}
 			onMuteToggle={() => setMuted(!muted)}
 			localVolume={localVolume}

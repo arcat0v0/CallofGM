@@ -424,11 +424,11 @@ export const zhCN: Record<string, string> = {
 	"characterCreation.method.pointBuySpent": "已分配 {spent} / {points}",
 	"characterCreation.method.pointBuyRemaining": "剩余 {remaining}",
 	"characterCreation.method.pointBuyOver": "超出 {over}",
-	"characterCreation.method.pointBuyOutOfRange": "{names} 不在 {min}–{max} 范围内",
+	"characterCreation.method.pointBuyOutOfRange":
+		"{names} 不在 {min}–{max} 范围内",
 	"characterCreation.method.rollLuck": "骰幸运（只能掷一次）",
 	"characterCreation.method.luckResult": "幸运 {luck}",
-	"characterCreation.method.youngLuck":
-		"15–19 岁可掷两次取较高：第二次 {luck}",
+	"characterCreation.method.youngLuck": "15–19 岁可掷两次取较高：第二次 {luck}",
 	"characterCreation.method.applyLuck": "填入幸运",
 	"characterCreation.method.fallbackSwitch": "允许改购点",
 	"characterCreation.method.fallbackTotal": "转购点总数",
@@ -466,7 +466,8 @@ export const zhCN: Record<string, string> = {
 		"天命 {count} · 改用购点 {points} · 已分配 {spent}",
 	"characterCreation.method.reviewPointBuy": "购点 {points} · 已分配 {spent}",
 	"characterCreation.method.reviewMatch": "提交属性与掷骰结果一致",
-	"characterCreation.method.reviewDiff": "{name}：掷出 {expected} → 提交 {submitted}",
+	"characterCreation.method.reviewDiff":
+		"{name}：掷出 {expected} → 提交 {submitted}",
 	"characterCreation.method.reviewSheetStale": "人物卡已在提交后修改，无法比对",
 	"characterCreation.method.reviewNoRoll": "该提交者未在此链接掷骰",
 	"characterCreation.attributeRollSummary": "困难 {half} · 极难 {fifth}",
@@ -991,10 +992,12 @@ export const zhCN: Record<string, string> = {
 		"开启后由 RNNoise 替代浏览器降噪；浏览器降噪开关会保留你的偏好设置。",
 	"voice.audio.groupBrowser": "浏览器处理",
 	"voice.audio.groupEnhanced": "增强处理",
-	"voice.audio.echoCancellationHint": "避免对方听到自己的声音，用扬声器时建议开启",
+	"voice.audio.echoCancellationHint":
+		"避免对方听到自己的声音，用扬声器时建议开启",
 	"voice.audio.noiseSuppressionHint": "过滤键盘声、风扇声等背景噪声",
 	"voice.audio.autoGainControlHint": "自动平衡说话音量",
-	"voice.audio.deepNoiseSuppressionOffHint": "AI 降噪，对持续性噪声更有效，占用更多 CPU",
+	"voice.audio.deepNoiseSuppressionOffHint":
+		"AI 降噪，对持续性噪声更有效，占用更多 CPU",
 	"voice.audio.noiseGateHint": "说话间隙自动静音，压低底噪",
 	"voice.audio.compressorHint": "限制突然的大音量，避免爆音",
 	"voice.moreTitle": "更多选项",
@@ -1034,7 +1037,8 @@ export const zhCN: Record<string, string> = {
 	"voice.audio.pushToTalkMicOff": "关闭麦克风",
 	"voice.audio.pushToTalkMicCancel": "取消开启",
 	"voice.micTestTitle": "麦克风测试",
-	"voice.micTestDescription": "仅在本地检测输入音量与试听，不会发送给其他成员。",
+	"voice.micTestDescription":
+		"仅在本地检测输入音量与试听，不会发送给其他成员。",
 	"voice.micTestBusyHint": "请先关闭当前麦克风，再进行本地测试。",
 	"voice.micTestStart": "测试麦克风",
 	"voice.micTestStop": "停止测试",
@@ -1044,7 +1048,8 @@ export const zhCN: Record<string, string> = {
 	"voice.micTestListening": "请说话测试…",
 	"voice.micTestLoopbackOff": "开启回听",
 	"voice.micTestLoopbackOn": "关闭回听",
-	"voice.micTestLoopbackHint": "开启回听可检查实际音质，建议佩戴耳机以免扬声器啸叫。",
+	"voice.micTestLoopbackHint":
+		"开启回听可检查实际音质，建议佩戴耳机以免扬声器啸叫。",
 	"voice.mic.denied":
 		"麦克风权限未获允许。你仍可收听；如需发言，可在浏览器的站点设置中允许麦克风后重试。",
 	"voice.mic.unavailable":
@@ -1073,7 +1078,8 @@ export const zhCN: Record<string, string> = {
 	"voice.playbackPausedBadge": "已暂停收听",
 	"voice.playbackPausedHint": "已暂停收听，恢复后才能听到其他成员。",
 	"voice.closeRoomConfirmTitle": "关闭语音房间？",
-	"voice.closeRoomConfirmDescription": "当前 {count} 位成员会被移出语音，已设置的禁麦与发言授权将被清除。",
+	"voice.closeRoomConfirmDescription":
+		"当前 {count} 位成员会被移出语音，已设置的禁麦与发言授权将被清除。",
 	"voice.moderatorMuted": "已被禁麦",
 	"voice.mutedHint": "主持人已禁用你的麦克风，你仍可收听。",
 	"voice.grant": "允许发言",
@@ -1690,7 +1696,8 @@ export const zhCN: Record<string, string> = {
 	"gm.music.moduleSearchPlaceholder": "找模组",
 	"gm.music.moduleSearchEmpty": "没有匹配的模组",
 	"gm.music.noModulesTitle": "还没有模组",
-	"gm.music.noModulesHint": "曲目归属模组。先新建一个模组，再回来管理它的音乐。",
+	"gm.music.noModulesHint":
+		"曲目归属模组。先新建一个模组，再回来管理它的音乐。",
 	"gm.music.goModules": "去模组页",
 	"gm.music.statsCount": "{count} 首",
 	"gm.music.sourceNetease": "网易云",
@@ -1952,7 +1959,6 @@ export const zhCN: Record<string, string> = {
 	"characterProfile.saveFailed": "保存失败",
 	"characterProfile.refreshFailed": "刷新人物失败",
 
-
 	"gm.library.title": "人物管理",
 	"gm.library.rulesAria": "规则",
 	"gm.library.rulePickerAria": "切换规则，当前：{rule}",
@@ -2012,7 +2018,8 @@ export const zhCN: Record<string, string> = {
 	"gm.library.more": "{name} 的更多操作",
 	"gm.library.importUpdate": "从 Excel 更新",
 	"gm.library.delete": "删除人物",
-	"gm.library.deleteDescription": "「{name}」会移入回收站，进行中的团不受影响。",
+	"gm.library.deleteDescription":
+		"「{name}」会移入回收站，进行中的团不受影响。",
 	"gm.library.deleted": "已删除「{name}」",
 	"gm.library.deleteFailed": "删除失败",
 	"gm.library.modulesTitle": "所属模组",
@@ -2291,6 +2298,10 @@ export const zhCN: Record<string, string> = {
 	"gm.workbench.toolCheck": "鉴定",
 	"gm.workbench.toolAudio": "声音",
 	"gm.workbench.tools": "导演工具",
+	"gm.workbench.mobileViewAria": "控制台视图",
+	"gm.workbench.mobileTabControls": "控场",
+	"gm.workbench.mobileTabChat": "对话",
+	"gm.workbench.mobileTabStage": "舞台",
 	"gm.workbench.sceneTitle": "场景",
 	"gm.workbench.sceneSubtitle": "切换画面，全员同步转场",
 	"gm.workbench.sceneSearch": "搜索此模组的场景",
@@ -2449,18 +2460,21 @@ export const zhCN: Record<string, string> = {
 	"gm.workbench.audioSubtitle": "控制全团背景音乐与一次性音效",
 	"gm.workbench.currentPlayback": "当前播放",
 	"gm.workbench.emptyPlaybackTitle": "还没有正在播放的曲目",
-	"gm.workbench.emptyPlaybackHint": "在下方曲库点选一首背景音乐，即向全团播放。",
+	"gm.workbench.emptyPlaybackHint":
+		"在下方曲库点选一首背景音乐，即向全团播放。",
 	"gm.workbench.currentSynchronized": "正在向全团同步",
 	"gm.workbench.currentPaused": "已在全团暂停",
 	"gm.workbench.currentStale": "断线前的状态，可能已过期",
 	"gm.workbench.currentLocalFailed": "{state} · 本机播放失败",
-	"gm.workbench.emptyPlaybackNoTracks": "曲库里还没有背景音乐，先添加曲目再播放。",
+	"gm.workbench.emptyPlaybackNoTracks":
+		"曲库里还没有背景音乐，先添加曲目再播放。",
 	"gm.workbench.bgmVolumeShort": "BGM 音量",
 	"gm.workbench.progressValue": "已播放 {position}，共 {duration}",
 	"gm.workbench.snapshotLoading": "正在恢复声音状态",
 	"gm.workbench.trackLibrary": "模组曲库",
 	"gm.workbench.libraryEmptyTitle": "曲库还是空的",
-	"gm.workbench.libraryEmptyHint": "从音乐平台添加背景音乐或音效，也可以在模组编辑中上传音频。",
+	"gm.workbench.libraryEmptyHint":
+		"从音乐平台添加背景音乐或音效，也可以在模组编辑中上传音频。",
 	"gm.workbench.backgroundMusic": "背景音乐",
 	"gm.workbench.bgmTrackCount": "{count} 首",
 	"gm.workbench.librarySearch": "搜索模组曲目",
@@ -2486,7 +2500,7 @@ export const zhCN: Record<string, string> = {
 	"gm.workbench.bgmPaused": "BGM · 已暂停",
 	"gm.workbench.bgmNone": "BGM · 尚未选择",
 	"gm.workbench.bgmLoopPlaying": "BGM · {loop}",
-		"gm.workbench.playbackModeTitle": "播放模式",
+	"gm.workbench.playbackModeTitle": "播放模式",
 	"gm.workbench.playbackMode.off": "播完停止",
 	"gm.workbench.playbackMode.single": "单曲循环",
 	"gm.workbench.playbackMode.list": "列表循环",

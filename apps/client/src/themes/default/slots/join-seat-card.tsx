@@ -88,7 +88,7 @@ export function JoinSeatCard({
 			role="radio"
 			aria-checked={active}
 			className={cn(
-				"flex w-52 flex-col items-center gap-3 rounded-2xl px-5 pt-5 pb-6 text-center transition-all duration-350 ease-expressive-fast-spatial focus-visible:outline-none",
+				"flex w-[min(13rem,calc(50%-0.375rem))] flex-col items-center gap-3 rounded-2xl px-3 pt-4 pb-5 text-center transition-all duration-350 ease-expressive-fast-spatial focus-visible:outline-none sm:w-52 sm:px-5 sm:pt-5 sm:pb-6",
 				seat.claimed
 					? "cursor-not-allowed bg-md-surface-container border border-md-outline-variant/40 opacity-65"
 					: active

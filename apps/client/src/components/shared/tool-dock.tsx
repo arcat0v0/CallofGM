@@ -53,7 +53,9 @@ function ToolDockButton({
 			{...(active === undefined ? {} : { "aria-pressed": active })}
 			className={cn(
 				"relative gap-2 rounded-full text-label-medium transition-[background-color,color,border-radius] duration-200 ease-standard-fast-effects",
-				showLabel ? "h-10 px-3.5" : "size-10 px-0",
+				showLabel
+					? "h-10 px-3.5"
+					: "size-10 px-0 [@media(max-height:430px)]:size-8",
 				active
 					? "rounded-xl hover:bg-accent-hover"
 					: "text-md-on-surface-variant hover:bg-md-on-surface/10 hover:text-md-on-surface",

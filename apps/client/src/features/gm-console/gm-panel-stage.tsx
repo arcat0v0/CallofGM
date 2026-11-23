@@ -134,7 +134,7 @@ function PhaseCard() {
 				align="start"
 				side="bottom"
 				sideOffset={12}
-				className="bg-md-surface-container-high shadow-overlay w-[380px] rounded-xl p-3"
+				className="bg-md-surface-container-high shadow-overlay max-h-[70dvh] w-[min(380px,calc(100vw-1.5rem))] overflow-y-auto rounded-xl p-3"
 			>
 				<div className="flex h-11 items-center justify-between gap-3 px-3">
 					<span className="text-md-on-surface text-title-small-emph">

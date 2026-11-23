@@ -15,12 +15,14 @@ function ChatEmptyState({
 	return (
 		<div
 			className={cn(
-				"flex flex-col items-center justify-center text-center",
-				variant === "gm" ? "flex-1 gap-2 py-8" : "min-h-0 flex-1 gap-1.5 px-6",
+				"flex min-h-0 flex-col items-center justify-center overflow-y-auto text-center",
+				variant === "gm"
+					? "flex-1 gap-2 py-8"
+					: "flex-1 gap-1.5 px-6 py-2 [@media(max-height:430px)]:gap-1 [@media(max-height:430px)]:px-4",
 				className,
 			)}
 		>
-			<MessagesSquare className="text-md-on-surface-variant/35 size-6" />
+			<MessagesSquare className="text-md-on-surface-variant/35 size-6 shrink-0 [@media(max-height:430px)]:size-5" />
 			<p
 				className={cn(
 					variant === "gm"
@@ -31,7 +33,7 @@ function ChatEmptyState({
 				{title}
 			</p>
 			{description ? (
-				<p className="text-md-on-surface-variant/70 text-label-small">
+				<p className="text-md-on-surface-variant/70 text-label-small [@media(max-height:430px)]:hidden">
 					{description}
 				</p>
 			) : null}
