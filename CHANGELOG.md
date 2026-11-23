@@ -7,10 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-11-23
+
 ### Changed
 
 - 服务端实例配置从环境变量迁移到 TOML 文件：本地使用 `config/cogm.toml`，容器使用 `config/cogm.docker.toml`，两者均可由同目录 `config/cogm.local.toml` 覆盖；监听地址、数据库与媒体/主题目录、CORS、代理信任和语音参数统一由文件加载并校验。环境变量仅保留 `NODE_ENV`、TURN secret、构建元数据与初始化账号凭据。
 - `dev:https` 从同一配置读取端口与额外主机，并生成临时的 `COGM_CONFIG` 文件注入代理与 CORS 设置；Docker compose 改为只读挂载 `config/`。
+
+### Fixed
+
+- 补齐 GM 导演工作台的团状态切换入口与阶段保护。
+- 返回按钮按来源回到上级路由，并显示与目标路由一致的标签。
 
 ## [0.2.1] - 2026-11-22
 
