@@ -10,11 +10,6 @@ data/
 .dev-https/
 *.log
 
-# AOCI agent host integration (machine-bound; do not commit)
-.mcp.json
-.mcp.json.backup.*
-AGENTS.md.backup.*
-
 # Designer 流程的大体积产物（截图、生图原图、Lighthouse 报告）只留本地
 design/shots/
 design/assets/src/

@@ -27,7 +27,7 @@ CoGM 是自部署的网页跑团工具，玩家、GM、PL、OB 都可能在同�
 - 不要求玩家看到 commit/build 时间的完整详情；只在首页、登录页、入团页和 GM 后台/控制台的低调入口按需打开详情，游玩房间不显示任何版本信息。
 - 不让前端声称后端的版本；后端版本从服务端实时读取，接口失败时明确显示“后端未知”，不伪造或复用网页版本。
 - 不把 ESA 云函数改造成本纳入本次实施；不因本规范修改后端架构、数据库或部署宿主。
-- 不改动用户当前未提交的 `.aoci/baseline.json`、`aoci.code.txt`、`apps/client/src/themes/default/slots/gm-console-layout.tsx`。
+- 不改动用户当前未提交的 `apps/client/src/themes/default/slots/gm-console-layout.tsx`。
 
 ## 约束
 
