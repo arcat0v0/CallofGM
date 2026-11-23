@@ -3,7 +3,7 @@ import type {
 	ModuleSummaryDto,
 	ThemeSummaryDto,
 } from "@cogm/shared";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
 	ArrowUpDown,
 	LayoutGrid,
@@ -67,6 +67,7 @@ import {
 } from "@/features/gm-modules/module-sidebar";
 import { t, useI18nVersion } from "@/i18n";
 import { api, fetchAllPages } from "@/lib/api";
+import { backParam, currentRouterHref } from "@/lib/back-navigation";
 import { errorText } from "@/lib/errors";
 import { requireGmAuth } from "@/lib/identity";
 import { useRuleOptions } from "@/lib/rules-api";
@@ -94,6 +95,8 @@ function GmModulesPage() {
 	useI18nVersion();
 	const search = Route.useSearch();
 	const navigate = useNavigate({ from: Route.fullPath });
+	const currentHref = useRouterState({ select: currentRouterHref });
+	const backFrom = backParam(currentHref, "/gm/modules");
 	const wide = useMediaQuery("(min-width: 1024px)", true);
 	const { rules } = useRuleOptions();
 	const ruleIds = useMemo(() => rules.map((rule) => rule.id), [rules]);
@@ -592,6 +595,7 @@ function GmModulesPage() {
 		) : view === "ledger" ? (
 			<ModuleLedger
 				items={visible}
+				from={backFrom}
 				sort={currentSort}
 				onChangeSort={setSortValue}
 				onOpenTheme={(entry) => {
@@ -603,6 +607,7 @@ function GmModulesPage() {
 		) : (
 			<ModuleGallery
 				items={visible}
+				from={backFrom}
 				onOpenTheme={(entry) => {
 					setThemeTarget(entry);
 					setThemeDraft(entry.module.themeId ?? "default");

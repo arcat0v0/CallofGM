@@ -26,7 +26,14 @@ function HandoutPanel({ onClose }: { onClose: () => void }) {
 	const characters = usePlayStore((state) => state.characters);
 	const presence = usePlayStore((state) => state.presence);
 	const moduleId = usePlayStore((state) => state.moduleId);
+	const sessionId = usePlayStore((state) => state.sessionId);
 	const ended = usePlayStore((state) => state.status === "ended");
+	const moduleSearch = {
+		tab: "handouts" as const,
+		...(sessionId
+			? { from: `/gm/session/${encodeURIComponent(sessionId)}` }
+			: {}),
+	};
 	const [handoutId, setHandoutId] = useState("");
 	const [scope, setScope] = useState<Scope>("secret");
 	const [selection, setSelection] = useState<string[]>([]);
@@ -218,7 +225,11 @@ function HandoutPanel({ onClose }: { onClose: () => void }) {
 							size="sm"
 							className="bg-md-surface-container-highest h-10"
 						>
-							<Link to="/gm/module/$moduleId" params={{ moduleId }}>
+							<Link
+								to="/gm/module/$moduleId"
+								params={{ moduleId }}
+								search={moduleSearch}
+							>
 								{t("gm.workbench.manageHandouts")}
 							</Link>
 						</Button>
@@ -319,7 +330,11 @@ function HandoutPanel({ onClose }: { onClose: () => void }) {
 								size="sm"
 								className="h-8 shrink-0 justify-start px-1 text-label-small"
 							>
-								<Link to="/gm/module/$moduleId" params={{ moduleId }}>
+								<Link
+									to="/gm/module/$moduleId"
+									params={{ moduleId }}
+									search={moduleSearch}
+								>
 									{t("gm.workbench.manageHandouts")}
 								</Link>
 							</Button>

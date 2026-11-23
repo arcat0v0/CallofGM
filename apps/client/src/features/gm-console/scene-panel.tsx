@@ -25,6 +25,10 @@ function ScenePanel({ onClose }: { onClose: () => void }) {
 	const scenes = usePlayStore((state) => state.catalogScenes);
 	const current = usePlayStore((state) => state.scene);
 	const moduleId = usePlayStore((state) => state.moduleId);
+	const sessionId = usePlayStore((state) => state.sessionId);
+	const fromSession = sessionId
+		? `/gm/session/${encodeURIComponent(sessionId)}`
+		: undefined;
 	const filtered = useMemo(
 		() =>
 			scenes.filter((scene) =>
@@ -50,7 +54,11 @@ function ScenePanel({ onClose }: { onClose: () => void }) {
 							size="sm"
 							className="bg-md-surface-container-highest h-10"
 						>
-							<Link to="/gm/module/$moduleId" params={{ moduleId }}>
+							<Link
+								to="/gm/module/$moduleId"
+								params={{ moduleId }}
+								search={fromSession ? { from: fromSession } : undefined}
+							>
 								<Settings2 className="size-4" />
 								{t("gm.workbench.manageScenes")}
 							</Link>

@@ -212,6 +212,7 @@ function CreateSessionDialog({
 											<Link
 												to="/gm/module/$moduleId"
 												params={{ moduleId }}
+												search={{ tab: "characters", from: "/gm" }}
 												className="text-accent"
 											>
 												{t("gm.createSession.goLink")}

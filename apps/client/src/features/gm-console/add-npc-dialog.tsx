@@ -205,7 +205,16 @@ function AddNpcDialog({
 								size="sm"
 								className="h-8 shrink-0 px-2 text-label-small"
 							>
-								<Link to="/gm/module/$moduleId" params={{ moduleId }}>
+								<Link
+									to="/gm/module/$moduleId"
+									params={{ moduleId }}
+									search={{
+										tab: "characters",
+										...(sessionId
+											? { from: `/gm/session/${encodeURIComponent(sessionId)}` }
+											: {}),
+									}}
+								>
 									{t("gm.workbench.openModuleCharacters")}
 								</Link>
 							</Button>

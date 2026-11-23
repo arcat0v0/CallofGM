@@ -1,6 +1,11 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { CharacterCreationPageView } from "@/features/characters/character-creation-page";
-import { useI18nVersion } from "@/i18n";
+import { t, useI18nVersion } from "@/i18n";
+import {
+	PL_BACK_PREFIXES,
+	resolveBackTarget,
+	safeBackPath,
+} from "@/lib/back-navigation";
 import { requireAccount } from "@/lib/identity";
 import { useRuleOptions } from "@/lib/rules-api";
 
@@ -9,6 +14,7 @@ type CharacterCreationSearch = {
 	name?: string;
 	rule?: string;
 	targetName?: string;
+	from?: string;
 };
 
 export const Route = createFileRoute("/pl/characters_/new")({
@@ -20,6 +26,7 @@ export const Route = createFileRoute("/pl/characters_/new")({
 		rule: typeof search.rule === "string" ? search.rule : undefined,
 		targetName:
 			typeof search.targetName === "string" ? search.targetName : undefined,
+		from: safeBackPath(search.from, PL_BACK_PREFIXES),
 	}),
 	beforeLoad: () => requireAccount(["pl"]),
 	component: PlCharacterCreationPage,
@@ -35,16 +42,24 @@ function PlCharacterCreationPage() {
 		typeof search.invite === "string" && search.invite.length > 0
 			? search.invite
 			: null;
+	const backTarget = resolveBackTarget(
+		{
+			from: search.from,
+			fallback: inviteToken
+				? `/submit/${encodeURIComponent(inviteToken)}`
+				: "/pl/characters",
+			allowedPrefixes: PL_BACK_PREFIXES,
+			currentPathname: "/pl/characters/new",
+		},
+		t,
+	);
 
 	function leave() {
-		if (inviteToken) {
-			void navigate({
-				to: "/submit/$token",
-				params: { token: inviteToken },
-			});
-			return;
-		}
-		void navigate({ to: "/pl/characters" });
+		void navigate({
+			to: backTarget.to as never,
+			search: backTarget.search as never,
+			hash: backTarget.hash,
+		});
 	}
 
 	return (
@@ -56,6 +71,7 @@ function PlCharacterCreationPage() {
 			inviteTargetName={search.targetName}
 			initialName={search.name}
 			rules={rules}
+			backLabel={backTarget.label}
 			onDone={() => undefined}
 			onNavigateBack={leave}
 		/>

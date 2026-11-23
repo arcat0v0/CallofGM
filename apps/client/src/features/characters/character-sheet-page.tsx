@@ -3,7 +3,7 @@ import type {
 	CharacterDto,
 	CharacterSheetContextResponse,
 } from "@cogm/shared";
-import { ArrowLeft, Save, UserRound } from "lucide-react";
+import { ChevronLeft, Save, UserRound } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { SheetSection, TextField } from "@/components/shared/creation-form";
@@ -23,10 +23,12 @@ import { getRuleComponent } from "@/rules/registry";
 export function CharacterSheetPage({
 	scope,
 	characterId,
+	backLabel,
 	onBack,
 }: {
 	scope: "pl" | "gm";
 	characterId: string;
+	backLabel?: string;
 	onBack: () => void;
 }) {
 	useI18nVersion();
@@ -66,6 +68,7 @@ export function CharacterSheetPage({
 					scope={scope}
 					basePath={basePath}
 					character={character}
+					backLabel={backLabel}
 					onCharacterChange={setCharacter}
 					onBack={onBack}
 				/>
@@ -84,7 +87,7 @@ export function CharacterSheetPage({
 									{t("characterSheet.retry")}
 								</Button>
 								<Button type="button" variant="tertiary" onClick={onBack}>
-									{t("characterSheet.back")}
+									{backLabel ?? t("characterSheet.back")}
 								</Button>
 							</div>
 						}
@@ -99,12 +102,14 @@ function CharacterSheetView({
 	scope,
 	basePath,
 	character,
+	backLabel,
 	onCharacterChange,
 	onBack,
 }: {
 	scope: "pl" | "gm";
 	basePath: PortraitBasePath;
 	character: CharacterDetailDto;
+	backLabel?: string;
 	onCharacterChange: (character: CharacterDetailDto) => void;
 	onBack: () => void;
 }) {
@@ -231,8 +236,8 @@ function CharacterSheetView({
 						className="shrink-0"
 						onClick={onBack}
 					>
-						<ArrowLeft />
-						{t("characterSheet.back")}
+						<ChevronLeft />
+						{backLabel ?? t("characterSheet.back")}
 					</Button>
 					<div className="bg-surface-tertiary size-14 shrink-0 overflow-hidden rounded-t-full rounded-b-xl">
 						{portraitUrl ? (

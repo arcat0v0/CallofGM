@@ -5,8 +5,8 @@ import {
 } from "@cogm/shared";
 import {
 	AlertTriangle,
-	ArrowLeft,
 	CheckCircle2,
+	ChevronLeft,
 	RotateCcw,
 	Save,
 	Trash2,
@@ -53,6 +53,7 @@ export type CharacterCreationPageViewProps = {
 	inviteTargetName?: string | undefined;
 	initialName?: string;
 	rules: ReadonlyArray<RuleMetadata>;
+	backLabel?: string;
 	onDone: (submission: CharacterCreationSubmission) => void;
 	onNavigateBack?: (() => void) | undefined;
 };
@@ -65,6 +66,7 @@ export function CharacterCreationPageView({
 	inviteTargetName,
 	initialName,
 	rules,
+	backLabel,
 	onDone,
 	onNavigateBack,
 }: CharacterCreationPageViewProps) {
@@ -442,7 +444,11 @@ export function CharacterCreationPageView({
 					variant="tertiary"
 					onClick={() => onNavigateBack?.()}
 				>
-					{t("characterCreation.backToLibrary")}
+					{mode === "invite"
+						? t("nav.back.aria", {
+								target: backLabel ?? t("nav.back.submit"),
+							})
+						: t("characterCreation.backToLibrary")}
 				</Button>
 			</main>
 		);
@@ -497,11 +503,15 @@ export function CharacterCreationPageView({
 					<Button
 						type="button"
 						variant="ghost"
-						size="icon-sm"
-						aria-label={t("characterCreation.back")}
+						size="sm"
+						className="shrink-0"
+						aria-label={backLabel ?? t("characterCreation.back")}
 						onClick={leave}
 					>
-						<ArrowLeft />
+						<ChevronLeft />
+						<span className="max-sm:sr-only">
+							{backLabel ?? t("characterCreation.back")}
+						</span>
 					</Button>
 					<div className="flex min-w-0 flex-1 flex-col">
 						<h1 className="truncate font-sans text-title-medium-emph text-foreground">

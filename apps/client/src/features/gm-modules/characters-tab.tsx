@@ -121,11 +121,13 @@ function CharacterPortraitStage({
 export function ModuleCharactersTab({
 	moduleId,
 	ruleId,
+	from,
 	onCountChange,
 	onOpenInvites,
 }: {
 	moduleId: string;
 	ruleId: string;
+	from?: string;
 	onCountChange: (count: number) => void;
 	onOpenInvites: () => void;
 }) {
@@ -363,6 +365,7 @@ export function ModuleCharactersTab({
 									<Link
 										to="/gm/characters/$characterId"
 										params={{ characterId: character.id }}
+										search={from ? { from } : undefined}
 										className="block outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring"
 									>
 										<CharacterPortraitStage character={character} />
@@ -372,6 +375,7 @@ export function ModuleCharactersTab({
 										<Link
 											to="/gm/characters/$characterId"
 											params={{ characterId: character.id }}
+											search={from ? { from } : undefined}
 											className="flex min-w-0 flex-1 flex-col gap-0.5 rounded-xs outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
 										>
 											<h3 className="truncate text-title-small-emph text-md-on-surface transition-colors group-hover:text-accent">
@@ -431,6 +435,7 @@ export function ModuleCharactersTab({
 													<Link
 														to="/gm/characters/$characterId"
 														params={{ characterId: character.id }}
+														search={from ? { from } : undefined}
 													>
 														<ArrowUpRight />
 														{t("gm.module.openCharacter")}

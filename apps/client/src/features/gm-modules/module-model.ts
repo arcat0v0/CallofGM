@@ -4,6 +4,7 @@ import type {
 	ThemeSummaryDto,
 } from "@cogm/shared";
 import { getRuleComponent } from "@/rules/registry";
+import { GM_BACK_PREFIXES, safeBackPath } from "@/lib/back-navigation";
 
 export type ModulesSort = "updated" | "name" | "assets";
 export type ModulesStatusFilter = "ready" | "empty";
@@ -26,6 +27,7 @@ export type ModuleDetailTab =
 
 export type ModuleDetailSearch = {
 	tab?: ModuleDetailTab;
+	from?: string;
 };
 
 const pick = <T extends string>(value: unknown, allowed: readonly T[]) =>
@@ -59,6 +61,7 @@ export function parseModuleDetailSearch(
 			"handouts",
 			"settings",
 		] as const),
+		from: safeBackPath(search.from, GM_BACK_PREFIXES),
 	};
 }
 

@@ -6,7 +6,7 @@ import type {
 	ThemeSummaryDto,
 	TrackDto,
 } from "@cogm/shared";
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { Howl } from "howler";
 import {
 	ArrowLeftRight,
@@ -76,6 +76,11 @@ import { ModuleSettingsTab } from "@/features/gm-modules/settings-tab";
 import { t, useI18nVersion } from "@/i18n";
 import { api, fetchAllPages, mediaUrl } from "@/lib/api";
 import { audioDurationMs } from "@/lib/audio-duration";
+import {
+	currentRouterHref,
+	GM_BACK_PREFIXES,
+	resolveBackTarget,
+} from "@/lib/back-navigation";
 import { errorText } from "@/lib/errors";
 import { formatDurationMmSs } from "@/lib/format";
 import { requireGmAuth } from "@/lib/identity";
@@ -330,7 +335,17 @@ function ModuleDetailPage() {
 	const { moduleId } = Route.useParams();
 	const search = Route.useSearch();
 	const navigate = useNavigate({ from: Route.fullPath });
+	const currentHref = useRouterState({ select: currentRouterHref });
 	const activeTab: ModuleDetailTab = search.tab ?? "scenes";
+	const backTarget = resolveBackTarget(
+		{
+			from: search.from,
+			fallback: "/gm/modules",
+			allowedPrefixes: GM_BACK_PREFIXES,
+			currentPathname: `/gm/module/${encodeURIComponent(moduleId)}`,
+		},
+		t,
+	);
 
 	const [module, setModule] = useState<ModuleDto | null>(null);
 	const [themes, setThemes] = useState<ThemeSummaryDto[]>([]);
@@ -553,11 +568,13 @@ function ModuleDetailPage() {
 				<header className="border-b border-md-outline-variant/60 bg-md-surface px-4 pt-3 sm:px-6 lg:px-8">
 					<div className="flex items-center justify-between gap-2">
 						<Link
-							to="/gm/modules"
+							to={backTarget.to as never}
+							search={backTarget.search as never}
+							hash={backTarget.hash}
 							className="inline-flex min-h-11 items-center gap-1 rounded-xs py-1 text-label-medium text-md-on-surface-variant transition-colors hover:text-md-on-surface focus-visible:ring-2 focus-visible:ring-focus-ring sm:min-h-9"
 						>
 							<ChevronLeft className="size-4" aria-hidden />
-							<span>{t("gm.module.breadcrumbModules")}</span>
+							<span>{backTarget.label}</span>
 						</Link>
 						<div className="sm:hidden">{inviteButton}</div>
 					</div>
@@ -675,6 +692,7 @@ function ModuleDetailPage() {
 						<ModuleCharactersTab
 							moduleId={moduleId}
 							ruleId={module.ruleId}
+							from={currentHref}
 							onCountChange={setLinkedCount}
 							onOpenInvites={() => setInvitesOpen(true)}
 						/>
@@ -1038,7 +1056,17 @@ function ModuleDetailPage() {
 							module={module}
 							themes={themes}
 							onSaved={reload}
-							onDeleted={() => void navigate({ to: "/gm/modules" })}
+							onDeleted={() =>
+								void navigate(
+									backTarget.to.startsWith("/gm/session/")
+										? { to: "/gm/modules" }
+										: {
+												to: backTarget.to as never,
+												search: backTarget.search as never,
+												hash: backTarget.hash,
+											},
+								)
+							}
 						/>
 					) : null}
 				</div>

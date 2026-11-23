@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
 	FileSpreadsheet,
 	LayoutGrid,
@@ -51,6 +51,7 @@ import {
 } from "@/features/gm-characters/library-sidebar";
 import { t, useI18nVersion } from "@/i18n";
 import { api } from "@/lib/api";
+import { backParam, currentRouterHref } from "@/lib/back-navigation";
 import { errorText } from "@/lib/errors";
 import { requireGmAuth } from "@/lib/identity";
 import { useRuleOptions } from "@/lib/rules-api";
@@ -77,6 +78,7 @@ function GmCharactersPage() {
 	useI18nVersion();
 	const search = Route.useSearch();
 	const navigate = useNavigate({ from: Route.fullPath });
+	const currentHref = useRouterState({ select: currentRouterHref });
 	const wide = useMediaQuery("(min-width: 1024px)", true);
 	const { rules } = useRuleOptions();
 	const ruleIds = rules.map((rule) => rule.id);
@@ -187,12 +189,15 @@ function GmCharactersPage() {
 		[setSearch, wide],
 	);
 	const openSheet = useCallback(
-		(id: string) =>
+		(id: string) => {
+			const backFrom = backParam(currentHref, "/gm/characters");
 			void navigate({
 				to: "/gm/characters/$characterId",
 				params: { characterId: id },
-			}),
-		[navigate],
+				...(backFrom ? { search: { from: backFrom } } : {}),
+			});
+		},
+		[currentHref, navigate],
 	);
 
 	// 选中项变化（含首次加载、从 URL 恢复）时把它滚入可见区域

@@ -22,6 +22,7 @@ import type { EnrichedModule, ModulesSort } from "./module-model";
 
 type ModuleResultsProps = {
 	items: EnrichedModule[];
+	from?: string;
 	onOpenTheme: (entry: EnrichedModule) => void;
 	onDelete: (entry: EnrichedModule) => void;
 };
@@ -149,11 +150,13 @@ function ResourceCounts({ entry }: { entry: EnrichedModule }) {
 
 function ModuleActionsMenu({
 	entry,
+	from,
 	onOpenTheme,
 	onDelete,
 	triggerClassName,
 }: {
 	entry: EnrichedModule;
+	from?: string;
 	onOpenTheme: (entry: EnrichedModule) => void;
 	onDelete: (entry: EnrichedModule) => void;
 	triggerClassName?: string;
@@ -183,6 +186,7 @@ function ModuleActionsMenu({
 					<Link
 						to="/gm/module/$moduleId"
 						params={{ moduleId: entry.module.id }}
+						search={from ? { from } : undefined}
 					>
 						<ArrowUpRight />
 						{t("gm.modules.openWorkspace")}
@@ -207,9 +211,11 @@ function ModuleActionsMenu({
 
 export function ModuleGallery({
 	items,
+	from,
 	onOpenTheme,
 	onDelete,
 }: ModuleResultsProps) {
+	const moduleSearch = from ? { from } : undefined;
 	return (
 		<ul className="grid grid-cols-1 gap-3 pb-3 sm:grid-cols-2 xl:grid-cols-3 xl:gap-4">
 			{items.map((entry) => (
@@ -218,6 +224,7 @@ export function ModuleGallery({
 						<Link
 							to="/gm/module/$moduleId"
 							params={{ moduleId: entry.module.id }}
+							search={moduleSearch}
 							className="flex flex-1 flex-col rounded-t-xl outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring"
 						>
 							<div className="relative mx-1.5 mt-1.5 aspect-[16/9] overflow-hidden rounded-lg-inc bg-md-surface-container-lowest">
@@ -263,12 +270,14 @@ export function ModuleGallery({
 							<Link
 								to="/gm/module/$moduleId"
 								params={{ moduleId: entry.module.id }}
+								search={moduleSearch}
 								className="min-w-0 flex-1 rounded-sm py-1.5 outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
 							>
 								<ResourceCounts entry={entry} />
 							</Link>
 							<ModuleActionsMenu
 								entry={entry}
+								from={from}
 								onOpenTheme={onOpenTheme}
 								onDelete={onDelete}
 							/>
@@ -298,11 +307,13 @@ function LedgerStatCell({ count }: { count: number }) {
 
 export function ModuleLedger({
 	items,
+	from,
 	sort,
 	onChangeSort,
 	onOpenTheme,
 	onDelete,
 }: ModuleLedgerProps) {
+	const moduleSearch = from ? { from } : undefined;
 	return (
 		<div className="isolate overflow-clip rounded-xl bg-md-surface-container-low">
 			<table className="w-full table-fixed border-separate border-spacing-0 text-left">
@@ -397,6 +408,7 @@ export function ModuleLedger({
 								<Link
 									to="/gm/module/$moduleId"
 									params={{ moduleId: entry.module.id }}
+									search={moduleSearch}
 									className="flex min-w-0 items-center gap-3 rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
 								>
 									<div className="h-10 w-[4.5rem] shrink-0 overflow-hidden rounded-sm bg-md-surface-container-lowest">
@@ -432,6 +444,7 @@ export function ModuleLedger({
 							<td className="pr-4 text-right">
 								<ModuleActionsMenu
 									entry={entry}
+									from={from}
 									onOpenTheme={onOpenTheme}
 									onDelete={onDelete}
 								/>

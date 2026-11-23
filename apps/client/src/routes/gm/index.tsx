@@ -419,6 +419,7 @@ function GmDashboardPage() {
 										<Link
 											to="/gm/module/$moduleId"
 											params={{ moduleId: module.id }}
+											search={{ from: "/gm" }}
 										>
 											{t("gm.dashboard.manage")}
 										</Link>

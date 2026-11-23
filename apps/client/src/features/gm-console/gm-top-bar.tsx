@@ -1,5 +1,10 @@
 import type { SessionDto, SessionStatus } from "@cogm/shared";
-import { Link, useParams } from "@tanstack/react-router";
+import {
+	defaultParseSearch,
+	Link,
+	useParams,
+	useRouterState,
+} from "@tanstack/react-router";
 import {
 	ArrowLeft,
 	ArrowRight,
@@ -25,6 +30,7 @@ import { VersionBadge } from "@/features/version/version-badge";
 import { t } from "@/i18n";
 import { sessionStatusLabel } from "@/i18n/labels";
 import { api } from "@/lib/api";
+import { GM_BACK_PREFIXES, resolveBackTarget } from "@/lib/back-navigation";
 import { errorText } from "@/lib/errors";
 import { nextSessionStatus, nextStatusActionLabel } from "@/lib/format";
 import { usePlayStore } from "@/stores/play-store";
@@ -36,6 +42,19 @@ import { StageLayoutControl } from "./stage-layout-control";
 
 function GmTopBar() {
 	const { sessionId } = useParams({ from: "/gm/session/$sessionId" });
+	const searchStr = useRouterState({
+		select: (state) => state.location.searchStr ?? "",
+	});
+	const searchFrom = (defaultParseSearch(searchStr) as { from?: unknown }).from;
+	const backTarget = resolveBackTarget(
+		{
+			from: searchFrom,
+			fallback: "/gm",
+			allowedPrefixes: GM_BACK_PREFIXES,
+			currentPathname: `/gm/session/${encodeURIComponent(sessionId)}`,
+		},
+		t,
+	);
 	const status = usePlayStore((state) => state.status);
 	const setStatus = usePlayStore((state) => state.setStatus);
 	const moduleName = usePlayStore((state) => state.moduleName);
@@ -112,7 +131,16 @@ function GmTopBar() {
 					size="icon-sm"
 					className="bg-md-surface-container-low text-md-on-surface-variant border border-md-outline-variant/50 size-11 shrink-0"
 				>
-					<Link to="/gm" aria-label={t("play.backstage")}>
+					<Link
+						to={backTarget.to as never}
+						search={backTarget.search as never}
+						hash={backTarget.hash}
+						aria-label={
+							backTarget.to === "/gm"
+								? t("play.backstage")
+								: t("nav.back.aria", { target: backTarget.label })
+						}
+					>
 						<ArrowLeft />
 					</Link>
 				</Button>
