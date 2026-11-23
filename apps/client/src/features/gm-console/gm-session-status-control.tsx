@@ -118,7 +118,7 @@ function GmSessionStatusControl({
 					aria-label={t("gm.workbench.statusSwitchAria", {
 						status: sessionStatusLabel(status),
 					})}
-					title={t("gm.workbench.statusTitle")}
+					title={open ? undefined : t("gm.workbench.statusTitle")}
 					className={cn(
 						"h-9 gap-1.5 rounded-full border px-2.5 text-label-medium sm:gap-2 sm:px-3.5 lg:h-10 lg:text-label-large-emph",
 						TRIGGER_TONES[status],

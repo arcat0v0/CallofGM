@@ -127,7 +127,11 @@ function GmTopBar() {
 
 	return (
 		<div className="flex h-12 items-center justify-between gap-2 lg:h-16 lg:gap-4">
-			<div className="flex min-w-0 items-center gap-2 lg:gap-4 xl:max-w-[calc(50%-15.5rem)]">
+			<div
+				data-topbar-start=""
+				className="flex min-w-0 items-center gap-2 lg:gap-4"
+				style={{ maxWidth: "var(--gm-topbar-start-max, none)" }}
+			>
 				<Button
 					asChild
 					variant="tertiary"
@@ -151,14 +155,19 @@ function GmTopBar() {
 					<span className="text-md-on-surface truncate font-sans text-title-medium-emph font-semibold lg:text-headline-small">
 						{title}
 					</span>
-					<span className="text-md-on-surface-variant truncate text-label-small lg:text-label-medium">
-						{subtitle}
-					</span>
+					<div className="flex min-w-0 items-center gap-1.5">
+						<span className="text-md-on-surface-variant truncate text-label-small lg:text-label-medium">
+							{subtitle}
+						</span>
+						<VersionBadge className="text-md-on-surface-variant/80 hover:text-md-on-surface hidden h-5 shrink-0 px-1.5 md:inline-flex" />
+					</div>
 				</div>
 			</div>
 
-			<div className="flex shrink-0 items-center gap-1.5 sm:gap-2 2xl:gap-3">
-				<VersionBadge className="text-foreground-secondary hidden md:inline-flex" />
+			<div
+				data-topbar-end=""
+				className="flex shrink-0 items-center gap-1.5 sm:gap-2 2xl:gap-3"
+			>
 				<GmSessionStatusControl
 					status={status}
 					pending={statusPending}
@@ -218,9 +227,6 @@ function GmTopBar() {
 						) : null}
 					</DropdownMenuContent>
 				</DropdownMenu>
-				<span className="bg-accent text-accent-foreground hidden size-10 shrink-0 place-items-center rounded-full text-label-small-emph sm:grid">
-					{t("common.gmShort")}
-				</span>
 			</div>
 
 			<ConfirmDialog

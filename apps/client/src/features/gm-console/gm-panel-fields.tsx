@@ -189,4 +189,14 @@ function GmSelectItem({
 	return <SelectItem value={value}>{children}</SelectItem>;
 }
 
-export { GmField, GmPanelShell, GmSelectField, GmSelectItem, GmValueField };
+const gmWidePanelClass =
+	"w-[min(880px,calc(100vw-24px))] max-h-[calc(100dvh-132px)] lg:max-h-[var(--gm-dock-panel-max-h,calc(100dvh-176px))] xl:max-h-[var(--gm-dock-panel-max-h,calc(100dvh-112px))] [&>div]:[scrollbar-width:thin] [&>div]:[scrollbar-color:var(--color-scrollbar)_transparent]";
+
+export {
+	GmField,
+	GmPanelShell,
+	GmSelectField,
+	GmSelectItem,
+	GmValueField,
+	gmWidePanelClass,
+};
