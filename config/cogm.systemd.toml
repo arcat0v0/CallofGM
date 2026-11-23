@@ -1,0 +1,18 @@
+# systemd 直接部署使用的基础配置；由 systemd unit 通过 COGM_CONFIG 指定。
+# 部署专属改动写入同目录的 cogm.local.toml，不要直接修改本文件。
+# 默认以 /opt/cogm 作为部署目录；若部署到其他目录，请在 cogm.local.toml 中覆盖路径。
+
+[server]
+# 默认仅监听本机回环，由 Caddy/Nginx 反向代理对外提供 HTTPS/WSS。
+# 若不经反向代理直接暴露局域网/公网，请在 cogm.local.toml 中覆盖为 "0.0.0.0"。
+host = "127.0.0.1"
+port = 15632
+
+[database]
+url = "/opt/cogm/data/db.sqlite"
+
+[media]
+dir = "/opt/cogm/data/media"
+
+[themes]
+dir = "/opt/cogm/data/themes"

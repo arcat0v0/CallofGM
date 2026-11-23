@@ -1,6 +1,6 @@
 # 发版流程
 
-CoGM 使用人工维护的 semver、annotated tag 与 CHANGELOG，通过 `docker compose` 在部署机按指定 tag 的源码本地构建更新。仓库不发布镜像、不自动部署、不监听 tag 触发发布。
+CoGM 使用人工维护的 semver、annotated tag 与 CHANGELOG，支持通过 `docker compose` 或直接通过 `systemd` 在部署机按指定 tag 的源码本地构建更新。仓库不发布镜像、不自动部署、不监听 tag 触发发布。
 
 ## 版本源与构建标识
 
@@ -22,7 +22,7 @@ CoGM 使用人工维护的 semver、annotated tag 与 CHANGELOG，通过 `docker
 
 1. 确认 `CHANGELOG.md` 的 `Unreleased` 已整理为本版本的 `Added`、`Changed`、`Fixed`、`Removed`、`Security` 条目。
 2. 确认根 `package.json` 版本与计划发布的 `vX.Y.Z` 一致。
-3. 确认 `docs/release.md`、`AGENTS.md` 与 `docker-compose.yml` 中的命令仍然有效。
+3. 确认 `docs/release.md`、`AGENTS.md`、`docker-compose.yml` 与 `deploy/systemd/cogm.service` 中的命令仍然有效。
 4. 核对 Dockerfile 的 Bun 版本、CI 的 Bun 版本与本地 Bun 版本；三者不一致是既有问题，发布记录中必须写清实际使用版本。
 5. 运行 `bun install --frozen-lockfile`、`bun run test`、`bun run typecheck`、`bun run check:boundaries`、`bun run build:client`。
 6. 对本次改动文件运行 Biome 检查与格式化。
@@ -69,13 +69,13 @@ curl -fsS https://cogm.example.com/api/health/ready
 curl -fsS https://cogm.example.com/api/version
 ```
 
-本地开发使用 `config/cogm.toml`（路径相对 `apps/server`）；容器使用 `config/cogm.docker.toml`（绝对 `/app/data` 路径），由镜像设置 `COGM_CONFIG` 指定。部署专属改动写入同目录的 `config/cogm.local.toml`（已忽略提交，compose 以只读方式挂载整个 `config/`）。修改后重启容器生效。
+本地开发使用 `config/cogm.toml`（路径相对 `apps/server`）；容器使用 `config/cogm.docker.toml`（绝对 `/app/data` 路径），由镜像设置 `COGM_CONFIG` 指定；直接通过 systemd 部署使用 `config/cogm.systemd.toml`（默认 `/opt/cogm/data` 路径与 `127.0.0.1:15632`），由 `cogm.service` 设置 `COGM_CONFIG` 指定。部署专属改动写入同目录的 `config/cogm.local.toml`（已忽略提交；compose 以只读方式挂载整个 `config/`）。修改后重启容器或服务生效。
 
-配置读取顺序为：基础配置文件 → 同目录 `cogm.local.toml` → 显式覆盖。`COGM_CONFIG` 可指定基础配置文件（开发脚本与隔离测试使用）；指定后仍会合并该文件同目录的 `cogm.local.toml`。除密钥、运行时模式和构建元数据外，不再通过环境变量配置实例：
+配置读取顺序为：基础配置文件 → 同目录 `cogm.local.toml` → 显式覆盖。`COGM_CONFIG` 可指定基础配置文件（开发脚本、systemd 与隔离测试使用）；指定后仍会合并该文件同目录的 `cogm.local.toml`。除密钥、运行时模式和构建元数据外，不再通过环境变量配置实例：
 
 | 环境变量 | 用途 |
 |---|---|
-| `COGM_CONFIG` | 基础配置文件路径；默认 `config/cogm.toml`，容器镜像设为 `config/cogm.docker.toml` |
+| `COGM_CONFIG` | 基础配置文件路径；默认 `config/cogm.toml`，容器镜像设为 `config/cogm.docker.toml`，systemd 服务设为 `/opt/cogm/config/cogm.systemd.toml` |
 | `NODE_ENV` | `development` / `production` / `test`，决定 Cookie `Secure` 与默认 CORS 策略 |
 | `VOICE_TURN_REST_SECRET` | coturn 长期凭据，必须与 `[voice] turnUrls` 成对出现 |
 | `COGM_COMMIT` / `COGM_BUILD_TIME` | 构建与版本展示元数据 |
@@ -97,9 +97,60 @@ corsOrigins = ["https://cogm.example.com"]
 
 再打开首页或登录页的版本入口，确认网页版本、后端版本与 commit 一致。游玩房间与沉浸舞台不显示版本入口。
 
+## 手动 systemd 部署与更新（无 Docker）
+
+如果部署机直接安装 Bun 并由 systemd 托管进程，推荐将仓库放在 `/opt/cogm`，以专用无特权系统用户 `cogm` 运行，并配合 Caddy/Nginx 提供 HTTPS/WSS 反向代理。配套文件位于 `config/cogm.systemd.toml` 与 `deploy/systemd/`（`cogm.service`、`cogm.env.example`、`deploy.sh`）。
+
+### 首次安装与升级
+
+在项目目录（默认 `/opt/cogm`）执行一键部署/更新脚本（自动完成系统用户创建、Bun 安装检查、`bun install --frozen-lockfile`、数据库热备份、前端构建与类型检查、写入 `/etc/cogm/build.env`、安装并重启 `cogm.service` 及就绪/版本探针）：
+
+```bash
+cd /opt/cogm
+./deploy/systemd/deploy.sh --ref vX.Y.Z
+```
+
+若当前目录已检出目标代码，直接运行 `./deploy/systemd/deploy.sh` 即可。
+
+如需手动分步执行：
+
+```bash
+cd /opt/cogm
+git fetch --tags
+git checkout vX.Y.Z
+sudo -u cogm COGM_CONFIG=/opt/cogm/config/cogm.systemd.toml /usr/local/bin/bun run db:backup
+export COGM_COMMIT="$(git rev-parse HEAD)"
+export COGM_BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+/usr/local/bin/bun install --frozen-lockfile
+/usr/local/bin/bun run build:client
+printf 'COGM_COMMIT=%s\nCOGM_BUILD_TIME=%s\n' "$COGM_COMMIT" "$COGM_BUILD_TIME" | sudo tee /etc/cogm/build.env >/dev/null
+sudo install -m 0644 deploy/systemd/cogm.service /etc/systemd/system/cogm.service
+sudo systemctl daemon-reload
+sudo systemctl enable --now cogm.service
+sudo systemctl restart cogm.service
+```
+
+### 配置、密钥与日常运维
+
+- 实例配置：`config/cogm.systemd.toml` 默认监听 `127.0.0.1:15632`，数据位于 `/opt/cogm/data/{db.sqlite,media,themes}`。反代后部署同样在 `/opt/cogm/config/cogm.local.toml` 设置 `[security] trustProxy = true`；若需变更端口、路径或直连监听地址，也写入 `cogm.local.toml`。
+- 环境变量密钥：`VOICE_TURN_REST_SECRET` 写入 `/etc/cogm/cogm.env`（参考 `deploy/systemd/cogm.env.example`，权限 `0640 root:cogm`），修改后执行 `sudo systemctl restart cogm`。
+- 权限隔离：`cogm.service` 开启 `ProtectSystem=strict` 与 `ProtectHome=true`，仅对 `/opt/cogm/data` 开放读写。手动执行备份或初始化管理员时，请以 `cogm` 用户并显式传入 `COGM_CONFIG`：
+
+```bash
+sudo -u cogm COGM_CONFIG=/opt/cogm/config/cogm.systemd.toml /usr/local/bin/bun run db:backup
+sudo -u cogm COGM_CONFIG=/opt/cogm/config/cogm.systemd.toml /usr/local/bin/bun run --cwd /opt/cogm/apps/server setup:admin <用户名> <密码>
+```
+
+- 日志与状态查看：
+
+```bash
+systemctl status cogm
+journalctl -u cogm -f
+```
+
 ## 数据库迁移与备份
 
-- 更新前必须备份 `data/db.sqlite`。优先使用 `bun run db:backup`；在运行中的容器内使用 `docker compose exec cogm bun run db:backup`。
+- 更新前必须备份 `data/db.sqlite`。Docker 环境在运行中的容器内使用 `docker compose exec cogm bun run db:backup`；systemd 环境使用 `sudo -u cogm COGM_CONFIG=/opt/cogm/config/cogm.systemd.toml /usr/local/bin/bun run db:backup`（`deploy/systemd/deploy.sh` 默认自动执行）。
 - 备份写入数据库同目录的 `backups/`，可通过 `[database] backupDir` 覆盖；属于 `data/` 持久卷的一部分。
 - 新版本包含迁移时，先确认迁移可重复执行、失败路径可恢复，并在副本上预演。
 - 应用启动会在 `apps/server` 启动流程中执行数据库迁移；不要在未备份的情况下直接更新。
@@ -133,10 +184,9 @@ coturn 需启用 `use-auth-secret` 与同一 `static-auth-secret`，按实际公
 
 1. 备份当前数据库。
 2. 检出上一个稳定 tag。
-3. 重新设置 `COGM_COMMIT` 与 `COGM_BUILD_TIME`。
-4. 执行 `docker compose build --pull` 与 `docker compose up -d`。
-5. 检查健康接口、`/api/version` 与页面版本弹窗。
-6. 如果数据库已迁移，先按发布记录判断兼容性；不能确认时停止回滚并恢复备份副本。
+3. Docker 方式：重新设置 `COGM_COMMIT` 与 `COGM_BUILD_TIME`，执行 `docker compose build --pull` 与 `docker compose up -d`；systemd 方式：执行 `./deploy/systemd/deploy.sh --ref vX.Y.Z`（或手动构建并更新 `/etc/cogm/build.env` 后重启 `cogm.service`）。
+4. 检查健康接口、`/api/version` 与页面版本弹窗。
+5. 如果数据库已迁移，先按发布记录判断兼容性；不能确认时停止回滚并恢复备份副本。
 
 ## 热修复
 

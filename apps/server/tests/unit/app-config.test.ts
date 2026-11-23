@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { createAppConfig, loadConfig, toFileConfig } from "@/config/app-config";
 
 const tempDirs: string[] = [];
@@ -160,5 +160,42 @@ describe("app config", () => {
 
 		expect(serialized).not.toContain(turnSecret);
 		expect(serialized).not.toContain("turnRestSecret");
+	});
+
+	test("ships valid base TOML configs for local, docker, and systemd", async () => {
+		const repoConfigDir = resolve(import.meta.dir, "../../../../config");
+		const missingLocal = join(
+			await mkdtemp(join(tmpdir(), "cogm-no-local-")),
+			"cogm.local.toml",
+		);
+		tempDirs.push(resolve(missingLocal, ".."));
+
+		const localCfg = loadConfig({
+			path: join(repoConfigDir, "cogm.toml"),
+			localPath: missingLocal,
+			env: {},
+		});
+		expect(localCfg.port).toBe(15632);
+		expect(localCfg.databaseUrl).toBe("data/db.sqlite");
+
+		const dockerCfg = loadConfig({
+			path: join(repoConfigDir, "cogm.docker.toml"),
+			localPath: missingLocal,
+			env: { NODE_ENV: "production" },
+		});
+		expect(dockerCfg.databaseUrl).toBe("/app/data/db.sqlite");
+		expect(dockerCfg.mediaDir).toBe("/app/data/media");
+		expect(dockerCfg.themesDir).toBe("/app/data/themes");
+
+		const systemdCfg = loadConfig({
+			path: join(repoConfigDir, "cogm.systemd.toml"),
+			localPath: missingLocal,
+			env: { NODE_ENV: "production" },
+		});
+		expect(systemdCfg.host).toBe("127.0.0.1");
+		expect(systemdCfg.port).toBe(15632);
+		expect(systemdCfg.databaseUrl).toBe("/opt/cogm/data/db.sqlite");
+		expect(systemdCfg.mediaDir).toBe("/opt/cogm/data/media");
+		expect(systemdCfg.themesDir).toBe("/opt/cogm/data/themes");
 	});
 });

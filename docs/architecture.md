@@ -152,7 +152,7 @@ BgmState = { trackId, playing, volume, mode: off|single|list|shuffle, seekOffset
 - `VoiceController` 在本地保存音频偏好并管理采集、麦克风测试及按键说话。采集链读取音轨报告的实际约束，使用 48 kHz AudioWorklet 运行 RNNoise WASM，并支持噪声门与 Web Audio 压限。RNNoise 生效时请求关闭浏览器降噪，增强处理不可用时使用可用的浏览器采集与处理。通话发送与本地测试使用同一套采集处理逻辑，回听仅连接本机音频输出。
 - 按键说话由客户端按发言权限及按住状态控制发送轨道。松开按键、窗口失焦或页面隐藏时，发送轨道静音，麦克风采集保持就绪。用户关闭麦克风、离开语音或失去发言权限时，客户端释放采集资源。
 - WebRTC 优先协商单声道 Opus。浏览器支持时，RTP 发送端设置 32 kbps 码率上限。DTX（不连续传输）与带内 FEC（前向纠错）取决于浏览器能力和协商结果。
-- ICE 配置默认空，浏览器可直接尝试 host candidate。`[voice] stunUrls` / `turnUrls`（本地 `config/cogm.toml`，容器 `config/cogm.docker.toml`）配置地址数组；`turnUrls` 与 `VOICE_TURN_REST_SECRET` 环境变量成对配置独立 TURN，服务端按 `turnTtlSeconds`（默认 600）生成 coturn REST 用户名与 HMAC-SHA1 临时凭据，仅向已加入成员下发。长期 REST secret 仅存在服务端环境，不下发前端。
+- ICE 配置默认空，浏览器可直接尝试 host candidate。`[voice] stunUrls` / `turnUrls`（本地 `config/cogm.toml`，容器 `config/cogm.docker.toml`，systemd `config/cogm.systemd.toml`）配置地址数组；`turnUrls` 与 `VOICE_TURN_REST_SECRET` 环境变量成对配置独立 TURN，服务端按 `turnTtlSeconds`（默认 600）生成 coturn REST 用户名与 HMAC-SHA1 临时凭据，仅向已加入成员下发。长期 REST secret 仅存在服务端环境，不下发前端。
 - 语音弱网、WS-only 中断与切网的隔离 Chromium 复验方法、实测证据和边界见 [WebRTC 语音弱网与切网验证](voice-network-testing.md)。
 
 ### 语音诊断与隐私
@@ -271,5 +271,5 @@ GM 后台与 PL 工作台上传 `.xlsx` → 服务端 SheetJS 解析 → 按 `pa
 ## 渲染与部署
 
 - 场景画面用 DOM + CSS 实现（绝对定位立绘 + transition 切换表情/转场），不引入 Canvas/PixiJS；需要更复杂动画时再加 GSAP。
-- 生产部署：`vite build` 产物由 Elysia 静态托管，单 Bun 进程提供 HTTP + WS，Docker 镜像基于 `oven/bun`。
-- 已安装主题属于运行时数据，位于应用配置的 `[themes] dir`（本地默认 `data/themes`，容器 `/app/data/themes`），与数据库、上传媒资一并挂载持久卷；不进入镜像。
+- 生产部署：`vite build` 产物由 Elysia 静态托管，单 Bun 进程提供 HTTP + WS，支持基于 `oven/bun` 的 Docker 部署或直接由 `systemd`（`deploy/systemd/cogm.service`）托管。
+- 已安装主题属于运行时数据，位于应用配置的 `[themes] dir`（本地默认 `data/themes`，容器 `/app/data/themes`，systemd 默认 `/opt/cogm/data/themes`），与数据库、上传媒资一并持久化；不进入镜像。

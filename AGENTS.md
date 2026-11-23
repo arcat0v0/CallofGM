@@ -32,8 +32,8 @@
 - 每次发布必须提交发布准备、创建指向最终提交的 annotated tag，并运行 `bun run release:check`；不得移动或覆盖已发布 tag。
 - 版本号、`CHANGELOG.md`、`docs/release.md`、`AGENTS.md` 与运行时 `/api/version` 必须互相对齐。
 - 发布顺序固定为：验证 → 更新 CHANGELOG → 修改根版本 → gitmoji 提交 → annotated tag → `bun run release:check` → 维护者手动部署。
-- 部署只使用 `docker compose build --pull` 与 `docker compose up -d` 在当前检出的 tag 源码上手动执行；先备份 `data/` 数据库，再核对健康接口与页面版本弹窗。
-- 不发布或推送 Docker 镜像，不生成 GitHub Release，不增加 tag 触发 CI，不自动部署。
+- 部署使用 `docker compose build --pull` 与 `docker compose up -d`，或直接通过 systemd（`deploy/systemd/deploy.sh` / `deploy/systemd/cogm.service` 配合 `config/cogm.systemd.toml`）在当前检出的 tag 源码上手动执行；先备份 `data/` 数据库，再核对健康接口与页面版本弹窗。
+- 部署只使用上述手动 Docker Compose 或 systemd 流程，不发布或推送 Docker 镜像，不生成 GitHub Release，不增加 tag 触发 CI，不自动部署。
 - 版本入口只允许出现在首页、登录页、入团页、GM 后台与 GM 控制台；游玩房间 `/play/$sessionId` 与沉浸舞台不得显示版本信息。
 - 阿里云 ESA 云函数不是后端宿主；ESA 仅可作为前端静态托管或回源加速层，不纳入本发版流程。
 - 完整流程、回滚、热修复与数据库迁移注意事项见 `docs/release.md`。
