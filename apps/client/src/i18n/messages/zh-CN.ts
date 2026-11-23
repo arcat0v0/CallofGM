@@ -887,6 +887,10 @@ export const zhCN: Record<string, string> = {
 	"play.unavailableTitle": "无法连接到团",
 	"play.unavailableDescription":
 		"多次连接失败。请检查网络；若刚刚被主持人拉黑，则无法再进入本团。",
+	"play.loginExpiredTitle": "登录已失效",
+	"play.loginExpiredDescription":
+		"当前登录会话已失效，请重新登录后再进入本团。",
+	"play.goToLogin": "去登录",
 	"play.returnEntry": "返回入口",
 	"play.reenter": "重新进入",
 	"play.retryConnect": "重试连接",
