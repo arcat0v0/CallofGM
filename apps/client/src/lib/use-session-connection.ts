@@ -5,12 +5,28 @@ import {
 } from "@cogm/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { VoiceController } from "@/features/voice/voice-controller";
+import { useIdentityStore } from "@/stores/identity-store";
 import { usePlayStore } from "@/stores/play-store";
+import { api, isApiError } from "./api";
 import { ensurePlayer } from "./identity";
 import { connectSession, type SessionSocket } from "./session-socket";
 
 const MAX_HANDSHAKE_FAILURES = 5;
 const SESSION_ENDED_REASON = "session ended";
+
+async function hasExpiredLogin(signal: AbortSignal): Promise<boolean> {
+	if (!useIdentityStore.getState().account) return false;
+
+	try {
+		await api("/auth/me", {
+			cache: "no-store",
+			signal: AbortSignal.any([signal, AbortSignal.timeout(5_000)]),
+		});
+		return false;
+	} catch (error) {
+		return isApiError(error) && error.status === 401;
+	}
+}
 
 export function useSessionConnection(
 	sessionId: string,
@@ -45,6 +61,7 @@ export function useSessionConnection(
 
 		function scheduleReconnect() {
 			clearTimeout(retry ?? undefined);
+			if (handshakeFailures >= MAX_HANDSHAKE_FAILURES) return;
 			const watermark = usePlayStore.getState().lastEventId;
 			const delay = Math.min(8_000, 800 * 2 ** attempt);
 			attempt += 1;
@@ -154,7 +171,7 @@ export function useSessionConnection(
 						}
 						if (code === SessionCloseCode.loginRevoked) {
 							voice.disconnect(false, code);
-							setTerminal("unavailable");
+							setTerminal("loginExpired");
 							return;
 						}
 						if (code === 1001 && reason === SESSION_ENDED_REASON) {
@@ -185,8 +202,12 @@ export function useSessionConnection(
 				setConnected(false);
 				handshakeFailures += 1;
 				if (handshakeFailures >= MAX_HANDSHAKE_FAILURES) {
+					clearTimeout(retry ?? undefined);
 					voice.disconnect(false);
-					setTerminal("unavailable");
+					const loginExpired = await hasExpiredLogin(controller.signal);
+					if (isCurrent()) {
+						setTerminal(loginExpired ? "loginExpired" : "unavailable");
+					}
 					return;
 				}
 				scheduleReconnect();
