@@ -112,6 +112,7 @@ export class SessionLifecycle {
 			(role === "gm" ||
 				this.session.status === "preparing" ||
 				this.session.phase === "free_discussion" ||
+				this.session.phase === "performance_time" ||
 				this.session.phase === "free_performance")
 		);
 	}

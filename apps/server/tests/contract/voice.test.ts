@@ -15,6 +15,7 @@ import {
 	listenTestApp,
 	loginToken,
 	sendCommand,
+	setSessionPhase,
 	setupTestApp,
 	stopServer,
 } from "../helpers/setup";
@@ -662,7 +663,7 @@ describe("Voice realtime contract", () => {
 						authorization: `Bearer ${ctx.gmToken}`,
 						"content-type": "application/json",
 					},
-					body: JSON.stringify({ phase: "performance_time" }),
+					body: JSON.stringify({ phase: "forced_cg" }),
 				},
 			),
 		);
@@ -714,6 +715,26 @@ describe("Voice realtime contract", () => {
 				state.members.find((member) => member.id === state.selfId)?.canSpeak ===
 				false,
 		);
+		await setSessionPhase(ctx, "performance_time");
+		const performance = await pc.waitFor(
+			(message) =>
+				message.type === "session:phase-changed" &&
+				message.payload.phase === "performance_time",
+		);
+		const performanceIndex = pc.messages.indexOf(performance);
+		const state = VoiceServerMessage.parse(
+			await pc.waitFor(
+				(message) =>
+					message.type === "voice:state" &&
+					pc.messages.indexOf(message) > performanceIndex,
+			),
+		);
+		if (state.type !== "voice:state") throw new Error("Expected voice state");
+		expect(
+			state.payload.members.find(
+				(member) => member.id === state.payload.selfId,
+			),
+		).toMatchObject({ canSpeak: true });
 		const replacement = await connect(ctx.gmToken);
 		const currentToken = await loginToken(ctx.app, "gm", "test-gm-password");
 		expect((await gm.closed).code).toBe(4003);
