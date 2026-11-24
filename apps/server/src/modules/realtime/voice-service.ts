@@ -392,7 +392,7 @@ export class VoiceService {
 			id: member.id,
 			name: member.name,
 			role: member.role,
-			canSpeak: lifecycle.canVoiceSpeak(member.role, moderation),
+			canSpeak: lifecycle.canVoiceSpeak(moderation),
 			speakGranted: moderation.speakGranted,
 			muted: moderation.muted,
 		};

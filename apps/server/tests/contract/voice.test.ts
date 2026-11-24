@@ -632,6 +632,22 @@ describe("Voice realtime contract", () => {
 		await prepare();
 		const gm = await connect(ctx.gmToken);
 		const pc = await connect(required(ctx.playerTokens.get("one")));
+		const expectVoiceAfter = async (event: unknown) => {
+			const eventIndex = pc.messages.indexOf(event);
+			const state = VoiceServerMessage.parse(
+				await pc.waitFor(
+					(message) =>
+						message.type === "voice:state" &&
+						pc.messages.indexOf(message) > eventIndex,
+				),
+			);
+			if (state.type !== "voice:state") throw new Error("Expected voice state");
+			expect(
+				state.payload.members.find(
+					(member) => member.id === state.payload.selfId,
+				),
+			).toMatchObject({ canSpeak: true });
+		};
 		const enable = sendVoice(gm, "voice:configure", { enabled: true });
 		expect(await voiceReply(gm, enable)).toMatchObject({ ok: true });
 		const enabled = await voiceState(pc, (state) => state.enabled);
@@ -668,12 +684,12 @@ describe("Voice realtime contract", () => {
 			),
 		);
 		expect(phaseResponse.status).toBe(200);
-		await voiceState(
-			pc,
-			(state) =>
-				state.selfId !== null &&
-				state.members.find((member) => member.id === state.selfId)?.canSpeak ===
-					false,
+		await expectVoiceAfter(
+			await pc.waitFor(
+				(message) =>
+					message.type === "session:phase-changed" &&
+					message.payload.phase === "forced_cg",
+			),
 		);
 		const rewindId = crypto.randomUUID();
 		sendCommand(
@@ -689,11 +705,12 @@ describe("Voice realtime contract", () => {
 				message.commandId === rewindId,
 		);
 		expect(rewindReply).toMatchObject({ type: "command:accepted" });
-		await voiceState(
-			pc,
-			(state) =>
-				state.members.find((member) => member.id === state.selfId)?.canSpeak ===
-				true,
+		await expectVoiceAfter(
+			await pc.waitFor(
+				(message) =>
+					message.type === "session:rewound" &&
+					message.payload.action === "rewind",
+			),
 		);
 		const undoId = crypto.randomUUID();
 		sendCommand(
@@ -709,32 +726,21 @@ describe("Voice realtime contract", () => {
 				message.commandId === undoId,
 		);
 		expect(undoReply.type).toBe("command:accepted");
-		await voiceState(
-			pc,
-			(state) =>
-				state.members.find((member) => member.id === state.selfId)?.canSpeak ===
-				false,
-		);
-		await setSessionPhase(ctx, "performance_time");
-		const performance = await pc.waitFor(
-			(message) =>
-				message.type === "session:phase-changed" &&
-				message.payload.phase === "performance_time",
-		);
-		const performanceIndex = pc.messages.indexOf(performance);
-		const state = VoiceServerMessage.parse(
+		await expectVoiceAfter(
 			await pc.waitFor(
 				(message) =>
-					message.type === "voice:state" &&
-					pc.messages.indexOf(message) > performanceIndex,
+					message.type === "session:rewound" &&
+					message.payload.action === "undo",
 			),
 		);
-		if (state.type !== "voice:state") throw new Error("Expected voice state");
-		expect(
-			state.payload.members.find(
-				(member) => member.id === state.payload.selfId,
+		await setSessionPhase(ctx, "performance_time");
+		await expectVoiceAfter(
+			await pc.waitFor(
+				(message) =>
+					message.type === "session:phase-changed" &&
+					message.payload.phase === "performance_time",
 			),
-		).toMatchObject({ canSpeak: true });
+		);
 		const replacement = await connect(ctx.gmToken);
 		const currentToken = await loginToken(ctx.app, "gm", "test-gm-password");
 		expect((await gm.closed).code).toBe(4003);
