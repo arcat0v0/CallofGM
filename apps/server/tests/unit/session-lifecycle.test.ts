@@ -121,6 +121,7 @@ for (const status of SessionStatus.options) {
 					role === "gm" ||
 					status === "preparing" ||
 					phase === "free_discussion" ||
+					phase === "performance_time" ||
 					phase === "free_performance";
 				expect(
 					inPhase.canVoiceSpeak(role, {
