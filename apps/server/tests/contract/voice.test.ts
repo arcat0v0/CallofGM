@@ -627,7 +627,7 @@ describe("Voice realtime contract", () => {
 		});
 	});
 
-	test("re-evaluates phase, rewind and undo, closes on end and revokes logins cleanly", async () => {
+	test("keeps voice speakable across phases and rewind, closes on end and revokes logins cleanly", async () => {
 		await prepare();
 		const gm = await connect(ctx.gmToken);
 		const pc = await connect(required(ctx.playerTokens.get("one")));
@@ -672,7 +672,27 @@ describe("Voice realtime contract", () => {
 			(state) =>
 				state.selfId !== null &&
 				state.members.find((member) => member.id === state.selfId)?.canSpeak ===
-					false,
+					true,
+		);
+		const forcedCgResponse = await ctx.app.handle(
+			new Request(
+				`http://localhost/api/v1/gm/sessions/${ctx.sessionId}/phase`,
+				{
+					method: "POST",
+					headers: {
+						authorization: `Bearer ${ctx.gmToken}`,
+						"content-type": "application/json",
+					},
+					body: JSON.stringify({ phase: "forced_cg" }),
+				},
+			),
+		);
+		expect(forcedCgResponse.status).toBe(200);
+		await voiceState(
+			pc,
+			(state) =>
+				state.members.find((member) => member.id === state.selfId)?.canSpeak ===
+				true,
 		);
 		const rewindId = crypto.randomUUID();
 		sendCommand(
@@ -712,7 +732,7 @@ describe("Voice realtime contract", () => {
 			pc,
 			(state) =>
 				state.members.find((member) => member.id === state.selfId)?.canSpeak ===
-				false,
+				true,
 		);
 		const replacement = await connect(ctx.gmToken);
 		const currentToken = await loginToken(ctx.app, "gm", "test-gm-password");

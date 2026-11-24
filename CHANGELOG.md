@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - 新增直接通过 systemd 管理的无 Docker 部署方案：`config/cogm.systemd.toml`（默认 `/opt/cogm/data` 与 `127.0.0.1:15632`）、`deploy/systemd/cogm.service`、`deploy/systemd/cogm.env.example` 与一键部署/更新脚本 `deploy/systemd/deploy.sh`，并同步更新 `docs/release.md` 等部署文档。
 
+### Changed
+
+- 语音不再受团内阶段限制：`canVoiceSpeak` 移除阶段条件，房间开放期间 PC 与获授权 OB 在任何阶段（含演绎时间与强制 CG）都可发言，文字与掷骰等阶段规则不变；同步更新 `docs/product.md` 与单元/契约测试（契约改为验证各阶段与回溯/撤销后均可发言）。
+
 ## [0.2.3] - 2026-11-23
 
 ### Changed

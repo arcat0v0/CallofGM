@@ -111,8 +111,7 @@ export class SessionLifecycle {
 			!muted &&
 			(role === "gm" ||
 				this.session.status === "preparing" ||
-				this.session.phase === "free_discussion" ||
-				this.session.phase === "free_performance")
+				this.session.status === "active")
 		);
 	}
 }

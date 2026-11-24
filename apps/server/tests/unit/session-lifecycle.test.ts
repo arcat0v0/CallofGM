@@ -117,20 +117,17 @@ for (const status of SessionStatus.options) {
 				status === "preparing" || status === "active",
 			);
 			for (const role of voices) {
-				const phaseAllows =
-					role === "gm" ||
-					status === "preparing" ||
-					phase === "free_discussion" ||
-					phase === "free_performance";
+				const statusAllows =
+					role === "gm" || status === "preparing" || status === "active";
 				expect(
 					inPhase.canVoiceSpeak(role, {
 						speakGranted: role !== "ob",
 						muted: false,
 					}),
-				).toBe(phaseAllows && role !== "ob");
+				).toBe(statusAllows && role !== "ob");
 				expect(
 					inPhase.canVoiceSpeak(role, { speakGranted: true, muted: false }),
-				).toBe(phaseAllows);
+				).toBe(statusAllows);
 				expect(
 					inPhase.canVoiceSpeak(role, { speakGranted: false, muted: false }),
 				).toBe(false);
