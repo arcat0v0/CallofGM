@@ -158,6 +158,57 @@ describe("local voice diagnostics", () => {
 		}
 	});
 
+	test("records sampled gaps in inbound RTP as diagnostic events and re-arms when packets arrive", async () => {
+		let time = Date.parse(acceptedAt);
+		let received = 0;
+		const connection = {
+			connectionState: "connected",
+			getStats: async () => cumulative({ received }),
+		};
+		const diagnostics = new VoiceDiagnostics({
+			sessionId,
+			now: () => new Date(time),
+		});
+		const gaps = () =>
+			exported(diagnostics).events.filter(
+				(event: { kind: string }) => event.kind === "inbound-rtp-gap",
+			);
+		const sampleAfter = async (ms: number) => {
+			time += ms;
+			await diagnostics.sampleNow();
+		};
+		diagnostics.setPeerConnection(
+			peerMemberId,
+			connection as unknown as RTCPeerConnection,
+		);
+		diagnostics.setConsent(true);
+		diagnostics.setMembership(roomId, memberId);
+		try {
+			await sampleAfter(0);
+			await sampleAfter(4_999);
+			expect(gaps()).toEqual([]);
+			await sampleAfter(1);
+			expect(gaps()).toEqual([
+				expect.objectContaining({ peerMemberId, state: 5 }),
+			]);
+			await sampleAfter(5_000);
+			expect(gaps()).toHaveLength(1);
+			received += 1;
+			await sampleAfter(5_000);
+			received += 1;
+			await sampleAfter(5_000);
+			expect(gaps()).toHaveLength(1);
+			await sampleAfter(5_000);
+			expect(gaps()).toHaveLength(2);
+			connection.connectionState = "disconnected";
+			await sampleAfter(5_000);
+			connection.connectionState = "connected";
+			await sampleAfter(5_000);
+			expect(gaps()).toHaveLength(2);
+		} finally {
+			diagnostics.close();
+		}
+	});
 	test("exports sanitized peer sample deltas under the member who produced them", async () => {
 		const { diagnostics, getStats } = fixture();
 		try {

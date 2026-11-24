@@ -126,6 +126,8 @@ function createVoiceFixture(
 		controller,
 		joinRoom,
 		setVolume,
+		peer,
+		monitor,
 		emitSpeaking: (ids: string[]) => emitSpeaking?.(ids),
 		emitMicSample: (level: number, detected: boolean) =>
 			emitMicSample?.(level, detected),
@@ -502,6 +504,122 @@ describe("voice audio settings UI", () => {
 		});
 		expect(held.view.getAllByText("麦克风已开启").length).toBeGreaterThan(0);
 		expect(held.view.queryByText("按键说话待命")).toBeNull();
+	});
+
+	test("sends and monitors the active output and lets the panel resume interrupted capture", async () => {
+		const rawTrack = {
+			enabled: true,
+			stop() {},
+			addEventListener() {},
+			getSettings: () => ({ sampleRate: 48_000 }),
+		};
+		const processedTrack = { ...rawTrack };
+		const streamFor = (track: typeof rawTrack) =>
+			({
+				getAudioTracks: () => [track],
+				getTracks: () => [track],
+			}) as unknown as MediaStream;
+		const raw = streamFor(rawTrack);
+		const processed = streamFor(processedTrack);
+		let allowResume = false;
+		let activeContext: CaptureContext | undefined;
+		class CaptureContext extends EventTarget {
+			state = "running";
+			sampleRate = 48_000;
+			createMediaStreamSource = mock(() => ({ connect() {}, disconnect() {} }));
+
+			constructor() {
+				super();
+				activeContext = this;
+			}
+			createMediaStreamDestination() {
+				return { stream: processed, disconnect() {} };
+			}
+			createDynamicsCompressor() {
+				return {
+					connect() {},
+					disconnect() {},
+					threshold: {},
+					knee: {},
+					ratio: {},
+					attack: {},
+					release: {},
+				};
+			}
+			setState(state: string) {
+				this.state = state;
+				this.dispatchEvent(new Event("statechange"));
+			}
+			async resume() {
+				if (allowResume) this.setState("running");
+			}
+			async close() {
+				this.setState("closed");
+			}
+		}
+		const previous = Object.getOwnPropertyDescriptor(
+			globalThis,
+			"AudioContext",
+		);
+		Object.defineProperty(globalThis, "AudioContext", {
+			configurable: true,
+			value: CaptureContext,
+		});
+		const { controller, joinRoom, peer, monitor } = createVoiceFixture(
+			false,
+			async () => raw,
+		);
+		const view = render(<ConnectedVoicePanel voice={controller} />);
+		try {
+			await act(async () => {
+				await controller.updateAudioSettings({
+					deepNoiseSuppression: false,
+					noiseGate: false,
+					compressor: false,
+				});
+				joinRoom();
+				await controller.toggleMic();
+			});
+			const context = activeContext;
+			if (!context) throw new Error("Capture did not create an audio context");
+			const resumeButton = () =>
+				view.queryByRole("button", { name: "恢复麦克风" });
+			expect(peer.setTrack).toHaveBeenLastCalledWith(rawTrack);
+			expect(monitor.setTrack).toHaveBeenLastCalledWith(selfMember.id, raw);
+			expect(context.createMediaStreamSource).not.toHaveBeenCalled();
+			act(() => context.setState("interrupted"));
+			expect(resumeButton()).toBeNull();
+			await act(() => controller.updateAudioSettings({ compressor: true }));
+			expect(peer.setTrack).toHaveBeenLastCalledWith(processedTrack);
+			expect(monitor.setTrack).toHaveBeenLastCalledWith(
+				selfMember.id,
+				processed,
+			);
+			expect(view.getByText("麦克风已暂停，请点按恢复。")).toBeTruthy();
+			const resume = view.getByRole("button", { name: "恢复麦克风" });
+			allowResume = true;
+			await act(async () => fireEvent.click(resume));
+			expect(context.state).toBe("running");
+			expect(resumeButton()).toBeNull();
+			allowResume = false;
+			act(() => context.setState("suspended"));
+			expect(resumeButton()).toBeTruthy();
+			await act(() => controller.updateAudioSettings({ pushToTalk: true }));
+			expect(rawTrack.enabled).toBe(false);
+			expect(processedTrack.enabled).toBe(false);
+			await act(() => controller.updateAudioSettings({ compressor: false }));
+			expect(peer.setTrack).toHaveBeenLastCalledWith(rawTrack);
+			expect(rawTrack.enabled).toBe(false);
+			act(() => controller.setPushToTalkActive(true));
+			expect(rawTrack.enabled).toBe(true);
+			expect(monitor.setTrack).toHaveBeenLastCalledWith(selfMember.id, raw);
+			expect(resumeButton()).toBeNull();
+		} finally {
+			view.unmount();
+			controller.disconnect(false);
+			if (previous) Object.defineProperty(globalThis, "AudioContext", previous);
+			else Reflect.deleteProperty(globalThis, "AudioContext");
+		}
 	});
 
 	test("leave button only exists once the user has joined", () => {

@@ -1066,6 +1066,8 @@ export const zhCN: Record<string, string> = {
 		"麦克风权限未获允许。你仍可收听；如需发言，可在浏览器的站点设置中允许麦克风后重试。",
 	"voice.mic.unavailable":
 		"未能使用麦克风。请检查设备是否连接、是否被占用，以及页面是否安全（HTTPS），然后重试。",
+	"voice.mic.suspended": "麦克风已暂停，请点按恢复。",
+	"voice.mic.resume": "恢复麦克风",
 	"voice.playbackOn": "恢复收听",
 	"voice.playbackOff": "暂停收听",
 	"voice.retryPlayback": "播放语音",
