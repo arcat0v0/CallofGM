@@ -14,6 +14,7 @@ import { AdminRequiredError, AuthRequiredError } from "@/modules/identity";
 import { getServerBuildInfo } from "@/platform/build-info";
 import { validationFailed } from "@/platform/errors/validation";
 import { assertTrustedOrigin } from "@/platform/security/origin";
+import { diceAssetContentType } from "../application/dice-assets";
 
 export function createSiteSettingsRoutes(
 	container: Container,
@@ -41,6 +42,35 @@ export function createSiteSettingsRoutes(
 			return PublicRuntimeConfigDto.parse(
 				container.siteSettings.getPublicRuntimeConfig(),
 			);
+		})
+		.get("/api/v1/dice/*", async ({ params, set }) => {
+			const relPath = params["*"] ?? "";
+			const resolved = container.siteSettings.resolveDiceAsset(relPath);
+			if (!resolved) {
+				set.status = 404;
+				return { code: "NOT_FOUND", message: "Not found" };
+			}
+			if (resolved.kind === "redirect") {
+				return new Response(null, {
+					status: 302,
+					headers: {
+						Location: resolved.url,
+						"Cache-Control": resolved.cacheControl,
+					},
+				});
+			}
+			const file = Bun.file(resolved.filePath);
+			if (!(await file.exists())) {
+				set.status = 404;
+				return { code: "NOT_FOUND", message: "Not found" };
+			}
+			return new Response(file, {
+				headers: {
+					"Content-Type": diceAssetContentType(relPath),
+					"Cache-Control": "public, max-age=86400",
+					"X-Content-Type-Options": "nosniff",
+				},
+			});
 		})
 		.use(container.authPlugin)
 		.get("/api/v1/admin/settings", async ({ actor, set }) => {

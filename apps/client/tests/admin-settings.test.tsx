@@ -175,6 +175,7 @@ describe("AdminSettingsPage", () => {
 							finishedAt: null,
 							media: { total: 0, migrated: 0, skipped: 0, failed: 0 },
 							themes: { total: 0, migrated: 0, skipped: 0, failed: 0 },
+							dice: { total: 0, migrated: 0, skipped: 0, failed: 0 },
 							errors: [],
 						}),
 						{ status: 200, headers: { "content-type": "application/json" } },

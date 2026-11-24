@@ -295,7 +295,7 @@ export type StorageMigrationCountsDto = z.infer<
 >;
 
 export const StorageMigrationErrorItemDto = z.object({
-	kind: z.enum(["media", "theme"]),
+	kind: z.enum(["media", "theme", "dice"]),
 	id: z.string(),
 	name: z.string(),
 	message: z.string(),
@@ -311,6 +311,7 @@ export const StorageMigrationStatusDto = z.object({
 	finishedAt: z.number().int().nullable(),
 	media: StorageMigrationCountsDto,
 	themes: StorageMigrationCountsDto,
+	dice: StorageMigrationCountsDto,
 	errors: z.array(StorageMigrationErrorItemDto),
 });
 export type StorageMigrationStatusDto = z.infer<
@@ -321,5 +322,6 @@ export const PublicRuntimeConfigDto = z.object({
 	storageMode: StorageMode,
 	maxMediaUploadBytes: z.number().int().positive(),
 	maxThemeUploadBytes: z.number().int().positive(),
+	diceAssetBaseUrl: z.string().nullable(),
 });
 export type PublicRuntimeConfigDto = z.infer<typeof PublicRuntimeConfigDto>;

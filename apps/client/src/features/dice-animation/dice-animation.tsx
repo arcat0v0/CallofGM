@@ -15,6 +15,7 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { PaperSheet } from "@/features/chat/paper-sheet";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
+import { useRuntimeConfigStore } from "@/stores/runtime-config-store";
 import {
 	buildDiceAnimationDice,
 	computeDiceGridLayout,
@@ -27,8 +28,10 @@ import {
 	DICE_TUMBLE_MS,
 	type DiceAnimationDie,
 	type DiceAnimationRequest,
-	PRELOAD_DICE_ASSETS,
-	PRELOAD_ORIENTATION_ASSETS,
+	type DiceSkin,
+	getPreloadDiceAssets,
+	getPreloadOrientationAssets,
+	normalizeDiceAssetBaseUrl,
 } from "./model";
 
 type OrientationMap = Record<string, readonly [number, number, number, number]>;
@@ -41,6 +44,7 @@ type CachedModelTemplate = {
 
 type DiceAnimationLayerProps = {
 	request: DiceAnimationRequest | null;
+	assetBaseUrl?: string | null;
 	settled?: boolean;
 	result?: ReactNode;
 	onSettle?: () => void;
@@ -52,7 +56,7 @@ const CAMERA_DIRECTION = new Vector3(0, 0.45, 1).normalize();
 const sharedLoader = new GLTFLoader();
 const modelTemplateCache = new Map<string, Promise<CachedModelTemplate>>();
 const orientationCache = new Map<string, Promise<OrientationMap>>();
-let preloaded = false;
+const preloadedTargets = new Set<string>();
 
 function computeBoundingSphereDiameter(
 	scene: Object3D,
@@ -93,7 +97,10 @@ function computeBoundingSphereDiameter(
 	return Math.max(size.x, size.y, size.z, 0.001);
 }
 
-function loadModelTemplate(asset: string): Promise<CachedModelTemplate> {
+function loadModelTemplate(
+	asset: string,
+	fallbackAsset?: string,
+): Promise<CachedModelTemplate> {
 	const cached = modelTemplateCache.get(asset);
 	if (cached) return cached;
 	const pending = sharedLoader
@@ -107,13 +114,19 @@ function loadModelTemplate(asset: string): Promise<CachedModelTemplate> {
 		})
 		.catch((error) => {
 			modelTemplateCache.delete(asset);
+			if (fallbackAsset && fallbackAsset !== asset) {
+				return loadModelTemplate(fallbackAsset);
+			}
 			throw error;
 		});
 	modelTemplateCache.set(asset, pending);
 	return pending;
 }
 
-function loadOrientationMap(url: string): Promise<OrientationMap> {
+function loadOrientationMap(
+	url: string,
+	fallbackUrl?: string,
+): Promise<OrientationMap> {
 	const cached = orientationCache.get(url);
 	if (cached) return cached;
 	const pending = fetch(url)
@@ -125,27 +138,41 @@ function loadOrientationMap(url: string): Promise<OrientationMap> {
 		})
 		.catch(() => {
 			orientationCache.delete(url);
+			if (fallbackUrl && fallbackUrl !== url) {
+				return loadOrientationMap(fallbackUrl);
+			}
 			return {} as OrientationMap;
 		});
 	orientationCache.set(url, pending);
 	return pending;
 }
 
-function preloadDiceAssets(): void {
-	if (preloaded || typeof window === "undefined") return;
+function preloadDiceAssets(skin?: DiceSkin): void {
+	if (typeof window === "undefined") return;
 	if (
 		typeof window.location?.origin !== "string" ||
 		window.location.origin === "null"
 	) {
 		return;
 	}
-	preloaded = true;
-	for (const asset of PRELOAD_DICE_ASSETS) {
-		void loadModelTemplate(asset).catch(() => undefined);
+	const baseUrl = useRuntimeConfigStore.getState().diceAssetBaseUrl;
+	const targetKey = `${normalizeDiceAssetBaseUrl(baseUrl)}:${skin ?? "all"}`;
+	if (preloadedTargets.has(targetKey)) {
+		return;
 	}
-	for (const url of PRELOAD_ORIENTATION_ASSETS) {
-		void loadOrientationMap(url).catch(() => undefined);
-	}
+	preloadedTargets.add(targetKey);
+	const models = getPreloadDiceAssets(baseUrl, skin);
+	const fallbackModels = getPreloadDiceAssets(null, skin);
+	models.forEach((asset, index) => {
+		void loadModelTemplate(asset, fallbackModels[index]).catch(() => undefined);
+	});
+	const orientations = getPreloadOrientationAssets(baseUrl);
+	const fallbackOrientations = getPreloadOrientationAssets(null);
+	orientations.forEach((url, index) => {
+		void loadOrientationMap(url, fallbackOrientations[index]).catch(
+			() => undefined,
+		);
+	});
 }
 
 function randomQuaternion(): Quaternion {
@@ -190,12 +217,14 @@ function targetQuaternion(
 
 function DiceAnimationStage({
 	request,
+	assetBaseUrl,
 	settled = false,
 	result,
 	onSettle,
 	onComplete,
 }: {
 	request: DiceAnimationRequest;
+	assetBaseUrl?: string | null;
 	settled?: boolean;
 	result?: ReactNode;
 	onSettle?: () => void;
@@ -205,6 +234,8 @@ function DiceAnimationStage({
 	const cardRef = useRef<HTMLDivElement>(null);
 	const diceRef = useRef<HTMLDivElement>(null);
 	const resultRef = useRef<HTMLDivElement>(null);
+	const assetBaseUrlRef = useRef(assetBaseUrl);
+	assetBaseUrlRef.current = assetBaseUrl;
 	const onSettleRef = useRef(onSettle);
 	onSettleRef.current = onSettle;
 	const onCompleteRef = useRef(onComplete);
@@ -214,7 +245,11 @@ function DiceAnimationStage({
 		const host = hostRef.current;
 		if (!host) return;
 		const animationId = request.id;
-		const dice = buildDiceAnimationDice(request);
+		const resolvedBaseUrl =
+			assetBaseUrlRef.current ??
+			useRuntimeConfigStore.getState().diceAssetBaseUrl;
+		const dice = buildDiceAnimationDice(request, resolvedBaseUrl);
+		const fallbackDice = buildDiceAnimationDice(request);
 		if (dice.length === 0) {
 			onCompleteRef.current?.(animationId);
 			return;
@@ -303,10 +338,14 @@ function DiceAnimationStage({
 
 		void Promise.all(
 			dice.map(async (die, index) => {
+				const fallbackDie = fallbackDice[index];
 				const [template, map] = await Promise.all([
-					loadModelTemplate(die.asset),
+					loadModelTemplate(die.asset, fallbackDie?.asset),
 					die.orientationHint
-						? loadOrientationMap(die.orientationHint)
+						? loadOrientationMap(
+								die.orientationHint,
+								fallbackDie?.orientationHint,
+							)
 						: Promise.resolve(undefined),
 				]);
 				if (disposed) return null;
@@ -479,6 +518,7 @@ function DiceAnimationStage({
 
 function DiceAnimationLayer({
 	request,
+	assetBaseUrl,
 	settled,
 	result,
 	onSettle,
@@ -489,6 +529,7 @@ function DiceAnimationLayer({
 		<DiceAnimationStage
 			key={request.id}
 			request={request}
+			assetBaseUrl={assetBaseUrl}
 			settled={settled}
 			result={result}
 			onSettle={onSettle}

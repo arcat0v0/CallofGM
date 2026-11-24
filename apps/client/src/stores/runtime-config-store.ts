@@ -13,6 +13,7 @@ interface RuntimeConfigState {
 	storageMode: StorageMode;
 	maxMediaUploadBytes: number;
 	maxThemeUploadBytes: number;
+	diceAssetBaseUrl: string | null;
 	loaded: boolean;
 	load: (force?: boolean) => Promise<void>;
 	apply: (config: Partial<PublicRuntimeConfigDto>) => void;
@@ -24,6 +25,7 @@ export const useRuntimeConfigStore = create<RuntimeConfigState>((set, get) => ({
 	storageMode: "local",
 	maxMediaUploadBytes: MAX_MEDIA_UPLOAD_BYTES,
 	maxThemeUploadBytes: DEFAULT_MAX_THEME_BYTES,
+	diceAssetBaseUrl: null,
 	loaded: false,
 	apply: (config) =>
 		set((prev) => ({
@@ -32,6 +34,10 @@ export const useRuntimeConfigStore = create<RuntimeConfigState>((set, get) => ({
 				config.maxMediaUploadBytes ?? prev.maxMediaUploadBytes,
 			maxThemeUploadBytes:
 				config.maxThemeUploadBytes ?? prev.maxThemeUploadBytes,
+			diceAssetBaseUrl:
+				config.diceAssetBaseUrl !== undefined
+					? config.diceAssetBaseUrl
+					: prev.diceAssetBaseUrl,
 			loaded: true,
 		})),
 	load: async (force = false) => {
@@ -50,6 +56,7 @@ export const useRuntimeConfigStore = create<RuntimeConfigState>((set, get) => ({
 						storageMode: data.storageMode,
 						maxMediaUploadBytes: data.maxMediaUploadBytes,
 						maxThemeUploadBytes: data.maxThemeUploadBytes,
+						diceAssetBaseUrl: data.diceAssetBaseUrl ?? null,
 						loaded: true,
 					});
 				}

@@ -1,4 +1,5 @@
 import type { DiceSkin } from "@cogm/shared";
+import { normalizeDiceAssetBaseUrl } from "@/features/dice-animation/model";
 
 export type DiceSkinOption = {
 	id: DiceSkin;
@@ -18,10 +19,15 @@ export const DICE_SKIN_OPTIONS: readonly DiceSkinOption[] = (
 	fallbackKey: `diceSkin.${id}.fallback`,
 }));
 
-export function diceSkinPreviewUrl(skin: DiceSkin): string {
-	return (
-		DICE_SKIN_OPTIONS.find((option) => option.id === skin)?.preview ??
-		DICE_SKIN_OPTIONS[0]?.preview ??
-		""
-	);
+export function diceSkinPreviewUrl(
+	skin: DiceSkin,
+	baseUrl?: string | null,
+): string {
+	const resolvedBase = normalizeDiceAssetBaseUrl(baseUrl);
+	const option =
+		DICE_SKIN_OPTIONS.find((item) => item.id === skin) ?? DICE_SKIN_OPTIONS[0];
+	if (!option) {
+		return "";
+	}
+	return `${resolvedBase}/previews/${option.id}-d20.webp`;
 }

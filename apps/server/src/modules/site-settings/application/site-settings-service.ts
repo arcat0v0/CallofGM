@@ -40,6 +40,10 @@ import {
 	StorageProbeNotFoundError,
 	VoiceConfigInvalidError,
 } from "../domain/errors";
+import {
+	isAllowedDiceAssetPath,
+	resolveLocalDiceAssetsDir,
+} from "./dice-assets";
 import type { SiteSettingsRepository, UiThemeSettingsPort } from "./ports";
 
 export interface EffectiveVoiceConfig {
@@ -114,6 +118,19 @@ interface StoredSecurityPayload {
 	rateLimits: SiteRateLimits;
 }
 
+export interface StoredDiceAssetsPayload {
+	bucket: string;
+	keyPrefix: string;
+	storagePrefix: string;
+	digest: string;
+	files: string[];
+	migratedAt: number;
+}
+
+export type ResolvedDiceAsset =
+	| { kind: "redirect"; url: string; cacheControl: string }
+	| { kind: "local"; filePath: string };
+
 interface BrowserProbeEntry {
 	client: S3CompatibleClient;
 	key: string;
@@ -167,6 +184,7 @@ export class SiteSettingsService {
 	private storage: EffectiveStorageConfig;
 	private voice: EffectiveVoiceConfig;
 	private security: EffectiveSecurityConfig;
+	private diceAssets: StoredDiceAssetsPayload | null = null;
 	private s3Client: S3CompatibleClient | null = null;
 	private overriddenSections = new Set<SiteSettingsSection>();
 	private updatedAt: number | null = null;
@@ -266,6 +284,7 @@ export class SiteSettingsService {
 		this.storage = this.defaultStorageConfig();
 		this.voice = this.defaultVoiceConfig();
 		this.security = this.defaultSecurityConfig();
+		this.diceAssets = null;
 		this.overriddenSections.clear();
 		this.updatedAt = null;
 
@@ -375,6 +394,28 @@ export class SiteSettingsService {
 						: cloneRateLimits(this.baseRateLimits),
 				};
 				this.overriddenSections.add("security");
+			} else if (
+				row.section === "dice_assets" &&
+				parsed &&
+				typeof parsed === "object"
+			) {
+				const raw = parsed as Partial<StoredDiceAssetsPayload>;
+				if (
+					typeof raw.bucket === "string" &&
+					typeof raw.storagePrefix === "string" &&
+					typeof raw.digest === "string" &&
+					Array.isArray(raw.files)
+				) {
+					this.diceAssets = {
+						bucket: raw.bucket,
+						keyPrefix: normalizeKeyPrefix(raw.keyPrefix ?? ""),
+						storagePrefix: raw.storagePrefix,
+						digest: raw.digest,
+						files: raw.files.filter((f): f is string => typeof f === "string"),
+						migratedAt:
+							typeof raw.migratedAt === "number" ? raw.migratedAt : row.updatedAt,
+					};
+				}
 			}
 		}
 
@@ -405,11 +446,100 @@ export class SiteSettingsService {
 		return this.s3Client;
 	}
 
+	getDiceAssetsState(): StoredDiceAssetsPayload | null {
+		return this.diceAssets
+			? {
+					...this.diceAssets,
+					files: [...this.diceAssets.files],
+				}
+			: null;
+	}
+
+	async markDiceAssetsMigratedToS3(
+		state: StoredDiceAssetsPayload,
+	): Promise<void> {
+		const normalized: StoredDiceAssetsPayload = {
+			...state,
+			keyPrefix: normalizeKeyPrefix(state.keyPrefix),
+			files: [...state.files],
+		};
+		await this.repo.upsert(
+			"dice_assets",
+			JSON.stringify(normalized),
+			normalized.migratedAt,
+		);
+		this.diceAssets = normalized;
+	}
+
+	isDiceAssetsOnCurrentS3(): boolean {
+		return Boolean(
+			this.storage.mode === "s3" &&
+				this.s3Client &&
+				this.diceAssets &&
+				this.diceAssets.bucket === this.storage.s3.bucket &&
+				this.diceAssets.keyPrefix === this.storage.s3.keyPrefix,
+		);
+	}
+
+	getDiceAssetBaseUrl(): string | null {
+		if (!this.isDiceAssetsOnCurrentS3() || !this.s3Client || !this.diceAssets) {
+			return null;
+		}
+		if (this.storage.s3.accessMode === "private") {
+			return "/api/v1/dice";
+		}
+		return this.s3Client
+			.buildPublicPrefixUrl(this.diceAssets.storagePrefix)
+			.replace(/\/+$/, "");
+	}
+
+	resolveDiceAsset(
+		relativePath: string,
+		localDiceDir: string | null = resolveLocalDiceAssetsDir(),
+	): ResolvedDiceAsset | null {
+		const cleaned = relativePath.replace(/^\/+/, "");
+		if (!isAllowedDiceAssetPath(cleaned)) {
+			return null;
+		}
+		if (this.isDiceAssetsOnCurrentS3() && this.s3Client && this.diceAssets) {
+			if (
+				this.diceAssets.files.length > 0 &&
+				!this.diceAssets.files.includes(cleaned)
+			) {
+				return null;
+			}
+			const key = joinObjectKey(this.diceAssets.storagePrefix, cleaned);
+			if (this.storage.s3.accessMode === "private") {
+				return {
+					kind: "redirect",
+					url: this.s3Client.presignGetUrl(key, {
+						expiresInSeconds: this.storage.s3.signedUrlTtlSeconds,
+						useCustomDownloadDomain: true,
+					}),
+					cacheControl: "private, no-store",
+				};
+			}
+			return {
+				kind: "redirect",
+				url: this.s3Client.buildPublicUrl(key),
+				cacheControl: "public, max-age=31536000, immutable",
+			};
+		}
+		if (localDiceDir) {
+			return {
+				kind: "local",
+				filePath: `${localDiceDir}/${cleaned}`,
+			};
+		}
+		return null;
+	}
+
 	getPublicRuntimeConfig(): PublicRuntimeConfigDto {
 		return {
 			storageMode: this.storage.mode,
 			maxMediaUploadBytes: this.storage.maxMediaUploadBytes,
 			maxThemeUploadBytes: this.storage.maxThemeUploadBytes,
+			diceAssetBaseUrl: this.getDiceAssetBaseUrl(),
 		};
 	}
 

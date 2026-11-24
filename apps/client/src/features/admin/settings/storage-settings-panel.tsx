@@ -43,6 +43,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { t } from "@/i18n";
 import { errorText } from "@/lib/errors";
+import { useRuntimeConfigStore } from "@/stores/runtime-config-store";
 import { SettingsActionBar } from "./settings-action-bar";
 import {
 	fetchStorageMigrationStatus,
@@ -286,7 +287,12 @@ export function StorageSettingsPanel({
 		}
 		const timer = setInterval(() => {
 			void fetchStorageMigrationStatus()
-				.then((status) => setMigration(status))
+				.then((status) => {
+					setMigration(status);
+					if (status.status === "completed") {
+						void useRuntimeConfigStore.getState().load(true);
+					}
+				})
 				.catch(() => undefined);
 		}, 1500);
 		return () => clearInterval(timer);
@@ -464,6 +470,9 @@ export function StorageSettingsPanel({
 		try {
 			const status = await startStorageMigration();
 			setMigration(status);
+			if (status.status === "completed") {
+				void useRuntimeConfigStore.getState().load(true);
+			}
 			toast.success(t("admin.settings.storage.migrateStarted"));
 		} catch (error) {
 			toast.error(errorText(error, "admin.settings.storage.migrateFailed"));
@@ -474,19 +483,30 @@ export function StorageSettingsPanel({
 
 	async function handleRefreshMigration() {
 		try {
-			setMigration(await fetchStorageMigrationStatus());
+			const status = await fetchStorageMigrationStatus();
+			setMigration(status);
+			if (status.status === "completed") {
+				void useRuntimeConfigStore.getState().load(true);
+			}
 		} catch (error) {
 			toast.error(errorText(error, "admin.settings.loadFailed"));
 		}
 	}
 
 	const migrationTotal =
-		(migration?.media.total ?? 0) + (migration?.themes.total ?? 0);
+		(migration?.media.total ?? 0) +
+		(migration?.themes.total ?? 0) +
+		(migration?.dice?.total ?? 0);
 	const migrationDone =
 		(migration?.media.migrated ?? 0) +
+		(migration?.media.skipped ?? 0) +
 		(migration?.media.failed ?? 0) +
 		(migration?.themes.migrated ?? 0) +
-		(migration?.themes.failed ?? 0);
+		(migration?.themes.skipped ?? 0) +
+		(migration?.themes.failed ?? 0) +
+		(migration?.dice?.migrated ?? 0) +
+		(migration?.dice?.skipped ?? 0) +
+		(migration?.dice?.failed ?? 0);
 	const migrationPercent =
 		migrationTotal > 0 ? Math.round((migrationDone / migrationTotal) * 100) : 0;
 
@@ -1150,6 +1170,16 @@ export function StorageSettingsPanel({
 									failed: migration.themes.failed,
 								})}
 							</span>
+							{migration.dice ? (
+								<span>
+									{t("admin.settings.storage.migrateDice", {
+										migrated: migration.dice.migrated,
+										skipped: migration.dice.skipped,
+										total: migration.dice.total,
+										failed: migration.dice.failed,
+									})}
+								</span>
+							) : null}
 						</div>
 						{migration.errors.length > 0 ? (
 							<ul className="text-danger flex max-h-40 flex-col gap-1 overflow-y-auto text-body-small">

@@ -1,3 +1,9 @@
+export {
+	DICE_ASSET_PATHS,
+	diceAssetContentType,
+	isAllowedDiceAssetPath,
+	resolveLocalDiceAssetsDir,
+} from "./application/dice-assets";
 export type {
 	LocalMediaMigrationItem,
 	MediaMigrationRepository,
@@ -12,7 +18,9 @@ export {
 	type EffectiveSecurityConfig,
 	type EffectiveStorageConfig,
 	type EffectiveVoiceConfig,
+	type ResolvedDiceAsset,
 	SiteSettingsService,
+	type StoredDiceAssetsPayload,
 } from "./application/site-settings-service";
 export { StorageMigrationService } from "./application/storage-migration-service";
 export * from "./domain/errors";

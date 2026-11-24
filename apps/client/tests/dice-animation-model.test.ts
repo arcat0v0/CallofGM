@@ -3,9 +3,12 @@ import {
 	buildDiceAnimationDice,
 	computeDiceGridLayout,
 	d100Digits,
+	getPreloadDiceAssets,
+	getPreloadOrientationAssets,
 	normalizeRollValue,
 	parseDiceFaces,
 } from "@/features/dice-animation/model";
+import { diceSkinPreviewUrl } from "@/features/dice-skin/dice-skin-preview";
 
 describe("dice animation model", () => {
 	test("splits authoritative d100 results into two dice", () => {
@@ -161,5 +164,45 @@ describe("dice animation model", () => {
 	test("keeps non-percentile values unchanged", () => {
 		expect(normalizeRollValue(20, 20)).toBe(20);
 		expect(normalizeRollValue(100, 100)).toBe(0);
+	});
+
+	test("resolves dice models, orientations, preloads, and previews against an OSS baseUrl", () => {
+		const ossBase = "https://cdn.example.com/cogm/dice/";
+		const dice = buildDiceAnimationDice(
+			{
+				id: "roll-oss",
+				eventId: 200,
+				kind: "roll",
+				faces: 20,
+				total: 17,
+				rolls: [17],
+				skin: "bone",
+				label: "1d20 = 17",
+			},
+			ossBase,
+		);
+		expect(dice).toEqual([
+			{
+				asset: "https://cdn.example.com/cogm/dice/bone/d20.gltf",
+				value: "17",
+				orientationHint:
+					"https://cdn.example.com/cogm/dice/orientations/d20.json",
+			},
+		]);
+		expect(getPreloadDiceAssets(ossBase, "bone")).toEqual([
+			"https://cdn.example.com/cogm/dice/bone/d4.gltf",
+			"https://cdn.example.com/cogm/dice/bone/d6.gltf",
+			"https://cdn.example.com/cogm/dice/bone/d8.gltf",
+			"https://cdn.example.com/cogm/dice/bone/d10.gltf",
+			"https://cdn.example.com/cogm/dice/bone/d100-tens.gltf",
+			"https://cdn.example.com/cogm/dice/bone/d12.gltf",
+			"https://cdn.example.com/cogm/dice/bone/d20.gltf",
+		]);
+		expect(getPreloadOrientationAssets(ossBase)).toContain(
+			"https://cdn.example.com/cogm/dice/orientations/d100-tens.json",
+		);
+		expect(diceSkinPreviewUrl("olive", ossBase)).toBe(
+			"https://cdn.example.com/cogm/dice/previews/olive-d20.webp",
+		);
 	});
 });

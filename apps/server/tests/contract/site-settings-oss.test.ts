@@ -524,6 +524,7 @@ describe("Site Settings & OSS S3 integration contract tests", () => {
 			storageMode: "s3",
 			maxMediaUploadBytes: 20 * 1024 * 1024,
 			maxThemeUploadBytes: 30 * 1024 * 1024,
+			diceAssetBaseUrl: null,
 		});
 
 		// Old local media still serves 200 directly from local disk
@@ -755,6 +756,93 @@ describe("Site Settings & OSS S3 integration contract tests", () => {
 		expect(finalStatus.media.failed).toBe(0);
 		expect(finalStatus.themes.migrated).toBe(1);
 		expect(finalStatus.themes.failed).toBe(0);
+		expect(finalStatus.dice).toEqual({
+			total: 23,
+			migrated: 23,
+			skipped: 0,
+			failed: 0,
+		});
+		expect(mockS3.store.has("site-a/dice/olive/d4.gltf")).toBe(true);
+		expect(mockS3.store.has("site-a/dice/bone/d20.gltf")).toBe(true);
+		expect(mockS3.store.has("site-a/dice/orientations/d100-tens.json")).toBe(
+			true,
+		);
+		expect(mockS3.store.has("site-a/dice/previews/olive-d20.webp")).toBe(true);
+
+		// Private mode exposes /api/v1/dice and 302-redirects to presigned URL
+		const privateDiceRuntime = (await (
+			await ctx.app.handle(
+				new Request("http://localhost/api/v1/public/runtime-config"),
+			)
+		).json()) as { diceAssetBaseUrl: string | null };
+		expect(privateDiceRuntime.diceAssetBaseUrl).toBe("/api/v1/dice");
+
+		const privateDiceRedirect = await ctx.app.handle(
+			new Request("http://localhost/api/v1/dice/olive/d4.gltf"),
+		);
+		expect(privateDiceRedirect.status).toBe(302);
+		expect(privateDiceRedirect.headers.get("cache-control")).toBe(
+			"private, no-store",
+		);
+		expect(privateDiceRedirect.headers.get("location")).toContain(
+			"X-Amz-Signature=",
+		);
+
+		const invalidDiceRes = await ctx.app.handle(
+			new Request("http://localhost/api/v1/dice/README.md"),
+		);
+		expect(invalidDiceRes.status).toBe(404);
+
+		// Switching back to public mode exposes custom downloadBaseUrl directly and re-migration skips unchanged dice
+		await ctx.app.handle(
+			new Request("http://localhost/api/v1/admin/settings", {
+				method: "PUT",
+				headers: adminHeaders(),
+				body: JSON.stringify({
+					storage: {
+						mode: "s3",
+						maxMediaUploadMb: 20,
+						maxThemeUploadMb: 30,
+						s3: {
+							endpoint: mockS3.endpoint,
+							publicUploadEndpoint: mockS3.endpoint,
+							region: "us-east-1",
+							bucket: "cogm-test",
+							forcePathStyle: true,
+							keyPrefix: "site-a",
+							accessKeyId: "test-ak",
+							downloadBaseUrl: mockS3.downloadBaseUrl,
+							accessMode: "public",
+							signedUrlTtlSeconds: 180,
+						},
+					},
+				}),
+			}),
+		);
+		const publicDiceRuntime = (await (
+			await ctx.app.handle(
+				new Request("http://localhost/api/v1/public/runtime-config"),
+			)
+		).json()) as { diceAssetBaseUrl: string | null };
+		expect(publicDiceRuntime.diceAssetBaseUrl).toBe(
+			`${mockS3.downloadBaseUrl}/site-a/dice`,
+		);
+
+		await ctx.app.handle(
+			new Request("http://localhost/api/v1/admin/settings/storage/migrate", {
+				method: "POST",
+				headers: adminHeaders(),
+			}),
+		);
+		const secondMigrateStatus =
+			await ctx.container.storageMigration.waitForCompletion();
+		expect(secondMigrateStatus.status).toBe("completed");
+		expect(secondMigrateStatus.dice).toEqual({
+			total: 23,
+			migrated: 0,
+			skipped: 23,
+			failed: 0,
+		});
 
 		const polledStatus = (await (
 			await ctx.app.handle(
@@ -835,6 +923,8 @@ describe("Site Settings & OSS S3 integration contract tests", () => {
 			await c1.themeRegistry.install(
 				buildThemeArchive("arcat.persisted", "1.0.0"),
 			);
+			await c1.storageMigration.startMigration();
+			await c1.storageMigration.waitForCompletion();
 		} finally {
 			c1.startupService.stop();
 			c1.dbContext.sqlite.close();
@@ -859,9 +949,10 @@ describe("Site Settings & OSS S3 integration contract tests", () => {
 				new Request("http://localhost/api/v1/public/runtime-config"),
 			);
 			expect(res.status).toBe(200);
-			expect(((await res.json()) as { storageMode: string }).storageMode).toBe(
-				"s3",
-			);
+			expect((await res.json()) as { storageMode: string; diceAssetBaseUrl: string | null }).toMatchObject({
+				storageMode: "s3",
+				diceAssetBaseUrl: `${mockS3.downloadBaseUrl}/r1/dice`,
+			});
 		} finally {
 			c2.startupService.stop();
 			c2.dbContext.sqlite.close();

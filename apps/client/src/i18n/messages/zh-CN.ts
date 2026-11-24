@@ -938,7 +938,7 @@ export const zhCN: Record<string, string> = {
 
 	"admin.settings.storage.migrateTitle": "历史本地资产一键迁移到 OSS",
 	"admin.settings.storage.migrateDescription":
-		"将尚未迁移的本地媒体与本地已安装主题同步上传到当前已保存的 OSS 配置。迁移过程不会删除本地源文件，可重复执行",
+		"将尚未迁移的本地媒体、本地已安装主题及内置 3D 骰子资产同步上传到当前已保存的 OSS 配置。迁移过程不会删除本地源文件，可重复执行",
 	"admin.settings.storage.migrateStart": "开始迁移到 OSS",
 	"admin.settings.storage.migrateRunning": "迁移进行中…",
 	"admin.settings.storage.migrateRefresh": "刷新进度",
@@ -950,6 +950,8 @@ export const zhCN: Record<string, string> = {
 		"媒体资产：{migrated} / {total} 已迁移，失败 {failed}",
 	"admin.settings.storage.migrateThemes":
 		"主题包：{migrated} / {total} 已迁移，失败 {failed}",
+	"admin.settings.storage.migrateDice":
+		"3D 骰子资产：{migrated} / {total} 已迁移（跳过 {skipped}），失败 {failed}",
 	"admin.settings.storage.migrateStarted": "已启动后台迁移任务",
 	"admin.settings.storage.migrateFailed": "启动迁移任务失败",
 

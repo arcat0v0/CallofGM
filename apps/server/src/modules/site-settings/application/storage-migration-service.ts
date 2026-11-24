@@ -8,8 +8,14 @@ import type { Clock } from "@/platform/ports";
 import {
 	extensionForMimeType,
 	joinObjectKey,
+	normalizeKeyPrefix,
 } from "@/platform/storage/s3-client";
 import { MigrationAlreadyRunningError } from "../domain/errors";
+import {
+	diceAssetContentType,
+	readLocalDiceAssets,
+	resolveLocalDiceAssetsDir,
+} from "./dice-assets";
 import type { MediaMigrationRepository, ThemeMigrationPort } from "./ports";
 import type { SiteSettingsService } from "./site-settings-service";
 
@@ -23,9 +29,11 @@ export class StorageMigrationService {
 		finishedAt: null,
 		media: { total: 0, migrated: 0, skipped: 0, failed: 0 },
 		themes: { total: 0, migrated: 0, skipped: 0, failed: 0 },
+		dice: { total: 0, migrated: 0, skipped: 0, failed: 0 },
 		errors: [],
 	};
 	private runningPromise: Promise<void> | null = null;
+	private readonly diceAssetsDir: string | null;
 
 	constructor(
 		private readonly siteSettings: SiteSettingsService,
@@ -33,13 +41,18 @@ export class StorageMigrationService {
 		private readonly mediaMigrationRepo: MediaMigrationRepository,
 		private readonly themeMigrationPort: ThemeMigrationPort,
 		private readonly clock: Clock,
-	) {}
+		diceAssetsDir?: string | null,
+	) {
+		this.diceAssetsDir =
+			diceAssetsDir === undefined ? resolveLocalDiceAssetsDir() : diceAssetsDir;
+	}
 
 	getStatus(): StorageMigrationStatusDto {
 		return {
 			...this.state,
 			media: { ...this.state.media },
 			themes: { ...this.state.themes },
+			dice: { ...this.state.dice },
 			errors: [...this.state.errors],
 		};
 	}
@@ -58,6 +71,7 @@ export class StorageMigrationService {
 			finishedAt: null,
 			media: { total: 0, migrated: 0, skipped: 0, failed: 0 },
 			themes: { total: 0, migrated: 0, skipped: 0, failed: 0 },
+			dice: { total: 0, migrated: 0, skipped: 0, failed: 0 },
 			errors: [],
 		};
 
@@ -118,8 +132,59 @@ export class StorageMigrationService {
 					});
 				}
 
+				if (this.diceAssetsDir) {
+					const { entries, digest } = await readLocalDiceAssets(
+						this.diceAssetsDir,
+					);
+					this.state.dice.total = entries.length;
+					const normalizedPrefix = normalizeKeyPrefix(s3Config.keyPrefix);
+					const existingDice = this.siteSettings.getDiceAssetsState();
+					if (
+						entries.length > 0 &&
+						existingDice &&
+						existingDice.bucket === s3Config.bucket &&
+						existingDice.keyPrefix === normalizedPrefix &&
+						existingDice.digest === digest
+					) {
+						this.state.dice.skipped = entries.length;
+					} else if (entries.length > 0) {
+						const dicePrefix = joinObjectKey(s3Config.keyPrefix, "dice");
+						for (const entry of entries) {
+							try {
+								const objectKey = joinObjectKey(dicePrefix, entry.relPath);
+								await client.putObject(objectKey, entry.data, {
+									contentType: diceAssetContentType(entry.relPath),
+									cacheControl: "public, max-age=31536000, immutable",
+								});
+								this.state.dice.migrated += 1;
+							} catch (error) {
+								this.state.dice.failed += 1;
+								this.pushError({
+									kind: "dice",
+									id: entry.relPath,
+									name: entry.relPath,
+									message:
+										error instanceof Error ? error.message : String(error),
+								});
+							}
+						}
+						if (this.state.dice.failed === 0) {
+							await this.siteSettings.markDiceAssetsMigratedToS3({
+								bucket: s3Config.bucket,
+								keyPrefix: normalizedPrefix,
+								storagePrefix: dicePrefix,
+								digest,
+								files: entries.map((entry) => entry.relPath),
+								migratedAt: this.clock.nowEpochMs(),
+							});
+						}
+					}
+				}
+
 				const totalFailed =
-					this.state.media.failed + this.state.themes.failed;
+					this.state.media.failed +
+					this.state.themes.failed +
+					this.state.dice.failed;
 				this.state.status = totalFailed > 0 ? "failed" : "completed";
 				this.state.finishedAt = this.clock.nowEpochMs();
 				logger.audit("admin.storage.migration.finished", {
@@ -127,6 +192,7 @@ export class StorageMigrationService {
 					status: this.state.status,
 					media: this.state.media,
 					themes: this.state.themes,
+					dice: this.state.dice,
 				});
 			} catch (error) {
 				this.state.status = "failed";

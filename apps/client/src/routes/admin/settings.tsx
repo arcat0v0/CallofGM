@@ -105,6 +105,7 @@ function AdminSettingsPage() {
 			maxMediaUploadBytes: next.storage.maxMediaUploadMb * 1024 * 1024,
 			maxThemeUploadBytes: next.storage.maxThemeUploadMb * 1024 * 1024,
 		});
+		void useRuntimeConfigStore.getState().load(true);
 	}, []);
 
 	const reload = useCallback(async () => {

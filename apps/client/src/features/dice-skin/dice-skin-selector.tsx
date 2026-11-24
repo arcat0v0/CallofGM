@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
 	DICE_SKIN_OPTIONS,
 	type DiceSkinOption,
+	diceSkinPreviewUrl,
 } from "@/features/dice-skin/dice-skin-preview";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
+import { useRuntimeConfigStore } from "@/stores/runtime-config-store";
 
 type DiceSkinSelectorProps = {
 	value: "olive" | "bone";
@@ -15,16 +17,29 @@ type DiceSkinSelectorProps = {
 
 function DiceSkinOptionCard({
 	option,
+	assetBaseUrl,
 	selected,
 	disabled,
 	onSelect,
 }: {
 	option: DiceSkinOption;
+	assetBaseUrl: string | null;
 	selected: boolean;
 	disabled?: boolean;
 	onSelect: () => void;
 }) {
 	const [previewFailed, setPreviewFailed] = useState(false);
+	const [useLocalFallback, setUseLocalFallback] = useState(false);
+	useEffect(() => {
+		setPreviewFailed(false);
+		setUseLocalFallback(false);
+	}, [assetBaseUrl]);
+	const primaryUrl = useLocalFallback
+		? option.preview
+		: diceSkinPreviewUrl(option.id, assetBaseUrl);
+	const fallbackOliveUrl = useLocalFallback
+		? "/dice/previews/olive-d20.webp"
+		: diceSkinPreviewUrl("olive", assetBaseUrl);
 	return (
 		<label
 			aria-label={t(option.labelKey)}
@@ -45,11 +60,15 @@ function DiceSkinOptionCard({
 				className="sr-only"
 			/>
 			<img
-				src={previewFailed ? DICE_SKIN_OPTIONS[0]?.preview : option.preview}
+				src={previewFailed ? fallbackOliveUrl : primaryUrl}
 				alt=""
 				aria-hidden="true"
 				className="aspect-[16/9] w-full bg-md-surface-container-low object-cover"
 				onError={(event) => {
+					if (!useLocalFallback && assetBaseUrl) {
+						setUseLocalFallback(true);
+						return;
+					}
 					if (!previewFailed && option.id !== "olive") {
 						event.currentTarget.src = "/dice/previews/olive-d20.webp";
 					}
@@ -84,6 +103,9 @@ function DiceSkinSelector({
 	className,
 	disabled,
 }: DiceSkinSelectorProps) {
+	const diceAssetBaseUrl = useRuntimeConfigStore(
+		(state) => state.diceAssetBaseUrl,
+	);
 	return (
 		<fieldset className={cn("grid gap-2.5 sm:grid-cols-2", className)}>
 			<legend className="sr-only">{t("diceSkin.selectorLabel")}</legend>
@@ -91,6 +113,7 @@ function DiceSkinSelector({
 				<DiceSkinOptionCard
 					key={option.id}
 					option={option}
+					assetBaseUrl={diceAssetBaseUrl}
 					selected={option.id === value}
 					disabled={disabled}
 					onSelect={() => onValueChange(option.id)}
