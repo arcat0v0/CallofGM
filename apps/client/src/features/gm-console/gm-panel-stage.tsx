@@ -774,6 +774,7 @@ function AudioMiniCard() {
 				</Button>
 			</div>
 			<Slider
+				size="sm"
 				wavy
 				value={[displayPosition]}
 				min={0}
@@ -781,10 +782,7 @@ function AudioMiniCard() {
 				playing={Boolean(bgm?.playing)}
 				disabled={durationMs <= 0}
 				aria-label={t("gm.console.progressAria")}
-				className={cn(
-					durationMs <= 0 && "opacity-40",
-					"min-h-7! [&_[data-slot=slider-track]]:bg-md-outline-variant! [&_[data-slot=slider-thumb]]:h-6! [&_[data-slot=slider-thumb]]:w-1!",
-				)}
+				className={cn(durationMs <= 0 && "opacity-40", "min-h-7!")}
 				onValueChange={(value) => setSeekDraft(value[0] ?? 0)}
 				onValueCommit={(value) => seek(value[0] ?? 0)}
 			/>

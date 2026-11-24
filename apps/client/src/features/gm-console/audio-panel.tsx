@@ -327,6 +327,7 @@ function AudioPanel({ onClose }: { onClose: () => void }) {
 								{formatDurationMmSs(displayPosition)}
 							</span>
 							<Slider
+								size="sm"
 								wavy
 								value={[displayPosition]}
 								min={0}

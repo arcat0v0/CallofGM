@@ -682,6 +682,9 @@
 		min-height: var(--spacing-m3-touch);
 		padding-block: 0;
 	}
+	[data-slot="slider"][data-size="sm"] {
+		min-height: var(--spacing-m3-button-xs);
+	}
 	[data-slot="slider-track"] {
 		overflow: visible;
 		height: var(--spacing-m3-track);
@@ -701,6 +704,9 @@
 			var(--m3-control-surface, var(--color-background));
 		transition: width var(--duration-standard-fast-spatial)
 			var(--m3-spatial-fast);
+	}
+	[data-slot="slider"][data-size="sm"] [data-slot="slider-thumb"] {
+		height: calc(var(--spacing) * 6);
 	}
 	[data-slot="slider-thumb"]:is(:active, :focus-visible) {
 		width: var(--spacing-m3-handle-pressed);
@@ -748,10 +754,42 @@
 			var(--ease-standard-fast-spatial);
 	}
 	[data-slot="slider"][data-wave="true"] [data-slot="slider-track"] {
+		height: var(--spacing-m3-wave-height);
+		overflow: hidden;
+		border-radius: var(--radius-none);
+		background: transparent;
+	}
+	[data-slot="slider"][data-wave="true"] [data-slot="slider-track"]::after {
+		content: "";
+		position: absolute;
+		inset-inline-end: 0;
+		top: 50%;
+		width: var(--spacing-m3-progress-stroke);
 		height: var(--spacing-m3-progress-stroke);
+		transform: translateY(-50%);
+		border-radius: var(--radius-full);
+		background: var(--color-accent);
+		pointer-events: none;
 	}
 	[data-slot="slider"][data-wave="true"] [data-slot="slider-range"] {
-		background: var(--m3-control-surface, var(--color-background));
+		background: transparent;
+	}
+	[data-slot="slider"][data-wave="true"] [data-slot="slider-range"]::after {
+		content: "";
+		position: absolute;
+		inset-inline-start: calc(
+			100% + var(--spacing-m3-track-gap) + var(--spacing-m3-handle-width) / 2
+		);
+		top: 50%;
+		width: 100vw;
+		height: var(--spacing-m3-progress-stroke);
+		transform: translateY(-50%);
+		border-radius: var(--radius-full);
+		background: var(--color-md-primary-container);
+		pointer-events: none;
+	}
+	[data-slot="slider"][data-wave="true"] [data-slot="slider-thumb"] {
+		box-shadow: none;
 	}
 	[data-slot="wave"] {
 		height: var(--spacing-m3-wave-height);
@@ -760,7 +798,12 @@
 	}
 	[data-slot="slider-range"] > [data-slot="wave"] {
 		position: absolute;
+		inset-inline-start: 0;
 		top: 50%;
+		width: max(
+			0px,
+			calc(100% - var(--spacing-m3-track-gap) - var(--spacing-m3-handle-width))
+		);
 		transform: translateY(-50%);
 	}
 	[data-slot="wave"] path {
