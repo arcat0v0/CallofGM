@@ -9,7 +9,6 @@ const nextStatus: Partial<Record<SessionStatus, SessionStatus>> = {
 	active: "ended",
 };
 
-const voices = ["gm", "pc", "ob"] as const;
 const rosterActions = {
 	"assign-pc": "Cannot assign PC seat in an ended session",
 	"add-npc": "Cannot add NPCs to an ended session",
@@ -24,10 +23,7 @@ function expectPolicy(allowed: boolean, assert: () => void, message: string) {
 
 for (const status of SessionStatus.options) {
 	describe(status, () => {
-		const lifecycle = new SessionLifecycle({
-			status,
-			phase: "free_discussion",
-		});
+		const lifecycle = new SessionLifecycle({ status });
 
 		test.each(SessionStatus.options)("transition to %s", (target) => {
 			if (status === target) {
@@ -112,32 +108,18 @@ for (const status of SessionStatus.options) {
 		});
 
 		test.each(SessionPhase.options)("voice in %s", (phase) => {
-			const inPhase = new SessionLifecycle({ status, phase });
+			const session = { status, phase };
+			const inPhase = new SessionLifecycle(session);
 			expect(inPhase.isVoiceAvailable()).toBe(
 				status === "preparing" || status === "active",
 			);
-			for (const role of voices) {
-				const phaseAllows =
-					role === "gm" ||
-					status === "preparing" ||
-					phase === "free_discussion" ||
-					phase === "performance_time" ||
-					phase === "free_performance";
-				expect(
-					inPhase.canVoiceSpeak(role, {
-						speakGranted: role !== "ob",
-						muted: false,
-					}),
-				).toBe(phaseAllows && role !== "ob");
-				expect(
-					inPhase.canVoiceSpeak(role, { speakGranted: true, muted: false }),
-				).toBe(phaseAllows);
-				expect(
-					inPhase.canVoiceSpeak(role, { speakGranted: false, muted: false }),
-				).toBe(false);
-				expect(
-					inPhase.canVoiceSpeak(role, { speakGranted: true, muted: true }),
-				).toBe(false);
+			for (const speakGranted of [false, true]) {
+				expect(inPhase.canVoiceSpeak({ speakGranted, muted: false })).toBe(
+					speakGranted,
+				);
+				expect(inPhase.canVoiceSpeak({ speakGranted, muted: true })).toBe(
+					false,
+				);
 			}
 		});
 	});
