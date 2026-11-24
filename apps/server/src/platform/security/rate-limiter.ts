@@ -18,9 +18,22 @@ export class RateLimiter {
 	private lastSweep = 0;
 
 	constructor(
-		private readonly limit: number,
-		private readonly windowMs: number,
+		private limit: number,
+		private windowMs: number,
 	) {}
+
+	getConfig(): { limit: number; windowMs: number } {
+		return { limit: this.limit, windowMs: this.windowMs };
+	}
+
+	updateConfig(limit: number, windowMs: number): void {
+		if (this.limit === limit && this.windowMs === windowMs) {
+			return;
+		}
+		this.limit = limit;
+		this.windowMs = windowMs;
+		this.reset();
+	}
 
 	/** 返回 true 表示放行；false 表示超限 */
 	check(key: string): boolean {

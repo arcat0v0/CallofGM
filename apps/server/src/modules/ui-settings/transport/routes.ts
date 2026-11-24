@@ -4,6 +4,7 @@ import type { Container } from "@/bootstrap/container";
 import { AuthRequiredError } from "@/modules/identity";
 import { validationFailed } from "@/platform/errors/validation";
 import { logger } from "@/platform/logging/logger";
+import { assertTrustedOrigin } from "@/platform/security/origin";
 import {
 	GetUiSettingsUseCase,
 	UpdateUiSettingsUseCase,
@@ -27,7 +28,9 @@ export function createUiSettingsRoutes(container: Container) {
 			}
 		})
 		.get("/api/v1/admin/ui-settings", async () => getSettings.execute())
-		.put("/api/v1/admin/ui-settings", async ({ body }) => {
+		.put("/api/v1/admin/ui-settings", async ({ body, request }) => {
+			const security = container.siteSettings.getSecurityConfig();
+			assertTrustedOrigin(request, security.corsOrigins, security.trustProxy);
 			const parsed = UpdateUiSettingsRequest.safeParse(body);
 			if (!parsed.success) {
 				throw validationFailed(parsed.error);

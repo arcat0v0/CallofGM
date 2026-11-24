@@ -55,7 +55,6 @@ export function createTemplatesRoutes(container: Container) {
 		sessionsRepo: sessions,
 		authPlugin,
 	} = container;
-	const allowedOrigins = container.config.corsOrigins;
 
 	const createTemplate = new CreateTemplateUseCase(
 		repo,
@@ -89,11 +88,8 @@ export function createTemplatesRoutes(container: Container) {
 		.onBeforeHandle(({ actor, request }) => {
 			requireGm(actor);
 			if (request.method !== "GET" && request.method !== "HEAD") {
-				assertTrustedOrigin(
-					request,
-					allowedOrigins,
-					container.config.trustProxy,
-				);
+				const security = container.siteSettings.getSecurityConfig();
+				assertTrustedOrigin(request, security.corsOrigins, security.trustProxy);
 			}
 		})
 		.post("/", async ({ actor, body }) => {

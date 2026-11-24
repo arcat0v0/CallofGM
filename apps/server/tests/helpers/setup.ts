@@ -25,6 +25,7 @@ import {
 } from "@/modules/sessions/application/use-cases";
 import { DrizzleSessionsRepository } from "@/modules/sessions/infrastructure/drizzle-sessions-repository";
 import { createSessionsRoutes } from "@/modules/sessions/transport/routes";
+import { createSiteSettingsRoutes } from "@/modules/site-settings";
 import { createTemplatesRoutes } from "@/modules/templates";
 import { createThemeRoutes } from "@/modules/themes";
 import { createUiSettingsRoutes } from "@/modules/ui-settings";
@@ -439,6 +440,7 @@ export async function setupTestApp(
 		.use(createCatalogRoutes(container))
 		.use(createThemeRoutes(container))
 		.use(createUiSettingsRoutes(container))
+		.use(createSiteSettingsRoutes(container))
 		.use(createAdminRoutes(container))
 		.use(createTrashRoutes(container))
 		.use(createRulesRoutes(container))

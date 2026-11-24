@@ -1,4 +1,4 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, lte } from "drizzle-orm";
 import { type ActorContext, holderOfActor } from "@/modules/identity";
 import type { DbClient } from "@/platform/db/client";
 import {
@@ -7,13 +7,18 @@ import {
 	handoutGrants,
 	handouts,
 	mediaAssets,
+	pendingMediaUploads,
 	scenes,
 	sessionCharacters,
 	sessionClaims,
 	sessions,
 	tracks,
 } from "@/platform/db/schema";
-import type { MediaAsset, MediaRepository } from "../application/ports";
+import type {
+	MediaAsset,
+	MediaRepository,
+	PendingMediaUpload,
+} from "../application/ports";
 
 export class DrizzleMediaRepository implements MediaRepository {
 	constructor(private readonly db: DbClient) {}
@@ -28,7 +33,46 @@ export class DrizzleMediaRepository implements MediaRepository {
 			.from(mediaAssets)
 			.where(eq(mediaAssets.id, id))
 			.limit(1);
-		return asset;
+		if (!asset) {
+			return undefined;
+		}
+		return {
+			...asset,
+			storageProvider: asset.storageProvider === "s3" ? "s3" : "local",
+			storageBucket: asset.storageBucket ?? null,
+		};
+	}
+
+	async insertPendingUpload(record: PendingMediaUpload): Promise<void> {
+		await this.db.insert(pendingMediaUploads).values(record);
+	}
+
+	async findPendingUploadById(
+		id: string,
+	): Promise<PendingMediaUpload | undefined> {
+		const [row] = await this.db
+			.select()
+			.from(pendingMediaUploads)
+			.where(eq(pendingMediaUploads.id, id))
+			.limit(1);
+		return row;
+	}
+
+	async deletePendingUpload(id: string): Promise<void> {
+		await this.db
+			.delete(pendingMediaUploads)
+			.where(eq(pendingMediaUploads.id, id));
+	}
+
+	async listExpiredPendingUploads(
+		nowEpochMs: number,
+		limit = 100,
+	): Promise<PendingMediaUpload[]> {
+		return this.db
+			.select()
+			.from(pendingMediaUploads)
+			.where(lte(pendingMediaUploads.expiresAt, nowEpochMs))
+			.limit(limit);
 	}
 
 	async checkMediaAccess(

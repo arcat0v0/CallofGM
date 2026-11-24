@@ -65,13 +65,23 @@ function renderAdminUsersPage() {
 		path: "/admin/themes",
 		component: () => null,
 	});
+	const settingsRoute = createRoute({
+		getParentRoute: () => rootRoute,
+		path: "/admin/settings",
+		component: () => null,
+	});
 	const loginRoute = createRoute({
 		getParentRoute: () => rootRoute,
 		path: "/login",
 		component: () => null,
 	});
 	const router = createRouter({
-		routeTree: rootRoute.addChildren([usersRoute, themesRoute, loginRoute]),
+		routeTree: rootRoute.addChildren([
+			usersRoute,
+			themesRoute,
+			settingsRoute,
+			loginRoute,
+		]),
 		history: createMemoryHistory({ initialEntries: ["/admin/users"] }),
 	});
 	return render(<RouterProvider router={router} />);

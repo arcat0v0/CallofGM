@@ -100,14 +100,14 @@ describe("GM module audio upload", () => {
 		});
 	});
 
-	test("advertises the exact supported formats and displays the prepared 10 MB hint", async () => {
+	test("advertises the exact supported formats and displays the prepared 100 MB hint", async () => {
 		const page = await source("routes/gm/module.$moduleId.tsx");
 		expect(page).toContain(
 			'accept=".mp3,audio/mpeg,.wav,audio/wav,.ogg,audio/ogg,.flac,audio/flac,.m4a,audio/mp4"',
 		);
 		expect(page).toContain('t("gm.module.audioFormatHint")');
 		expect(t("gm.module.audioFormatHint")).toBe(
-			"支持 MP3、WAV、OGG、FLAC、M4A，单个文件不超过 10 MB。",
+			"支持 MP3、WAV、OGG、FLAC、M4A，单个文件不超过 100 MB。",
 		);
 		expect(page).toContain('name="audio"');
 		expect(page).toContain("<FilePicker");

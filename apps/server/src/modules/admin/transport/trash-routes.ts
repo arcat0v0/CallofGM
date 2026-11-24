@@ -26,7 +26,6 @@ const RestoreRequest = z.object({
 
 export function createTrashRoutes(container: Container) {
 	const { trashRepo: repo, authPlugin } = container;
-	const allowedOrigins = container.config.corsOrigins;
 
 	return new Elysia()
 		.use(authPlugin)
@@ -44,7 +43,8 @@ export function createTrashRoutes(container: Container) {
 			return { items };
 		})
 		.post("/api/v1/trash/restore", async ({ actor, body, request }) => {
-			assertTrustedOrigin(request, allowedOrigins, container.config.trustProxy);
+			const security = container.siteSettings.getSecurityConfig();
+			assertTrustedOrigin(request, security.corsOrigins, security.trustProxy);
 			if (!actor) {
 				throw new AuthRequiredError();
 			}

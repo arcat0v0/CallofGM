@@ -9,6 +9,8 @@ export const mediaAssets = sqliteTable(
 			.notNull()
 			.references(() => users.id),
 		purpose: text("purpose").notNull(),
+		storageProvider: text("storage_provider").notNull().default("local"),
+		storageBucket: text("storage_bucket"),
 		storageKey: text("storage_key").notNull(),
 		filename: text("filename").notNull(),
 		mimeType: text("mime_type").notNull(),
@@ -21,6 +23,29 @@ export const mediaAssets = sqliteTable(
 	(table) => [
 		index("media_assets_owner_idx").on(table.ownerId),
 		index("media_assets_deleted_idx").on(table.deletedAt),
+		index("media_assets_provider_idx").on(table.storageProvider),
+	],
+);
+
+export const pendingMediaUploads = sqliteTable(
+	"pending_media_uploads",
+	{
+		id: text("id").primaryKey(),
+		ownerId: text("owner_id")
+			.notNull()
+			.references(() => users.id),
+		purpose: text("purpose").notNull(),
+		storageKey: text("storage_key").notNull(),
+		storageBucket: text("storage_bucket").notNull(),
+		filename: text("filename").notNull(),
+		declaredContentType: text("declared_content_type").notNull(),
+		expectedSize: integer("expected_size").notNull(),
+		expiresAt: integer("expires_at").notNull(),
+		createdAt: integer("created_at").notNull(),
+	},
+	(table) => [
+		index("pending_media_uploads_expires_idx").on(table.expiresAt),
+		index("pending_media_uploads_owner_idx").on(table.ownerId),
 	],
 );
 

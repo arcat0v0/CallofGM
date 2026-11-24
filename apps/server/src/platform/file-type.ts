@@ -291,6 +291,86 @@ function isAudioM4aContainer(data: Uint8Array): boolean {
 	return !state.hasVideTrack && !state.malformed && state.hasSounTrack;
 }
 
+/** 判断字节片段是否为带有合法音频/中性 ftyp 的 MP4/M4A 文件头（可能 moov 在文件尾部）。 */
+export function hasAudioMp4FtypPrefix(data: Uint8Array): boolean {
+	if (data.length < 16 || !matchesAscii(data, 4, "ftyp")) {
+		return false;
+	}
+	const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+	const boxSize = view.getUint32(0, false);
+	if (
+		boxSize < 16 ||
+		boxSize > MAX_FTYP_BOX_BYTES ||
+		boxSize % 4 !== 0 ||
+		boxSize > data.length
+	) {
+		return false;
+	}
+	const majorBrand = asciiAt(data, 8, 12);
+	if (VIDEO_MP4_BRANDS.has(majorBrand)) {
+		return false;
+	}
+	const compatibleBrands: string[] = [];
+	for (let offset = 16; offset + 4 <= boxSize; offset += 4) {
+		compatibleBrands.push(asciiAt(data, offset, offset + 4));
+	}
+	if (compatibleBrands.some((brand) => VIDEO_MP4_BRANDS.has(brand))) {
+		return false;
+	}
+	return (
+		AUDIO_M4A_BRANDS.has(majorBrand) ||
+		AUDIO_M4A_CONTAINER_BRANDS.has(majorBrand)
+	);
+}
+
+/**
+ * 面向 OSS 客户端直传的头部/尾部抽检：
+ * 先用前部 Range 字节做标准魔数检测；若为 M4A/MP4 容器且 moov 位于文件末尾，
+ * 再对尾部切片扫描 moov/hdlr（确认含 soun 轨道且不含 vide 轨道）。
+ */
+export function detectFileMimeTypeFromRanges(
+	head: Uint8Array,
+	tail?: Uint8Array,
+): string | null {
+	const direct = detectFileMimeType(head);
+	if (direct) {
+		return direct;
+	}
+	if (!hasAudioMp4FtypPrefix(head)) {
+		return null;
+	}
+	const scanTail = (buf: Uint8Array): boolean => {
+		const view = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+		for (let offset = 0; offset + 8 <= buf.length; offset += 1) {
+			if (!matchesAscii(buf, offset + 4, "moov")) {
+				continue;
+			}
+			const boxSize = view.getUint32(offset, false);
+			if (boxSize < 16 || offset + boxSize > buf.length) {
+				continue;
+			}
+			const state: Mp4ScanState = {
+				boxesScanned: 0,
+				hasSounTrack: false,
+				hasVideTrack: false,
+				malformed: false,
+			};
+			scanMp4BoxTree(buf, view, offset + 8, offset + boxSize, 0, state);
+			if (!state.malformed && state.hasSounTrack && !state.hasVideTrack) {
+				return true;
+			}
+			if (state.hasVideTrack) {
+				return false;
+			}
+		}
+		return false;
+	};
+	if (tail && tail.length > 0 && scanTail(tail)) {
+		return "audio/mp4";
+	}
+	return null;
+}
+
 export function detectFileMimeType(data: Uint8Array): string | null {
 	if (matchesBytes(data, 0, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) {
 		return "image/png";

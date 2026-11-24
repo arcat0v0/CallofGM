@@ -273,3 +273,12 @@ GM 后台与 PL 工作台上传 `.xlsx` → 服务端 SheetJS 解析 → 按 `pa
 - 场景画面用 DOM + CSS 实现（绝对定位立绘 + transition 切换表情/转场），不引入 Canvas/PixiJS；需要更复杂动画时再加 GSAP。
 - 生产部署：`vite build` 产物由 Elysia 静态托管，单 Bun 进程提供 HTTP + WS，支持基于 `oven/bun` 的 Docker 部署或直接由 `systemd`（`deploy/systemd/cogm.service`）托管。
 - 已安装主题属于运行时数据，位于应用配置的 `[themes] dir`（本地默认 `data/themes`，容器 `/app/data/themes`，systemd 默认 `/opt/cogm/data/themes`），与数据库、上传媒资一并持久化；不进入镜像。
+
+## 全站配置与对象存储（S3 兼容 OSS）
+
+- **配置持久化与热生效**：SQLite 表 `site_settings` 按分组（`storage` / `voice` / `security`）覆写 `config/cogm.toml` 与环境变量默认值，实例级 `gmThemeId` 沿用 `ui_settings`；Admin 在 `/admin/settings`（`GET/PUT /api/v1/admin/settings`、`POST /api/v1/admin/settings/reset`）修改后立即在内存热生效（含存储模式、上传上限、STUN/TURN、CORS/trustProxy、HTTP 限流与 GM 主题），无需重启。`server.host/port`、`database.url`、`media.dir`、`themes.dir` 等启动期基础设施参数在面板只读展示。
+- **敏感密钥保护**：OSS `SecretAccessKey` 与 `turnRestSecret` 经 `SecretBox`（AES-256-GCM）静态加密存库；主密钥优先取环境变量 `COGM_SETTINGS_SECRET`，未配置时首次启动在数据库同目录自动生成 `0600` 权限 `settings.key`。所有读取接口永不回传明文，仅返回配置状态与脱敏尾号。
+- **防锁死保护**：更新或重置 `security` 分组前，服务端以新 `trustProxy` / `corsOrigins` 预检当前管理员请求的 Origin/Referer，会拒绝当前来源时返回 `400 ORIGIN_LOCKOUT`。
+- **S3 兼容直传与魔数校验**：开启 OSS（`mode = "s3"`）后，媒体上传由客户端调用 `POST /api/v1/media/presign` 取得临时 PUT 预签名 URL（支持独立公网 `publicUploadEndpoint`），浏览器直传 OSS 后调用 `POST /api/v1/media/complete`；服务端通过 `HEAD` 校验对象存在与大小一致，并仅用 `Range` 抽读头部（及 M4A 尾部 `moov`）做字节魔数检验，非法即删对象拒绝落库。过期未提交票据记录在 `pending_media_uploads`，由 `StartupService` 定期清理。
+- **指定域名下载与权限隔离**：媒体读取继续统一经 `GET /api/v1/media/:id` 完成团成员、当前场景与秘密情报可见性校验；通过后对 `storage_provider = "s3"` 资产返回 `302 Found`（`Cache-Control: private, no-store`）重定向至指定下载域名（支持「公有读 / CDN 自定义域名」与「私有桶 S3 短时预签名」两种模式）。
+- **主题包托管与混合迁移**：`.cogmtheme` 仍由服务端解压校验路径白名单与 `bundleHash`，OSS 模式下批量上传至 `<keyPrefix>/themes/<id>/<version>/` 并将元数据写入 `installed_themes`；公有读模式在 `GET /api/v1/themes/:id/manifest` 附带 `assetBaseUrl` 直连自定义域名，私有桶模式保持 `/api/v1/themes/:id/versions/:version/*` 逐文件 `302` 签名跳转。历史本地资产与 OSS 资产按各自 `storage_provider` 混合共存，Admin 面板提供端到端连通性 + 浏览器直传 CORS 自检及「本地资产与主题一键迁移到 OSS」后台任务（不删本地源文件）。

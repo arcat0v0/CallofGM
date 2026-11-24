@@ -8,6 +8,7 @@ import type {
 import type { ThemeUsageRepository } from "./theme-usage-repository";
 
 function toSummary(
+	registry: ThemeRegistry,
 	theme: InstalledTheme,
 	usedByModules: number,
 	usedByGmUi: boolean,
@@ -23,13 +24,12 @@ function toSummary(
 		repository: manifest.repository ?? null,
 		colorScheme: manifest.colorScheme ?? null,
 		slots: manifest.slots ?? null,
-		previewUrl: theme.hasPreview
-			? `/api/v1/themes/${encodeURIComponent(manifest.id)}/versions/${encodeURIComponent(manifest.version)}/preview.png`
-			: null,
+		previewUrl: registry.resolvePreviewUrl(theme),
 		digest: theme.digest,
 		installedAt: theme.installedAt,
 		usedByModules,
 		usedByGmUi,
+		storageProvider: theme.storageProvider,
 	};
 }
 
@@ -46,6 +46,7 @@ export class ListThemesUseCase {
 			.list()
 			.map((theme) =>
 				toSummary(
+					this.registry,
 					theme,
 					counts.get(theme.manifest.id) ?? 0,
 					theme.manifest.id === gmThemeId,
@@ -67,8 +68,10 @@ export class InstallThemeUseCase {
 			themeId: installed.manifest.id,
 			version: installed.manifest.version,
 			digest: installed.digest,
+			storageProvider: installed.storageProvider,
 		});
 		return toSummary(
+			this.registry,
 			installed,
 			counts.get(installed.manifest.id) ?? 0,
 			installed.manifest.id === gmThemeId,
@@ -117,6 +120,7 @@ export class RescanThemesUseCase {
 			.list()
 			.map((theme) =>
 				toSummary(
+					this.registry,
 					theme,
 					counts.get(theme.manifest.id) ?? 0,
 					theme.manifest.id === gmThemeId,

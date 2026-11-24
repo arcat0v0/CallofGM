@@ -112,8 +112,6 @@ export function createCatalogRoutes(container: Container) {
 	const updateHandout = new UpdateHandoutUseCase(repo);
 	const listHandouts = new ListHandoutsUseCase(repo);
 
-	const allowedOrigins = container.config.corsOrigins;
-
 	const requireOwnedModule = async (moduleId: string, ownerId: string) => {
 		const record = await repo.findModuleById(moduleId);
 		if (!record || record.ownerId !== ownerId) {
@@ -156,11 +154,8 @@ export function createCatalogRoutes(container: Container) {
 				throw new AuthRequiredError();
 			}
 			if (request.method !== "GET" && request.method !== "HEAD") {
-				assertTrustedOrigin(
-					request,
-					allowedOrigins,
-					container.config.trustProxy,
-				);
+				const security = container.siteSettings.getSecurityConfig();
+				assertTrustedOrigin(request, security.corsOrigins, security.trustProxy);
 			}
 		})
 		.post("/", async ({ body, actor }) => {

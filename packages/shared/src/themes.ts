@@ -53,6 +53,8 @@ export const ThemeManifest = z.object({
 		.optional(),
 	bundleHash: z.string().regex(/^sha256:[0-9a-f]{64}$/),
 	signature: z.string().nullable().optional(),
+	/** 运行时由服务端按当前存储配置附加，不写入主题包内 theme.json */
+	assetBaseUrl: z.string().min(1).max(2_048).optional(),
 });
 export type ThemeManifest = z.infer<typeof ThemeManifest>;
 
@@ -71,6 +73,7 @@ export const ThemeSummaryDto = z.object({
 	installedAt: z.number().int(),
 	usedByModules: z.number().int(),
 	usedByGmUi: z.boolean(),
+	storageProvider: z.enum(["local", "s3"]).optional(),
 });
 export type ThemeSummaryDto = z.infer<typeof ThemeSummaryDto>;
 

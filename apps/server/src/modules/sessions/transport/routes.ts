@@ -145,12 +145,17 @@ export function createSessionsRoutes(container: Container) {
 		container.clock,
 	);
 
-	const allowedOrigins = container.config.corsOrigins;
+	const assertOrigin = (request: Request) => {
+		const security = container.siteSettings.getSecurityConfig();
+		assertTrustedOrigin(request, security.corsOrigins, security.trustProxy);
+	};
+	const requestIp = (request: Request, server: Parameters<typeof clientIp>[1]) =>
+		clientIp(request, server, container.siteSettings.getSecurityConfig().trustProxy);
 
 	return new Elysia()
 		.use(authPlugin)
 		.post("/api/v1/gm/sessions", async ({ actor, body, request }) => {
-			assertTrustedOrigin(request, allowedOrigins, container.config.trustProxy);
+			assertOrigin(request);
 			const gm = requireGm(actor);
 			const result = CreateSessionRequest.safeParse(body);
 			if (!result.success) {
@@ -166,11 +171,7 @@ export function createSessionsRoutes(container: Container) {
 		.post(
 			"/api/v1/gm/sessions/:id/name",
 			async ({ actor, params: { id }, body, request }) => {
-				assertTrustedOrigin(
-					request,
-					allowedOrigins,
-					container.config.trustProxy,
-				);
+				assertOrigin(request);
 				const gm = requireGm(actor);
 				const result = RenameSessionRequest.safeParse(body);
 				if (!result.success) {
@@ -210,11 +211,7 @@ export function createSessionsRoutes(container: Container) {
 		.post(
 			"/api/v1/gm/sessions/:id/status",
 			async ({ actor, params: { id }, body, request }) => {
-				assertTrustedOrigin(
-					request,
-					allowedOrigins,
-					container.config.trustProxy,
-				);
+				assertOrigin(request);
 				const gm = requireGm(actor);
 				const result = UpdateSessionStatusRequest.safeParse(body);
 				if (!result.success) {
@@ -232,11 +229,7 @@ export function createSessionsRoutes(container: Container) {
 		.post(
 			"/api/v1/gm/sessions/:id/phase",
 			async ({ actor, params: { id }, body, request }) => {
-				assertTrustedOrigin(
-					request,
-					allowedOrigins,
-					container.config.trustProxy,
-				);
+				assertOrigin(request);
 				const gm = requireGm(actor);
 				const result = UpdateSessionPhaseRequest.safeParse(body);
 				if (!result.success) {
@@ -254,11 +247,7 @@ export function createSessionsRoutes(container: Container) {
 		.post(
 			"/api/v1/gm/sessions/:id/npcs",
 			async ({ actor, params: { id }, body, request }) => {
-				assertTrustedOrigin(
-					request,
-					allowedOrigins,
-					container.config.trustProxy,
-				);
+				assertOrigin(request);
 				const gm = requireGm(actor);
 				const result = AddSessionNpcRequest.safeParse(body);
 				if (!result.success) {
@@ -318,11 +307,7 @@ export function createSessionsRoutes(container: Container) {
 		.delete(
 			"/api/v1/gm/sessions/:id/npcs/:characterId",
 			async ({ actor, params: { id, characterId }, request }) => {
-				assertTrustedOrigin(
-					request,
-					allowedOrigins,
-					container.config.trustProxy,
-				);
+				assertOrigin(request);
 				const gm = requireGm(actor);
 				const result = await container.sessionCommandExecutor.runExclusive(
 					id,
@@ -369,11 +354,7 @@ export function createSessionsRoutes(container: Container) {
 		.post(
 			"/api/v1/gm/sessions/:id/claims/assign",
 			async ({ actor, params: { id }, body, request }) => {
-				assertTrustedOrigin(
-					request,
-					allowedOrigins,
-					container.config.trustProxy,
-				);
+				assertOrigin(request);
 				const gm = requireGm(actor);
 				const result = GmAssignClaimRequest.safeParse(body);
 				if (!result.success) {
@@ -418,11 +399,7 @@ export function createSessionsRoutes(container: Container) {
 		.post(
 			"/api/v1/gm/sessions/:id/claims/release",
 			async ({ actor, params: { id }, body, request }) => {
-				assertTrustedOrigin(
-					request,
-					allowedOrigins,
-					container.config.trustProxy,
-				);
+				assertOrigin(request);
 				const gm = requireGm(actor);
 				const result = GmReleaseClaimRequest.safeParse(body);
 				if (!result.success) {
@@ -454,11 +431,7 @@ export function createSessionsRoutes(container: Container) {
 		.post(
 			"/api/v1/gm/sessions/:id/growth/confirm",
 			async ({ actor, params: { id }, body, request }) => {
-				assertTrustedOrigin(
-					request,
-					allowedOrigins,
-					container.config.trustProxy,
-				);
+				assertOrigin(request);
 				const gm = requireGm(actor);
 				const parsed = ConfirmGrowthRequest.safeParse(body);
 				if (!parsed.success) {
@@ -510,7 +483,7 @@ export function createSessionsRoutes(container: Container) {
 			"/api/v1/public/session-references/:reference",
 			async ({ params: { reference }, request, server }) => {
 				container.httpLimits.sessionReferenceRateLimiter.assert(
-					clientIp(request, server, container.config.trustProxy),
+					requestIp(request, server),
 				);
 				return ResolveSessionReferenceResponse.parse(
 					await resolveSessionReference.execute(
@@ -673,7 +646,7 @@ export function createSessionsRoutes(container: Container) {
 					);
 				}
 				container.httpLimits.joinRateLimiter.assert(
-					clientIp(request, server, container.config.trustProxy),
+					requestIp(request, server),
 				);
 				const result = ClaimSeatRequest.safeParse(body);
 				if (!result.success) {

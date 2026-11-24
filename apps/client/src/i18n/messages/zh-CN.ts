@@ -29,6 +29,10 @@ export const zhCN: Record<string, string> = {
 	"common.copied": "已复制{label}",
 	"common.copyFailed": "复制失败",
 
+	"upload.uploading": "正在上传…",
+	"upload.processing": "正在处理…",
+	"upload.queueProgress": "已完成 {completed}/{total}",
+
 	"version.trigger": "v{version}",
 	"version.title": "版本信息",
 	"version.description": "当前网页与后端的构建标识",
@@ -813,6 +817,209 @@ export const zhCN: Record<string, string> = {
 	"admin.filterEmpty": "此状态下没有账号",
 	"admin.actions": "账号操作",
 
+	"admin.settings.nav": "全站配置",
+	"admin.settings.title": "全站配置",
+	"admin.settings.description":
+		"统一配置对象存储、语音、安全策略与实例主题；运行期配置保存后即时生效，无需重启服务",
+	"admin.settings.loadFailed": "无法加载全站配置",
+	"admin.settings.saved": "配置已保存并立即生效",
+	"admin.settings.saveFailed": "保存配置失败",
+	"admin.settings.resetDone": "已恢复为配置文件默认值",
+	"admin.settings.resetFailed": "恢复默认配置失败",
+	"admin.settings.saving": "保存中…",
+	"admin.settings.save": "保存配置",
+	"admin.settings.reset": "恢复默认",
+	"admin.settings.discard": "放弃更改",
+	"admin.settings.unsavedBadge": "有未保存更改",
+	"admin.settings.syncedStatus": "当前配置已与服务端同步",
+	"admin.settings.resetTitle": "恢复默认配置？",
+	"admin.settings.resetDescription":
+		"将清除当前分组保存在数据库中的覆盖项，回退到 config/cogm.toml 与环境变量中的默认值。",
+	"admin.settings.resetConfirm": "确认恢复默认",
+	"admin.settings.overridden": "已由面板覆写",
+	"admin.settings.defaultBadge": "沿用部署默认",
+	"admin.settings.tab.storage": "存储与 OSS",
+	"admin.settings.tab.voice": "语音通话",
+	"admin.settings.tab.security": "安全与限流",
+	"admin.settings.tab.ui": "界面主题",
+	"admin.settings.tab.system": "系统信息",
+
+	"admin.settings.storage.modeTitle": "资产存储模式",
+	"admin.settings.storage.modeDescription":
+		"控制新上传的场景图、立绘、情报图片、音频与主题包存放位置；历史本地资产会继续保留并兼容访问",
+	"admin.settings.storage.modeLabel": "当前存储后端",
+	"admin.settings.storage.modeLocal": "本地磁盘",
+	"admin.settings.storage.modeS3": "S3 兼容对象存储 (OSS)",
+	"admin.settings.storage.maxMediaMb": "单文件媒体上传上限 (MB)",
+	"admin.settings.storage.maxThemeMb": "主题包上传上限 (MB)",
+	"admin.settings.storage.s3Title": "S3 兼容 OSS 连接参数",
+	"admin.settings.storage.s3DraftBadge": "可先保存为草稿",
+	"admin.settings.storage.s3ActiveBadge": "当前生效后端",
+	"admin.settings.storage.saveScopeHint":
+		"保存将同时写入并生效：存储模式、S3 连接参数、下载域名与访问权限",
+	"admin.settings.storage.validationFailed": "请先修正标红的存储配置项后再保存",
+	"admin.settings.storage.testValidationFailed":
+		"请先补全并修正标红的 S3 配置项后再测试连接",
+	"admin.settings.storage.migrateUnsavedNotice":
+		"检测到上方存储配置有未保存更改；迁移任务仅会使用服务端当前已保存的 OSS 配置。",
+	"admin.settings.storage.error.required":
+		"启用 S3 模式或测试连接时必须填写此项",
+	"admin.settings.storage.error.invalidUrl":
+		"请输入以 http:// 或 https:// 开头的完整地址",
+	"admin.settings.storage.error.range": "请输入 {min}–{max} 之间的整数",
+	"admin.settings.storage.s3Description":
+		"兼容阿里云 OSS、腾讯云 COS、Cloudflare R2、AWS S3 与 MinIO。媒体由浏览器直传对象存储，服务端仅校验头字节与元数据",
+	"admin.settings.storage.endpoint": "服务端 Endpoint",
+	"admin.settings.storage.endpointPlaceholder":
+		"https://oss-cn-hangzhou.aliyuncs.com",
+	"admin.settings.storage.endpointHint":
+		"服务端与对象存储通信的地址（可使用同机房内网 Endpoint）",
+	"admin.settings.storage.publicUploadEndpoint": "客户端直传 Endpoint（可选）",
+	"admin.settings.storage.publicUploadEndpointPlaceholder":
+		"留空则复用服务端 Endpoint",
+	"admin.settings.storage.publicUploadEndpointHint":
+		"若服务端使用内网地址，请在此填写浏览器可访问的公网 OSS Endpoint",
+	"admin.settings.storage.region": "Region（地域）",
+	"admin.settings.storage.regionPlaceholder": "cn-hangzhou 或 auto",
+	"admin.settings.storage.bucket": "Bucket 名称",
+	"admin.settings.storage.bucketPlaceholder": "my-cogm-assets",
+	"admin.settings.storage.keyPrefix": "对象路径前缀（可选）",
+	"admin.settings.storage.keyPrefixPlaceholder": "cogm",
+	"admin.settings.storage.forcePathStyle": "使用 Path-Style 路径风格",
+	"admin.settings.storage.forcePathStyleHint":
+		"MinIO 或自定义反代常需开启；阿里云 OSS / 腾讯云 COS 通常保持关闭（虚拟主机风格）",
+	"admin.settings.storage.accessKeyId": "AccessKey ID",
+	"admin.settings.storage.secretAccessKey": "SecretAccessKey",
+	"admin.settings.storage.secretConfigured": "已加密保存 ({mask})",
+	"admin.settings.storage.secretKeepPlaceholder":
+		"已保存密钥；留空则保持不变，输入新值可替换",
+	"admin.settings.storage.secretEmptyPlaceholder": "输入 SecretAccessKey",
+	"admin.settings.storage.clearSecret": "清除已保存密钥",
+
+	"admin.settings.storage.deliveryTitle": "指定下载域名与访问权限",
+	"admin.settings.storage.deliveryDescription":
+		"所有媒体下载仍先经过 CoGM 校验团成员与秘密情报权限，通过后再 302 跳转到下方指定域名；大文件流量完全不经主站",
+	"admin.settings.storage.downloadBaseUrl": "指定下载域名",
+	"admin.settings.storage.downloadBaseUrlPlaceholder":
+		"https://assets.example.com",
+	"admin.settings.storage.downloadBaseUrlHint":
+		"支持绑定到 OSS 的自定义域名或 CDN 加速域名，可带基础路径，不以斜杠结尾",
+	"admin.settings.storage.accessMode": "存储桶读取权限",
+	"admin.settings.storage.accessPublic": "公有读 / CDN 自定义域名（推荐）",
+	"admin.settings.storage.accessPrivate": "私有桶 S3 短时预签名",
+	"admin.settings.storage.accessHint":
+		"公有读模式中主题静态文件将直连指定域名吃满 CDN 缓存；私有桶模式会为媒体与主题文件按需签发短时效预签名 URL",
+	"admin.settings.storage.signedTtl": "预签名有效期（秒）",
+	"admin.settings.storage.corsGuideTitle": "OSS 桶 CORS 配置提示",
+	"admin.settings.storage.corsGuideBody":
+		"浏览器直传、立绘裁切与跨域主题加载要求在 OSS 桶（及 CDN 域名）允许当前站点 Origin，放行 GET、PUT、HEAD、OPTIONS 方法，AllowedHeaders 包含 Content-Type，ExposeHeaders 包含 ETag。",
+
+	"admin.settings.storage.testTitle": "连通性与直传 CORS 自检",
+	"admin.settings.storage.testDescription":
+		"无需先保存，可直接验证当前表单中的 OSS 凭据、自定义下载域名与当前浏览器直传 CORS 是否畅通",
+	"admin.settings.storage.testRun": "测试连接与直传",
+	"admin.settings.storage.testing": "检测中…",
+	"admin.settings.storage.testPassed": "全部连通性与直传自检通过",
+	"admin.settings.storage.testPartial": "部分检测项未通过，请查看下方详情",
+	"admin.settings.storage.testFailed": "连接测试请求失败",
+	"admin.settings.storage.check.put": "服务端写入 (PutObject)",
+	"admin.settings.storage.check.head": "元数据核验 (HeadObject)",
+	"admin.settings.storage.check.range": "头部抽读 (Range GET)",
+	"admin.settings.storage.check.download": "指定域名回读",
+	"admin.settings.storage.check.delete": "探针清理 (DeleteObject)",
+	"admin.settings.storage.check.browserPut": "浏览器直传 CORS (PUT)",
+	"admin.settings.storage.check.browserGet": "浏览器下载域名 CORS (GET)",
+	"admin.settings.storage.check.browserGetSkipped":
+		"因浏览器直传失败，未执行回读",
+	"admin.settings.storage.check.browserNetworkHint":
+		"请求被浏览器拦截或不可达（当前 Origin: {origin} → 目标: {target}）",
+	"admin.settings.storage.checkPass": "通过",
+	"admin.settings.storage.checkFail": "失败",
+
+	"admin.settings.storage.migrateTitle": "历史本地资产一键迁移到 OSS",
+	"admin.settings.storage.migrateDescription":
+		"将尚未迁移的本地媒体与本地已安装主题同步上传到当前已保存的 OSS 配置。迁移过程不会删除本地源文件，可重复执行",
+	"admin.settings.storage.migrateStart": "开始迁移到 OSS",
+	"admin.settings.storage.migrateRunning": "迁移进行中…",
+	"admin.settings.storage.migrateRefresh": "刷新进度",
+	"admin.settings.storage.migrateStatus.idle": "尚未运行",
+	"admin.settings.storage.migrateStatus.running": "迁移中",
+	"admin.settings.storage.migrateStatus.completed": "已完成",
+	"admin.settings.storage.migrateStatus.failed": "完成（存在失败项）",
+	"admin.settings.storage.migrateMedia":
+		"媒体资产：{migrated} / {total} 已迁移，失败 {failed}",
+	"admin.settings.storage.migrateThemes":
+		"主题包：{migrated} / {total} 已迁移，失败 {failed}",
+	"admin.settings.storage.migrateStarted": "已启动后台迁移任务",
+	"admin.settings.storage.migrateFailed": "启动迁移任务失败",
+
+	"admin.settings.voice.title": "WebRTC 语音通话配置",
+	"admin.settings.voice.description":
+		"控制全站语音房间的最大人数上限与 STUN / TURN ICE 服务器；保存后新加入语音的成员立即获取新配置",
+	"admin.settings.voice.maxParticipants": "单团默认/最大语音人数",
+	"admin.settings.voice.turnTtl": "TURN 临时凭据有效期（秒）",
+	"admin.settings.voice.stunUrls": "STUN 服务器地址（每行一个）",
+	"admin.settings.voice.stunPlaceholder": "stun:stun.example.org:3478",
+	"admin.settings.voice.turnUrls": "TURN 服务器地址（每行一个）",
+	"admin.settings.voice.turnPlaceholder": "turns:turn.example.org:5349",
+	"admin.settings.voice.turnSecret": "TURN REST 长期密钥",
+	"admin.settings.voice.turnSecretPlaceholder":
+		"输入 coturn static-auth-secret（配置 TURN 地址时必填）",
+
+	"admin.settings.security.title": "来源校验与反向代理",
+	"admin.settings.security.description":
+		"管理反向代理头信任与允许跨域访问的浏览器来源。保存前服务端会自动校验当前管理员请求来源，避免误配导致无法操作后台",
+	"admin.settings.security.trustProxy": "信任反向代理请求头 (trustProxy)",
+	"admin.settings.security.trustProxyHint":
+		"仅在 Caddy / Nginx 等 TLS 反向代理之后部署时开启，用于识别真实客户端 IP 与 HTTPS 来源",
+	"admin.settings.security.corsOrigins": "允许的跨域来源列表（每行一个）",
+	"admin.settings.security.corsPlaceholder": "https://trpg.example.com",
+	"admin.settings.security.corsHint": "留空表示生产环境仅允许同源请求",
+	"admin.settings.security.guardNotice":
+		"防锁死保护已启用：如果新配置会拒绝当前浏览器的 Origin，服务端将自动拦截保存。",
+	"admin.settings.security.rateLimitsTitle": "HTTP 速率限制",
+	"admin.settings.security.rateLimitsDescription":
+		"按单个客户端 IP 统计固定时间窗口内的最大请求次数；调整后立即生效",
+	"admin.settings.security.rateLimit.login": "账号登录",
+	"admin.settings.security.rateLimit.identity": "匿名身份签发",
+	"admin.settings.security.rateLimit.join": "认领席位入团",
+	"admin.settings.security.rateLimit.sessionReference": "团号/链接解析",
+	"admin.settings.security.rateLimit.upload": "媒体与主题上传",
+	"admin.settings.security.rateLimitMax": "次数上限",
+	"admin.settings.security.rateLimitWindow": "窗口（秒）",
+	"admin.settings.security.saveScopeHint":
+		"保存将同时写入并生效：反代信任、CORS 来源与全部限流规则",
+
+	"admin.settings.ui.title": "实例级 GM 界面主题",
+	"admin.settings.ui.description":
+		"指定全部 GM 后台与导演控制台默认使用的主题包；玩家沉浸视图主题仍由各模组独立设定",
+	"admin.settings.ui.gmThemeLabel": "GM 界面主题",
+	"admin.settings.ui.gmThemeDefault": "CoGM 内置默认主题",
+	"admin.settings.ui.manageThemesHint":
+		"可在左侧「主题包」页面上传、管理与删除主题包。",
+
+	"admin.settings.system.title": "部署与启动期基础设施参数（只读）",
+	"admin.settings.system.description":
+		"以下参数决定进程监听地址、数据库文件与本地目录，须通过部署配置 config/cogm.local.toml 修改并重启服务生效",
+	"admin.settings.system.host": "监听地址",
+	"admin.settings.system.port": "监听端口",
+	"admin.settings.system.environment": "运行环境",
+	"admin.settings.system.databaseUrl": "数据库路径",
+	"admin.settings.system.backupDir": "备份目录",
+	"admin.settings.system.mediaDir": "本地媒体目录",
+	"admin.settings.system.themesDir": "本地主题目录",
+	"admin.settings.system.secretSource": "密钥加密主密钥来源",
+	"admin.settings.system.secretSource.env": "环境变量 COGM_SETTINGS_SECRET",
+	"admin.settings.system.secretSource.keyfile":
+		"自动生成密钥文件 (data/settings.key)",
+	"admin.settings.system.secretSource.ephemeral": "内存临时密钥（仅测试环境）",
+	"admin.settings.system.version": "服务端版本",
+	"admin.settings.system.commit": "构建提交",
+	"admin.settings.system.buildTime": "构建时间",
+	"admin.settings.system.defaultValue": "默认",
+	"gm.themes.storageLocal": "本地",
+	"gm.themes.storageS3": "OSS",
+
 	"status.waiting": "等待开始",
 	"status.preparing": "准备中",
 	"status.active": "进行中",
@@ -1346,6 +1553,7 @@ export const zhCN: Record<string, string> = {
 	"expressions.pending": "待上传",
 	"expressions.upload": "上传",
 	"expressions.uploading": "上传中…",
+	"expressions.uploadProgress": "正在上传第 {current}/{total} 个…",
 	"expressions.namePlaceholder": "表情名称",
 	"expressions.nameRequired": "表情名称不能为空",
 	"expressions.uploadFailed": "「{name}」上传失败：{reason}",
@@ -1449,7 +1657,27 @@ export const zhCN: Record<string, string> = {
 	"error.THEME_TOO_LARGE": "主题包超过大小限制",
 	"error.commandRejected": "指令被拒绝",
 	"error.BLACKLISTED_FINGERPRINT": "当前设备已被本团禁用",
-	"error.FILE_SIZE_EXCEEDED": "文件超过 10MB 上限",
+	"error.FILE_SIZE_EXCEEDED": "文件超过当前上传大小上限",
+	"error.ORIGIN_LOCKOUT":
+		"新安全配置会拒绝当前浏览器的访问来源，已拦截保存以防锁死后台",
+	"error.STORAGE_NOT_CONFIGURED":
+		"对象存储 (OSS) 尚未完成配置，请先在全站配置中补全连接参数",
+	"error.STORAGE_CONFIG_INVALID": "对象存储配置不完整或参数无效，请检查后重试",
+	"error.VOICE_CONFIG_INVALID":
+		"语音配置无效：配置 TURN 服务器时必须同时提供 TURN REST 密钥",
+	"error.MIGRATION_ALREADY_RUNNING":
+		"已有本地资产迁移任务正在运行，请等待完成后再试",
+	"error.STORAGE_PROBE_NOT_FOUND": "连通性探针已过期，请重新测试",
+	"error.PENDING_UPLOAD_NOT_FOUND": "直传上传凭据不存在，请重新上传",
+	"error.PENDING_UPLOAD_EXPIRED": "直传上传凭据已过期，请重新上传",
+	"error.UPLOADED_OBJECT_MISSING": "对象存储中未找到已上传文件，请重试上传",
+	"error.UPLOAD_SIZE_MISMATCH": "上传文件大小与声明不一致，请重新上传",
+	"error.STORAGE_UNAVAILABLE":
+		"对象存储暂时不可用，请检查 OSS 配置或网络连通性",
+	"error.STORAGE_DIRECT_UPLOAD_FAILED":
+		"直传到对象存储失败，请检查 OSS 权限或配置",
+	"error.STORAGE_DIRECT_UPLOAD_CORS":
+		"浏览器直传被跨域策略或网络拦截，请检查 OSS 桶 CORS 配置",
 	"error.AUDIO_VERSION_CONFLICT": "音频状态已更新，请重试",
 	"error.MUSIC_REFERENCE_INVALID":
 		"歌曲链接或 ID 无法识别，请使用官方歌曲页、网易云歌曲 ID 或 QQ 歌曲 MID",
@@ -1772,7 +2000,8 @@ export const zhCN: Record<string, string> = {
 	"gm.music.addTabUpload": "上传文件",
 	"gm.music.addTabPlatform": "音乐平台",
 	"gm.music.uploadDropTitle": "拖入音频文件",
-	"gm.music.uploadDropHint": "或选择文件，可以一次放入多个",
+	"gm.music.uploadDropHint":
+		"或选择文件，可以一次放入多个 · 单个文件不超过 100 MB",
 	"gm.music.uploadChoose": "选择文件",
 	"gm.music.uploadTypeAria": "{name} 的类型",
 	"gm.music.uploadNameAria": "曲名",
@@ -1826,7 +2055,9 @@ export const zhCN: Record<string, string> = {
 	"gm.module.audioFileLabel": "音频文件",
 	"gm.module.audioFileAria": "音频文件",
 	"gm.module.audioFormatHint":
-		"支持 MP3、WAV、OGG、FLAC、M4A，单个文件不超过 10 MB。",
+		"支持 MP3、WAV、OGG、FLAC、M4A，单个文件不超过 100 MB。",
+	"gm.module.imageFormatHint":
+		"支持 PNG、JPG、WebP、GIF、SVG，单个文件不超过 100 MB。",
 	"gm.module.upload": "上传",
 	"gm.module.handoutTitleLabel": "情报标题",
 	"gm.module.handoutTitlePlaceholder": "例如：馆长的手记",
@@ -2693,6 +2924,8 @@ export const zhCN: Record<string, string> = {
 	"gm.importSheet.providedFields":
 		"识别到 {count} 个明确字段，未提供的字段将在更新时保留。",
 	"gm.importSheet.imported": "人物卡已入库",
+	"gm.importSheet.parsing": "正在解析工作簿…",
+	"gm.importSheet.fileTooLarge": "工作簿文件超过 10 MB 上限",
 	"gm.importSheet.parseFailed": "解析失败",
 	"gm.importSheet.importFailed": "入库失败",
 	"gm.importSheet.confirm": "确认入库",
