@@ -72,11 +72,13 @@ export interface VoiceCapturePipelineLike {
 	readonly deviceId: string | null;
 	readonly processing: VoiceAudioProcessing;
 	readonly appliedAudioConstraints: AppliedAudioConstraints;
+	readonly suspended: boolean;
 	start: (settings: VoiceAudioSettings) => Promise<MediaStream>;
 	update: (settings: VoiceAudioSettings) => Promise<void>;
 	resume?: () => void;
 	getAudioTap?: () => { context: AudioContext; node: AudioNode } | null;
 	getMonitorStream?: () => MediaStream | null;
+	setEnabled: (enabled: boolean) => void;
 	close: () => void;
 }
 
@@ -218,14 +220,19 @@ export class VoiceCapturePipeline implements VoiceCapturePipelineLike {
 	}
 
 	getMonitorStream(): MediaStream | null {
-		if (this.closed) return null;
-		const hasDspNodes = Boolean(
-			this.worklet || (this.settings.compressor && this.compressor),
-		);
-		if (!hasDspNodes && this.rawStream) {
-			return this.rawStream;
-		}
 		return this.outputStream;
+	}
+
+	get suspended(): boolean {
+		const state: string | undefined = this.context?.state;
+		return (
+			this.destination !== null &&
+			(state === "suspended" || state === "interrupted")
+		);
+	}
+
+	setEnabled(enabled: boolean): void {
+		if (this.rawTrack) this.rawTrack.enabled = enabled;
 	}
 
 	resume(): void {
@@ -242,6 +249,7 @@ export class VoiceCapturePipeline implements VoiceCapturePipelineLike {
 				.then(() => {
 					if (this.context === context && isContextRunning(context)) {
 						this.detachUnlock();
+						this.options.onChanged?.();
 					}
 				})
 				.catch(() => {});
@@ -255,6 +263,7 @@ export class VoiceCapturePipeline implements VoiceCapturePipelineLike {
 	private readonly handleContextStateChange = (): void => {
 		const context = this.context;
 		if (!context || this.closed) return;
+		this.options.onChanged?.();
 		if (isContextRunning(context)) {
 			this.detachUnlock();
 			return;
@@ -392,7 +401,7 @@ export class VoiceCapturePipeline implements VoiceCapturePipelineLike {
 			this.outputStream = raw;
 			this.attachRawEnded(track);
 			this.readAppliedConstraints();
-			if (!this.createGraph()) {
+			if (!this.usesProcessingGraph() || !this.createGraph()) {
 				this.updateProcessing();
 				if (this.settings.deepNoiseSuppression) {
 					await this.applyNativeConstraints();
@@ -453,23 +462,11 @@ export class VoiceCapturePipeline implements VoiceCapturePipelineLike {
 			rawTrack.removeEventListener("ended", this.rawEnded);
 		}
 		this.rawEnded = null;
-		this.disposeWorklet();
+		this.disposeGraph();
 		this.detachUnlock();
 		this.detachStateListener();
 		this.restoreAudioSession();
-		try {
-			this.source?.disconnect();
-			this.compressor?.disconnect();
-			this.outputNode?.disconnect();
-			this.keepaliveGain?.disconnect();
-			this.destination?.disconnect();
-		} catch {}
-		const tracks = new Set<MediaStreamTrack>();
-		for (const stream of [this.rawStream, this.outputStream]) {
-			if (!stream) continue;
-			for (const track of stream.getTracks()) tracks.add(track);
-		}
-		for (const track of tracks) track.stop();
+		stopTracks(this.rawStream);
 		const context = this.context;
 		this.context = null;
 		if (context && !isContextClosed(context))
@@ -477,11 +474,6 @@ export class VoiceCapturePipeline implements VoiceCapturePipelineLike {
 		this.rawStream = null;
 		this.rawTrack = null;
 		this.outputStream = null;
-		this.source = null;
-		this.outputNode = null;
-		this.keepaliveGain = null;
-		this.destination = null;
-		this.compressor = null;
 		this.applied = {
 			echoCancellation: null,
 			noiseSuppression: null,
@@ -519,11 +511,15 @@ export class VoiceCapturePipeline implements VoiceCapturePipelineLike {
 			this.deepFilterFailed = false;
 		}
 		if (this.closed || revision !== this.revision) return;
-		await this.ensureProcessingNodes();
-		if (this.closed || revision !== this.revision) return;
-		this.connectGraph();
-		this.updateCompressor();
-		this.postWorkletSettings();
+		if (!this.usesProcessingGraph()) {
+			this.disposeGraph();
+		} else if (this.destination || this.createGraph()) {
+			await this.ensureProcessingNodes();
+			if (this.closed) return;
+			this.connectGraph();
+			this.updateCompressor();
+			this.postWorkletSettings();
+		}
 		this.updateProcessing();
 		await this.applyNativeConstraints();
 	}
@@ -558,6 +554,34 @@ export class VoiceCapturePipeline implements VoiceCapturePipelineLike {
 		return navigator.mediaDevices.getUserMedia(constraints);
 	}
 
+	private usesProcessingGraph(): boolean {
+		const { deepNoiseSuppression, noiseGate, compressor } = this.settings;
+		return deepNoiseSuppression || noiseGate || compressor;
+	}
+
+	private disposeGraph(): void {
+		this.disposeWorklet();
+		for (const node of [
+			this.source,
+			this.compressor,
+			this.outputNode,
+			this.keepaliveGain,
+			this.destination,
+		]) {
+			try {
+				node?.disconnect();
+			} catch {}
+		}
+		stopTracks(this.destination?.stream ?? null);
+		this.source = null;
+		this.outputNode = null;
+		this.keepaliveGain = null;
+		this.destination = null;
+		this.compressor = null;
+		this.outputStream = this.rawStream;
+		this.workletFailed = false;
+	}
+
 	private createGraph(): boolean {
 		const raw = this.rawStream;
 		const context = this.context;
@@ -580,17 +604,7 @@ export class VoiceCapturePipeline implements VoiceCapturePipelineLike {
 			this.outputStream = this.destination.stream;
 			return true;
 		} catch {
-			try {
-				this.source?.disconnect();
-				this.outputNode?.disconnect();
-				this.keepaliveGain?.disconnect();
-				this.destination?.disconnect();
-			} catch {}
-			this.source = null;
-			this.outputNode = null;
-			this.keepaliveGain = null;
-			this.destination = null;
-			this.outputStream = raw;
+			this.disposeGraph();
 			this.detachStateListener();
 			this.context = null;
 			if (!isContextClosed(context)) void context.close().catch(() => {});
@@ -602,7 +616,7 @@ export class VoiceCapturePipeline implements VoiceCapturePipelineLike {
 		const previousRaw = this.rawStream;
 		const previousTrack = this.rawTrack;
 		let nextSource = this.source;
-		if (this.context) {
+		if (this.context && this.destination) {
 			try {
 				nextSource = this.context.createMediaStreamSource(raw);
 			} catch {
@@ -622,9 +636,8 @@ export class VoiceCapturePipeline implements VoiceCapturePipelineLike {
 			this.source?.disconnect();
 		} catch {}
 		this.source = nextSource;
-		this.outputStream = this.context
-			? (this.destination?.stream ?? this.outputStream)
-			: raw;
+		if (previousTrack) track.enabled = previousTrack.enabled;
+		this.outputStream = this.destination?.stream ?? raw;
 		this.rawStream = raw;
 		this.rawTrack = track;
 		this.attachRawEnded(track);

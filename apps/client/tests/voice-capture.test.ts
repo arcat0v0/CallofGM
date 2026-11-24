@@ -292,12 +292,17 @@ describe("voice capture pipeline", () => {
 				captures.shift() ?? Promise.reject(new Error("missing")),
 			createContext: () => graph.context,
 		});
-		const output = await pipeline.start(PLAIN_SETTINGS);
+		const output = await pipeline.start({
+			...PLAIN_SETTINGS,
+			compressor: true,
+		});
 		await pipeline.update({
 			...PLAIN_SETTINGS,
+			compressor: true,
 			deviceId: "mic-b",
 		});
 		expect(pipeline.stream).toBe(output);
+		expect(pipeline.getMonitorStream()).toBe(output);
 		expect(firstTrack.stop).toHaveBeenCalledTimes(1);
 		const late = Promise.withResolvers<MediaStream>();
 		const latePipeline = new VoiceCapturePipeline({
@@ -314,6 +319,30 @@ describe("voice capture pipeline", () => {
 });
 
 describe("runtime voice processing nodes", () => {
+	test("bypasses the graph with all enhancements off and switches output in both directions", async () => {
+		const rawTrack = fakeTrack();
+		const raw = fakeStream(rawTrack);
+		const graph = fakeContext();
+		const pipeline = new VoiceCapturePipeline({
+			capture: async () => raw,
+			createContext: () => graph.context,
+		});
+		try {
+			expect(await pipeline.start(PLAIN_SETTINGS)).toBe(raw);
+			expect(graph.context.createMediaStreamSource).not.toHaveBeenCalled();
+			expect(pipeline.getMonitorStream()).toBe(raw);
+			await pipeline.update({ ...PLAIN_SETTINGS, compressor: true });
+			expect(pipeline.stream).toBe(graph.destination.stream);
+			expect(pipeline.getMonitorStream()).toBe(graph.destination.stream);
+			await pipeline.update(PLAIN_SETTINGS);
+			expect(pipeline.stream).toBe(raw);
+			expect(pipeline.getMonitorStream()).toBe(raw);
+			expect(graph.destinationTrack.stop).toHaveBeenCalledTimes(1);
+			expect(rawTrack.stop).not.toHaveBeenCalled();
+		} finally {
+			pipeline.close();
+		}
+	});
 	test("maps the default device to browser default and toggles gate and compressor live", async () => {
 		expect(
 			buildVoiceCaptureConstraints(DEFAULT_VOICE_AUDIO_SETTINGS).audio,
@@ -351,7 +380,7 @@ describe("runtime voice processing nodes", () => {
 		pipeline.close();
 	});
 
-	test("resumes interrupted Safari contexts, keeps graph pulled via silent sink, and exposes direct monitor stream", async () => {
+	test("resumes interrupted Safari contexts and keeps processed output pulled via a silent sink", async () => {
 		const rawTrack = fakeTrack("safari-mic");
 		const rawStream = fakeStream(rawTrack);
 		const graph = fakeContext();
@@ -396,13 +425,17 @@ describe("runtime voice processing nodes", () => {
 			capture: async () => rawStream,
 			createContext: () => graph.context,
 		});
-		await pipeline.start(PLAIN_SETTINGS);
+		const output = await pipeline.start({
+			...PLAIN_SETTINGS,
+			compressor: true,
+		});
 		expect(mutableContext.resume).toHaveBeenCalled();
 		expect(pipeline.getAudioTap()).toEqual({
 			context: graph.context,
 			node: gains[0] as unknown as AudioNode,
 		});
-		expect(pipeline.getMonitorStream()).toBe(rawStream);
+		expect(pipeline.getMonitorStream()).toBe(output);
+		expect(output).not.toBe(rawStream);
 		expect(gains[1]?.gain.value).toBe(0);
 		expect(gains[1]?.connect).toHaveBeenCalledWith(mutableContext.destination);
 

@@ -1519,6 +1519,23 @@ export function VoicePanelBody({
 					</AlertContent>
 				</Alert>
 			) : null}
+			{mic === "on" && snapshot.micSuspended ? (
+				<Alert variant="warning">
+					<AlertContent>
+						<AlertDescription role="status">
+							{t("voice.mic.suspended")}
+						</AlertDescription>
+					</AlertContent>
+					<Button
+						type="button"
+						variant="tertiary"
+						size="sm"
+						onClick={() => voice.resumeMic()}
+					>
+						{t("voice.mic.resume")}
+					</Button>
+				</Alert>
+			) : null}
 			{playbackBlocked ? (
 				<Alert variant="warning">
 					<AlertContent>
