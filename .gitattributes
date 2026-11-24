@@ -3,3 +3,6 @@
 # (the Windows default) that would otherwise mark the whole tree stale.
 # Binaries are auto-detected and left untouched.
 * text=auto eol=lf
+
+# DeepFilterNet3 voice runtime and model (gzip payloads)
+apps/client/src/features/voice/vendor/deepfilternet3/*.bin binary

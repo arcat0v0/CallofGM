@@ -1094,6 +1094,10 @@ export const zhCN: Record<string, string> = {
 	"play.unavailableTitle": "无法连接到团",
 	"play.unavailableDescription":
 		"多次连接失败。请检查网络；若刚刚被主持人拉黑，则无法再进入本团。",
+	"play.loginExpiredTitle": "登录已失效",
+	"play.loginExpiredDescription":
+		"当前登录会话已失效，请重新登录后再进入本团。",
+	"play.goToLogin": "去登录",
 	"play.returnEntry": "返回入口",
 	"play.reenter": "重新进入",
 	"play.retryConnect": "重试连接",
@@ -1194,9 +1198,15 @@ export const zhCN: Record<string, string> = {
 	"voice.audio.echoCancellation": "回声消除",
 	"voice.audio.noiseSuppression": "浏览器降噪",
 	"voice.audio.autoGainControl": "自动增益",
-	"voice.audio.deepNoiseSuppression": "深度降噪（RNNoise）",
+	"voice.audio.deepNoiseSuppression": "深度降噪",
 	"voice.audio.deepNoiseSuppressionHint":
-		"开启后由 RNNoise 替代浏览器降噪；浏览器降噪开关会保留你的偏好设置。",
+		"由 AI 模型替代浏览器降噪；浏览器降噪开关会保留你的偏好设置。",
+	"voice.audio.noiseSuppressionEngine": "降噪模型",
+	"voice.audio.engine.deepfilter": "DeepFilterNet3（高质量）",
+	"voice.audio.engine.rnnoise": "RNNoise（轻量）",
+	"voice.audio.engine.deepfilterHint":
+		"降噪更彻底。首次使用需下载约 11 MB 模型，加载完成前先由 RNNoise 处理。",
+	"voice.audio.engine.rnnoiseHint": "占用 CPU 更少，适合性能较弱的设备。",
 	"voice.audio.groupBrowser": "浏览器处理",
 	"voice.audio.groupEnhanced": "增强处理",
 	"voice.audio.echoCancellationHint":
@@ -1204,8 +1214,9 @@ export const zhCN: Record<string, string> = {
 	"voice.audio.noiseSuppressionHint": "过滤键盘声、风扇声等背景噪声",
 	"voice.audio.autoGainControlHint": "自动平衡说话音量",
 	"voice.audio.deepNoiseSuppressionOffHint":
-		"AI 降噪，对持续性噪声更有效，占用更多 CPU",
-	"voice.audio.noiseGateHint": "说话间隙自动静音，压低底噪",
+		"AI 降噪，比浏览器降噪更干净，占用更多 CPU",
+	"voice.audio.noiseGateHint":
+		"说话间隙自动静音；开启深度降噪后只在检测到人声时放行，可压住呼吸声",
 	"voice.audio.compressorHint": "限制突然的大音量，避免爆音",
 	"voice.moreTitle": "更多选项",
 	"voice.tab.label": "语音面板视图",
@@ -1221,6 +1232,7 @@ export const zhCN: Record<string, string> = {
 	"voice.audio.processing.starting": "正在启动音频处理",
 	"voice.audio.processing.native": "浏览器音频处理中",
 	"voice.audio.processing.rnnoise": "RNNoise 处理中",
+	"voice.audio.processing.deepfilter": "DeepFilterNet3 处理中",
 	"voice.audio.processing.fallback": "已回退到浏览器处理",
 	"voice.audio.fallbackHint":
 		"部分已开启的增强处理不可用，当前使用可用的音频处理。",
@@ -1261,6 +1273,8 @@ export const zhCN: Record<string, string> = {
 		"麦克风权限未获允许。你仍可收听；如需发言，可在浏览器的站点设置中允许麦克风后重试。",
 	"voice.mic.unavailable":
 		"未能使用麦克风。请检查设备是否连接、是否被占用，以及页面是否安全（HTTPS），然后重试。",
+	"voice.mic.suspended": "麦克风已暂停，请点按恢复。",
+	"voice.mic.resume": "恢复麦克风",
 	"voice.playbackOn": "恢复收听",
 	"voice.playbackOff": "暂停收听",
 	"voice.retryPlayback": "播放语音",

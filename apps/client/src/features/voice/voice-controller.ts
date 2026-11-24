@@ -17,6 +17,7 @@ import {
 } from "./voice-audio-settings";
 import {
 	type AppliedAudioConstraints,
+	type VoiceAudioProcessing,
 	VoiceCapturePipeline,
 	type VoiceCapturePipelineLike,
 } from "./voice-capture";
@@ -60,7 +61,8 @@ export type VoiceSnapshot = {
 	audioSettings: VoiceAudioSettings;
 	audioDevices: Array<{ deviceId: string; label: string }>;
 	appliedAudioConstraints: AppliedAudioConstraints;
-	audioProcessing: "idle" | "starting" | "native" | "rnnoise" | "fallback";
+	audioProcessing: VoiceAudioProcessing;
+	micSuspended: boolean;
 	pushToTalkActive: boolean;
 	playbackMuted: boolean;
 	playbackBlocked: boolean;
@@ -118,6 +120,7 @@ const INITIAL: VoiceSnapshot = {
 		autoGainControl: null,
 	},
 	audioProcessing: "idle",
+	micSuspended: false,
 	pushToTalkActive: false,
 	playbackMuted: false,
 	playbackBlocked: false,
@@ -525,6 +528,7 @@ export class VoiceController {
 			if (
 				member.canSpeak &&
 				mic === "on" &&
+				!this.snapshot.micSuspended &&
 				this.stream &&
 				(!audioSettings.pushToTalk || pushToTalkActive)
 			) {
@@ -682,6 +686,10 @@ export class VoiceController {
 		await this.startMic();
 	}
 
+	resumeMic(): void {
+		if (this.snapshot.micSuspended) this.pipeline?.resume?.();
+	}
+
 	setPushToTalkActive(active: boolean): void {
 		const next = Boolean(
 			active &&
@@ -756,11 +764,13 @@ export class VoiceController {
 				if (ownId && monitorStream) this.monitor.setTrack(ownId, monitorStream);
 			} else if (stream && track && this.testStream) {
 				const tap = pipeline.getAudioTap?.();
-				if (tap && this.micTester.startTap) {
+				if (stream !== this.testStream) {
 					this.testStream = stream;
-				} else if (stream !== this.testStream) {
-					this.testStream = stream;
-					this.micTester.start(monitorStream ?? stream);
+					if (tap && this.micTester.startTap) {
+						this.micTester.startTap(tap.context, tap.node);
+					} else {
+						this.micTester.start(monitorStream ?? stream);
+					}
 					this.micTester.setLoopback(this.snapshot.micTestLoopback);
 				}
 			}
@@ -1019,7 +1029,10 @@ export class VoiceController {
 	private syncPipelineSnapshot(pipeline: VoiceCapturePipelineLike): void {
 		if (this.pipeline !== pipeline) return;
 		const applied = pipeline.appliedAudioConstraints;
+		const micSuspended = this.capturePurpose === "mic" && pipeline.suspended;
+		const suspensionChanged = micSuspended !== this.snapshot.micSuspended;
 		if (
+			!suspensionChanged &&
 			this.snapshot.audioProcessing === pipeline.processing &&
 			this.snapshot.appliedAudioConstraints.echoCancellation ===
 				applied.echoCancellation &&
@@ -1032,8 +1045,10 @@ export class VoiceController {
 		}
 		this.patch({
 			audioProcessing: pipeline.processing,
+			micSuspended,
 			appliedAudioConstraints: applied,
 		});
+		if (suspensionChanged) this.syncActivityAllowed();
 	}
 
 	private closePipeline(): void {
@@ -1043,6 +1058,7 @@ export class VoiceController {
 		pipeline?.close();
 		this.patch({
 			audioProcessing: "idle",
+			micSuspended: false,
 			appliedAudioConstraints: {
 				echoCancellation: null,
 				noiseSuppression: null,
@@ -1074,6 +1090,7 @@ export class VoiceController {
 				(!this.snapshot.audioSettings.pushToTalk ||
 					this.snapshot.pushToTalkActive),
 		);
+		this.pipeline?.setEnabled(track.enabled);
 	}
 
 	private readonly onKeyDown = (event: KeyboardEvent): void => {

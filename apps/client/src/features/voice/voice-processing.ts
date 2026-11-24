@@ -42,7 +42,22 @@ export class RnnoiseProcessor {
 		}
 	}
 
-	processFrame(frame: Float32Array): void {
+	/** Denoises `frame` in place; returns the voice activity probability. */
+	processFrame(frame: Float32Array): number {
+		const voice = this.run(frame);
+		const outputHeap = this.wasm.HEAPF32;
+		for (let index = 0; index < RNNOISE_FRAME_SIZE; index += 1) {
+			frame[index] = (outputHeap[this.inputIndex + index] ?? 0) / 32_768;
+		}
+		return voice;
+	}
+
+	/** Runs the model for its voice activity probability; `frame` is untouched. */
+	analyzeFrame(frame: Float32Array): number {
+		return this.run(frame);
+	}
+
+	private run(frame: Float32Array): number {
 		if (this.destroyed || frame.length !== RNNOISE_FRAME_SIZE) {
 			throw new Error("Invalid RNNoise frame");
 		}
@@ -50,15 +65,12 @@ export class RnnoiseProcessor {
 		for (let index = 0; index < RNNOISE_FRAME_SIZE; index += 1) {
 			heap[this.inputIndex + index] = (frame[index] ?? 0) * 32_768;
 		}
-		this.wasm._rnnoise_process_frame(
+		const voice = this.wasm._rnnoise_process_frame(
 			this.context,
 			this.inputPointer,
 			this.inputPointer,
 		);
-		const outputHeap = this.wasm.HEAPF32;
-		for (let index = 0; index < RNNOISE_FRAME_SIZE; index += 1) {
-			frame[index] = (outputHeap[this.inputIndex + index] ?? 0) / 32_768;
-		}
+		return Number.isFinite(voice) ? voice : 0;
 	}
 
 	destroy(): void {
@@ -76,6 +88,10 @@ export type NoiseGateSettings = {
 	attackMs: number;
 	releaseMs: number;
 	hangoverMs: number;
+	/** Voice probability (0..1) at or above which speech is detected. */
+	voiceOpen?: number;
+	/** Voice probability below which speech ends (hysteresis with voiceOpen). */
+	voiceClose?: number;
 };
 
 export const DEFAULT_NOISE_GATE_SETTINGS: NoiseGateSettings = {
@@ -84,8 +100,16 @@ export const DEFAULT_NOISE_GATE_SETTINGS: NoiseGateSettings = {
 	attackMs: 4,
 	releaseMs: 120,
 	hangoverMs: 180,
+	voiceOpen: 0.6,
+	voiceClose: 0.25,
 };
 
+/**
+ * Level gate with an optional voice-activity condition. When a voice
+ * probability is supplied per frame (RNNoise VAD), the gate only opens for
+ * frames that are both loud enough and detected as speech, so breathing,
+ * clicks and other non-speech sounds between phrases stay muted.
+ */
 export class NoiseGate {
 	private settings: NoiseGateSettings;
 	private threshold: number;
@@ -96,6 +120,7 @@ export class NoiseGate {
 	private gain = 0;
 	private holdRemaining = 0;
 	private open = false;
+	private voiceActive: boolean | null = null;
 
 	constructor(settings: NoiseGateSettings, sampleRate: number) {
 		this.settings = { ...settings };
@@ -108,6 +133,11 @@ export class NoiseGate {
 
 	get isOpen(): boolean {
 		return this.open;
+	}
+
+	/** Speech state from the last voice probability; null when unknown. */
+	get isVoiceActive(): boolean | null {
+		return this.voiceActive;
 	}
 
 	update(settings: Partial<NoiseGateSettings>, sampleRate: number): void {
@@ -129,15 +159,32 @@ export class NoiseGate {
 		if (!this.settings.enabled || !wasEnabled) this.reset();
 	}
 
+	/** Feeds the voice probability (0..1) of the latest frame, or null. */
+	setVoiceProbability(probability: number | null): void {
+		if (probability === null || !Number.isFinite(probability)) {
+			this.voiceActive = null;
+			return;
+		}
+		const open = this.settings.voiceOpen ?? 0.6;
+		const close = Math.min(this.settings.voiceClose ?? 0.25, open);
+		if (probability >= open) {
+			this.voiceActive = true;
+		} else if (probability < close || this.voiceActive === null) {
+			this.voiceActive = false;
+		}
+	}
+
 	reset(): void {
 		this.envelope = 0;
 		this.gain = 0;
 		this.holdRemaining = 0;
 		this.open = false;
+		this.voiceActive = null;
 	}
 
 	process(samples: Float32Array, sampleRate: number): void {
 		if (!this.settings.enabled) return;
+		const voiceBlocked = this.voiceActive === false;
 		for (let index = 0; index < samples.length; index += 1) {
 			const sample = samples[index] ?? 0;
 			const magnitude = Math.abs(sample);
@@ -146,7 +193,9 @@ export class NoiseGate {
 					? this.attackCoefficient
 					: this.releaseCoefficient;
 			this.envelope += (magnitude - this.envelope) * envelopeCoefficient;
-			if (magnitude >= this.threshold || this.envelope >= this.threshold) {
+			const loud =
+				magnitude >= this.threshold || this.envelope >= this.threshold;
+			if (loud && !voiceBlocked) {
 				this.holdRemaining = this.hangoverSamples;
 				this.open = true;
 			} else if (this.holdRemaining > 0) {
@@ -170,12 +219,32 @@ export class NoiseGate {
 	}
 }
 
-export type VoicePcmProcessorOptions = {
-	rnnoise?: RnnoiseProcessor | null;
-	gate?: NoiseGateSettings;
-	sampleRate?: number;
+/** Frame denoiser shared by RNNoise and DeepFilterNet3 (480-sample frames). */
+export type VoiceFrameDenoiser = {
+	processFrame: (frame: Float32Array) => number;
+	destroy: () => void;
 };
 
+export type VoiceNoiseEngine = "deepfilter" | "rnnoise" | "none";
+
+export type VoicePcmProcessorOptions = {
+	rnnoise?: RnnoiseProcessor | null;
+	deepFilter?: VoiceFrameDenoiser | null;
+	gate?: NoiseGateSettings;
+	sampleRate?: number;
+	/** Called after an engine threw; the engine has been dropped. */
+	onEngineError?: (engine: Exclude<VoiceNoiseEngine, "none">) => void;
+};
+
+/**
+ * Worklet-side PCM chain: 128-sample render quanta are collected into
+ * 480-sample frames for the active denoiser, played out with one frame of
+ * delay, then passed through the gate.
+ *
+ * With DeepFilterNet3 active, RNNoise (when present) only analyzes the raw
+ * frame for its voice probability, which drives the gate and is ready as an
+ * immediate fallback if DeepFilterNet3 fails.
+ */
 export class VoicePcmProcessor {
 	private readonly ring = new Float32Array(VOICE_RING_SIZE);
 	private readonly frames = Array.from(
@@ -187,7 +256,9 @@ export class VoicePcmProcessor {
 			),
 	);
 	private readonly gate: NoiseGate;
+	private readonly onEngineError: VoicePcmProcessorOptions["onEngineError"];
 	private rnnoise: RnnoiseProcessor | null;
+	private deepFilter: VoiceFrameDenoiser | null;
 	private inputLength = 0;
 	private processedLength = 0;
 	private outputIndex = 0;
@@ -195,6 +266,8 @@ export class VoicePcmProcessor {
 
 	constructor(options: VoicePcmProcessorOptions = {}) {
 		this.rnnoise = options.rnnoise ?? null;
+		this.deepFilter = options.deepFilter ?? null;
+		this.onEngineError = options.onEngineError;
 		this.gate = new NoiseGate(
 			options.gate ?? { ...DEFAULT_NOISE_GATE_SETTINGS, enabled: false },
 			options.sampleRate ?? VOICE_SAMPLE_RATE,
@@ -205,11 +278,29 @@ export class VoicePcmProcessor {
 		return this.rnnoise !== null;
 	}
 
+	get hasDeepFilter(): boolean {
+		return this.deepFilter !== null;
+	}
+
+	/** The denoiser whose output is heard. */
+	get engine(): VoiceNoiseEngine {
+		return this.deepFilter ? "deepfilter" : this.rnnoise ? "rnnoise" : "none";
+	}
+
 	setRnnoise(rnnoise: RnnoiseProcessor | null): void {
 		if (this.rnnoise === rnnoise) return;
+		const hadEngine = this.engine !== "none";
 		this.rnnoise?.destroy();
 		this.rnnoise = rnnoise;
-		this.resetRing();
+		this.afterEngineChange(hadEngine);
+	}
+
+	setDeepFilter(deepFilter: VoiceFrameDenoiser | null): void {
+		if (this.deepFilter === deepFilter) return;
+		const hadEngine = this.engine !== "none";
+		safeDestroy(this.deepFilter);
+		this.deepFilter = deepFilter;
+		this.afterEngineChange(hadEngine);
 	}
 
 	updateGate(settings: Partial<NoiseGateSettings>, sampleRate: number): void {
@@ -217,7 +308,7 @@ export class VoicePcmProcessor {
 	}
 
 	process(input: Float32Array, output: Float32Array, sampleRate: number): void {
-		if (!this.rnnoise) {
+		if (this.engine === "none") {
 			const length = Math.min(input.length, output.length);
 			for (let index = 0; index < length; index += 1) {
 				output[index] = input[index] ?? 0;
@@ -237,7 +328,7 @@ export class VoicePcmProcessor {
 		if (this.processedLength + RNNOISE_FRAME_SIZE <= this.inputLength) {
 			const frame = this.frames[this.processedLength / RNNOISE_FRAME_SIZE];
 			if (!frame) throw new Error("Invalid RNNoise ring state");
-			this.rnnoise.processFrame(frame);
+			this.processFrame(frame);
 			this.processedLength += RNNOISE_FRAME_SIZE;
 		}
 		const silence = Math.min(this.delayRemaining, output.length);
@@ -256,8 +347,55 @@ export class VoicePcmProcessor {
 	}
 
 	destroy(): void {
+		this.setDeepFilter(null);
 		this.setRnnoise(null);
 		this.gate.reset();
+	}
+
+	private processFrame(frame: Float32Array): void {
+		let voice: number | null = null;
+		const deepFilter = this.deepFilter;
+		const rnnoise = this.rnnoise;
+		if (deepFilter) {
+			if (rnnoise) {
+				try {
+					voice = rnnoise.analyzeFrame(frame);
+				} catch {
+					this.dropRnnoise();
+				}
+			}
+			try {
+				deepFilter.processFrame(frame);
+			} catch {
+				this.deepFilter = null;
+				safeDestroy(deepFilter);
+				this.onEngineError?.("deepfilter");
+			}
+		} else if (rnnoise) {
+			try {
+				voice = rnnoise.processFrame(frame);
+			} catch {
+				this.dropRnnoise();
+			}
+		}
+		this.gate.setVoiceProbability(voice);
+	}
+
+	private dropRnnoise(): void {
+		const rnnoise = this.rnnoise;
+		this.rnnoise = null;
+		try {
+			rnnoise?.destroy();
+		} catch {}
+		this.onEngineError?.("rnnoise");
+	}
+
+	private afterEngineChange(hadEngine: boolean): void {
+		if (this.engine === "none") {
+			this.gate.setVoiceProbability(null);
+		} else if (!hadEngine) {
+			this.resetRing();
+		}
 	}
 
 	private resetRing(): void {
@@ -266,4 +404,10 @@ export class VoicePcmProcessor {
 		this.outputIndex = 0;
 		this.delayRemaining = RNNOISE_FRAME_SIZE;
 	}
+}
+
+function safeDestroy(denoiser: VoiceFrameDenoiser | null): void {
+	try {
+		denoiser?.destroy();
+	} catch {}
 }

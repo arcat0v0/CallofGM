@@ -9,6 +9,7 @@ import type { PlaySliceCreator } from "../types";
 
 export type ConnectionTerminal =
 	| "kicked"
+	| "loginExpired"
 	| "unavailable"
 	| "replaced"
 	| "released";

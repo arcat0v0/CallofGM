@@ -18,7 +18,6 @@ export class SessionLifecycle {
 	constructor(
 		private readonly session: {
 			readonly status: string;
-			readonly phase: string;
 		},
 	) {}
 
@@ -102,16 +101,13 @@ export class SessionLifecycle {
 		);
 	}
 
-	canVoiceSpeak(
-		role: "gm" | SeatRole,
-		{ speakGranted, muted }: { speakGranted: boolean; muted: boolean },
-	): boolean {
-		return (
-			speakGranted &&
-			!muted &&
-			(role === "gm" ||
-				this.session.status === "preparing" ||
-				this.session.status === "active")
-		);
+	canVoiceSpeak({
+		speakGranted,
+		muted,
+	}: {
+		speakGranted: boolean;
+		muted: boolean;
+	}): boolean {
+		return speakGranted && !muted;
 	}
 }
