@@ -18,16 +18,16 @@ export function createUiSettingsRoutes(container: Container) {
 		container.clock,
 	);
 
-	return new Elysia({ prefix: "/api/v1/admin/ui-settings" })
+	return new Elysia()
 		.get("/api/v1/public/ui-settings", async () => getSettings.execute())
 		.use(authPlugin)
 		.onBeforeHandle(({ actor }) => {
-			if (!actor || actor.type !== "user" || actor.role !== "admin") {
+			if (actor?.type !== "user" || actor.role !== "admin") {
 				throw new AuthRequiredError();
 			}
 		})
-		.get("/", async () => getSettings.execute())
-		.put("/", async ({ body }) => {
+		.get("/api/v1/admin/ui-settings", async () => getSettings.execute())
+		.put("/api/v1/admin/ui-settings", async ({ body }) => {
 			const parsed = UpdateUiSettingsRequest.safeParse(body);
 			if (!parsed.success) {
 				throw validationFailed(parsed.error);

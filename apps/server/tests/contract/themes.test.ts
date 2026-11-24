@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
 import { rm } from "node:fs/promises";
-import type { ThemeManifest } from "@cogm/shared";
+import { type ThemeManifest, UiSettingsDto } from "@cogm/shared";
 import { zipSync } from "fflate";
 import { setupTestApp, type TestContext } from "../helpers/setup";
 
@@ -271,6 +271,18 @@ describe("Theme registry and API contract tests", () => {
 		expect(((await get.json()) as { gmThemeId: string }).gmThemeId).toBe(
 			manifest.id,
 		);
+		const publicSettings = await ctx.app.handle(
+			new Request("http://localhost/api/v1/public/ui-settings"),
+		);
+		expect(publicSettings.status).toBe(200);
+		expect(UiSettingsDto.parse(await publicSettings.json()).gmThemeId).toBe(
+			manifest.id,
+		);
+
+		const anonymousAdmin = await ctx.app.handle(
+			new Request("http://localhost/api/v1/admin/ui-settings"),
+		);
+		expect(anonymousAdmin.status).toBe(401);
 
 		const blocked = await ctx.app.handle(
 			new Request(`http://localhost/api/v1/admin/themes/${manifest.id}`, {
