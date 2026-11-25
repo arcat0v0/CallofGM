@@ -178,7 +178,9 @@ function respond(path: string, method: string, body?: unknown): unknown {
 	return null;
 }
 
+const apiModule = await import("../src/lib/api");
 mock.module("@/lib/api", () => ({
+	...apiModule,
 	api: async (path: string, init: { method?: string; body?: unknown } = {}) => {
 		const method = init.method ?? "GET";
 		const parsed =
