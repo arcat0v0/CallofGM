@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.4] - 2026-11-26
+
+发布验证使用 Bun `1.4.4`，systemd 部署使用 Bun `1.4.4`，Docker 构建与运行使用 Bun `1.3.14`。
+
+### Changed
+
+- 无立绘人物通过舞台对话显示姓名和台词。GM 编排画布用可拖动的小姓名牌标记机位，人物列表标明「无立绘」。
+- 创建和提交人物时须填写详细背景描述，涵盖 CoC 7e 和 D&D 第五版（2024）。
+
+### Fixed
+
+- 玩家送审或被拒绝的台词留在聊天里，只有已呈现的演绎发言进入舞台对话和发言聚焦。
+
+### Security
+
+- 加强人物资料和规则卡的文本校验，限制 JSON 请求大小，并补充 HTTP 响应安全标头。
+
 ## [0.3.3] - 2026-11-25
 
 发布验证与 systemd 部署使用 Bun `1.4.4`；Docker 构建与运行使用 Bun `1.3.14`。
