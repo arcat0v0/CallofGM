@@ -42,7 +42,10 @@ function toUserDto(user: {
 
 export function createAdminRoutes(container: Container) {
 	const { identityRepo: repo, authPlugin } = container;
-	const allowedOrigins = container.config.corsOrigins;
+	const assertOrigin = (request: Request) => {
+		const security = container.siteSettings.getSecurityConfig();
+		assertTrustedOrigin(request, security.corsOrigins, security.trustProxy);
+	};
 	const createUser = new CreateUserUseCase(
 		container.idGenerator,
 		container.clock,
@@ -78,7 +81,7 @@ export function createAdminRoutes(container: Container) {
 			return { items: rows.map(toUserDto) };
 		})
 		.post("/api/v1/admin/users", async ({ actor, body, request }) => {
-			assertTrustedOrigin(request, allowedOrigins, container.config.trustProxy);
+			assertOrigin(request);
 			requireAdmin(actor);
 			const parsed = CreateUserRequest.safeParse(body);
 			if (!parsed.success) {
@@ -94,11 +97,7 @@ export function createAdminRoutes(container: Container) {
 		.patch(
 			"/api/v1/admin/users/:id",
 			async ({ actor, body, params, request }) => {
-				assertTrustedOrigin(
-					request,
-					allowedOrigins,
-					container.config.trustProxy,
-				);
+				assertOrigin(request);
 				const admin = requireAdmin(actor);
 				const parsed = UpdateUserRequest.safeParse(body);
 				if (!parsed.success) {
@@ -124,11 +123,7 @@ export function createAdminRoutes(container: Container) {
 		.post(
 			"/api/v1/admin/users/:id/password",
 			async ({ actor, body, params, request }) => {
-				assertTrustedOrigin(
-					request,
-					allowedOrigins,
-					container.config.trustProxy,
-				);
+				assertOrigin(request);
 				requireAdmin(actor);
 				const parsed = ResetUserPasswordRequest.safeParse(body);
 				if (!parsed.success) {

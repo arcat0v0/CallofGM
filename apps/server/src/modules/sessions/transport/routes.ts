@@ -16,9 +16,11 @@ import {
 	RemoveSessionNpcResponse,
 	RenameSessionRequest,
 	ResolveSessionReferenceResponse,
+	SaveStagePresetRequest,
 	SessionCloseCode,
 	SessionDetailResponse,
 	SessionDto,
+	StagePresetsResponse,
 	UpdateSessionPhaseRequest,
 	UpdateSessionStatusRequest,
 } from "@cogm/shared";
@@ -60,6 +62,12 @@ import {
 	SessionStateInvalidError,
 } from "../domain/errors";
 import { SessionLifecycle } from "../domain/session-lifecycle";
+import {
+	parseStagePresetsJson,
+	pruneCharacterFromStageCompositionJson,
+	removeStagePreset,
+	upsertStagePreset,
+} from "../domain/stage-state";
 
 async function effectiveThemeId(
 	container: Container,
@@ -145,12 +153,24 @@ export function createSessionsRoutes(container: Container) {
 		container.clock,
 	);
 
-	const allowedOrigins = container.config.corsOrigins;
+	const assertOrigin = (request: Request) => {
+		const security = container.siteSettings.getSecurityConfig();
+		assertTrustedOrigin(request, security.corsOrigins, security.trustProxy);
+	};
+	const requestIp = (
+		request: Request,
+		server: Parameters<typeof clientIp>[1],
+	) =>
+		clientIp(
+			request,
+			server,
+			container.siteSettings.getSecurityConfig().trustProxy,
+		);
 
 	return new Elysia()
 		.use(authPlugin)
 		.post("/api/v1/gm/sessions", async ({ actor, body, request }) => {
-			assertTrustedOrigin(request, allowedOrigins, container.config.trustProxy);
+			assertOrigin(request);
 			const gm = requireGm(actor);
 			const result = CreateSessionRequest.safeParse(body);
 			if (!result.success) {
@@ -166,11 +186,7 @@ export function createSessionsRoutes(container: Container) {
 		.post(
 			"/api/v1/gm/sessions/:id/name",
 			async ({ actor, params: { id }, body, request }) => {
-				assertTrustedOrigin(
-					request,
-					allowedOrigins,
-					container.config.trustProxy,
-				);
+				assertOrigin(request);
 				const gm = requireGm(actor);
 				const result = RenameSessionRequest.safeParse(body);
 				if (!result.success) {
@@ -210,11 +226,7 @@ export function createSessionsRoutes(container: Container) {
 		.post(
 			"/api/v1/gm/sessions/:id/status",
 			async ({ actor, params: { id }, body, request }) => {
-				assertTrustedOrigin(
-					request,
-					allowedOrigins,
-					container.config.trustProxy,
-				);
+				assertOrigin(request);
 				const gm = requireGm(actor);
 				const result = UpdateSessionStatusRequest.safeParse(body);
 				if (!result.success) {
@@ -232,11 +244,7 @@ export function createSessionsRoutes(container: Container) {
 		.post(
 			"/api/v1/gm/sessions/:id/phase",
 			async ({ actor, params: { id }, body, request }) => {
-				assertTrustedOrigin(
-					request,
-					allowedOrigins,
-					container.config.trustProxy,
-				);
+				assertOrigin(request);
 				const gm = requireGm(actor);
 				const result = UpdateSessionPhaseRequest.safeParse(body);
 				if (!result.success) {
@@ -254,11 +262,7 @@ export function createSessionsRoutes(container: Container) {
 		.post(
 			"/api/v1/gm/sessions/:id/npcs",
 			async ({ actor, params: { id }, body, request }) => {
-				assertTrustedOrigin(
-					request,
-					allowedOrigins,
-					container.config.trustProxy,
-				);
+				assertOrigin(request);
 				const gm = requireGm(actor);
 				const result = AddSessionNpcRequest.safeParse(body);
 				if (!result.success) {
@@ -318,11 +322,7 @@ export function createSessionsRoutes(container: Container) {
 		.delete(
 			"/api/v1/gm/sessions/:id/npcs/:characterId",
 			async ({ actor, params: { id, characterId }, request }) => {
-				assertTrustedOrigin(
-					request,
-					allowedOrigins,
-					container.config.trustProxy,
-				);
+				assertOrigin(request);
 				const gm = requireGm(actor);
 				const result = await container.sessionCommandExecutor.runExclusive(
 					id,
@@ -347,11 +347,16 @@ export function createSessionsRoutes(container: Container) {
 									ruleStateJson = next === null ? null : JSON.stringify(next);
 							}
 						}
+						const stageCompositionJson = pruneCharacterFromStageCompositionJson(
+							session.stageCompositionJson,
+							characterId,
+						);
 						return repo.softDeleteSessionNpc(
 							id,
 							characterId,
 							container.clock.nowEpochMs(),
 							ruleStateJson,
+							stageCompositionJson,
 						);
 					},
 				);
@@ -367,13 +372,104 @@ export function createSessionsRoutes(container: Container) {
 			},
 		)
 		.post(
+			"/api/v1/gm/sessions/:id/stage-presets",
+			async ({ actor, params: { id }, body, request }) => {
+				assertOrigin(request);
+				const gm = requireGm(actor);
+				const parsed = SaveStagePresetRequest.safeParse(body);
+				if (!parsed.success) {
+					throw validationFailed(parsed.error);
+				}
+				const result = await container.sessionCommandExecutor.runExclusive(
+					id,
+					async () => {
+						const session = await repo.findSessionById(id);
+						if (!session || session.ownerId !== gm.userId) {
+							return new SessionNotFoundError();
+						}
+						const lifecycleError = new SessionLifecycle(
+							session,
+						).rosterOrSyncError("stage-presets");
+						if (lifecycleError) return lifecycleError;
+						if (parsed.data.composition.items.length > 0) {
+							const sessionChars =
+								await repo.findSessionCharactersWithClaims(id);
+							const activeIds = new Set(
+								sessionChars.map((entry) => entry.characterId),
+							);
+							for (const item of parsed.data.composition.items) {
+								if (!activeIds.has(item.characterId)) {
+									return new AppError(
+										"CHARACTER_NOT_IN_SESSION",
+										"Character is not participating in this session",
+										404,
+									);
+								}
+							}
+						}
+						try {
+							const current = parseStagePresetsJson(session.stagePresetsJson);
+							const next = upsertStagePreset(
+								current,
+								parsed.data,
+								container.clock.nowEpochMs(),
+								() => container.idGenerator.nextId(),
+							);
+							await repo.updateSession(id, {
+								stagePresetsJson: JSON.stringify(next),
+							});
+							return next;
+						} catch (error) {
+							if (error instanceof AppError) {
+								return error;
+							}
+							throw error;
+						}
+					},
+				);
+				if (result instanceof AppError) throw result;
+				return StagePresetsResponse.parse({ presets: result });
+			},
+		)
+		.delete(
+			"/api/v1/gm/sessions/:id/stage-presets/:presetId",
+			async ({ actor, params: { id, presetId }, request }) => {
+				assertOrigin(request);
+				const gm = requireGm(actor);
+				const result = await container.sessionCommandExecutor.runExclusive(
+					id,
+					async () => {
+						const session = await repo.findSessionById(id);
+						if (!session || session.ownerId !== gm.userId) {
+							return new SessionNotFoundError();
+						}
+						const lifecycleError = new SessionLifecycle(
+							session,
+						).rosterOrSyncError("stage-presets");
+						if (lifecycleError) return lifecycleError;
+						try {
+							const current = parseStagePresetsJson(session.stagePresetsJson);
+							const next = removeStagePreset(current, presetId);
+							await repo.updateSession(id, {
+								stagePresetsJson: JSON.stringify(next),
+							});
+							return next;
+						} catch (error) {
+							if (error instanceof AppError) {
+								return error;
+							}
+							throw error;
+						}
+					},
+				);
+				if (result instanceof AppError) throw result;
+				return StagePresetsResponse.parse({ presets: result });
+			},
+		)
+		.post(
 			"/api/v1/gm/sessions/:id/claims/assign",
 			async ({ actor, params: { id }, body, request }) => {
-				assertTrustedOrigin(
-					request,
-					allowedOrigins,
-					container.config.trustProxy,
-				);
+				assertOrigin(request);
 				const gm = requireGm(actor);
 				const result = GmAssignClaimRequest.safeParse(body);
 				if (!result.success) {
@@ -418,11 +514,7 @@ export function createSessionsRoutes(container: Container) {
 		.post(
 			"/api/v1/gm/sessions/:id/claims/release",
 			async ({ actor, params: { id }, body, request }) => {
-				assertTrustedOrigin(
-					request,
-					allowedOrigins,
-					container.config.trustProxy,
-				);
+				assertOrigin(request);
 				const gm = requireGm(actor);
 				const result = GmReleaseClaimRequest.safeParse(body);
 				if (!result.success) {
@@ -454,11 +546,7 @@ export function createSessionsRoutes(container: Container) {
 		.post(
 			"/api/v1/gm/sessions/:id/growth/confirm",
 			async ({ actor, params: { id }, body, request }) => {
-				assertTrustedOrigin(
-					request,
-					allowedOrigins,
-					container.config.trustProxy,
-				);
+				assertOrigin(request);
 				const gm = requireGm(actor);
 				const parsed = ConfirmGrowthRequest.safeParse(body);
 				if (!parsed.success) {
@@ -510,7 +598,7 @@ export function createSessionsRoutes(container: Container) {
 			"/api/v1/public/session-references/:reference",
 			async ({ params: { reference }, request, server }) => {
 				container.httpLimits.sessionReferenceRateLimiter.assert(
-					clientIp(request, server, container.config.trustProxy),
+					requestIp(request, server),
 				);
 				return ResolveSessionReferenceResponse.parse(
 					await resolveSessionReference.execute(
@@ -672,9 +760,7 @@ export function createSessionsRoutes(container: Container) {
 						403,
 					);
 				}
-				container.httpLimits.joinRateLimiter.assert(
-					clientIp(request, server, container.config.trustProxy),
-				);
+				container.httpLimits.joinRateLimiter.assert(requestIp(request, server));
 				const result = ClaimSeatRequest.safeParse(body);
 				if (!result.success) {
 					throw validationFailed(result.error);

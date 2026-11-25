@@ -216,6 +216,17 @@ describe("AuditionBar", () => {
 		expect(view.getAllByText("01:14").length).toBeGreaterThan(0);
 		expect(view.getAllByText("03:34").length).toBeGreaterThan(0);
 		expect(view.getByText("循环试听")).toBeTruthy();
+		const seekSlider = view.getByRole("slider", { name: "试听进度" });
+		expect(
+			seekSlider
+				.closest('[data-slot="slider"]')
+				?.getAttribute("data-wave"),
+		).toBe("true");
+		expect(
+			seekSlider
+				.closest('[data-slot="slider"]')
+				?.getAttribute("data-size"),
+		).toBe("sm");
 		fireEvent.click(view.getByRole("button", { name: "停止试听" }));
 		expect(onStop).toHaveBeenCalledTimes(1);
 	});

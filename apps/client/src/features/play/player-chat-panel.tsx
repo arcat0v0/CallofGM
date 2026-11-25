@@ -155,7 +155,11 @@ function PlayerChatPanel({
 					onValueChange={setChannel}
 					aria-label={t("chat.channelAria")}
 					className="bg-md-surface-container-high/55 w-full p-0.5"
-					itemClassName="h-7 px-3 text-label-small"
+					itemClassName={
+						compact
+							? "h-6 px-2.5 text-label-small"
+							: "h-7 px-3 text-label-small"
+					}
 				/>
 			</ChatPanelHeader>
 

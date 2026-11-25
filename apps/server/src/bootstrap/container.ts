@@ -14,6 +14,7 @@ import {
 	type IdentityRepository,
 } from "@/modules/identity";
 import {
+	CleanupExpiredPendingUploadsUseCase,
 	DrizzleMediaRepository,
 	LocalMediaStorage,
 	type MediaRepository,
@@ -47,17 +48,26 @@ import {
 	type SessionsRepository,
 } from "@/modules/sessions";
 import {
+	DrizzleSiteSettingsRepository,
+	SiteSettingsService,
+	StorageMigrationService,
+} from "@/modules/site-settings";
+import {
 	DrizzleTemplatesRepository,
 	type TemplatesRepository,
 } from "@/modules/templates";
 import {
+	DrizzleThemeMetadataRepository,
 	DrizzleThemeUsageRepository,
+	type ThemeMetadataRepository,
 	ThemeRegistry,
 	type ThemeUsageRepository,
 } from "@/modules/themes";
 import {
 	DrizzleUiSettingsRepository,
+	GetUiSettingsUseCase,
 	type UiSettingsRepository,
+	UpdateUiSettingsUseCase,
 } from "@/modules/ui-settings";
 import { createDb, type DbClient, type DbContext } from "@/platform/db/client";
 import {
@@ -73,6 +83,7 @@ import {
 	UuidGenerator,
 } from "@/platform/ports";
 import { HttpLimits } from "@/platform/security/http-limits";
+import { SecretBox } from "@/platform/security/secret-box";
 import { Coc7eRuleSystem } from "@/rules/coc7e";
 import { Dnd5rRuleSystem } from "@/rules/dnd5r";
 import { RuleRegistry } from "@/rules/registry";
@@ -89,6 +100,7 @@ export class Container {
 	readonly startupService: StartupService;
 	readonly ruleRegistry: RuleRegistry;
 	readonly httpLimits: HttpLimits;
+	readonly secretBox: SecretBox;
 	readonly themeRegistry: ThemeRegistry;
 
 	readonly identityRepo: IdentityRepository;
@@ -99,11 +111,15 @@ export class Container {
 	readonly moderationRepo: ModerationRepository;
 	readonly templatesRepo: TemplatesRepository;
 	readonly uiSettingsRepo: UiSettingsRepository;
+	readonly siteSettingsRepo: DrizzleSiteSettingsRepository;
+	readonly siteSettings: SiteSettingsService;
+	readonly storageMigration: StorageMigrationService;
 	readonly mediaStorage: MediaStorage;
 	readonly mediaRepo: MediaRepository;
 	readonly musicTrackAccessRepo: MusicTrackAccessRepository;
 	readonly trashRepo: TrashRepository;
 	readonly themeUsageRepo: ThemeUsageRepository;
+	readonly themeMetadataRepo: ThemeMetadataRepository;
 
 	readonly musicService: MusicService;
 	readonly connectionRegistry: ConnectionRegistry;
@@ -124,6 +140,8 @@ export class Container {
 			randomSource?: RandomSource;
 			httpLimits?: HttpLimits;
 			musicService?: MusicService;
+			secretBox?: SecretBox;
+			fetchImpl?: typeof fetch;
 		} = {},
 	) {
 		this.config = overrides.config ?? loadConfig();
@@ -137,27 +155,94 @@ export class Container {
 		this.moderationRepo = new DrizzleModerationRepository(this.db);
 		this.templatesRepo = new DrizzleTemplatesRepository(this.db);
 		this.uiSettingsRepo = new DrizzleUiSettingsRepository(this.db);
+		this.siteSettingsRepo = new DrizzleSiteSettingsRepository(this.db);
 		this.mediaStorage = new LocalMediaStorage(this.config.mediaDir);
 		this.mediaRepo = new DrizzleMediaRepository(this.db);
 		this.musicTrackAccessRepo = new DrizzleMusicTrackAccessRepository(this.db);
 		this.trashRepo = new DrizzleTrashRepository(this.db);
 		this.themeUsageRepo = new DrizzleThemeUsageRepository(this.db);
+		this.themeMetadataRepo = new DrizzleThemeMetadataRepository(this.db);
 		this.transactionRunner = new DrizzleTransactionRunner(this.db);
 		this.clock = overrides.clock ?? new SystemClock();
 		this.idGenerator = overrides.idGenerator ?? new UuidGenerator();
 		this.randomSource = overrides.randomSource ?? new SecureRandomSource();
+		this.httpLimits = overrides.httpLimits ?? new HttpLimits();
+		this.secretBox =
+			overrides.secretBox ??
+			new SecretBox({
+				databaseUrl: this.config.databaseUrl,
+				envSecret: process.env.COGM_SETTINGS_SECRET,
+			});
+
+		let themeRegistryRef: ThemeRegistry | null = null;
+		this.siteSettings = new SiteSettingsService(
+			this.config,
+			this.siteSettingsRepo,
+			this.secretBox,
+			this.httpLimits,
+			this.clock,
+			{
+				getGmThemeId: async () => {
+					if (!themeRegistryRef) return null;
+					const result = await new GetUiSettingsUseCase(
+						this.uiSettingsRepo,
+						themeRegistryRef,
+					).execute();
+					return result.gmThemeId;
+				},
+				setGmThemeId: async (gmThemeId) => {
+					if (!themeRegistryRef) return null;
+					const result = await new UpdateUiSettingsUseCase(
+						this.uiSettingsRepo,
+						themeRegistryRef,
+						this.clock,
+					).execute({ gmThemeId });
+					return result.gmThemeId;
+				},
+			},
+			overrides.fetchImpl,
+		);
+
+		this.themeRegistry = new ThemeRegistry(
+			this.config.themesDir,
+			this.clock,
+			this.themeMetadataRepo,
+			this.siteSettings,
+		);
+		themeRegistryRef = this.themeRegistry;
+
+		this.storageMigration = new StorageMigrationService(
+			this.siteSettings,
+			this.mediaStorage,
+			this.siteSettingsRepo,
+			this.themeRegistry,
+			this.clock,
+		);
+
+		const cleanupPendingUploads = new CleanupExpiredPendingUploadsUseCase(
+			this.mediaRepo,
+			this.siteSettings,
+			this.clock,
+		);
+
 		this.startupService = new StartupService(
 			this.dbContext.sqlite,
 			this.db,
 			this.config.databaseUrl,
+			{
+				onMigrated: async () => {
+					await this.siteSettings.loadFromDb();
+				},
+				onPeriodicMaintenance: async () => {
+					await cleanupPendingUploads.execute();
+				},
+			},
 		);
-		this.httpLimits = overrides.httpLimits ?? new HttpLimits();
 
 		this.musicService = overrides.musicService ?? new OfficialMusicService();
 		this.ruleRegistry = new RuleRegistry();
 		this.ruleRegistry.register(new Coc7eRuleSystem());
 		this.ruleRegistry.register(new Dnd5rRuleSystem());
-		this.themeRegistry = new ThemeRegistry(this.config.themesDir, this.clock);
 
 		this.connectionRegistry = new ConnectionRegistry(
 			new DrizzleActiveClaimLookup(this.db),
@@ -165,7 +250,7 @@ export class Container {
 		this.voiceService = new VoiceService(
 			new DrizzleVoiceSessionStore(this.db),
 			this.connectionRegistry,
-			this.config,
+			() => this.siteSettings.getVoiceConfig(),
 		);
 		this.eventRingBuffer = new EventRingBuffer();
 		this.presenceService = new PresenceService(

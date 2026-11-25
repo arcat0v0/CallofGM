@@ -1,4 +1,10 @@
-import { MediaAssetDto, MediaPurpose } from "@cogm/shared";
+import {
+	CompleteMediaUploadRequest,
+	MediaAssetDto,
+	MediaPurpose,
+	PresignMediaUploadRequest,
+	PresignMediaUploadResponse,
+} from "@cogm/shared";
 import { Elysia, t } from "elysia";
 import type { Container } from "@/bootstrap/container";
 import { validationFailed } from "@/platform/errors/validation";
@@ -6,6 +12,8 @@ import { assertTrustedOrigin } from "@/platform/security/origin";
 import { clientIp } from "@/platform/security/request-ip";
 import { ReadMediaUseCase } from "../application/read-media";
 import {
+	CompleteMediaUploadUseCase,
+	PresignMediaUploadUseCase,
 	requireMediaUploader,
 	UploadMediaUseCase,
 } from "../application/upload-media";
@@ -16,26 +24,74 @@ export function createMediaRoutes(container: Container) {
 		container.mediaStorage,
 		container.idGenerator,
 		container.clock,
+		container.siteSettings,
+	);
+
+	const presignUseCase = new PresignMediaUploadUseCase(
+		container.mediaRepo,
+		container.siteSettings,
+		container.idGenerator,
+		container.clock,
+	);
+
+	const completeUseCase = new CompleteMediaUploadUseCase(
+		container.mediaRepo,
+		container.siteSettings,
+		container.idGenerator,
+		container.clock,
 	);
 
 	const readUseCase = new ReadMediaUseCase(
 		container.mediaRepo,
 		container.mediaStorage,
+		container.siteSettings,
 	);
 
 	return new Elysia()
 		.use(container.authPlugin)
 		.post(
+			"/api/v1/media/presign",
+			async ({ body, actor, request, server }) => {
+				const ownerId = requireMediaUploader(actor);
+				const security = container.siteSettings.getSecurityConfig();
+				assertTrustedOrigin(request, security.corsOrigins, security.trustProxy);
+				container.httpLimits.uploadRateLimiter.assert(
+					clientIp(request, server, security.trustProxy),
+				);
+				const parsed = PresignMediaUploadRequest.safeParse(body);
+				if (!parsed.success) {
+					throw validationFailed(parsed.error);
+				}
+				const result = await presignUseCase.execute({
+					ownerId,
+					...parsed.data,
+				});
+				return PresignMediaUploadResponse.parse(result);
+			},
+		)
+		.post("/api/v1/media/complete", async ({ body, actor, request }) => {
+			const ownerId = requireMediaUploader(actor);
+			const security = container.siteSettings.getSecurityConfig();
+			assertTrustedOrigin(request, security.corsOrigins, security.trustProxy);
+			const parsed = CompleteMediaUploadRequest.safeParse(body);
+			if (!parsed.success) {
+				throw validationFailed(parsed.error);
+			}
+			const asset = await completeUseCase.execute({
+				ownerId,
+				uploadToken: parsed.data.uploadToken,
+				sha256: parsed.data.sha256,
+			});
+			return MediaAssetDto.parse(asset);
+		})
+		.post(
 			"/api/v1/media/upload",
 			async ({ body, actor, request, server }) => {
 				const ownerId = requireMediaUploader(actor);
-				assertTrustedOrigin(
-					request,
-					container.config.corsOrigins,
-					container.config.trustProxy,
-				);
+				const security = container.siteSettings.getSecurityConfig();
+				assertTrustedOrigin(request, security.corsOrigins, security.trustProxy);
 				container.httpLimits.uploadRateLimiter.assert(
-					clientIp(request, server, container.config.trustProxy),
+					clientIp(request, server, security.trustProxy),
 				);
 				const file = body.file as Blob;
 				const parsedPurpose = MediaPurpose.safeParse(body.purpose ?? "general");
@@ -63,7 +119,18 @@ export function createMediaRoutes(container: Container) {
 			},
 		)
 		.get("/api/v1/media/:id", async ({ params, actor, request }) => {
-			const { data, mimeType } = await readUseCase.execute(actor, params.id);
+			const result = await readUseCase.execute(actor, params.id);
+			if (result.kind === "redirect") {
+				return new Response(null, {
+					status: 302,
+					headers: {
+						Location: result.url,
+						"Cache-Control": "private, no-store",
+					},
+				});
+			}
+
+			const { data, mimeType } = result;
 			const total = data.byteLength;
 			const baseHeaders = {
 				"Content-Type": mimeType,

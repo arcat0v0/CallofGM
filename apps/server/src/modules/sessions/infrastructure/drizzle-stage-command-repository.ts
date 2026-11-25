@@ -1,7 +1,8 @@
 import type {
 	BgmState,
+	PortraitLayout,
+	PortraitScale,
 	UpdateSessionSettingsCommand,
-	UpdateStageLayoutCommand,
 } from "@cogm/shared";
 import { and, asc, eq, isNull } from "drizzle-orm";
 import type { DbClient } from "@/platform/db/client";
@@ -136,13 +137,38 @@ export class DrizzleStageCommandRepository implements StageCommandRepository {
 			.where(sessionCharacterCondition(sessionId, characterId));
 	}
 
+	async listActiveSessionCharacterIds(sessionId: string): Promise<string[]> {
+		const rows = await this.tx
+			.select({ characterId: sessionCharacters.characterId })
+			.from(sessionCharacters)
+			.where(
+				and(
+					eq(sessionCharacters.sessionId, sessionId),
+					isNull(sessionCharacters.deletedAt),
+				),
+			);
+		return rows.map((row) => row.characterId);
+	}
+
 	async updateStageLayout(
 		sessionId: string,
-		{ layout, scale }: UpdateStageLayoutCommand,
+		{
+			layout,
+			scale,
+			stageCompositionJson,
+		}: {
+			layout: PortraitLayout;
+			scale: PortraitScale;
+			stageCompositionJson: string | null;
+		},
 	): Promise<void> {
 		await this.tx
 			.update(sessions)
-			.set({ portraitLayout: layout, portraitScale: scale })
+			.set({
+				portraitLayout: layout,
+				portraitScale: scale,
+				stageCompositionJson,
+			})
 			.where(eq(sessions.id, sessionId));
 	}
 

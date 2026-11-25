@@ -85,7 +85,12 @@ export function applyThemeDom(manifest: ThemeManifest): void {
 	for (const stylePath of manifest.styles) {
 		const link = document.createElement("link");
 		link.rel = "stylesheet";
-		link.href = themeFileUrl(manifest.id, manifest.version, stylePath);
+		link.href = themeFileUrl(
+			manifest.id,
+			manifest.version,
+			stylePath,
+			manifest.assetBaseUrl,
+		);
 		link.dataset.cogmThemeStyle = manifest.id;
 		document.head.append(link);
 		appliedLinks.push(link);
@@ -97,7 +102,12 @@ export function applyThemeDom(manifest: ThemeManifest): void {
 		existing?.remove();
 		const link = document.createElement("link");
 		link.rel = "icon";
-		link.href = themeFileUrl(manifest.id, manifest.version, manifest.icon);
+		link.href = themeFileUrl(
+			manifest.id,
+			manifest.version,
+			manifest.icon,
+			manifest.assetBaseUrl,
+		);
 		document.head.append(link);
 		appliedIcon = link;
 	}

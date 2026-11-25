@@ -18,7 +18,7 @@ import { usePlayStore } from "@/stores/play-store";
 import { AudioPanel } from "./audio-panel";
 import { CharactersPanel } from "./characters-panel";
 import { CheckPanel } from "./check-panel";
-import { GmPanelShell } from "./gm-panel-fields";
+import { GmPanelShell, gmWidePanelClass } from "./gm-panel-fields";
 import { type GmTool, useGmTool } from "./gm-tool-context";
 import { HandoutPanel } from "./handout-panel";
 import { ScenePanel } from "./scene-panel";
@@ -35,7 +35,10 @@ const TOOLS: Array<{ id: GmTool; labelKey: string; icon: LucideIcon }> = [
 function GmToolDock({ voice }: { voice: VoiceController }) {
 	const { activeTool, closeTool, toggleTool } = useGmTool();
 	const ended = usePlayStore((state) => state.status === "ended");
-	const voiceSnapshot = useSyncExternalStore(voice.subscribe, voice.getSnapshot);
+	const voiceSnapshot = useSyncExternalStore(
+		voice.subscribe,
+		voice.getSnapshot,
+	);
 	const voiceJoined = voiceSnapshot.member !== null;
 
 	useEffect(() => {
@@ -73,7 +76,7 @@ function GmToolDock({ voice }: { voice: VoiceController }) {
 				title={t("voice.title")}
 				subtitle={t("voice.description")}
 				onClose={closeTool}
-				className="w-[min(880px,calc(100vw-24px))] max-h-[calc(100dvh-176px)] xl:max-h-[calc(100dvh-112px)] [&>div]:[scrollbar-width:thin] [&>div]:[scrollbar-color:var(--color-scrollbar)_transparent]"
+				className={gmWidePanelClass}
 			>
 				<VoicePanelBody voice={voice} snapshot={voiceSnapshot} />
 			</GmPanelShell>
@@ -91,15 +94,14 @@ function GmToolDock({ voice }: { voice: VoiceController }) {
 						document.body,
 					)
 				: null}
-			<div className="relative z-30">
+			<div className="relative z-30 max-w-full">
 				<ToolDock
 					label={t("gm.workbench.tools")}
-					className="shadow-overlay p-1.5"
+					className="shadow-overlay max-w-full overflow-x-auto p-1 [scrollbar-width:none] sm:p-1.5"
 				>
 					{TOOLS.map((tool) => {
 						const active =
-							activeTool === tool.id ||
-							(tool.id === "voice" && voiceJoined);
+							activeTool === tool.id || (tool.id === "voice" && voiceJoined);
 						const label = t(tool.labelKey);
 						return (
 							<ToolDockButton
@@ -109,13 +111,14 @@ function GmToolDock({ voice }: { voice: VoiceController }) {
 								active={active}
 								disabled={ended}
 								wideOnlyLabel
+								className="min-[1440px]:gap-1.5 min-[1440px]:px-2.5"
 								onClick={() => toggleTool(tool.id)}
 							/>
 						);
 					})}
 				</ToolDock>
 				{panel ? (
-					<div className="absolute top-[calc(100%_+_12px)] left-1/2 z-30 -translate-x-1/2">
+					<div className="fixed inset-x-3 top-16 z-40 flex justify-center lg:absolute lg:inset-x-auto lg:top-[calc(100%_+_12px)] lg:left-1/2 lg:z-30 lg:-translate-x-1/2">
 						{panel}
 					</div>
 				) : null}

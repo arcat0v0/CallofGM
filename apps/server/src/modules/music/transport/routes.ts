@@ -18,7 +18,10 @@ export function createMusicRoutes(container: Container) {
 		container.musicTrackAccessRepo,
 		container.musicService,
 	);
-	const allowedOrigins = container.config.corsOrigins;
+	const assertOrigin = (request: Request) => {
+		const security = container.siteSettings.getSecurityConfig();
+		assertTrustedOrigin(request, security.corsOrigins, security.trustProxy);
+	};
 
 	return new Elysia()
 		.use(container.authPlugin)
@@ -42,7 +45,7 @@ export function createMusicRoutes(container: Container) {
 		})
 		.post("/api/v1/gm/music/resolve", async ({ actor, body, request }) => {
 			requireGm(actor);
-			assertTrustedOrigin(request, allowedOrigins, container.config.trustProxy);
+			assertOrigin(request);
 			const parsed = ResolveMusicTrackRequest.safeParse(body);
 			if (!parsed.success) {
 				throw validationFailed(parsed.error);
@@ -58,11 +61,7 @@ export function createMusicRoutes(container: Container) {
 			"/api/v1/gm/music/playlists/resolve",
 			async ({ actor, body, request }) => {
 				requireGm(actor);
-				assertTrustedOrigin(
-					request,
-					allowedOrigins,
-					container.config.trustProxy,
-				);
+				assertOrigin(request);
 				const parsed = ResolveMusicPlaylistRequest.safeParse(body);
 				if (!parsed.success) {
 					throw validationFailed(parsed.error);

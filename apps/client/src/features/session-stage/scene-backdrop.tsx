@@ -55,7 +55,7 @@ export function SceneBackdrop({
 					icon={Clapperboard}
 					title={t("play.sceneEmpty")}
 					description={t("play.sceneEmptyDescription")}
-					className="pointer-events-none absolute inset-0 rounded-none bg-transparent"
+					className="pointer-events-none absolute inset-0 rounded-none bg-transparent pr-[var(--play-chat-inset,0px)] pl-[var(--play-stage-left-inset,0px)]"
 				/>
 			) : null}
 			{back ? (

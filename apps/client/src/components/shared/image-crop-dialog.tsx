@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { UploadProgressBar } from "@/components/shared/upload-progress";
 import { Button } from "@/components/ui/button";
 import {
 	Dialog,
@@ -9,6 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Slider } from "@/components/ui/slider";
 import { t } from "@/i18n";
+import type { UploadProgress } from "@/lib/api";
 
 const OUTPUT_BASE = 512;
 
@@ -31,6 +33,7 @@ export function ImageCropDialog({
 	title,
 	description,
 	confirmLabel,
+	uploadProgress = null,
 	onConfirm,
 }: {
 	open: boolean;
@@ -40,6 +43,7 @@ export function ImageCropDialog({
 	title: string;
 	description?: string;
 	confirmLabel: string;
+	uploadProgress?: UploadProgress | null;
 	onConfirm: (blob: Blob) => void | Promise<void>;
 }) {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -267,8 +271,18 @@ export function ImageCropDialog({
 		}
 	}
 
+	const busy = exporting || uploadProgress !== null;
+
 	return (
-		<Dialog open={open} onOpenChange={onOpenChange}>
+		<Dialog
+			open={open}
+			onOpenChange={(nextOpen) => {
+				if (!nextOpen && busy) {
+					return;
+				}
+				onOpenChange(nextOpen);
+			}}
+		>
 			<DialogContent>
 				<DialogHeader>
 					<DialogTitle>{title}</DialogTitle>
@@ -321,10 +335,12 @@ export function ImageCropDialog({
 						{t("crop.reset")}
 					</Button>
 				</div>
+				{uploadProgress ? <UploadProgressBar progress={uploadProgress} /> : null}
 				<div className="flex items-center justify-end gap-2">
 					<Button
 						type="button"
 						variant="ghost"
+						disabled={busy}
 						onClick={() => onOpenChange(false)}
 					>
 						{t("common.cancel")}
@@ -332,7 +348,7 @@ export function ImageCropDialog({
 					<Button
 						type="button"
 						variant="primary"
-						disabled={!loaded || exporting}
+						disabled={!loaded || busy}
 						onClick={() => void exportCrop()}
 					>
 						{confirmLabel}

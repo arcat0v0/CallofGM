@@ -50,15 +50,18 @@ export function createIdentityRoutes(container: Container) {
 		repo,
 	);
 
-	const allowedOrigins = container.config.corsOrigins;
+	const assertOrigin = (request: Request) => {
+		const security = container.siteSettings.getSecurityConfig();
+		assertTrustedOrigin(request, security.corsOrigins, security.trustProxy);
+	};
+	const requestIp = (request: Request, server: Parameters<typeof clientIp>[1]) =>
+		clientIp(request, server, container.siteSettings.getSecurityConfig().trustProxy);
 
 	return new Elysia()
 		.use(authPlugin)
 		.post("/api/v1/auth/login", async ({ body, cookie, request, server }) => {
-			assertTrustedOrigin(request, allowedOrigins, container.config.trustProxy);
-			container.httpLimits.loginRateLimiter.assert(
-				clientIp(request, server, container.config.trustProxy),
-			);
+			assertOrigin(request);
+			container.httpLimits.loginRateLimiter.assert(requestIp(request, server));
 
 			const parsed = LoginRequest.safeParse(body);
 			if (!parsed.success) {
@@ -73,7 +76,7 @@ export function createIdentityRoutes(container: Container) {
 				);
 			} catch (err) {
 				logger.audit("auth.login.failed", {
-					ip: clientIp(request, server, container.config.trustProxy),
+					ip: requestIp(request, server),
 				});
 				throw err;
 			}
@@ -109,7 +112,7 @@ export function createIdentityRoutes(container: Container) {
 			};
 		})
 		.post("/api/v1/auth/logout", async ({ actor, request, cookie }) => {
-			assertTrustedOrigin(request, allowedOrigins, container.config.trustProxy);
+			assertOrigin(request);
 			if (!actor || actor.type !== "user") {
 				throw new AuthRequiredError();
 			}
@@ -133,7 +136,7 @@ export function createIdentityRoutes(container: Container) {
 			};
 		})
 		.put("/api/v1/auth/password", async ({ actor, body, request, cookie }) => {
-			assertTrustedOrigin(request, allowedOrigins, container.config.trustProxy);
+			assertOrigin(request);
 			if (!actor || actor.type !== "user") {
 				throw new AuthRequiredError();
 			}
@@ -161,7 +164,7 @@ export function createIdentityRoutes(container: Container) {
 				.parse(await repo.listBlacklistEntries());
 		})
 		.post("/api/v1/gm/blacklist", async ({ actor, body, request }) => {
-			assertTrustedOrigin(request, allowedOrigins, container.config.trustProxy);
+			assertOrigin(request);
 			requireGm(actor);
 			const parsed = BanPlayerRequest.safeParse(body);
 			if (!parsed.success) {
@@ -232,7 +235,7 @@ export function createIdentityRoutes(container: Container) {
 			};
 		})
 		.post("/api/v1/gm/blacklist/unban", async ({ actor, body, request }) => {
-			assertTrustedOrigin(request, allowedOrigins, container.config.trustProxy);
+			assertOrigin(request);
 			requireGm(actor);
 			const parsed = UnbanFingerprintRequest.safeParse(body);
 			if (!parsed.success) {
@@ -254,13 +257,9 @@ export function createIdentityRoutes(container: Container) {
 		.post(
 			"/api/v1/player/identity",
 			async ({ body, cookie, request, server }) => {
-				assertTrustedOrigin(
-					request,
-					allowedOrigins,
-					container.config.trustProxy,
-				);
+				assertOrigin(request);
 				container.httpLimits.identityRateLimiter.assert(
-					clientIp(request, server, container.config.trustProxy),
+					requestIp(request, server),
 				);
 
 				const payload = body as Record<string, unknown> | null;

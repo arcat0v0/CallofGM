@@ -159,7 +159,9 @@ function Composer({
 		<form
 			className={cn(
 				"shrink-0",
-				compact ? "px-3 pb-2.5" : "px-3.5 pb-3.5",
+				compact
+					? "px-2.5 pb-2 [@media(max-height:430px)]:px-2 [@media(max-height:430px)]:pb-1.5"
+					: "px-3.5 pb-3.5",
 				className,
 			)}
 			onSubmit={(event) => {
@@ -170,7 +172,9 @@ function Composer({
 			<div
 				className={cn(
 					"border border-md-outline-variant/40 bg-md-surface-container/70 flex flex-col rounded-xl",
-					compact ? "gap-2 p-2.5" : "gap-2.5 p-3",
+					compact
+						? "gap-1.5 p-2 [@media(max-height:430px)]:gap-1 [@media(max-height:430px)]:p-1.5"
+						: "gap-2.5 p-3",
 				)}
 			>
 				<div className="flex items-center justify-between gap-2">
@@ -276,7 +280,7 @@ function Composer({
 					<InputGroup
 						className={cn(
 							"border-md-outline-variant/40 bg-md-surface-container-high/55 flex-1 rounded-full px-3.5",
-							compact ? "h-9" : "h-10",
+							compact ? "h-8" : "h-10",
 						)}
 					>
 						<InputGroupInput
@@ -294,7 +298,7 @@ function Composer({
 						size="icon-sm"
 						aria-label={t("chat.send")}
 						disabled={chatDisabled || draft.trim().length === 0}
-						className={cn("shrink-0", compact ? "size-9" : "size-10")}
+						className={cn("shrink-0", compact ? "size-8" : "size-10")}
 					>
 						<Send className="size-4" />
 					</Button>
@@ -303,6 +307,7 @@ function Composer({
 				<p
 					className={cn(
 						"px-1 text-label-small",
+						compact && "[@media(max-height:430px)]:hidden",
 						discussion ? "text-accent" : "text-md-on-surface-variant/70",
 					)}
 				>

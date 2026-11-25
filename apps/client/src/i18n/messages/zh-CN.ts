@@ -29,6 +29,10 @@ export const zhCN: Record<string, string> = {
 	"common.copied": "已复制{label}",
 	"common.copyFailed": "复制失败",
 
+	"upload.uploading": "正在上传…",
+	"upload.processing": "正在处理…",
+	"upload.queueProgress": "已完成 {completed}/{total}",
+
 	"version.trigger": "v{version}",
 	"version.title": "版本信息",
 	"version.description": "当前网页与后端的构建标识",
@@ -424,11 +428,11 @@ export const zhCN: Record<string, string> = {
 	"characterCreation.method.pointBuySpent": "已分配 {spent} / {points}",
 	"characterCreation.method.pointBuyRemaining": "剩余 {remaining}",
 	"characterCreation.method.pointBuyOver": "超出 {over}",
-	"characterCreation.method.pointBuyOutOfRange": "{names} 不在 {min}–{max} 范围内",
+	"characterCreation.method.pointBuyOutOfRange":
+		"{names} 不在 {min}–{max} 范围内",
 	"characterCreation.method.rollLuck": "骰幸运（只能掷一次）",
 	"characterCreation.method.luckResult": "幸运 {luck}",
-	"characterCreation.method.youngLuck":
-		"15–19 岁可掷两次取较高：第二次 {luck}",
+	"characterCreation.method.youngLuck": "15–19 岁可掷两次取较高：第二次 {luck}",
 	"characterCreation.method.applyLuck": "填入幸运",
 	"characterCreation.method.fallbackSwitch": "允许改购点",
 	"characterCreation.method.fallbackTotal": "转购点总数",
@@ -466,7 +470,8 @@ export const zhCN: Record<string, string> = {
 		"天命 {count} · 改用购点 {points} · 已分配 {spent}",
 	"characterCreation.method.reviewPointBuy": "购点 {points} · 已分配 {spent}",
 	"characterCreation.method.reviewMatch": "提交属性与掷骰结果一致",
-	"characterCreation.method.reviewDiff": "{name}：掷出 {expected} → 提交 {submitted}",
+	"characterCreation.method.reviewDiff":
+		"{name}：掷出 {expected} → 提交 {submitted}",
 	"characterCreation.method.reviewSheetStale": "人物卡已在提交后修改，无法比对",
 	"characterCreation.method.reviewNoRoll": "该提交者未在此链接掷骰",
 	"characterCreation.attributeRollSummary": "困难 {half} · 极难 {fifth}",
@@ -812,6 +817,211 @@ export const zhCN: Record<string, string> = {
 	"admin.filterEmpty": "此状态下没有账号",
 	"admin.actions": "账号操作",
 
+	"admin.settings.nav": "全站配置",
+	"admin.settings.title": "全站配置",
+	"admin.settings.description":
+		"统一配置对象存储、语音、安全策略与实例主题；运行期配置保存后即时生效，无需重启服务",
+	"admin.settings.loadFailed": "无法加载全站配置",
+	"admin.settings.saved": "配置已保存并立即生效",
+	"admin.settings.saveFailed": "保存配置失败",
+	"admin.settings.resetDone": "已恢复为配置文件默认值",
+	"admin.settings.resetFailed": "恢复默认配置失败",
+	"admin.settings.saving": "保存中…",
+	"admin.settings.save": "保存配置",
+	"admin.settings.reset": "恢复默认",
+	"admin.settings.discard": "放弃更改",
+	"admin.settings.unsavedBadge": "有未保存更改",
+	"admin.settings.syncedStatus": "当前配置已与服务端同步",
+	"admin.settings.resetTitle": "恢复默认配置？",
+	"admin.settings.resetDescription":
+		"将清除当前分组保存在数据库中的覆盖项，回退到 config/cogm.toml 与环境变量中的默认值。",
+	"admin.settings.resetConfirm": "确认恢复默认",
+	"admin.settings.overridden": "已由面板覆写",
+	"admin.settings.defaultBadge": "沿用部署默认",
+	"admin.settings.tab.storage": "存储与 OSS",
+	"admin.settings.tab.voice": "语音通话",
+	"admin.settings.tab.security": "安全与限流",
+	"admin.settings.tab.ui": "界面主题",
+	"admin.settings.tab.system": "系统信息",
+
+	"admin.settings.storage.modeTitle": "资产存储模式",
+	"admin.settings.storage.modeDescription":
+		"控制新上传的场景图、立绘、情报图片、音频与主题包存放位置；历史本地资产会继续保留并兼容访问",
+	"admin.settings.storage.modeLabel": "当前存储后端",
+	"admin.settings.storage.modeLocal": "本地磁盘",
+	"admin.settings.storage.modeS3": "S3 兼容对象存储 (OSS)",
+	"admin.settings.storage.maxMediaMb": "单文件媒体上传上限 (MB)",
+	"admin.settings.storage.maxThemeMb": "主题包上传上限 (MB)",
+	"admin.settings.storage.s3Title": "S3 兼容 OSS 连接参数",
+	"admin.settings.storage.s3DraftBadge": "可先保存为草稿",
+	"admin.settings.storage.s3ActiveBadge": "当前生效后端",
+	"admin.settings.storage.saveScopeHint":
+		"保存将同时写入并生效：存储模式、S3 连接参数、下载域名与访问权限",
+	"admin.settings.storage.validationFailed": "请先修正标红的存储配置项后再保存",
+	"admin.settings.storage.testValidationFailed":
+		"请先补全并修正标红的 S3 配置项后再测试连接",
+	"admin.settings.storage.migrateUnsavedNotice":
+		"检测到上方存储配置有未保存更改；迁移任务仅会使用服务端当前已保存的 OSS 配置。",
+	"admin.settings.storage.error.required":
+		"启用 S3 模式或测试连接时必须填写此项",
+	"admin.settings.storage.error.invalidUrl":
+		"请输入以 http:// 或 https:// 开头的完整地址",
+	"admin.settings.storage.error.range": "请输入 {min}–{max} 之间的整数",
+	"admin.settings.storage.s3Description":
+		"兼容阿里云 OSS、腾讯云 COS、Cloudflare R2、AWS S3 与 MinIO。媒体由浏览器直传对象存储，服务端仅校验头字节与元数据",
+	"admin.settings.storage.endpoint": "服务端 Endpoint",
+	"admin.settings.storage.endpointPlaceholder":
+		"https://oss-cn-hangzhou.aliyuncs.com",
+	"admin.settings.storage.endpointHint":
+		"服务端与对象存储通信的地址（可使用同机房内网 Endpoint）",
+	"admin.settings.storage.publicUploadEndpoint": "客户端直传 Endpoint（可选）",
+	"admin.settings.storage.publicUploadEndpointPlaceholder":
+		"留空则复用服务端 Endpoint",
+	"admin.settings.storage.publicUploadEndpointHint":
+		"若服务端使用内网地址，请在此填写浏览器可访问的公网 OSS Endpoint",
+	"admin.settings.storage.region": "Region（地域）",
+	"admin.settings.storage.regionPlaceholder": "cn-hangzhou 或 auto",
+	"admin.settings.storage.bucket": "Bucket 名称",
+	"admin.settings.storage.bucketPlaceholder": "my-cogm-assets",
+	"admin.settings.storage.keyPrefix": "对象路径前缀（可选）",
+	"admin.settings.storage.keyPrefixPlaceholder": "cogm",
+	"admin.settings.storage.forcePathStyle": "使用 Path-Style 路径风格",
+	"admin.settings.storage.forcePathStyleHint":
+		"MinIO 或自定义反代常需开启；阿里云 OSS / 腾讯云 COS 通常保持关闭（虚拟主机风格）",
+	"admin.settings.storage.accessKeyId": "AccessKey ID",
+	"admin.settings.storage.secretAccessKey": "SecretAccessKey",
+	"admin.settings.storage.secretConfigured": "已加密保存 ({mask})",
+	"admin.settings.storage.secretKeepPlaceholder":
+		"已保存密钥；留空则保持不变，输入新值可替换",
+	"admin.settings.storage.secretEmptyPlaceholder": "输入 SecretAccessKey",
+	"admin.settings.storage.clearSecret": "清除已保存密钥",
+
+	"admin.settings.storage.deliveryTitle": "指定下载域名与访问权限",
+	"admin.settings.storage.deliveryDescription":
+		"所有媒体下载仍先经过 CoGM 校验团成员与秘密情报权限，通过后再 302 跳转到下方指定域名；大文件流量完全不经主站",
+	"admin.settings.storage.downloadBaseUrl": "指定下载域名",
+	"admin.settings.storage.downloadBaseUrlPlaceholder":
+		"https://assets.example.com",
+	"admin.settings.storage.downloadBaseUrlHint":
+		"支持绑定到 OSS 的自定义域名或 CDN 加速域名，可带基础路径，不以斜杠结尾",
+	"admin.settings.storage.accessMode": "存储桶读取权限",
+	"admin.settings.storage.accessPublic": "公有读 / CDN 自定义域名（推荐）",
+	"admin.settings.storage.accessPrivate": "私有桶 S3 短时预签名",
+	"admin.settings.storage.accessHint":
+		"公有读模式中主题静态文件将直连指定域名吃满 CDN 缓存；私有桶模式会为媒体与主题文件按需签发短时效预签名 URL",
+	"admin.settings.storage.signedTtl": "预签名有效期（秒）",
+	"admin.settings.storage.corsGuideTitle": "OSS 桶 CORS 配置提示",
+	"admin.settings.storage.corsGuideBody":
+		"浏览器直传、立绘裁切与跨域主题加载要求在 OSS 桶（及 CDN 域名）允许当前站点 Origin，放行 GET、PUT、HEAD、OPTIONS 方法，AllowedHeaders 包含 Content-Type，ExposeHeaders 包含 ETag。",
+
+	"admin.settings.storage.testTitle": "连通性与直传 CORS 自检",
+	"admin.settings.storage.testDescription":
+		"无需先保存，可直接验证当前表单中的 OSS 凭据、自定义下载域名与当前浏览器直传 CORS 是否畅通",
+	"admin.settings.storage.testRun": "测试连接与直传",
+	"admin.settings.storage.testing": "检测中…",
+	"admin.settings.storage.testPassed": "全部连通性与直传自检通过",
+	"admin.settings.storage.testPartial": "部分检测项未通过，请查看下方详情",
+	"admin.settings.storage.testFailed": "连接测试请求失败",
+	"admin.settings.storage.check.put": "服务端写入 (PutObject)",
+	"admin.settings.storage.check.head": "元数据核验 (HeadObject)",
+	"admin.settings.storage.check.range": "头部抽读 (Range GET)",
+	"admin.settings.storage.check.download": "指定域名回读",
+	"admin.settings.storage.check.delete": "探针清理 (DeleteObject)",
+	"admin.settings.storage.check.browserPut": "浏览器直传 CORS (PUT)",
+	"admin.settings.storage.check.browserGet": "浏览器下载域名 CORS (GET)",
+	"admin.settings.storage.check.browserGetSkipped":
+		"因浏览器直传失败，未执行回读",
+	"admin.settings.storage.check.browserNetworkHint":
+		"请求被浏览器拦截或不可达（当前 Origin: {origin} → 目标: {target}）",
+	"admin.settings.storage.checkPass": "通过",
+	"admin.settings.storage.checkFail": "失败",
+
+	"admin.settings.storage.migrateTitle": "历史本地资产一键迁移到 OSS",
+	"admin.settings.storage.migrateDescription":
+		"将尚未迁移的本地媒体、本地已安装主题及内置 3D 骰子资产同步上传到当前已保存的 OSS 配置。迁移过程不会删除本地源文件，可重复执行",
+	"admin.settings.storage.migrateStart": "开始迁移到 OSS",
+	"admin.settings.storage.migrateRunning": "迁移进行中…",
+	"admin.settings.storage.migrateRefresh": "刷新进度",
+	"admin.settings.storage.migrateStatus.idle": "尚未运行",
+	"admin.settings.storage.migrateStatus.running": "迁移中",
+	"admin.settings.storage.migrateStatus.completed": "已完成",
+	"admin.settings.storage.migrateStatus.failed": "完成（存在失败项）",
+	"admin.settings.storage.migrateMedia":
+		"媒体资产：{migrated} / {total} 已迁移，失败 {failed}",
+	"admin.settings.storage.migrateThemes":
+		"主题包：{migrated} / {total} 已迁移，失败 {failed}",
+	"admin.settings.storage.migrateDice":
+		"3D 骰子资产：{migrated} / {total} 已迁移（跳过 {skipped}），失败 {failed}",
+	"admin.settings.storage.migrateStarted": "已启动后台迁移任务",
+	"admin.settings.storage.migrateFailed": "启动迁移任务失败",
+
+	"admin.settings.voice.title": "WebRTC 语音通话配置",
+	"admin.settings.voice.description":
+		"控制全站语音房间的最大人数上限与 STUN / TURN ICE 服务器；保存后新加入语音的成员立即获取新配置",
+	"admin.settings.voice.maxParticipants": "单团默认/最大语音人数",
+	"admin.settings.voice.turnTtl": "TURN 临时凭据有效期（秒）",
+	"admin.settings.voice.stunUrls": "STUN 服务器地址（每行一个）",
+	"admin.settings.voice.stunPlaceholder": "stun:stun.example.org:3478",
+	"admin.settings.voice.turnUrls": "TURN 服务器地址（每行一个）",
+	"admin.settings.voice.turnPlaceholder": "turns:turn.example.org:5349",
+	"admin.settings.voice.turnSecret": "TURN REST 长期密钥",
+	"admin.settings.voice.turnSecretPlaceholder":
+		"输入 coturn static-auth-secret（配置 TURN 地址时必填）",
+
+	"admin.settings.security.title": "来源校验与反向代理",
+	"admin.settings.security.description":
+		"管理反向代理头信任与允许跨域访问的浏览器来源。保存前服务端会自动校验当前管理员请求来源，避免误配导致无法操作后台",
+	"admin.settings.security.trustProxy": "信任反向代理请求头 (trustProxy)",
+	"admin.settings.security.trustProxyHint":
+		"仅在 Caddy / Nginx 等 TLS 反向代理之后部署时开启，用于识别真实客户端 IP 与 HTTPS 来源",
+	"admin.settings.security.corsOrigins": "允许的跨域来源列表（每行一个）",
+	"admin.settings.security.corsPlaceholder": "https://trpg.example.com",
+	"admin.settings.security.corsHint": "留空表示生产环境仅允许同源请求",
+	"admin.settings.security.guardNotice":
+		"防锁死保护已启用：如果新配置会拒绝当前浏览器的 Origin，服务端将自动拦截保存。",
+	"admin.settings.security.rateLimitsTitle": "HTTP 速率限制",
+	"admin.settings.security.rateLimitsDescription":
+		"按单个客户端 IP 统计固定时间窗口内的最大请求次数；调整后立即生效",
+	"admin.settings.security.rateLimit.login": "账号登录",
+	"admin.settings.security.rateLimit.identity": "匿名身份签发",
+	"admin.settings.security.rateLimit.join": "认领席位入团",
+	"admin.settings.security.rateLimit.sessionReference": "团号/链接解析",
+	"admin.settings.security.rateLimit.upload": "媒体与主题上传",
+	"admin.settings.security.rateLimitMax": "次数上限",
+	"admin.settings.security.rateLimitWindow": "窗口（秒）",
+	"admin.settings.security.saveScopeHint":
+		"保存将同时写入并生效：反代信任、CORS 来源与全部限流规则",
+
+	"admin.settings.ui.title": "实例级 GM 界面主题",
+	"admin.settings.ui.description":
+		"指定全部 GM 后台与导演控制台默认使用的主题包；玩家沉浸视图主题仍由各模组独立设定",
+	"admin.settings.ui.gmThemeLabel": "GM 界面主题",
+	"admin.settings.ui.gmThemeDefault": "CoGM 内置默认主题",
+	"admin.settings.ui.manageThemesHint":
+		"可在左侧「主题包」页面上传、管理与删除主题包。",
+
+	"admin.settings.system.title": "部署与启动期基础设施参数（只读）",
+	"admin.settings.system.description":
+		"以下参数决定进程监听地址、数据库文件与本地目录，须通过部署配置 config/cogm.local.toml 修改并重启服务生效",
+	"admin.settings.system.host": "监听地址",
+	"admin.settings.system.port": "监听端口",
+	"admin.settings.system.environment": "运行环境",
+	"admin.settings.system.databaseUrl": "数据库路径",
+	"admin.settings.system.backupDir": "备份目录",
+	"admin.settings.system.mediaDir": "本地媒体目录",
+	"admin.settings.system.themesDir": "本地主题目录",
+	"admin.settings.system.secretSource": "密钥加密主密钥来源",
+	"admin.settings.system.secretSource.env": "环境变量 COGM_SETTINGS_SECRET",
+	"admin.settings.system.secretSource.keyfile":
+		"自动生成密钥文件 (data/settings.key)",
+	"admin.settings.system.secretSource.ephemeral": "内存临时密钥（仅测试环境）",
+	"admin.settings.system.version": "服务端版本",
+	"admin.settings.system.commit": "构建提交",
+	"admin.settings.system.buildTime": "构建时间",
+	"admin.settings.system.defaultValue": "默认",
+	"gm.themes.storageLocal": "本地",
+	"gm.themes.storageS3": "OSS",
+
 	"status.waiting": "等待开始",
 	"status.preparing": "准备中",
 	"status.active": "进行中",
@@ -886,6 +1096,10 @@ export const zhCN: Record<string, string> = {
 	"play.unavailableTitle": "无法连接到团",
 	"play.unavailableDescription":
 		"多次连接失败。请检查网络；若刚刚被主持人拉黑，则无法再进入本团。",
+	"play.loginExpiredTitle": "登录已失效",
+	"play.loginExpiredDescription":
+		"当前登录会话已失效，请重新登录后再进入本团。",
+	"play.goToLogin": "去登录",
 	"play.returnEntry": "返回入口",
 	"play.reenter": "重新进入",
 	"play.retryConnect": "重试连接",
@@ -986,16 +1200,25 @@ export const zhCN: Record<string, string> = {
 	"voice.audio.echoCancellation": "回声消除",
 	"voice.audio.noiseSuppression": "浏览器降噪",
 	"voice.audio.autoGainControl": "自动增益",
-	"voice.audio.deepNoiseSuppression": "深度降噪（RNNoise）",
+	"voice.audio.deepNoiseSuppression": "深度降噪",
 	"voice.audio.deepNoiseSuppressionHint":
-		"开启后由 RNNoise 替代浏览器降噪；浏览器降噪开关会保留你的偏好设置。",
+		"由 AI 模型替代浏览器降噪；浏览器降噪开关会保留你的偏好设置。",
+	"voice.audio.noiseSuppressionEngine": "降噪模型",
+	"voice.audio.engine.deepfilter": "DeepFilterNet3（高质量）",
+	"voice.audio.engine.rnnoise": "RNNoise（轻量）",
+	"voice.audio.engine.deepfilterHint":
+		"降噪更彻底。首次使用需下载约 11 MB 模型，加载完成前先由 RNNoise 处理。",
+	"voice.audio.engine.rnnoiseHint": "占用 CPU 更少，适合性能较弱的设备。",
 	"voice.audio.groupBrowser": "浏览器处理",
 	"voice.audio.groupEnhanced": "增强处理",
-	"voice.audio.echoCancellationHint": "避免对方听到自己的声音，用扬声器时建议开启",
+	"voice.audio.echoCancellationHint":
+		"避免对方听到自己的声音，用扬声器时建议开启",
 	"voice.audio.noiseSuppressionHint": "过滤键盘声、风扇声等背景噪声",
 	"voice.audio.autoGainControlHint": "自动平衡说话音量",
-	"voice.audio.deepNoiseSuppressionOffHint": "AI 降噪，对持续性噪声更有效，占用更多 CPU",
-	"voice.audio.noiseGateHint": "说话间隙自动静音，压低底噪",
+	"voice.audio.deepNoiseSuppressionOffHint":
+		"AI 降噪，比浏览器降噪更干净，占用更多 CPU",
+	"voice.audio.noiseGateHint":
+		"说话间隙自动静音；开启深度降噪后只在检测到人声时放行，可压住呼吸声",
 	"voice.audio.compressorHint": "限制突然的大音量，避免爆音",
 	"voice.moreTitle": "更多选项",
 	"voice.tab.label": "语音面板视图",
@@ -1011,6 +1234,7 @@ export const zhCN: Record<string, string> = {
 	"voice.audio.processing.starting": "正在启动音频处理",
 	"voice.audio.processing.native": "浏览器音频处理中",
 	"voice.audio.processing.rnnoise": "RNNoise 处理中",
+	"voice.audio.processing.deepfilter": "DeepFilterNet3 处理中",
 	"voice.audio.processing.fallback": "已回退到浏览器处理",
 	"voice.audio.fallbackHint":
 		"部分已开启的增强处理不可用，当前使用可用的音频处理。",
@@ -1034,7 +1258,8 @@ export const zhCN: Record<string, string> = {
 	"voice.audio.pushToTalkMicOff": "关闭麦克风",
 	"voice.audio.pushToTalkMicCancel": "取消开启",
 	"voice.micTestTitle": "麦克风测试",
-	"voice.micTestDescription": "仅在本地检测输入音量与试听，不会发送给其他成员。",
+	"voice.micTestDescription":
+		"仅在本地检测输入音量与试听，不会发送给其他成员。",
 	"voice.micTestBusyHint": "请先关闭当前麦克风，再进行本地测试。",
 	"voice.micTestStart": "测试麦克风",
 	"voice.micTestStop": "停止测试",
@@ -1044,11 +1269,14 @@ export const zhCN: Record<string, string> = {
 	"voice.micTestListening": "请说话测试…",
 	"voice.micTestLoopbackOff": "开启回听",
 	"voice.micTestLoopbackOn": "关闭回听",
-	"voice.micTestLoopbackHint": "开启回听可检查实际音质，建议佩戴耳机以免扬声器啸叫。",
+	"voice.micTestLoopbackHint":
+		"开启回听可检查实际音质，建议佩戴耳机以免扬声器啸叫。",
 	"voice.mic.denied":
 		"麦克风权限未获允许。你仍可收听；如需发言，可在浏览器的站点设置中允许麦克风后重试。",
 	"voice.mic.unavailable":
 		"未能使用麦克风。请检查设备是否连接、是否被占用，以及页面是否安全（HTTPS），然后重试。",
+	"voice.mic.suspended": "麦克风已暂停，请点按恢复。",
+	"voice.mic.resume": "恢复麦克风",
 	"voice.playbackOn": "恢复收听",
 	"voice.playbackOff": "暂停收听",
 	"voice.retryPlayback": "播放语音",
@@ -1073,7 +1301,8 @@ export const zhCN: Record<string, string> = {
 	"voice.playbackPausedBadge": "已暂停收听",
 	"voice.playbackPausedHint": "已暂停收听，恢复后才能听到其他成员。",
 	"voice.closeRoomConfirmTitle": "关闭语音房间？",
-	"voice.closeRoomConfirmDescription": "当前 {count} 位成员会被移出语音，已设置的禁麦与发言授权将被清除。",
+	"voice.closeRoomConfirmDescription":
+		"当前 {count} 位成员会被移出语音，已设置的禁麦与发言授权将被清除。",
 	"voice.moderatorMuted": "已被禁麦",
 	"voice.mutedHint": "主持人已禁用你的麦克风，你仍可收听。",
 	"voice.grant": "允许发言",
@@ -1340,6 +1569,7 @@ export const zhCN: Record<string, string> = {
 	"expressions.pending": "待上传",
 	"expressions.upload": "上传",
 	"expressions.uploading": "上传中…",
+	"expressions.uploadProgress": "正在上传第 {current}/{total} 个…",
 	"expressions.namePlaceholder": "表情名称",
 	"expressions.nameRequired": "表情名称不能为空",
 	"expressions.uploadFailed": "「{name}」上传失败：{reason}",
@@ -1435,6 +1665,8 @@ export const zhCN: Record<string, string> = {
 	"error.CHARACTER_NOT_FOUND": "找不到该角色",
 	"error.CHARACTER_NOT_IN_MODULE": "该角色不属于这个模组",
 	"error.CHARACTER_NOT_IN_SESSION": "该角色不在本团中",
+	"error.STAGE_PRESET_LIMIT_REACHED": "每个团最多保存 16 个机位快照",
+	"error.STAGE_PRESET_NOT_FOUND": "未找到该机位快照",
 	"error.THEME_NOT_FOUND": "主题不存在",
 	"error.THEME_INVALID": "主题包无效",
 	"error.THEME_INCOMPATIBLE": "主题与当前核心版本不兼容",
@@ -1443,7 +1675,27 @@ export const zhCN: Record<string, string> = {
 	"error.THEME_TOO_LARGE": "主题包超过大小限制",
 	"error.commandRejected": "指令被拒绝",
 	"error.BLACKLISTED_FINGERPRINT": "当前设备已被本团禁用",
-	"error.FILE_SIZE_EXCEEDED": "文件超过 10MB 上限",
+	"error.FILE_SIZE_EXCEEDED": "文件超过当前上传大小上限",
+	"error.ORIGIN_LOCKOUT":
+		"新安全配置会拒绝当前浏览器的访问来源，已拦截保存以防锁死后台",
+	"error.STORAGE_NOT_CONFIGURED":
+		"对象存储 (OSS) 尚未完成配置，请先在全站配置中补全连接参数",
+	"error.STORAGE_CONFIG_INVALID": "对象存储配置不完整或参数无效，请检查后重试",
+	"error.VOICE_CONFIG_INVALID":
+		"语音配置无效：配置 TURN 服务器时必须同时提供 TURN REST 密钥",
+	"error.MIGRATION_ALREADY_RUNNING":
+		"已有本地资产迁移任务正在运行，请等待完成后再试",
+	"error.STORAGE_PROBE_NOT_FOUND": "连通性探针已过期，请重新测试",
+	"error.PENDING_UPLOAD_NOT_FOUND": "直传上传凭据不存在，请重新上传",
+	"error.PENDING_UPLOAD_EXPIRED": "直传上传凭据已过期，请重新上传",
+	"error.UPLOADED_OBJECT_MISSING": "对象存储中未找到已上传文件，请重试上传",
+	"error.UPLOAD_SIZE_MISMATCH": "上传文件大小与声明不一致，请重新上传",
+	"error.STORAGE_UNAVAILABLE":
+		"对象存储暂时不可用，请检查 OSS 配置或网络连通性",
+	"error.STORAGE_DIRECT_UPLOAD_FAILED":
+		"直传到对象存储失败，请检查 OSS 权限或配置",
+	"error.STORAGE_DIRECT_UPLOAD_CORS":
+		"浏览器直传被跨域策略或网络拦截，请检查 OSS 桶 CORS 配置",
 	"error.AUDIO_VERSION_CONFLICT": "音频状态已更新，请重试",
 	"error.MUSIC_REFERENCE_INVALID":
 		"歌曲链接或 ID 无法识别，请使用官方歌曲页、网易云歌曲 ID 或 QQ 歌曲 MID",
@@ -1690,7 +1942,8 @@ export const zhCN: Record<string, string> = {
 	"gm.music.moduleSearchPlaceholder": "找模组",
 	"gm.music.moduleSearchEmpty": "没有匹配的模组",
 	"gm.music.noModulesTitle": "还没有模组",
-	"gm.music.noModulesHint": "曲目归属模组。先新建一个模组，再回来管理它的音乐。",
+	"gm.music.noModulesHint":
+		"曲目归属模组。先新建一个模组，再回来管理它的音乐。",
 	"gm.music.goModules": "去模组页",
 	"gm.music.statsCount": "{count} 首",
 	"gm.music.sourceNetease": "网易云",
@@ -1765,7 +2018,8 @@ export const zhCN: Record<string, string> = {
 	"gm.music.addTabUpload": "上传文件",
 	"gm.music.addTabPlatform": "音乐平台",
 	"gm.music.uploadDropTitle": "拖入音频文件",
-	"gm.music.uploadDropHint": "或选择文件，可以一次放入多个",
+	"gm.music.uploadDropHint":
+		"或选择文件，可以一次放入多个 · 单个文件不超过 100 MB",
 	"gm.music.uploadChoose": "选择文件",
 	"gm.music.uploadTypeAria": "{name} 的类型",
 	"gm.music.uploadNameAria": "曲名",
@@ -1819,7 +2073,9 @@ export const zhCN: Record<string, string> = {
 	"gm.module.audioFileLabel": "音频文件",
 	"gm.module.audioFileAria": "音频文件",
 	"gm.module.audioFormatHint":
-		"支持 MP3、WAV、OGG、FLAC、M4A，单个文件不超过 10 MB。",
+		"支持 MP3、WAV、OGG、FLAC、M4A，单个文件不超过 100 MB。",
+	"gm.module.imageFormatHint":
+		"支持 PNG、JPG、WebP、GIF、SVG，单个文件不超过 100 MB。",
 	"gm.module.upload": "上传",
 	"gm.module.handoutTitleLabel": "情报标题",
 	"gm.module.handoutTitlePlaceholder": "例如：馆长的手记",
@@ -1952,7 +2208,6 @@ export const zhCN: Record<string, string> = {
 	"characterProfile.saveFailed": "保存失败",
 	"characterProfile.refreshFailed": "刷新人物失败",
 
-
 	"gm.library.title": "人物管理",
 	"gm.library.rulesAria": "规则",
 	"gm.library.rulePickerAria": "切换规则，当前：{rule}",
@@ -2012,7 +2267,8 @@ export const zhCN: Record<string, string> = {
 	"gm.library.more": "{name} 的更多操作",
 	"gm.library.importUpdate": "从 Excel 更新",
 	"gm.library.delete": "删除人物",
-	"gm.library.deleteDescription": "「{name}」会移入回收站，进行中的团不受影响。",
+	"gm.library.deleteDescription":
+		"「{name}」会移入回收站，进行中的团不受影响。",
 	"gm.library.deleted": "已删除「{name}」",
 	"gm.library.deleteFailed": "删除失败",
 	"gm.library.modulesTitle": "所属模组",
@@ -2219,6 +2475,106 @@ export const zhCN: Record<string, string> = {
 	"gm.workbench.layoutScaleMd": "标准",
 	"gm.workbench.layoutScaleLg": "大",
 	"gm.workbench.layoutHint": "布局会实时同步给全团，玩家无需刷新。",
+	"gm.stageStudio.triggerShort": "舞台",
+	"gm.stageStudio.triggerAria": "舞台编排与玩家视角预览",
+	"gm.stageStudio.triggerDraftHint": "有未放映的舞台草稿",
+	"gm.stageStudio.title": "舞台编排",
+	"gm.stageStudio.titleEnded": "玩家视角预览",
+	"gm.stageStudio.description":
+		"按玩家视角自由编排立绘上下台、位置、大小与层级，确认效果后再同步放映给全团。",
+	"gm.stageStudio.statusSynced": "与线上一致",
+	"gm.stageStudio.statusDraft": "有未放映改动",
+	"gm.stageStudio.statusLiveSync": "实时同步中",
+	"gm.stageStudio.statusEnded": "已结团 · 只读",
+	"gm.stageStudio.conflictBanner":
+		"线上舞台排布刚刚更新，当前仍保留你的本地草稿。",
+	"gm.stageStudio.conflictReload": "载入最新线上",
+	"gm.stageStudio.conflictKeep": "保留草稿",
+	"gm.stageStudio.viewportDesktopChat": "桌面（含聊天）",
+	"gm.stageStudio.viewportDesktopFull": "桌面（全屏）",
+	"gm.stageStudio.viewportPortrait": "手机竖屏",
+	"gm.stageStudio.viewportAria": "预览视口切换",
+	"gm.stageStudio.purePreview": "纯净预览",
+	"gm.stageStudio.backToEdit": "返回编排",
+	"gm.stageStudio.previewSceneLabel": "借看场景",
+	"gm.stageStudio.previewSceneLive": "当前线上场景",
+	"gm.stageStudio.previewSceneBadge": "仅预览背景：{name}（未切线上场景）",
+	"gm.stageStudio.previewSceneReset": "恢复当前场景",
+	"gm.stageStudio.toggleDialogue": "模拟对话",
+	"gm.stageStudio.toggleNameplate": "名牌状态",
+	"gm.stageStudio.sampleSpeaker": "主持人",
+	"gm.stageStudio.sampleDialogue":
+		"用于检查底部对话框与立绘之间的留白与遮挡效果，不会发送给玩家。",
+	"gm.stageStudio.chatSafeAreaLabel": "玩家聊天栏区域",
+	"gm.stageStudio.emptyCanvasHint":
+		"当前为空台，可在右侧点选角色上台或套用快捷排版",
+	"gm.stageStudio.dragHint":
+		"拖拽移动 · 四角缩放 · 方向键微调 · 按住 Alt 暂时关闭吸附",
+	"gm.stageStudio.resizeAria": "缩放 {name} 的立绘大小",
+	"gm.stageStudio.tabCast": "角色与精调",
+	"gm.stageStudio.tabPresets": "排版与机位",
+	"gm.stageStudio.selectedTitle": "选中角色精调",
+	"gm.stageStudio.selectedEmpty":
+		"点击画布或下方已上台角色，即可精调位置、大小与层级。",
+	"gm.stageStudio.flipX": "水平翻转",
+	"gm.stageStudio.resetTransform": "重置站位",
+	"gm.stageStudio.takeOffStage": "移下舞台",
+	"gm.stageStudio.putOnStage": "上台",
+	"gm.stageStudio.onStageBadge": "在台",
+	"gm.stageStudio.offStageBadge": "候场",
+	"gm.stageStudio.previewExpression": "试看表情（仅预览）",
+	"gm.stageStudio.previewExpressionLive": "跟随当前线上表情",
+	"gm.stageStudio.axisX": "水平位置 X",
+	"gm.stageStudio.axisY": "垂直偏移 Y",
+	"gm.stageStudio.scale": "立绘缩放",
+	"gm.stageStudio.layerOrder": "前后层级",
+	"gm.stageStudio.layerBack": "置底",
+	"gm.stageStudio.layerBackward": "下移一层",
+	"gm.stageStudio.layerForward": "上移一层",
+	"gm.stageStudio.layerFront": "置顶",
+	"gm.stageStudio.castTitle": "本团角色",
+	"gm.stageStudio.castCount": "在台 {count}/{max}",
+	"gm.stageStudio.castSearch": "搜索角色姓名…",
+	"gm.stageStudio.castEmpty": "本团还没有角色",
+	"gm.stageStudio.castLimitReached": "同台最多展示 {max} 位角色",
+	"gm.stageStudio.quickPresetsTitle": "快捷排版",
+	"gm.stageStudio.quickPresetsHint":
+		"对当前在台角色一键排布（空台时自动带入 PC）",
+	"gm.stageStudio.preset.auto": "自动均分",
+	"gm.stageStudio.preset.center": "紧凑居中",
+	"gm.stageStudio.preset.left": "偏左站位",
+	"gm.stageStudio.preset.right": "偏右站位",
+	"gm.stageStudio.preset.spread": "分散站位",
+	"gm.stageStudio.preset.duel": "左右对峙",
+	"gm.stageStudio.preset.trio": "焦点三角",
+	"gm.stageStudio.preset.clear": "清空舞台",
+	"gm.stageStudio.emphasizeSpeaker": "聚焦发言人",
+	"gm.stageStudio.emphasizeSpeakerHint":
+		"压暗非当前发言角色，同时保持 GM 手动排好的前后层级",
+	"gm.stageStudio.savedPresetsTitle": "本团机位快照",
+	"gm.stageStudio.savedPresetsCount": "{count}/{max}",
+	"gm.stageStudio.savedPresetsEmpty":
+		"把常用构图（如“大厅全员”“审讯室对峙”）存为机位，跑团时随时一键载入预览再放映。",
+	"gm.stageStudio.presetNamePlaceholder": "输入机位名称，如：审讯室对峙",
+	"gm.stageStudio.presetSave": "存为机位",
+	"gm.stageStudio.presetLoad": "载入草稿",
+	"gm.stageStudio.presetUpdate": "用当前覆盖",
+	"gm.stageStudio.presetDelete": "删除机位",
+	"gm.stageStudio.presetItemCount": "{count} 人在台",
+	"gm.stageStudio.presetEmptyCount": "空台",
+	"gm.stageStudio.presetSaved": "已保存机位「{name}」",
+	"gm.stageStudio.presetUpdated": "已更新机位「{name}」",
+	"gm.stageStudio.presetDeleted": "已删除机位「{name}」",
+	"gm.stageStudio.presetLoaded":
+		"已载入机位「{name}」到草稿画布，确认后点同步放映",
+	"gm.stageStudio.presetSaveFailed": "保存机位快照失败",
+	"gm.stageStudio.presetDeleteFailed": "删除机位快照失败",
+	"gm.stageStudio.liveSync": "实时同步",
+	"gm.stageStudio.liveSyncHint": "开启后每次调整松手即推送全团",
+	"gm.stageStudio.discardDraft": "还原线上",
+	"gm.stageStudio.clearStage": "清空舞台",
+	"gm.stageStudio.publish": "同步放映",
+	"gm.stageStudio.published": "舞台排布已同步放映给全团",
 	"gm.workbench.onlineCount": "{count} 人在线",
 	"gm.workbench.statusTitle": "团状态",
 	"gm.workbench.statusSwitchAria": "团状态：{status}，点击切换",
@@ -2291,6 +2647,10 @@ export const zhCN: Record<string, string> = {
 	"gm.workbench.toolCheck": "鉴定",
 	"gm.workbench.toolAudio": "声音",
 	"gm.workbench.tools": "导演工具",
+	"gm.workbench.mobileViewAria": "控制台视图",
+	"gm.workbench.mobileTabControls": "控场",
+	"gm.workbench.mobileTabChat": "对话",
+	"gm.workbench.mobileTabStage": "舞台",
 	"gm.workbench.sceneTitle": "场景",
 	"gm.workbench.sceneSubtitle": "切换画面，全员同步转场",
 	"gm.workbench.sceneSearch": "搜索此模组的场景",
@@ -2449,18 +2809,21 @@ export const zhCN: Record<string, string> = {
 	"gm.workbench.audioSubtitle": "控制全团背景音乐与一次性音效",
 	"gm.workbench.currentPlayback": "当前播放",
 	"gm.workbench.emptyPlaybackTitle": "还没有正在播放的曲目",
-	"gm.workbench.emptyPlaybackHint": "在下方曲库点选一首背景音乐，即向全团播放。",
+	"gm.workbench.emptyPlaybackHint":
+		"在下方曲库点选一首背景音乐，即向全团播放。",
 	"gm.workbench.currentSynchronized": "正在向全团同步",
 	"gm.workbench.currentPaused": "已在全团暂停",
 	"gm.workbench.currentStale": "断线前的状态，可能已过期",
 	"gm.workbench.currentLocalFailed": "{state} · 本机播放失败",
-	"gm.workbench.emptyPlaybackNoTracks": "曲库里还没有背景音乐，先添加曲目再播放。",
+	"gm.workbench.emptyPlaybackNoTracks":
+		"曲库里还没有背景音乐，先添加曲目再播放。",
 	"gm.workbench.bgmVolumeShort": "BGM 音量",
 	"gm.workbench.progressValue": "已播放 {position}，共 {duration}",
 	"gm.workbench.snapshotLoading": "正在恢复声音状态",
 	"gm.workbench.trackLibrary": "模组曲库",
 	"gm.workbench.libraryEmptyTitle": "曲库还是空的",
-	"gm.workbench.libraryEmptyHint": "从音乐平台添加背景音乐或音效，也可以在模组编辑中上传音频。",
+	"gm.workbench.libraryEmptyHint":
+		"从音乐平台添加背景音乐或音效，也可以在模组编辑中上传音频。",
 	"gm.workbench.backgroundMusic": "背景音乐",
 	"gm.workbench.bgmTrackCount": "{count} 首",
 	"gm.workbench.librarySearch": "搜索模组曲目",
@@ -2486,7 +2849,7 @@ export const zhCN: Record<string, string> = {
 	"gm.workbench.bgmPaused": "BGM · 已暂停",
 	"gm.workbench.bgmNone": "BGM · 尚未选择",
 	"gm.workbench.bgmLoopPlaying": "BGM · {loop}",
-		"gm.workbench.playbackModeTitle": "播放模式",
+	"gm.workbench.playbackModeTitle": "播放模式",
 	"gm.workbench.playbackMode.off": "播完停止",
 	"gm.workbench.playbackMode.single": "单曲循环",
 	"gm.workbench.playbackMode.list": "列表循环",
@@ -2679,6 +3042,8 @@ export const zhCN: Record<string, string> = {
 	"gm.importSheet.providedFields":
 		"识别到 {count} 个明确字段，未提供的字段将在更新时保留。",
 	"gm.importSheet.imported": "人物卡已入库",
+	"gm.importSheet.parsing": "正在解析工作簿…",
+	"gm.importSheet.fileTooLarge": "工作簿文件超过 10 MB 上限",
 	"gm.importSheet.parseFailed": "解析失败",
 	"gm.importSheet.importFailed": "入库失败",
 	"gm.importSheet.confirm": "确认入库",

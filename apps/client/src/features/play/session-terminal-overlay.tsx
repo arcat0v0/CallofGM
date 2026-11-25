@@ -1,5 +1,11 @@
 import { useNavigate } from "@tanstack/react-router";
-import { ShieldX, UserRoundMinus, UserRoundX, WifiOff } from "lucide-react";
+import {
+	LogIn,
+	ShieldX,
+	UserRoundMinus,
+	UserRoundX,
+	WifiOff,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { t } from "@/i18n";
 import { type ConnectionTerminal, usePlayStore } from "@/stores/play-store";
@@ -15,6 +21,10 @@ const TERMINAL_COPY: Record<
 	unavailable: {
 		title: "play.unavailableTitle",
 		description: "play.unavailableDescription",
+	},
+	loginExpired: {
+		title: "play.loginExpiredTitle",
+		description: "play.loginExpiredDescription",
 	},
 	replaced: {
 		title: "play.replacedTitle",
@@ -49,6 +59,8 @@ function SessionTerminalOverlay({
 			<UserRoundX className="size-6" />
 		) : terminal === "released" ? (
 			<UserRoundMinus className="size-6" />
+		) : terminal === "loginExpired" ? (
+			<LogIn className="size-6" />
 		) : (
 			<WifiOff className="size-6" />
 		);
@@ -87,7 +99,15 @@ function SessionTerminalOverlay({
 				>
 					{t("play.returnEntry")}
 				</Button>
-				{terminal === "replaced" || terminal === "released" ? null : (
+				{terminal === "loginExpired" ? (
+					<Button
+						type="button"
+						variant="primary"
+						onClick={() => void navigate({ to: "/login" })}
+					>
+						{t("play.goToLogin")}
+					</Button>
+				) : terminal === "replaced" || terminal === "released" ? null : (
 					<Button type="button" variant="primary" onClick={onRetry}>
 						{terminal === "kicked" ? t("play.reenter") : t("play.retryConnect")}
 					</Button>

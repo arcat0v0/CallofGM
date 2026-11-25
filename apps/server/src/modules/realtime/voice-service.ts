@@ -6,7 +6,6 @@ import {
 	VoiceServerMessage,
 	type VoiceState,
 } from "@cogm/shared";
-import type { AppConfig } from "@/config/app-config";
 import { type ActorContext, holderKey, holderOf } from "@/modules/identity";
 import { SessionLifecycle } from "@/modules/sessions";
 import type { VoiceSession, VoiceSessionStore } from "./application/ports";
@@ -14,6 +13,18 @@ import type {
 	ActiveConnection,
 	ConnectionRegistry,
 } from "./connection-registry";
+
+export interface VoiceRuntimeConfig {
+	maxParticipants: number;
+	stunUrls: string[];
+	turnUrls: string[];
+	turnRestSecret?: string;
+	turnTtlSeconds: number;
+}
+
+export type VoiceConfigProvider =
+	| (() => VoiceRuntimeConfig)
+	| { voice: VoiceRuntimeConfig };
 
 interface RuntimeVoiceMember {
 	id: string;
@@ -46,11 +57,17 @@ export class VoiceService {
 	private rooms = new Map<string, VoiceRoom>();
 	private queues = new Map<string, Promise<unknown>>();
 
+	private readonly getVoiceConfig: () => VoiceRuntimeConfig;
+
 	constructor(
 		private readonly store: VoiceSessionStore,
 		private readonly connectionRegistry: ConnectionRegistry,
-		private readonly config: AppConfig,
+		configProvider: VoiceConfigProvider,
 	) {
+		this.getVoiceConfig =
+			typeof configProvider === "function"
+				? configProvider
+				: () => configProvider.voice;
 		this.connectionRegistry.onUnregister((connection) => {
 			if (!this.removeMember(connection.sessionId, connection.connectionId))
 				return;
@@ -225,7 +242,7 @@ export class VoiceService {
 			if (this.rooms.has(connection.sessionId)) {
 				throw new VoiceError("VOICE_LIMIT_LOCKED");
 			}
-			if (payload.limit > this.config.voice.maxParticipants) {
+			if (payload.limit > this.getVoiceConfig().maxParticipants) {
 				throw new VoiceError("VOICE_LIMIT_INVALID");
 			}
 			await this.store.setVoiceLimit(connection.sessionId, payload.limit);
@@ -311,11 +328,12 @@ export class VoiceService {
 		connections: ActiveConnection[],
 		session: VoiceSession | null,
 	): void {
+		const maxParticipants = this.getVoiceConfig().maxParticipants;
 		const unavailable: VoiceState = {
 			enabled: false,
 			available: false,
-			limit: this.config.voice.maxParticipants,
-			maxLimit: this.config.voice.maxParticipants,
+			limit: maxParticipants,
+			maxLimit: maxParticipants,
 			selfId: null,
 			members: [],
 			memberCount: 0,
@@ -392,31 +410,30 @@ export class VoiceService {
 			id: member.id,
 			name: member.name,
 			role: member.role,
-			canSpeak: lifecycle.canVoiceSpeak(member.role, moderation),
+			canSpeak: lifecycle.canVoiceSpeak(moderation),
 			speakGranted: moderation.speakGranted,
 			muted: moderation.muted,
 		};
 	}
 
 	private effectiveLimit(session: VoiceSession): number {
-		return Math.min(
-			session.voiceLimit ?? this.config.voice.maxParticipants,
-			this.config.voice.maxParticipants,
-		);
+		const maxParticipants = this.getVoiceConfig().maxParticipants;
+		return Math.min(session.voiceLimit ?? maxParticipants, maxParticipants);
 	}
 
 	private iceServers(): VoiceIceServer[] {
+		const voiceConfig = this.getVoiceConfig();
 		const result: VoiceIceServer[] = [];
-		if (this.config.voice.stunUrls.length > 0) {
-			result.push({ urls: this.config.voice.stunUrls });
+		if (voiceConfig.stunUrls.length > 0) {
+			result.push({ urls: voiceConfig.stunUrls });
 		}
-		const secret = this.config.voice.turnRestSecret;
-		if (secret && this.config.voice.turnUrls.length > 0) {
+		const secret = voiceConfig.turnRestSecret;
+		if (secret && voiceConfig.turnUrls.length > 0) {
 			const expires =
-				Math.floor(Date.now() / 1000) + this.config.voice.turnTtlSeconds;
+				Math.floor(Date.now() / 1000) + voiceConfig.turnTtlSeconds;
 			const username = `${expires}:${crypto.randomUUID()}`;
 			result.push({
-				urls: this.config.voice.turnUrls,
+				urls: voiceConfig.turnUrls,
 				username,
 				credential: createHmac("sha1", secret)
 					.update(username)

@@ -1,1 +1,4 @@
 * text=auto eol=lf
+
+# DeepFilterNet3 voice runtime and model (gzip payloads)
+apps/client/src/features/voice/vendor/deepfilternet3/*.bin binary

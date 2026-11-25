@@ -12,6 +12,7 @@ import { createMusicRoutes } from "./modules/music";
 import { createRealtimeRoutes } from "./modules/realtime";
 import { createRulesRoutes } from "./modules/rules";
 import { createSessionsRoutes } from "./modules/sessions";
+import { createSiteSettingsRoutes } from "./modules/site-settings";
 import { createTemplatesRoutes } from "./modules/templates";
 import { createThemeRoutes } from "./modules/themes";
 import { createUiSettingsRoutes } from "./modules/ui-settings";
@@ -37,9 +38,15 @@ async function serveClient(pathname: string): Promise<Response> {
 	}
 	const asset = Bun.file(requested);
 	if (relativePath && (await asset.exists())) {
-		return new Response(asset, {
-			headers: { "Content-Type": asset.type || "application/octet-stream" },
-		});
+		const headers: Record<string, string> = {
+			"Content-Type": asset.type || "application/octet-stream",
+		};
+		// Vite content-hashes everything under assets/ (including the
+		// DeepFilterNet3 voice model), so those files never change in place.
+		if (relativePath.startsWith("assets/")) {
+			headers["Cache-Control"] = "public, max-age=31536000, immutable";
+		}
+		return new Response(asset, { headers });
 	}
 	if (relativePath && extname(relativePath))
 		return new Response("Not Found", { status: 404 });
@@ -58,14 +65,15 @@ function applyCors(
 	if (!origin) {
 		return;
 	}
-	const allowed = container.config.corsOrigins;
+	const security = container.siteSettings.getSecurityConfig();
+	const allowed = security.corsOrigins;
 	if (isAllowedOrigin(origin, allowed, request.url)) {
 		set.headers["Access-Control-Allow-Origin"] = origin;
 		set.headers["Access-Control-Allow-Credentials"] = "true";
 		set.headers["Access-Control-Allow-Headers"] =
 			"content-type, authorization, x-fingerprint";
 		set.headers["Access-Control-Allow-Methods"] =
-			"GET,POST,PATCH,DELETE,OPTIONS";
+			"GET,POST,PUT,PATCH,DELETE,OPTIONS";
 		set.headers["Vary"] = "Origin";
 	}
 }
@@ -75,7 +83,12 @@ export function createApp(
 	options: { serverBuildInfo?: ReturnType<typeof getServerBuildInfo> } = {},
 ) {
 	const serverBuildInfo = options.serverBuildInfo ?? getServerBuildInfo();
-	const app = new Elysia()
+	const app = new Elysia({
+		serve: {
+			// 为动态可配上限（最高 1024 MiB）与 multipart 表单头预留余量，实际大小由业务路由按运行期配置拒绝。
+			maxRequestBodySize: 1_024 * 1024 * 1024 + 28 * 1024 * 1024,
+		},
+	})
 		.derive(({ request }) => {
 			const requestId =
 				request.headers.get("x-request-id") || crypto.randomUUID();
@@ -165,6 +178,7 @@ export function createApp(
 		.use(createRulesRoutes(container))
 		.use(createTemplatesRoutes(container))
 		.use(createUiSettingsRoutes(container))
+		.use(createSiteSettingsRoutes(container, { serverBuildInfo }))
 		.get("/api/version", ({ set }) => {
 			set.headers["Cache-Control"] = "no-store";
 			return VersionResponseSchema.parse({ server: serverBuildInfo });

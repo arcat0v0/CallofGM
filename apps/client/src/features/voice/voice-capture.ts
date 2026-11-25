@@ -3,11 +3,22 @@ import {
 	normalizeVoiceAudioSettings,
 	type VoiceAudioSettings,
 } from "./voice-audio-settings";
+import type { DeepFilterAssets } from "./voice-deepfilter";
+import {
+	type DeepFilterAssetLoader,
+	loadDeepFilterAssets,
+} from "./voice-deepfilter-assets";
 import {
 	DEFAULT_NOISE_GATE_SETTINGS,
 	VOICE_SAMPLE_RATE,
+	type VoiceNoiseEngine,
 } from "./voice-processing";
-import type { VoiceWorkletMessage } from "./voice-processing-worklet";
+import type {
+	VoiceWorkletEvent,
+	VoiceWorkletMessage,
+	VoiceWorkletOptions,
+	VoiceWorkletSettings,
+} from "./voice-processing-worklet";
 import processingWorkletUrl from "./voice-processing-worklet.ts?worker&url";
 
 export type VoiceAudioProcessing =
@@ -15,6 +26,7 @@ export type VoiceAudioProcessing =
 	| "starting"
 	| "native"
 	| "rnnoise"
+	| "deepfilter"
 	| "fallback";
 
 export type AppliedAudioConstraints = {
@@ -25,9 +37,12 @@ export type AppliedAudioConstraints = {
 
 export type VoiceAudioWorkletNodeLike = {
 	port: {
-		postMessage: (message: VoiceWorkletMessage) => void;
+		postMessage: (
+			message: VoiceWorkletMessage,
+			options?: StructuredSerializeOptions,
+		) => void;
 		close: () => void;
-		onmessage: ((event: MessageEvent<{ type: string }>) => void) | null;
+		onmessage: ((event: MessageEvent<VoiceWorkletEvent>) => void) | null;
 	};
 	connect: (destination: AudioNode) => void;
 	disconnect: () => void;
@@ -48,6 +63,8 @@ export type VoiceCapturePipelineOptions = VoiceCapturePipelineEvents & {
 		options: AudioWorkletNodeOptions,
 	) => VoiceAudioWorkletNodeLike;
 	workletUrl?: string;
+	/** Fetches the DeepFilterNet3 runtime and model (tests inject a fake). */
+	loadDeepFilterAssets?: DeepFilterAssetLoader;
 };
 
 export interface VoiceCapturePipelineLike {
@@ -55,12 +72,29 @@ export interface VoiceCapturePipelineLike {
 	readonly deviceId: string | null;
 	readonly processing: VoiceAudioProcessing;
 	readonly appliedAudioConstraints: AppliedAudioConstraints;
+	readonly suspended: boolean;
 	start: (settings: VoiceAudioSettings) => Promise<MediaStream>;
 	update: (settings: VoiceAudioSettings) => Promise<void>;
+	resume?: () => void;
+	getAudioTap?: () => { context: AudioContext; node: AudioNode } | null;
+	getMonitorStream?: () => MediaStream | null;
+	setEnabled: (enabled: boolean) => void;
 	close: () => void;
 }
 
-function defaultContext(): AudioContext | null {
+type AudioSessionNavigator = Navigator & {
+	audioSession?: { type: string };
+};
+
+function isContextRunning(context: AudioContext): boolean {
+	return (context.state as string) === "running";
+}
+
+function isContextClosed(context: AudioContext): boolean {
+	return (context.state as string) === "closed";
+}
+
+function defaultContext(preferVoiceRate: boolean): AudioContext | null {
 	const audioGlobal = globalThis as typeof globalThis & {
 		webkitAudioContext?: typeof AudioContext;
 	};
@@ -68,10 +102,11 @@ function defaultContext(): AudioContext | null {
 		audioGlobal.AudioContext ?? audioGlobal.webkitAudioContext;
 	if (!AudioContextConstructor) return null;
 	try {
-		return new AudioContextConstructor({
-			sampleRate: VOICE_SAMPLE_RATE,
-			latencyHint: "interactive",
-		});
+		return new AudioContextConstructor(
+			preferVoiceRate
+				? { sampleRate: VOICE_SAMPLE_RATE, latencyHint: "interactive" }
+				: { latencyHint: "interactive" },
+		);
 	} catch {
 		try {
 			return new AudioContextConstructor();
@@ -131,11 +166,21 @@ export class VoiceCapturePipeline implements VoiceCapturePipelineLike {
 	private rawTrack: MediaStreamTrack | null = null;
 	private outputStream: MediaStream | null = null;
 	private source: MediaStreamAudioSourceNode | null = null;
+	private outputNode: GainNode | null = null;
+	private keepaliveGain: GainNode | null = null;
 	private destination: MediaStreamAudioDestinationNode | null = null;
 	private compressor: DynamicsCompressorNode | null = null;
 	private worklet: VoiceAudioWorkletNodeLike | null = null;
+	private unlockAttached = false;
+	private stateListenerAttached: AudioContext | null = null;
+	private previousAudioSessionType: string | null = null;
 	private workletFailed = false;
 	private rnnoiseFailed = false;
+	private deepFilterFailed = false;
+	/** Assets were handed to the current worklet, or are on their way. */
+	private deepFilterRequested = false;
+	/** Denoiser the current worklet reports as heard. */
+	private workletEngine: VoiceNoiseEngine | null = null;
 	private starting = false;
 	private closed = false;
 	private generation = 0;
@@ -169,6 +214,141 @@ export class VoiceCapturePipeline implements VoiceCapturePipelineLike {
 		return { ...this.applied };
 	}
 
+	getAudioTap(): { context: AudioContext; node: AudioNode } | null {
+		if (!this.context || !this.outputNode || this.closed) return null;
+		return { context: this.context, node: this.outputNode };
+	}
+
+	getMonitorStream(): MediaStream | null {
+		return this.outputStream;
+	}
+
+	get suspended(): boolean {
+		const state: string | undefined = this.context?.state;
+		return (
+			this.destination !== null &&
+			(state === "suspended" || state === "interrupted")
+		);
+	}
+
+	setEnabled(enabled: boolean): void {
+		if (this.rawTrack) this.rawTrack.enabled = enabled;
+	}
+
+	resume(): void {
+		const context = this.context;
+		if (!context || this.closed || isContextClosed(context)) return;
+		if (isContextRunning(context)) {
+			this.detachUnlock();
+			return;
+		}
+		this.attachUnlock(context);
+		try {
+			void context
+				.resume()
+				.then(() => {
+					if (this.context === context && isContextRunning(context)) {
+						this.detachUnlock();
+						this.options.onChanged?.();
+					}
+				})
+				.catch(() => {});
+		} catch {}
+	}
+
+	private readonly handleContextUnlock = (): void => {
+		this.resume();
+	};
+
+	private readonly handleContextStateChange = (): void => {
+		const context = this.context;
+		if (!context || this.closed) return;
+		this.options.onChanged?.();
+		if (isContextRunning(context)) {
+			this.detachUnlock();
+			return;
+		}
+		if (!isContextClosed(context)) {
+			this.resume();
+		}
+	};
+
+	private attachUnlock(context: AudioContext): void {
+		if (
+			this.stateListenerAttached !== context &&
+			typeof context.addEventListener === "function"
+		) {
+			this.detachStateListener();
+			this.stateListenerAttached = context;
+			context.addEventListener("statechange", this.handleContextStateChange);
+		}
+		if (this.unlockAttached || typeof window === "undefined" || this.closed) {
+			return;
+		}
+		this.unlockAttached = true;
+		window.addEventListener("pointerdown", this.handleContextUnlock, {
+			passive: true,
+		});
+		window.addEventListener("touchend", this.handleContextUnlock, {
+			passive: true,
+		});
+		window.addEventListener("click", this.handleContextUnlock, {
+			passive: true,
+		});
+		window.addEventListener("keydown", this.handleContextUnlock, {
+			passive: true,
+		});
+	}
+
+	private detachStateListener(): void {
+		const attached = this.stateListenerAttached;
+		if (attached && typeof attached.removeEventListener === "function") {
+			attached.removeEventListener(
+				"statechange",
+				this.handleContextStateChange,
+			);
+		}
+		this.stateListenerAttached = null;
+	}
+
+	private detachUnlock(): void {
+		if (!this.unlockAttached || typeof window === "undefined") return;
+		this.unlockAttached = false;
+		window.removeEventListener("pointerdown", this.handleContextUnlock);
+		window.removeEventListener("touchend", this.handleContextUnlock);
+		window.removeEventListener("click", this.handleContextUnlock);
+		window.removeEventListener("keydown", this.handleContextUnlock);
+	}
+
+	private claimAudioSession(): void {
+		if (typeof navigator === "undefined") return;
+		const session = (navigator as AudioSessionNavigator).audioSession;
+		if (!session || typeof session.type !== "string") return;
+		if (this.previousAudioSessionType === null) {
+			this.previousAudioSessionType = session.type;
+		}
+		try {
+			session.type = "play-and-record";
+		} catch {}
+	}
+
+	private restoreAudioSession(): void {
+		if (
+			this.previousAudioSessionType === null ||
+			typeof navigator === "undefined"
+		) {
+			this.previousAudioSessionType = null;
+			return;
+		}
+		const previous = this.previousAudioSessionType;
+		this.previousAudioSessionType = null;
+		const session = (navigator as AudioSessionNavigator).audioSession;
+		if (!session) return;
+		try {
+			session.type = previous;
+		} catch {}
+	}
+
 	async start(settings: VoiceAudioSettings): Promise<MediaStream> {
 		if (this.closed || this.starting || this.outputStream) {
 			throw new Error("Voice capture pipeline cannot be restarted");
@@ -176,12 +356,18 @@ export class VoiceCapturePipeline implements VoiceCapturePipelineLike {
 		this.starting = true;
 		this.settings = normalizeVoiceAudioSettings(settings);
 		this.setProcessing("starting");
+		this.claimAudioSession();
 		const generation = this.generation;
 		try {
-			const createContext = this.options.createContext ?? defaultContext;
-			const context = createContext();
+			const createContext =
+				this.options.createContext ??
+				(() => defaultContext(this.settings.deepNoiseSuppression));
+			let context = createContext();
 			this.context = context;
-			if (context?.state === "suspended") void context.resume().catch(() => {});
+			if (context) {
+				this.attachUnlock(context);
+				this.resume();
+			}
 			const raw = await this.capture(this.settings);
 			if (this.closed || generation !== this.generation) {
 				stopTracks(raw);
@@ -192,12 +378,30 @@ export class VoiceCapturePipeline implements VoiceCapturePipelineLike {
 				stopTracks(raw);
 				throw new Error("No audio capture track");
 			}
+			const trackSampleRate = track.getSettings?.().sampleRate;
+			if (
+				!this.options.createContext &&
+				!this.settings.deepNoiseSuppression &&
+				context &&
+				typeof trackSampleRate === "number" &&
+				trackSampleRate > 0 &&
+				context.sampleRate !== trackSampleRate
+			) {
+				this.detachStateListener();
+				if (!isContextClosed(context)) void context.close().catch(() => {});
+				context = defaultContext(false);
+				this.context = context;
+			}
+			if (context) {
+				this.attachUnlock(context);
+				this.resume();
+			}
 			this.rawStream = raw;
 			this.rawTrack = track;
 			this.outputStream = raw;
 			this.attachRawEnded(track);
 			this.readAppliedConstraints();
-			if (!this.createGraph()) {
+			if (!this.usesProcessingGraph() || !this.createGraph()) {
 				this.updateProcessing();
 				if (this.settings.deepNoiseSuppression) {
 					await this.applyNativeConstraints();
@@ -212,8 +416,9 @@ export class VoiceCapturePipeline implements VoiceCapturePipelineLike {
 			}
 			this.updateCompressor();
 			this.connectGraph();
+			this.resume();
 			this.updateProcessing();
-			if (this.settings.deepNoiseSuppression && this.state !== "rnnoise") {
+			if (this.settings.deepNoiseSuppression && !this.ownsNoiseSuppression()) {
 				await this.applyNativeConstraints();
 			}
 			this.readAppliedConstraints();
@@ -257,28 +462,18 @@ export class VoiceCapturePipeline implements VoiceCapturePipelineLike {
 			rawTrack.removeEventListener("ended", this.rawEnded);
 		}
 		this.rawEnded = null;
-		this.disposeWorklet();
-		try {
-			this.source?.disconnect();
-			this.compressor?.disconnect();
-			this.destination?.disconnect();
-		} catch {}
-		const tracks = new Set<MediaStreamTrack>();
-		for (const stream of [this.rawStream, this.outputStream]) {
-			if (!stream) continue;
-			for (const track of stream.getTracks()) tracks.add(track);
-		}
-		for (const track of tracks) track.stop();
+		this.disposeGraph();
+		this.detachUnlock();
+		this.detachStateListener();
+		this.restoreAudioSession();
+		stopTracks(this.rawStream);
 		const context = this.context;
 		this.context = null;
-		if (context && context.state !== "closed")
+		if (context && !isContextClosed(context))
 			void context.close().catch(() => {});
 		this.rawStream = null;
 		this.rawTrack = null;
 		this.outputStream = null;
-		this.source = null;
-		this.destination = null;
-		this.compressor = null;
 		this.applied = {
 			echoCancellation: null,
 			noiseSuppression: null,
@@ -311,13 +506,20 @@ export class VoiceCapturePipeline implements VoiceCapturePipelineLike {
 			this.replaceRawStream(raw, track);
 		}
 		this.settings = next;
-		if (!next.deepNoiseSuppression) this.rnnoiseFailed = false;
+		if (!next.deepNoiseSuppression) {
+			this.rnnoiseFailed = false;
+			this.deepFilterFailed = false;
+		}
 		if (this.closed || revision !== this.revision) return;
-		await this.ensureProcessingNodes();
-		if (this.closed || revision !== this.revision) return;
-		this.connectGraph();
-		this.updateCompressor();
-		this.postWorkletSettings();
+		if (!this.usesProcessingGraph()) {
+			this.disposeGraph();
+		} else if (this.destination || this.createGraph()) {
+			await this.ensureProcessingNodes();
+			if (this.closed) return;
+			this.connectGraph();
+			this.updateCompressor();
+			this.postWorkletSettings();
+		}
 		this.updateProcessing();
 		await this.applyNativeConstraints();
 	}
@@ -328,7 +530,7 @@ export class VoiceCapturePipeline implements VoiceCapturePipelineLike {
 		if (typeof track.applyConstraints === "function") {
 			const { audio } = buildVoiceCaptureConstraints(
 				this.settings,
-				this.state === "rnnoise",
+				this.ownsNoiseSuppression(),
 			);
 			delete audio.deviceId;
 			try {
@@ -352,6 +554,34 @@ export class VoiceCapturePipeline implements VoiceCapturePipelineLike {
 		return navigator.mediaDevices.getUserMedia(constraints);
 	}
 
+	private usesProcessingGraph(): boolean {
+		const { deepNoiseSuppression, noiseGate, compressor } = this.settings;
+		return deepNoiseSuppression || noiseGate || compressor;
+	}
+
+	private disposeGraph(): void {
+		this.disposeWorklet();
+		for (const node of [
+			this.source,
+			this.compressor,
+			this.outputNode,
+			this.keepaliveGain,
+			this.destination,
+		]) {
+			try {
+				node?.disconnect();
+			} catch {}
+		}
+		stopTracks(this.destination?.stream ?? null);
+		this.source = null;
+		this.outputNode = null;
+		this.keepaliveGain = null;
+		this.destination = null;
+		this.compressor = null;
+		this.outputStream = this.rawStream;
+		this.workletFailed = false;
+	}
+
 	private createGraph(): boolean {
 		const raw = this.rawStream;
 		const context = this.context;
@@ -360,18 +590,24 @@ export class VoiceCapturePipeline implements VoiceCapturePipelineLike {
 			this.source = context.createMediaStreamSource(raw);
 			this.destination = context.createMediaStreamDestination();
 			this.destination.channelCount = 1;
+			if (typeof context.createGain === "function") {
+				const outputNode = context.createGain();
+				outputNode.gain.value = 1;
+				const keepaliveGain = context.createGain();
+				keepaliveGain.gain.value = 0;
+				outputNode.connect(this.destination);
+				outputNode.connect(keepaliveGain);
+				keepaliveGain.connect(context.destination);
+				this.outputNode = outputNode;
+				this.keepaliveGain = keepaliveGain;
+			}
 			this.outputStream = this.destination.stream;
 			return true;
 		} catch {
-			try {
-				this.source?.disconnect();
-				this.destination?.disconnect();
-			} catch {}
-			this.source = null;
-			this.destination = null;
-			this.outputStream = raw;
+			this.disposeGraph();
+			this.detachStateListener();
 			this.context = null;
-			if (context.state !== "closed") void context.close().catch(() => {});
+			if (!isContextClosed(context)) void context.close().catch(() => {});
 			return false;
 		}
 	}
@@ -380,7 +616,7 @@ export class VoiceCapturePipeline implements VoiceCapturePipelineLike {
 		const previousRaw = this.rawStream;
 		const previousTrack = this.rawTrack;
 		let nextSource = this.source;
-		if (this.context) {
+		if (this.context && this.destination) {
 			try {
 				nextSource = this.context.createMediaStreamSource(raw);
 			} catch {
@@ -400,9 +636,8 @@ export class VoiceCapturePipeline implements VoiceCapturePipelineLike {
 			this.source?.disconnect();
 		} catch {}
 		this.source = nextSource;
-		this.outputStream = this.context
-			? (this.destination?.stream ?? this.outputStream)
-			: raw;
+		if (previousTrack) track.enabled = previousTrack.enabled;
+		this.outputStream = this.destination?.stream ?? raw;
 		this.rawStream = raw;
 		this.rawTrack = track;
 		this.attachRawEnded(track);
@@ -435,18 +670,16 @@ export class VoiceCapturePipeline implements VoiceCapturePipelineLike {
 					channelCount: 1,
 					channelCountMode: "explicit",
 					channelInterpretation: "speakers",
-					processorOptions: this.workletSettings(),
+					processorOptions: {
+						settings: this.workletSettings(),
+					} satisfies VoiceWorkletOptions,
 				};
 				const name = "cogm-voice-processing";
 				this.worklet = this.options.createWorkletNode
 					? this.options.createWorkletNode(context, name, options)
 					: new AudioWorkletNode(context, name, options);
 				this.worklet.port.onmessage = (event) => {
-					if (event.data.type !== "rnnoise-error" || this.closed) return;
-					this.rnnoiseFailed = true;
-					this.updateProcessing();
-					this.queue = this.queue.then(() => this.applyNativeConstraints());
-					this.options.onChanged?.();
+					this.handleWorkletEvent(event.data);
 				};
 				this.worklet.onprocessorerror = () => {
 					if (this.closed) return;
@@ -468,7 +701,9 @@ export class VoiceCapturePipeline implements VoiceCapturePipelineLike {
 			this.disposeWorklet();
 			this.workletFailed = false;
 			this.rnnoiseFailed = false;
+			this.deepFilterFailed = false;
 		}
+		this.requestDeepFilterAssets();
 		if (this.settings.compressor && !this.compressor) {
 			try {
 				this.compressor = context.createDynamicsCompressor();
@@ -478,12 +713,25 @@ export class VoiceCapturePipeline implements VoiceCapturePipelineLike {
 		}
 	}
 
-	private workletSettings() {
+	private requestedEngine(): VoiceNoiseEngine {
+		if (
+			!this.settings.deepNoiseSuppression ||
+			this.context?.sampleRate !== VOICE_SAMPLE_RATE
+		) {
+			return "none";
+		}
+		if (
+			this.settings.noiseSuppressionEngine === "deepfilter" &&
+			!this.deepFilterFailed
+		) {
+			return "deepfilter";
+		}
+		return this.rnnoiseFailed ? "none" : "rnnoise";
+	}
+
+	private workletSettings(): VoiceWorkletSettings {
 		return {
-			rnnoise:
-				this.settings.deepNoiseSuppression &&
-				!this.rnnoiseFailed &&
-				this.context?.sampleRate === VOICE_SAMPLE_RATE,
+			engine: this.requestedEngine(),
 			gate: {
 				...DEFAULT_NOISE_GATE_SETTINGS,
 				enabled: this.settings.noiseGate,
@@ -491,17 +739,90 @@ export class VoiceCapturePipeline implements VoiceCapturePipelineLike {
 		};
 	}
 
-	private postWorkletSettings(): void {
+	private postWorkletSettings(assets?: DeepFilterAssets): void {
 		if (!this.worklet) return;
 		const message: VoiceWorkletMessage = {
 			type: "settings",
 			settings: this.workletSettings(),
+			...(assets ? { deepFilterAssets: assets } : {}),
 		};
 		try {
-			this.worklet.port.postMessage(message);
+			if (assets) {
+				this.worklet.port.postMessage(message, {
+					transfer: [assets.wasm, assets.model],
+				});
+			} else {
+				this.worklet.port.postMessage(message);
+			}
 		} catch {
-			this.rnnoiseFailed = true;
+			if (assets) this.deepFilterFailed = true;
+			else this.rnnoiseFailed = true;
 		}
+	}
+
+	/**
+	 * DeepFilterNet3 assets load in the background: RNNoise is heard from the
+	 * start and the worklet switches over once the model is ready.
+	 */
+	private requestDeepFilterAssets(): void {
+		const worklet = this.worklet;
+		if (
+			!worklet ||
+			this.deepFilterRequested ||
+			this.requestedEngine() !== "deepfilter"
+		) {
+			return;
+		}
+		this.deepFilterRequested = true;
+		const load = this.options.loadDeepFilterAssets ?? loadDeepFilterAssets;
+		let pending: Promise<DeepFilterAssets>;
+		try {
+			pending = load();
+		} catch (error) {
+			pending = Promise.reject(error);
+		}
+		void pending.then(
+			(assets) => {
+				if (this.closed || this.worklet !== worklet) return;
+				if (this.requestedEngine() !== "deepfilter") {
+					// Switched away meanwhile; load again if switched back.
+					this.deepFilterRequested = false;
+					return;
+				}
+				this.postWorkletSettings(assets);
+			},
+			() => {
+				if (this.closed || this.worklet !== worklet) return;
+				this.deepFilterFailed = true;
+				this.postWorkletSettings();
+				this.updateProcessing();
+				this.options.onChanged?.();
+			},
+		);
+	}
+
+	private handleWorkletEvent(event: VoiceWorkletEvent): void {
+		if (this.closed) return;
+		const owned = this.ownsNoiseSuppression();
+		if (event.type === "engine") {
+			this.workletEngine = event.engine;
+		} else if (event.type === "deepfilter-error") {
+			this.deepFilterFailed = true;
+		} else if (event.type === "rnnoise-error") {
+			this.rnnoiseFailed = true;
+		} else {
+			return;
+		}
+		this.updateProcessing();
+		if (event.type === "rnnoise-error" || owned !== this.ownsNoiseSuppression()) {
+			this.queue = this.queue.then(() => this.applyNativeConstraints());
+		}
+		this.options.onChanged?.();
+	}
+
+	/** Our worklet suppresses noise, so the browser's own suppression stays off. */
+	private ownsNoiseSuppression(): boolean {
+		return this.state === "rnnoise" || this.state === "deepfilter";
 	}
 
 	private connectGraph(): void {
@@ -510,18 +831,18 @@ export class VoiceCapturePipeline implements VoiceCapturePipelineLike {
 			this.source.disconnect();
 			this.worklet?.disconnect();
 			this.compressor?.disconnect();
-			this.destination.disconnect();
 		} catch {}
 		let tail: AudioNode | VoiceAudioWorkletNodeLike = this.source;
 		if (this.worklet) {
 			this.source.connect(this.worklet as unknown as AudioNode);
 			tail = this.worklet;
 		}
+		const sink: AudioNode = this.outputNode ?? this.destination;
 		if (this.settings.compressor && this.compressor) {
 			tail.connect(this.compressor);
-			this.compressor.connect(this.destination);
+			this.compressor.connect(sink);
 		} else {
-			tail.connect(this.destination);
+			tail.connect(sink);
 		}
 	}
 
@@ -540,20 +861,27 @@ export class VoiceCapturePipeline implements VoiceCapturePipelineLike {
 			(!this.context || this.workletFailed);
 		const compressorFallback =
 			this.settings.compressor && (!this.context || !this.compressor);
-		const rnnoise =
+		const workletUsable =
 			this.settings.deepNoiseSuppression &&
 			Boolean(this.worklet) &&
-			!this.rnnoiseFailed &&
 			!this.workletFailed &&
 			this.context?.sampleRate === VOICE_SAMPLE_RATE;
+		const deepFilter =
+			workletUsable &&
+			this.settings.noiseSuppressionEngine === "deepfilter" &&
+			!this.deepFilterFailed &&
+			this.workletEngine === "deepfilter";
+		const rnnoise = workletUsable && !this.rnnoiseFailed;
 		const rnnoiseFallback =
 			this.settings.deepNoiseSuppression && this.rnnoiseFailed;
 		this.setProcessing(
-			rnnoise
-				? "rnnoise"
-				: workletFallback || compressorFallback || rnnoiseFallback
-					? "fallback"
-					: "native",
+			deepFilter
+				? "deepfilter"
+				: rnnoise
+					? "rnnoise"
+					: workletFallback || compressorFallback || rnnoiseFallback
+						? "fallback"
+						: "native",
 		);
 	}
 
@@ -594,6 +922,8 @@ export class VoiceCapturePipeline implements VoiceCapturePipelineLike {
 		const worklet = this.worklet;
 		if (!worklet) return;
 		this.worklet = null;
+		this.workletEngine = null;
+		this.deepFilterRequested = false;
 		worklet.onprocessorerror = null;
 		worklet.port.onmessage = null;
 		try {

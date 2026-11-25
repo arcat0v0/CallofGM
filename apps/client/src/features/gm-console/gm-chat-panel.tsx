@@ -426,7 +426,7 @@ function GmChatPanel({
 							<PopoverContent
 								align="start"
 								side="top"
-								className="bg-md-surface-container-high w-80"
+								className="bg-md-surface-container-high max-h-[70dvh] w-[min(20rem,calc(100vw-1.5rem))] overflow-y-auto"
 								onEscapeKeyDown={keepEscapeForFilledInput}
 							>
 								<DiceTray

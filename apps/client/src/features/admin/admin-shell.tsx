@@ -1,5 +1,5 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { LogOut, Palette, Users } from "lucide-react";
+import { LogOut, Palette, Settings, Users } from "lucide-react";
 import type { ComponentType, ReactNode } from "react";
 import { Logo } from "@/components/brand/logo";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -23,6 +23,12 @@ const ADMIN_NAV: {
 		icon: Palette,
 		to: "/admin/themes",
 	},
+	{
+		key: "settings",
+		labelKey: "admin.settings.nav",
+		icon: Settings,
+		to: "/admin/settings",
+	},
 ];
 
 export function AdminShell({ children }: { children: ReactNode }) {
@@ -43,7 +49,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
 	}));
 
 	return (
-		<div className="bg-background flex min-h-dvh flex-col md:h-screen md:flex-row">
+		<div className="bg-background flex h-dvh flex-col overflow-hidden md:flex-row">
 			<aside className="hidden w-24 shrink-0 flex-col items-center py-5 md:flex">
 				<Link to="/admin/users" aria-label={t("admin.scope")} className="mb-5">
 					<Logo className="size-10" />
@@ -98,7 +104,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
 				</div>
 			</aside>
 
-			<header className="border-separator-secondary flex items-center gap-3 border-b px-4 py-3 md:hidden">
+			<header className="border-separator-secondary flex shrink-0 items-center gap-3 border-b px-4 py-3 md:hidden">
 				<Link to="/admin/users" aria-label={t("admin.scope")}>
 					<Logo className="size-8" />
 				</Link>
@@ -128,7 +134,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
 				</div>
 			</header>
 
-			<nav className="border-separator-secondary flex gap-1 overflow-x-auto border-b px-3 py-2 md:hidden">
+			<nav className="border-separator-secondary flex shrink-0 gap-1 overflow-x-auto border-b px-3 py-2 md:hidden">
 				{navItems.map((item) => (
 					<Link
 						key={item.key}
@@ -147,7 +153,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
 				))}
 			</nav>
 
-			<main className="bg-md-surface-container-low min-w-0 flex-1 px-4 py-6 md:overflow-y-auto md:rounded-tl-2xl md:px-10 md:py-9">
+			<main className="bg-md-surface-container-low relative min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-4 py-6 md:rounded-tl-2xl md:px-10 md:py-9">
 				{children}
 			</main>
 		</div>

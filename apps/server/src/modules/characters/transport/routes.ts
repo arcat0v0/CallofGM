@@ -222,8 +222,6 @@ export function createCharactersRoutes(container: Container) {
 		container.clock,
 	);
 
-	const allowedOrigins = container.config.corsOrigins;
-
 	const requireUser = (actor: { type: string } | null | undefined) => {
 		if (!actor || actor.type !== "user") {
 			throw new AuthRequiredError();
@@ -233,7 +231,8 @@ export function createCharactersRoutes(container: Container) {
 
 	const writeGuard = (request: Request) => {
 		if (request.method !== "GET" && request.method !== "HEAD") {
-			assertTrustedOrigin(request, allowedOrigins, container.config.trustProxy);
+			const security = container.siteSettings.getSecurityConfig();
+			assertTrustedOrigin(request, security.corsOrigins, security.trustProxy);
 		}
 	};
 

@@ -58,7 +58,7 @@ function ChatPanelHeader({
 			className={cn(
 				"relative flex shrink-0 flex-col",
 				padded &&
-					(compact ? "gap-1.5 px-3 pt-2.5 pb-1.5" : "gap-2.5 px-3.5 pt-3 pb-2"),
+					(compact ? "gap-1 px-2.5 pt-2 pb-1" : "gap-2.5 px-3.5 pt-3 pb-2"),
 				className,
 			)}
 		>

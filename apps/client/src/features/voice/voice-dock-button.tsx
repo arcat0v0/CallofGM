@@ -59,12 +59,14 @@ export function VoiceDockButton({
 			{compact ? (
 				<Dialog open={open} onOpenChange={handleOpenChange}>
 					<DialogTrigger asChild>{trigger}</DialogTrigger>
-					<DialogContent className="max-h-[calc(100dvh-2rem)] max-w-lg overflow-y-auto">
-						<DialogHeader>
+					<DialogContent className="flex max-h-[calc(100dvh-2rem)] max-w-lg flex-col overflow-hidden">
+						<DialogHeader className="shrink-0">
 							<DialogTitle>{t("voice.title")}</DialogTitle>
 							<DialogDescription>{t("voice.description")}</DialogDescription>
 						</DialogHeader>
-						<VoicePanelBody voice={voice} snapshot={snapshot} />
+						<div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-0.5">
+							<VoicePanelBody voice={voice} snapshot={snapshot} />
+						</div>
 					</DialogContent>
 				</Dialog>
 			) : (

@@ -62,7 +62,7 @@ CallofGM/
 - **断线补发**：服务端为每个进行中的团在内存维护一个环形事件日志（近 N 条），日志条目带可见范围（全体 / 指定 PC 集合 / GM + PC 席位）。客户端（partysocket 自动重连）重连时携带 `lastEventId`，服务端按请求者身份过滤后补发缺失事件；缺口超出日志范围则下发全量快照（团名与可见性设置、请求者身份 `viewer`（是否 GM、席位 PC/OB）、当前场景、在场立绘及表情、阶段、音频状态、对该玩家可见的情报及其已读状态、对该玩家可见的各角色团内状态与人物卡、待其响应的鉴定请求、最近聊天区时间线及回看游标、最近一次回溯提示 `lastRewind`）。
 - 新加入者直接走全量快照路径。
 - 团内 NPC 编组走 REST：`POST /api/v1/gm/sessions/:id/npcs` 校验 GM 所有权、`kind=npc` 与规则一致，未关联模组时自动关联后写入团内人物快照；`DELETE /api/v1/gm/sessions/:id/npcs/:characterId` 只软删该团内快照。两者成功后向全团发送 `session:refresh`，不删除人物本体与历史。
-- GM 舞台沿用 `play.stage` 的桌面视口布局，使立绘位置与玩家端一致；「玩家视角预览」复用同一舞台插槽但按模组 `themeId` 建立独立主题上下文，不改变 GM 界面主题，NPC 状态使用服务端公开投影。
+- GM 舞台沿用 `play.stage` 的桌面视口布局，使立绘位置与玩家端一致；顶栏统一的「舞台」编排弹窗复用同一 `play.stage` 插槽并按模组 `themeId` 建立独立主题上下文，不改变 GM 界面主题，NPC 状态使用服务端公开投影。自由摆台编排通过 `stage:layout` 命令提交结构化 `StageComposition`（`mode: auto | custom`、`emphasizeSpeaker`、`items[]` 含 `characterId/x/y/scale/flipX/zIndex`，上限 12），允许在 `waiting` / `preparing` / `active` 状态执行并持久化至 `sessions.stage_composition_json`（迁移 `0013_stage_composition_and_presets`，保留旧 `portrait_layout`/`portrait_scale` 列作自动模式回退）；本团机位快照经 `POST/DELETE /api/v1/gm/sessions/:id/stage-presets` 持久化至 `sessions.stage_presets_json`（上限 16，仅 GM 快照下发）；移出团内 NPC 时在同一事务内自动从 `stage_composition_json` 清理对应条目。客户端 `PortraitLayer` 使用容器查询单位（`cqh`/`cqw`）按安全区归一化坐标跨端渲染，并支持编排器的草稿覆写与本地预览表情覆写，不破坏 `@cogm/theme-sdk` 插槽契约。
 - **聊天区时间线**：快照与回看共用同一条持久化时间线——已呈现的聊天消息（`session_messages`）与时间线活动事件（`session_history_events`，含掷骰/已完成鉴定、场景切换、阶段变化、情报发放、表情变化与回溯事件）按 `eventId` 升序合并（`packages/shared` 的 `HistoryItem`）。活动事件逐条按 `visibility` 与 `playerVisible` 过滤，状态变更仅 GM 历史可见。快照下发最近 50 条，并附游标 `history: { beforeEventId, hasMore }`。
 - **历史回看分页**：客户端以命令 `history:page`（`HistoryPageQuery { beforeEventId?, limit? }`，limit 默认 50、上限 100）请求更早的记录，回执在 `command:accepted` 的 `payload.history` 中返回 `{ items, hasMore, beforeEventId }`。`beforeEventId` 为排他上界，`hasMore=false` 时为 null。分页与实时事件共用同一套按请求者身份的可见性过滤（秘密/暗骰事件永不外泄，待呈现与已丢弃消息不进入时间线），因此 OB/GM/PC 各自看到同一位置的不同切片；玩家历史不按加入时间截断（含加入前的公开记录），不包含自己的待审/未通过发言与因回溯归档的内容；结团后该命令仍可用（只读回看）。
 
@@ -144,15 +144,15 @@ BgmState = { trackId, playing, volume, mode: off|single|list|shuffle, seekOffset
 
 - 语音复用 `/api/v1/sessions/:id/ws`，协议在 `packages/shared/src/voice.ts` 定义，客户端/服务端消息均运行时 zod 校验。信封使用 `protocolVersion: 1` 与 `requestId`，但不使用 `ClientCommand`，不分配 `eventId`，不写 outbox、历史、聊天或补发日志。`voice:join` 携带权威 `voice:state.roomId`，避免状态下发与自动重入之间跨开启竞态；不匹配返回 `VOICE_ROOM_CHANGED`。
 - `VoiceService` 在单进程内保存当前开启、连接成员与按席位 claim id 索引的授权/静音。归属 GM 在准备中/进行中开启后，GM 断线不关闭；显式关闭、结团和进程重启清除。成员 UUID 每次加入重新签发，连接注册表的所有注销路径同步撤销成员，目标发送前再次核验来源、目标、团、开启与 active 连接。
-- `SessionLifecycle` 统一判断状态转换、阶段变更、席位认领、名单、同步、成长确认和命令的状态限制。语音是否可用、阶段是否允许发言与 GM 对成员的授权和静音分别判定。
+- `SessionLifecycle` 统一判断状态转换、阶段变更、席位认领、名单、同步、成长确认和命令的状态限制。语音房间是否可用取决于团状态，成员的语音发言权限只取决于授权和静音状态。
 - 同一 claim/GM 同时只能有一个媒体连接。准入在同团串行队列中原子完成，GM 保留一个名额，PC/OB 不抢占。`sessions.voice_limit` 仅保存可空单团上限；实例配置 `[voice] maxParticipants` 默认 8，实际取两者较小值。运行时成员、房间 UUID、SDP/ICE 和静音不持久化。
 - 服务端先完成普通 WS 快照 hydration，再下发 `voice:state`，之后才接受信令；加入时先更新成员状态再允许后续信令。SDP offer/answer 与 ICE candidate（包括 glare 中双向 candidate）只向同开启的目标成员单播。信令采用独立 5 秒 256 帧突发上限，其他语音控制与无效帧复用普通命令 5 秒 50 帧上限。
 - GM 获得完整管理列表，已加入成员获得对等列表，未加入的非 GM 只获得人数与自身可用状态。OB 默认 listen-only，授权与 GM 静音在同一 claim 的重连/主动离开再入间保留；替换、释放、踢出清除。阶段、回溯与撤销通过事件投递后的刷新重算 `canSpeak`，已结束团关闭整个语音开启。
 - 浏览器按权威状态在发送端停止/禁用采集与轨道，并在接收端 mute、pause、disable 对应远端轨道。服务端不能约束相互串通的客户端再次转发已经收到的媒体，语音不是对恶意合谋参与者的保密通道。
-- `VoiceController` 在本地保存音频偏好并管理采集、麦克风测试及按键说话。采集链读取音轨报告的实际约束，使用 48 kHz AudioWorklet 运行 RNNoise WASM，并支持噪声门与 Web Audio 压限。RNNoise 生效时请求关闭浏览器降噪，增强处理不可用时使用可用的浏览器采集与处理。通话发送与本地测试使用同一套采集处理逻辑，回听仅连接本机音频输出。
+- `VoiceController` 在本地保存音频偏好并管理采集、麦克风测试及按键说话。采集链读取音轨报告的实际约束，使用 48 kHz AudioWorklet 运行降噪 WASM，并支持噪声门与 Web Audio 压限。默认引擎 DeepFilterNet3 由 `native/deepfilter-wasm` 从上游源码编译为无导入的 SIMD WASM，与 ONNX 模型一起作为自托管资源随客户端发布（`apps/client/src/features/voice/vendor/deepfilternet3/`），主线程后台下载后转交 worklet；在此之前及其失败时由 RNNoise 处理。DeepFilterNet3 运行时 RNNoise 仅分析原始帧，提供人声概率驱动噪声门。深度降噪生效时请求关闭浏览器降噪，增强处理不可用时使用可用的浏览器采集与处理。通话发送与本地测试使用同一套采集处理逻辑，回听仅连接本机音频输出。
 - 按键说话由客户端按发言权限及按住状态控制发送轨道。松开按键、窗口失焦或页面隐藏时，发送轨道静音，麦克风采集保持就绪。用户关闭麦克风、离开语音或失去发言权限时，客户端释放采集资源。
 - WebRTC 优先协商单声道 Opus。浏览器支持时，RTP 发送端设置 32 kbps 码率上限。DTX（不连续传输）与带内 FEC（前向纠错）取决于浏览器能力和协商结果。
-- ICE 配置默认空，浏览器可直接尝试 host candidate。`[voice] stunUrls` / `turnUrls`（本地 `config/cogm.toml`，容器 `config/cogm.docker.toml`）配置地址数组；`turnUrls` 与 `VOICE_TURN_REST_SECRET` 环境变量成对配置独立 TURN，服务端按 `turnTtlSeconds`（默认 600）生成 coturn REST 用户名与 HMAC-SHA1 临时凭据，仅向已加入成员下发。长期 REST secret 仅存在服务端环境，不下发前端。
+- ICE 配置默认空，浏览器可直接尝试 host candidate。`[voice] stunUrls` / `turnUrls`（本地 `config/cogm.toml`，容器 `config/cogm.docker.toml`，systemd `config/cogm.systemd.toml`）配置地址数组；`turnUrls` 与 `VOICE_TURN_REST_SECRET` 环境变量成对配置独立 TURN，服务端按 `turnTtlSeconds`（默认 600）生成 coturn REST 用户名与 HMAC-SHA1 临时凭据，仅向已加入成员下发。长期 REST secret 仅存在服务端环境，不下发前端。
 - 语音弱网、WS-only 中断与切网的隔离 Chromium 复验方法、实测证据和边界见 [WebRTC 语音弱网与切网验证](voice-network-testing.md)。
 
 ### 语音诊断与隐私
@@ -271,5 +271,14 @@ GM 后台与 PL 工作台上传 `.xlsx` → 服务端 SheetJS 解析 → 按 `pa
 ## 渲染与部署
 
 - 场景画面用 DOM + CSS 实现（绝对定位立绘 + transition 切换表情/转场），不引入 Canvas/PixiJS；需要更复杂动画时再加 GSAP。
-- 生产部署：`vite build` 产物由 Elysia 静态托管，单 Bun 进程提供 HTTP + WS，Docker 镜像基于 `oven/bun`。
-- 已安装主题属于运行时数据，位于应用配置的 `[themes] dir`（本地默认 `data/themes`，容器 `/app/data/themes`），与数据库、上传媒资一并挂载持久卷；不进入镜像。
+- 生产部署：`vite build` 产物由 Elysia 静态托管，单 Bun 进程提供 HTTP + WS，支持基于 `oven/bun` 的 Docker 部署或直接由 `systemd`（`deploy/systemd/cogm.service`）托管。
+- 已安装主题属于运行时数据，位于应用配置的 `[themes] dir`（本地默认 `data/themes`，容器 `/app/data/themes`，systemd 默认 `/opt/cogm/data/themes`），与数据库、上传媒资一并持久化；不进入镜像。
+
+## 全站配置与对象存储（S3 兼容 OSS）
+
+- **配置持久化与热生效**：SQLite 表 `site_settings` 按分组（`storage` / `voice` / `security`）覆写 `config/cogm.toml` 与环境变量默认值，实例级 `gmThemeId` 沿用 `ui_settings`；Admin 在 `/admin/settings`（`GET/PUT /api/v1/admin/settings`、`POST /api/v1/admin/settings/reset`）修改后立即在内存热生效（含存储模式、上传上限、STUN/TURN、CORS/trustProxy、HTTP 限流与 GM 主题），无需重启。`server.host/port`、`database.url`、`media.dir`、`themes.dir` 等启动期基础设施参数在面板只读展示。
+- **敏感密钥保护**：OSS `SecretAccessKey` 与 `turnRestSecret` 经 `SecretBox`（AES-256-GCM）静态加密存库；主密钥优先取环境变量 `COGM_SETTINGS_SECRET`，未配置时首次启动在数据库同目录自动生成 `0600` 权限 `settings.key`。所有读取接口永不回传明文，仅返回配置状态与脱敏尾号。
+- **防锁死保护**：更新或重置 `security` 分组前，服务端以新 `trustProxy` / `corsOrigins` 预检当前管理员请求的 Origin/Referer，会拒绝当前来源时返回 `400 ORIGIN_LOCKOUT`。
+- **S3 兼容直传与魔数校验**：开启 OSS（`mode = "s3"`）后，媒体上传由客户端调用 `POST /api/v1/media/presign` 取得临时 PUT 预签名 URL（支持独立公网 `publicUploadEndpoint`），浏览器直传 OSS 后调用 `POST /api/v1/media/complete`；服务端通过 `HEAD` 校验对象存在与大小一致，并仅用 `Range` 抽读头部（及 M4A 尾部 `moov`）做字节魔数检验，非法即删对象拒绝落库。过期未提交票据记录在 `pending_media_uploads`，由 `StartupService` 定期清理。
+- **指定域名下载与权限隔离**：媒体读取继续统一经 `GET /api/v1/media/:id` 完成团成员、当前场景与秘密情报可见性校验；通过后对 `storage_provider = "s3"` 资产返回 `302 Found`（`Cache-Control: private, no-store`）重定向至指定下载域名（支持「公有读 / CDN 自定义域名」与「私有桶 S3 短时预签名」两种模式）。
+- **主题包与骰子资产托管与混合迁移**：`.cogmtheme` 仍由服务端解压校验路径白名单与 `bundleHash`，OSS 模式下批量上传至 `<keyPrefix>/themes/<id>/<version>/` 并将元数据写入 `installed_themes`；公有读模式在 `GET /api/v1/themes/:id/manifest` 附带 `assetBaseUrl` 直连自定义域名，私有桶模式保持 `/api/v1/themes/:id/versions/:version/*` 逐文件 `302` 签名跳转。内置 3D 骰子资产（`*.gltf`、`orientations/*.json`、`previews/*.webp`）支持通过同一迁移任务上传至 `<keyPrefix>/dice/`；迁移完成后 `/api/v1/public/runtime-config` 下发 `diceAssetBaseUrl`（公有读直连自定义域名，私有桶经 `/api/v1/dice/*` 302 签名跳转，失败时回退本地 `/dice/`）。历史本地资产与 OSS 资产按各自 `storage_provider` 混合共存，Admin 面板提供端到端连通性 + 浏览器直传 CORS 自检及「本地资产、主题与 3D 骰子一键迁移到 OSS」后台任务（不删本地源文件）。

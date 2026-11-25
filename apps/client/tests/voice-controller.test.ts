@@ -48,10 +48,7 @@ const joined: VoiceState = {
 	memberCount: 2,
 };
 
-function fixture(
-	capture?: () => Promise<MediaStream>,
-	sessionId?: string,
-) {
+function fixture(capture?: () => Promise<MediaStream>, sessionId?: string) {
 	const sent: VoiceClientMessage[] = [];
 	const peer = {
 		setTrack: mock((_track: MediaStreamTrack | null) => {}),
@@ -357,16 +354,15 @@ describe("voice membership and media lifetime", () => {
 			close: async () => {},
 		} as unknown as AudioContext;
 
-		const monitor = new VoiceActivityMonitor(
-			(ids) => updates.push(ids),
-			{
-				threshold: 0.02,
-				hangoverMs: 400,
-				pollMs: 1000,
-				createContext: () => fakeContext,
-			},
-		);
-		monitor.setTrack("peer-1", { getTracks: () => [] } as unknown as MediaStream);
+		const monitor = new VoiceActivityMonitor((ids) => updates.push(ids), {
+			threshold: 0.02,
+			hangoverMs: 400,
+			pollMs: 1000,
+			createContext: () => fakeContext,
+		});
+		monitor.setTrack("peer-1", {
+			getTracks: () => [],
+		} as unknown as MediaStream);
 		monitor.setAllowed(new Set(["peer-1"]));
 		currentSamples = new Uint8Array(128).fill(145); // loud
 		expect(monitor.sampleNow(1000)).toEqual(["peer-1"]);
@@ -483,6 +479,65 @@ describe("voice membership and media lifetime", () => {
 
 		tester.stop();
 		expect(samples.at(-1)).toEqual({ level: 0, detected: false });
+	});
+
+	test("mic tester attaches to shared pipeline tap without closing pipeline context and recovers from interrupted state", () => {
+		const currentSamples = new Uint8Array(128).fill(160);
+		const samples: Array<{ level: number; detected: boolean }> = [];
+		const gainNode = {
+			gain: { value: 0 },
+			connect: mock(() => {}),
+			disconnect: mock(() => {}),
+		};
+		const fakeAnalyser = {
+			fftSize: 256,
+			smoothingTimeConstant: 0.25,
+			frequencyBinCount: 128,
+			connect: mock(() => {}),
+			disconnect: mock(() => {}),
+			getByteTimeDomainData: (out: Uint8Array) => {
+				out.set(currentSamples);
+			},
+		};
+		const tapNode = {
+			connect: mock(() => {}),
+			disconnect: mock(() => {}),
+		} as unknown as AudioNode;
+		const listeners = new Map<string, Set<() => void>>();
+		const sharedContext = {
+			state: "interrupted",
+			destination: {},
+			createAnalyser: () => fakeAnalyser,
+			createGain: () => gainNode,
+			resume: mock(async () => {
+				sharedContext.state = "running";
+			}),
+			close: mock(async () => {}),
+			addEventListener: (event: string, cb: () => void) => {
+				const bucket = listeners.get(event) ?? new Set<() => void>();
+				bucket.add(cb);
+				listeners.set(event, bucket);
+			},
+			removeEventListener: (event: string, cb: () => void) => {
+				listeners.get(event)?.delete(cb);
+			},
+		} as unknown as AudioContext & { state: string };
+
+		const tester = new VoiceMicTester(
+			(level, detected) => samples.push({ level, detected }),
+			{ threshold: 0.02, hangoverMs: 300, pollMs: 1000 },
+		);
+		tester.startTap(sharedContext, tapNode);
+		expect(sharedContext.resume).toHaveBeenCalled();
+
+		tester.setLoopback(true);
+		const result = tester.sampleNow(1000);
+		expect(result.detected).toBe(true);
+		expect(result.level).toBeGreaterThan(50);
+
+		tester.stop();
+		expect(sharedContext.close).not.toHaveBeenCalled();
+		expect(tapNode.disconnect).toHaveBeenCalled();
 	});
 });
 

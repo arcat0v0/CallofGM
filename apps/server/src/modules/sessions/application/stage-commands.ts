@@ -1,6 +1,8 @@
 import {
 	type BgmState,
 	PlaySeCommand,
+	PortraitLayout,
+	PortraitScale,
 	SetExpressionCommand,
 	SwitchSceneCommand,
 	UpdateBgmCommand,
@@ -134,10 +136,10 @@ export class SetExpressionHandler implements CommandHandler {
 	}
 }
 
-/** stage:layout — GM 调整全团同步的立绘布局与大小 */
+/** stage:layout — GM 调整全团同步的立绘布局、大小与自由摆台编排 */
 export class UpdateStageLayoutHandler implements CommandHandler {
 	readonly type = "stage:layout" as const;
-	readonly allowedStatuses = ["preparing", "active"] as const;
+	readonly allowedStatuses = ["waiting", "preparing", "active"] as const;
 
 	constructor(private readonly repoFactory: StageCommandRepositoryFactory) {}
 
@@ -153,20 +155,51 @@ export class UpdateStageLayoutHandler implements CommandHandler {
 			throw new AppError("VALIDATION_FAILED", parsed.error.message, 400);
 		}
 
-		await this.repoFactory(ctx.tx).updateStageLayout(
-			ctx.sessionId,
-			parsed.data,
-		);
+		const repo = this.repoFactory(ctx.tx);
+		const composition = parsed.data.composition ?? null;
+		if (composition && composition.items.length > 0) {
+			const activeIds = new Set(
+				await repo.listActiveSessionCharacterIds(ctx.sessionId),
+			);
+			for (const item of composition.items) {
+				if (!activeIds.has(item.characterId)) {
+					throw new CharacterNotInSessionError();
+				}
+			}
+		}
+
+		const currentLayout = PortraitLayout.safeParse(ctx.session.portraitLayout);
+		const currentScale = PortraitScale.safeParse(ctx.session.portraitScale);
+		const layout =
+			parsed.data.layout ??
+			(currentLayout.success ? currentLayout.data : "auto");
+		const scale =
+			parsed.data.scale ?? (currentScale.success ? currentScale.data : "md");
+		const stageCompositionJson = composition
+			? JSON.stringify(composition)
+			: null;
+
+		await repo.updateStageLayout(ctx.sessionId, {
+			layout,
+			scale,
+			stageCompositionJson,
+		});
+
+		const eventPayload = {
+			layout,
+			scale,
+			composition,
+		};
 
 		return {
 			events: [
 				{
 					type: "stage:layout-changed",
-					payload: parsed.data,
+					payload: eventPayload,
 					visibility: { type: "public" },
 				},
 			],
-			replyPayload: parsed.data,
+			replyPayload: eventPayload,
 		};
 	}
 }

@@ -27,6 +27,14 @@ type ActivityMonitorOptions = {
 	createContext?: () => AudioContext | null;
 };
 
+function isAudioContextRunning(context: AudioContext): boolean {
+	return (context.state as string) === "running";
+}
+
+function isAudioContextClosed(context: AudioContext): boolean {
+	return (context.state as string) === "closed";
+}
+
 function defaultAudioContext(): AudioContext | null {
 	if (typeof globalThis === "undefined") return null;
 	const AudioCtx =
@@ -48,11 +56,13 @@ export class VoiceActivityMonitor {
 	private readonly pollMs: number;
 	private readonly createContext: () => AudioContext | null;
 	private context: AudioContext | null = null;
+	private keepaliveGain: GainNode | null = null;
 	private readonly sources = new Map<string, TrackedSource>();
 	private allowed = new Set<string>();
 	private speakingIds: string[] = [];
 	private timer: ReturnType<typeof setInterval> | null = null;
 	private unlockAttached = false;
+	private stateListenerContext: AudioContext | null = null;
 	private closed = false;
 
 	constructor(
@@ -69,9 +79,20 @@ export class VoiceActivityMonitor {
 	private ensureContext(): AudioContext | null {
 		if (this.closed) return null;
 		if (!this.context) {
-			this.context = this.createContext();
-			if (this.context?.state === "suspended") {
-				this.attachUnlock();
+			const ctx = this.createContext();
+			this.context = ctx;
+			if (ctx && typeof ctx.createGain === "function") {
+				try {
+					const keepalive = ctx.createGain();
+					keepalive.gain.value = 0;
+					keepalive.connect(ctx.destination);
+					this.keepaliveGain = keepalive;
+				} catch {
+					this.keepaliveGain = null;
+				}
+			}
+			if (ctx && !isAudioContextRunning(ctx) && !isAudioContextClosed(ctx)) {
+				this.attachUnlock(ctx);
 			}
 		}
 		return this.context;
@@ -81,47 +102,77 @@ export class VoiceActivityMonitor {
 		this.resume();
 	};
 
-	private attachUnlock(): void {
+	private handleStateChange = (): void => {
+		const ctx = this.context;
+		if (!ctx || this.closed) return;
+		if (isAudioContextRunning(ctx)) {
+			this.detachUnlock();
+			return;
+		}
+		if (!isAudioContextClosed(ctx)) {
+			this.resume();
+		}
+	};
+
+	private attachUnlock(ctx?: AudioContext): void {
+		const target = ctx ?? this.context;
 		if (
-			this.unlockAttached ||
-			typeof window === "undefined" ||
-			this.closed
+			target &&
+			this.stateListenerContext !== target &&
+			typeof target.addEventListener === "function"
 		) {
+			this.detachStateListener();
+			this.stateListenerContext = target;
+			target.addEventListener("statechange", this.handleStateChange);
+		}
+		if (this.unlockAttached || typeof window === "undefined" || this.closed) {
 			return;
 		}
 		this.unlockAttached = true;
 		window.addEventListener("pointerdown", this.handleGesture, {
 			passive: true,
 		});
+		window.addEventListener("touchend", this.handleGesture, { passive: true });
+		window.addEventListener("click", this.handleGesture, { passive: true });
 		window.addEventListener("keydown", this.handleGesture, { passive: true });
+	}
+
+	private detachStateListener(): void {
+		const target = this.stateListenerContext;
+		if (target && typeof target.removeEventListener === "function") {
+			target.removeEventListener("statechange", this.handleStateChange);
+		}
+		this.stateListenerContext = null;
 	}
 
 	private detachUnlock(): void {
 		if (!this.unlockAttached || typeof window === "undefined") return;
 		this.unlockAttached = false;
 		window.removeEventListener("pointerdown", this.handleGesture);
+		window.removeEventListener("touchend", this.handleGesture);
+		window.removeEventListener("click", this.handleGesture);
 		window.removeEventListener("keydown", this.handleGesture);
 	}
 
 	resume(): void {
 		if (this.closed) return;
-		const ctx = this.context;
-		if (!ctx) return;
-		if (ctx.state === "running") {
+		const ctx = this.ensureContext();
+		if (!ctx || isAudioContextClosed(ctx)) return;
+		if (isAudioContextRunning(ctx)) {
 			this.detachUnlock();
 			return;
 		}
-		if (ctx.state === "suspended") {
-			this.attachUnlock();
+		this.attachUnlock(ctx);
+		try {
 			void ctx
 				.resume()
 				.then(() => {
-					if (this.context?.state === "running") {
+					if (this.context === ctx && isAudioContextRunning(ctx)) {
 						this.detachUnlock();
 					}
 				})
 				.catch(() => {});
-		}
+		} catch {}
 	}
 
 	setTrack(key: string, input: MediaStream | MediaStreamTrack | null): void {
@@ -134,13 +185,15 @@ export class VoiceActivityMonitor {
 		const ctx = this.ensureContext();
 		if (!ctx) return;
 		try {
-			const stream =
-				"getTracks" in input ? input : new MediaStream([input]);
+			const stream = "getTracks" in input ? input : new MediaStream([input]);
 			const source = ctx.createMediaStreamSource(stream);
 			const analyser = ctx.createAnalyser();
 			analyser.fftSize = FFT_SIZE;
 			analyser.smoothingTimeConstant = 0.25;
 			source.connect(analyser);
+			if (this.keepaliveGain) {
+				analyser.connect(this.keepaliveGain);
+			}
 			this.sources.set(key, {
 				source,
 				analyser,
@@ -249,9 +302,14 @@ export class VoiceActivityMonitor {
 		this.clear();
 		this.closed = true;
 		this.detachUnlock();
+		this.detachStateListener();
+		try {
+			this.keepaliveGain?.disconnect();
+		} catch {}
+		this.keepaliveGain = null;
 		const ctx = this.context;
 		this.context = null;
-		if (ctx && typeof ctx.close === "function" && ctx.state !== "closed") {
+		if (ctx && typeof ctx.close === "function" && !isAudioContextClosed(ctx)) {
 			void ctx.close().catch(() => {});
 		}
 	}
@@ -276,7 +334,9 @@ export class VoiceMicTester {
 	private readonly pollMs: number;
 	private readonly createContext: () => AudioContext | null;
 	private context: AudioContext | null = null;
+	private ownsContext = true;
 	private source: MediaStreamAudioSourceNode | null = null;
+	private tapNode: AudioNode | null = null;
 	private analyser: AnalyserNode | null = null;
 	private gainNode: GainNode | null = null;
 	private buffer: Uint8Array<ArrayBuffer> | null = null;
@@ -285,6 +345,8 @@ export class VoiceMicTester {
 	private lastLevel = 0;
 	private lastDetected = false;
 	private loopback = false;
+	private unlockAttached = false;
+	private stateListenerContext: AudioContext | null = null;
 
 	constructor(
 		onSample: (level: number, detected: boolean) => void,
@@ -297,35 +359,125 @@ export class VoiceMicTester {
 		this.createContext = options.createContext ?? defaultAudioContext;
 	}
 
+	private readonly handleGesture = (): void => {
+		this.resumeContext();
+	};
+
+	private readonly handleStateChange = (): void => {
+		const ctx = this.context;
+		if (!ctx) return;
+		if (isAudioContextRunning(ctx)) {
+			this.detachUnlock();
+			this.sampleNow();
+			return;
+		}
+		if (!isAudioContextClosed(ctx)) {
+			this.resumeContext();
+		}
+	};
+
+	private attachUnlock(ctx: AudioContext): void {
+		if (
+			this.stateListenerContext !== ctx &&
+			typeof ctx.addEventListener === "function"
+		) {
+			this.detachStateListener();
+			this.stateListenerContext = ctx;
+			ctx.addEventListener("statechange", this.handleStateChange);
+		}
+		if (this.unlockAttached || typeof window === "undefined") return;
+		this.unlockAttached = true;
+		window.addEventListener("pointerdown", this.handleGesture, {
+			passive: true,
+		});
+		window.addEventListener("touchend", this.handleGesture, { passive: true });
+		window.addEventListener("click", this.handleGesture, { passive: true });
+		window.addEventListener("keydown", this.handleGesture, { passive: true });
+	}
+
+	private detachStateListener(): void {
+		const ctx = this.stateListenerContext;
+		if (ctx && typeof ctx.removeEventListener === "function") {
+			ctx.removeEventListener("statechange", this.handleStateChange);
+		}
+		this.stateListenerContext = null;
+	}
+
+	private detachUnlock(): void {
+		if (!this.unlockAttached || typeof window === "undefined") return;
+		this.unlockAttached = false;
+		window.removeEventListener("pointerdown", this.handleGesture);
+		window.removeEventListener("touchend", this.handleGesture);
+		window.removeEventListener("click", this.handleGesture);
+		window.removeEventListener("keydown", this.handleGesture);
+	}
+
+	private resumeContext(): void {
+		const ctx = this.context;
+		if (!ctx || isAudioContextClosed(ctx)) return;
+		if (isAudioContextRunning(ctx)) {
+			this.detachUnlock();
+			return;
+		}
+		this.attachUnlock(ctx);
+		try {
+			void ctx
+				.resume()
+				.then(() => {
+					if (this.context === ctx && isAudioContextRunning(ctx)) {
+						this.detachUnlock();
+						this.sampleNow();
+					}
+				})
+				.catch(() => {});
+		} catch {}
+	}
+
+	private attachMonitorGraph(ctx: AudioContext, upstream: AudioNode): void {
+		const analyser = ctx.createAnalyser();
+		analyser.fftSize = FFT_SIZE;
+		analyser.smoothingTimeConstant = 0.25;
+		upstream.connect(analyser);
+		this.analyser = analyser;
+		this.buffer = new Uint8Array(new ArrayBuffer(analyser.frequencyBinCount));
+		if (typeof ctx.createGain === "function") {
+			const gain = ctx.createGain();
+			gain.gain.value = this.loopback ? 0.85 : 0;
+			upstream.connect(gain);
+			if (this.loopback) {
+				gain.connect(ctx.destination);
+			}
+			this.gainNode = gain;
+		}
+		this.timer = setInterval(() => {
+			this.sampleNow();
+		}, this.pollMs);
+	}
+
 	start(stream: MediaStream): void {
 		this.stop();
 		const ctx = this.createContext();
 		if (!ctx) return;
 		this.context = ctx;
-		if (ctx.state === "suspended") {
-			void ctx.resume().catch(() => {});
-		}
+		this.ownsContext = true;
+		this.resumeContext();
 		try {
 			const source = ctx.createMediaStreamSource(stream);
-			const analyser = ctx.createAnalyser();
-			analyser.fftSize = FFT_SIZE;
-			analyser.smoothingTimeConstant = 0.25;
-			source.connect(analyser);
 			this.source = source;
-			this.analyser = analyser;
-			this.buffer = new Uint8Array(new ArrayBuffer(analyser.frequencyBinCount));
-			if (typeof ctx.createGain === "function") {
-				const gain = ctx.createGain();
-				gain.gain.value = this.loopback ? 0.85 : 0;
-				source.connect(gain);
-				if (this.loopback) {
-					gain.connect(ctx.destination);
-				}
-				this.gainNode = gain;
-			}
-			this.timer = setInterval(() => {
-				this.sampleNow();
-			}, this.pollMs);
+			this.attachMonitorGraph(ctx, source);
+		} catch {
+			this.stop();
+		}
+	}
+
+	startTap(context: AudioContext, node: AudioNode): void {
+		this.stop();
+		this.context = context;
+		this.ownsContext = false;
+		this.tapNode = node;
+		this.resumeContext();
+		try {
+			this.attachMonitorGraph(context, node);
 		} catch {
 			this.stop();
 		}
@@ -336,8 +488,8 @@ export class VoiceMicTester {
 		const ctx = this.context;
 		const gain = this.gainNode;
 		if (!ctx || !gain) return;
-		if (enabled && ctx.state === "suspended") {
-			void ctx.resume().catch(() => {});
+		if (enabled && !isAudioContextRunning(ctx) && !isAudioContextClosed(ctx)) {
+			this.resumeContext();
 		}
 		try {
 			gain.gain.value = enabled ? 0.85 : 0;
@@ -357,7 +509,7 @@ export class VoiceMicTester {
 			return { level: 0, detected: false };
 		}
 		let level = 0;
-		if (ctx.state === "running") {
+		if (isAudioContextRunning(ctx)) {
 			analyser.getByteTimeDomainData(buffer);
 			const rms = computeRms(buffer);
 			level = micTestLevelFromRms(rms);
@@ -382,6 +534,16 @@ export class VoiceMicTester {
 		}
 		this.lastDetectedAt = 0;
 		this.loopback = false;
+		this.detachUnlock();
+		this.detachStateListener();
+		if (this.tapNode) {
+			try {
+				if (this.analyser) this.tapNode.disconnect(this.analyser);
+			} catch {}
+			try {
+				if (this.gainNode) this.tapNode.disconnect(this.gainNode);
+			} catch {}
+		}
 		try {
 			this.gainNode?.disconnect();
 		} catch {}
@@ -393,11 +555,19 @@ export class VoiceMicTester {
 		} catch {}
 		this.gainNode = null;
 		this.source = null;
+		this.tapNode = null;
 		this.analyser = null;
 		this.buffer = null;
 		const ctx = this.context;
+		const shouldClose = this.ownsContext;
 		this.context = null;
-		if (ctx && typeof ctx.close === "function" && ctx.state !== "closed") {
+		this.ownsContext = true;
+		if (
+			shouldClose &&
+			ctx &&
+			typeof ctx.close === "function" &&
+			!isAudioContextClosed(ctx)
+		) {
 			void ctx.close().catch(() => {});
 		}
 		if (this.lastLevel !== 0 || this.lastDetected) {

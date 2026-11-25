@@ -24,7 +24,15 @@ export class ThemeLoadError extends Error {
 	}
 }
 
-export function themeBasePath(id: string, version: string): string {
+export function themeBasePath(
+	id: string,
+	version: string,
+	assetBaseUrl?: string,
+): string {
+	if (assetBaseUrl?.trim()) {
+		const normalized = assetBaseUrl.trim();
+		return normalized.endsWith("/") ? normalized : `${normalized}/`;
+	}
 	return `/api/v1/themes/${encodeURIComponent(id)}/versions/${encodeURIComponent(version)}/`;
 }
 
@@ -32,8 +40,12 @@ export function themeFileUrl(
 	id: string,
 	version: string,
 	path: string,
+	assetBaseUrl?: string,
 ): string {
-	const base = new URL(themeBasePath(id, version), window.location.origin);
+	const base = new URL(
+		themeBasePath(id, version, assetBaseUrl),
+		window.location.origin,
+	);
 	return new URL(path, base).href;
 }
 
@@ -119,7 +131,7 @@ export async function loadTheme(
 	signal?: AbortSignal,
 ): Promise<LoadedTheme> {
 	const manifest = await fetchThemeManifest(id, signal);
-	const key = `${manifest.id}@${manifest.version}`;
+	const key = `${manifest.id}@${manifest.version}@${manifest.assetBaseUrl ?? ""}`;
 	const cached = loaded.get(key);
 	if (cached) {
 		return cached;
@@ -133,6 +145,7 @@ export async function loadTheme(
 			manifest.id,
 			manifest.version,
 			manifest.entry,
+			manifest.assetBaseUrl,
 		);
 		let module: unknown;
 		try {
@@ -150,7 +163,7 @@ export async function loadTheme(
 			manifest,
 			definition,
 			baseUrl: new URL(
-				themeBasePath(manifest.id, manifest.version),
+				themeBasePath(manifest.id, manifest.version, manifest.assetBaseUrl),
 				window.location.origin,
 			).href,
 			version: manifest.version,

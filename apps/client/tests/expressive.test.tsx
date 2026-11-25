@@ -119,6 +119,10 @@ describe("Expressive component semantics", () => {
 		expect(html).toContain('aria-label="最小"');
 		expect(html).toContain('aria-label="最大"');
 		expect(html).toContain('aria-orientation="vertical"');
+		const wavy = render(<Slider aria-label="进度" size="sm" wavy value={[40]} />);
+		expect(wavy).toContain('data-size="sm"');
+		expect(wavy).toContain('data-wave="true"');
+		expect(wavy).toContain('data-slot="wave"');
 	});
 	test("default slider has one handle and waves use unique SVG ids", () => {
 		expect(

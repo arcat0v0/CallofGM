@@ -193,6 +193,21 @@ function AdminThemesPage() {
 												<Badge variant="soft" tone="default" size="sm">
 													v{theme.version}
 												</Badge>
+												{theme.storageProvider ? (
+													<Badge
+														variant="soft"
+														tone={
+															theme.storageProvider === "s3"
+																? "accent"
+																: "default"
+														}
+														size="sm"
+													>
+														{theme.storageProvider === "s3"
+															? t("gm.themes.storageS3")
+															: t("gm.themes.storageLocal")}
+													</Badge>
+												) : null}
 												{theme.usedByGmUi ? (
 													<Badge variant="soft" tone="accent" size="sm">
 														{t("gm.themes.gmInUse")}

@@ -9,17 +9,29 @@ import { logger } from "@/platform/logging/logger";
 
 const BLACKLIST_CLEANUP_MS = 60 * 60 * 1000;
 
+export interface StartupHooks {
+	onMigrated?: () => Promise<void>;
+	onPeriodicMaintenance?: () => Promise<void>;
+}
+
 export class StartupService {
 	private db: DbClient;
 	private sqlite: Database;
 	private databaseUrl: string;
+	private hooks: StartupHooks;
 	private ready = false;
 	private cleanupTimer: ReturnType<typeof setInterval> | null = null;
 
-	constructor(sqlite: Database, db: DbClient, databaseUrl: string) {
+	constructor(
+		sqlite: Database,
+		db: DbClient,
+		databaseUrl: string,
+		hooks: StartupHooks = {},
+	) {
 		this.sqlite = sqlite;
 		this.db = db;
 		this.databaseUrl = databaseUrl;
+		this.hooks = hooks;
 	}
 
 	async startup(): Promise<void> {
@@ -29,12 +41,25 @@ export class StartupService {
 		}
 
 		await runMigrations(this.db);
+		if (this.hooks.onMigrated) {
+			await this.hooks.onMigrated();
+		}
 		await this.recoverOutbox();
 		await this.cleanupExpiredBlacklist();
+		if (this.hooks.onPeriodicMaintenance) {
+			await this.hooks.onPeriodicMaintenance().catch((err) => {
+				logger.error("initial periodic maintenance failed", { err });
+			});
+		}
 		this.cleanupTimer = setInterval(() => {
 			this.cleanupExpiredBlacklist().catch((err) => {
 				logger.error("periodic blacklist cleanup failed", { err });
 			});
+			if (this.hooks.onPeriodicMaintenance) {
+				this.hooks.onPeriodicMaintenance().catch((err) => {
+					logger.error("periodic maintenance failed", { err });
+				});
+			}
 		}, BLACKLIST_CLEANUP_MS);
 		this.ready = true;
 	}

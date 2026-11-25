@@ -1,0 +1,32 @@
+[Unit]
+Description=CoGM (Call of GM) TRPG Server
+Documentation=https://github.com/arcat0v0/CallofGM
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=cogm
+Group=cogm
+WorkingDirectory=/opt/cogm
+Environment=NODE_ENV=production
+Environment=COGM_CONFIG=/opt/cogm/config/cogm.systemd.toml
+Environment=BUN_RUNTIME_TRANSPILER_CACHE_PATH=0
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+EnvironmentFile=-/etc/cogm/cogm.env
+EnvironmentFile=-/etc/cogm/build.env
+ExecStart=/usr/local/bin/bun --cwd /opt/cogm/apps/server src/index.ts
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=15
+KillSignal=SIGTERM
+
+# Hardening: only /opt/cogm/data requires write access
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/cogm/data
+
+[Install]
+WantedBy=multi-user.target

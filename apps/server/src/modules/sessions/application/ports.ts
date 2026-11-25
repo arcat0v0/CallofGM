@@ -42,6 +42,8 @@ export interface SessionRecord {
 	diceSkin: string;
 	portraitLayout: string;
 	portraitScale: string;
+	stageCompositionJson: string | null;
+	stagePresetsJson: string | null;
 	voiceLimit: number | null;
 	growthConfirmedAt: number | null;
 	deletedAt: number | null;
@@ -213,6 +215,7 @@ export interface SessionsRepository {
 		characterId: string,
 		deletedAt: number,
 		ruleStateJson?: string | null,
+		stageCompositionJson?: string | null,
 	): Promise<boolean>;
 	isCharacterInSession(
 		sessionId: string,

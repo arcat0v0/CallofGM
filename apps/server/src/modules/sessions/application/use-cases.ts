@@ -179,6 +179,8 @@ export class CreateSessionUseCase {
 			portraitLayout: "auto",
 			voiceLimit: null,
 			portraitScale: "md",
+			stageCompositionJson: null,
+			stagePresetsJson: null,
 			growthConfirmedAt: null,
 			deletedAt: null,
 			createdAt: now,

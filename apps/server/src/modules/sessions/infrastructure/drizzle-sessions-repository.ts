@@ -207,6 +207,7 @@ export class DrizzleSessionsRepository implements SessionsRepository {
 		characterId: string,
 		deletedAt: number,
 		ruleStateJson?: string | null,
+		stageCompositionJson?: string | null,
 	): Promise<boolean> {
 		return this.db.transaction((tx) => {
 			const removed = tx
@@ -222,9 +223,17 @@ export class DrizzleSessionsRepository implements SessionsRepository {
 				)
 				.returning({ id: sessionCharacters.id })
 				.get();
-			if (removed && ruleStateJson !== undefined) {
+			if (
+				removed &&
+				(ruleStateJson !== undefined || stageCompositionJson !== undefined)
+			) {
 				tx.update(sessions)
-					.set({ ruleStateJson })
+					.set({
+						...(ruleStateJson !== undefined ? { ruleStateJson } : {}),
+						...(stageCompositionJson !== undefined
+							? { stageCompositionJson }
+							: {}),
+					})
 					.where(eq(sessions.id, sessionId))
 					.run();
 			}

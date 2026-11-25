@@ -48,6 +48,13 @@ export type DiceGridLayout = {
 	positions: Array<{ x: number; y: number }>;
 };
 
+export const DEFAULT_DICE_ASSET_BASE_URL = "/dice";
+
+export function normalizeDiceAssetBaseUrl(baseUrl?: string | null): string {
+	const trimmed = baseUrl?.trim().replace(/\/+$/, "");
+	return trimmed || DEFAULT_DICE_ASSET_BASE_URL;
+}
+
 export const DICE_MODEL_NAMES = [
 	"d4",
 	"d6",
@@ -58,13 +65,29 @@ export const DICE_MODEL_NAMES = [
 	"d20",
 ] as const;
 
-export function diceAsset(skin: DiceSkin, name: string): string {
-	return `/dice/${skin}/${name}.gltf`;
+export function diceAsset(
+	skin: DiceSkin,
+	name: string,
+	baseUrl?: string | null,
+): string {
+	return `${normalizeDiceAssetBaseUrl(baseUrl)}/${skin}/${name}.gltf`;
 }
 
-export const PRELOAD_DICE_ASSETS = (["olive", "bone"] as const).flatMap(
-	(skin) => DICE_MODEL_NAMES.map((name) => diceAsset(skin, name)),
-);
+export function getPreloadDiceAssets(
+	baseUrl?: string | null,
+	skin?: DiceSkin,
+): string[] {
+	const skins: readonly DiceSkin[] = skin ? [skin] : (["olive", "bone"] as const);
+	return skins.flatMap((item) =>
+		DICE_MODEL_NAMES.map((name) => diceAsset(item, name, baseUrl)),
+	);
+}
+
+export function getPreloadOrientationAssets(baseUrl?: string | null): string[] {
+	return DICE_MODEL_NAMES.map((name) => orientationAsset(name, baseUrl));
+}
+
+export const PRELOAD_DICE_ASSETS = getPreloadDiceAssets();
 
 export const PRELOAD_ORIENTATION_ASSETS = [
 	"/dice/orientations/d4.json",
@@ -97,14 +120,17 @@ function percentileTensValue(tens: number, ones: number): string {
 	return tens === 0 || (tens === 10 && ones === 0) ? "00" : String(tens * 10);
 }
 
-function orientationAsset(name: string): string {
-	return `/dice/orientations/${name}.json`;
+export function orientationAsset(name: string, baseUrl?: string | null): string {
+	return `${normalizeDiceAssetBaseUrl(baseUrl)}/orientations/${name}.json`;
 }
 
 export function buildDiceAnimationDice(
 	request: DiceAnimationRequest,
+	baseUrl?: string | null,
 ): DiceAnimationDie[] {
-	const assetFor = (name: string) => diceAsset(request.skin ?? "olive", name);
+	const assetFor = (name: string) =>
+		diceAsset(request.skin ?? "olive", name, baseUrl);
+	const orientationFor = (name: string) => orientationAsset(name, baseUrl);
 	if (request.kind === "check") {
 		const candidates = request.tensCandidates;
 		if (candidates && candidates.length > 1) {
@@ -113,12 +139,12 @@ export function buildDiceAnimationDice(
 				...candidates.map((digit) => ({
 					asset: assetFor("d100-tens"),
 					value: digit === 0 ? "00" : String(digit * 10),
-					orientationHint: orientationAsset("d100-tens"),
+					orientationHint: orientationFor("d100-tens"),
 				})),
 				{
 					asset: assetFor("d10"),
 					value: String(units),
-					orientationHint: orientationAsset("d10"),
+					orientationHint: orientationFor("d10"),
 				},
 			];
 		}
@@ -127,12 +153,12 @@ export function buildDiceAnimationDice(
 			{
 				asset: assetFor("d100-tens"),
 				value: percentileTensValue(tens, ones),
-				orientationHint: orientationAsset("d100-tens"),
+				orientationHint: orientationFor("d100-tens"),
 			},
 			{
 				asset: assetFor("d10"),
 				value: String(ones),
-				orientationHint: orientationAsset("d10"),
+				orientationHint: orientationFor("d10"),
 			},
 		];
 	}
@@ -144,12 +170,12 @@ export function buildDiceAnimationDice(
 				{
 					asset: assetFor("d100-tens"),
 					value: percentileTensValue(tens, ones),
-					orientationHint: orientationAsset("d100-tens"),
+					orientationHint: orientationFor("d100-tens"),
 				},
 				{
 					asset: assetFor("d10"),
 					value: String(ones),
-					orientationHint: orientationAsset("d10"),
+					orientationHint: orientationFor("d10"),
 				},
 			];
 		});
@@ -179,7 +205,7 @@ export function buildDiceAnimationDice(
 		asset,
 		value: String(normalizeRollValue(request.faces, roll)),
 		...(orientationName
-			? { orientationHint: orientationAsset(orientationName) }
+			? { orientationHint: orientationFor(orientationName) }
 			: {}),
 	}));
 }

@@ -184,6 +184,9 @@ describe("Production createApp error mapping", () => {
 				expect(assetRes.headers.get("content-type")).not.toContain(
 					"application/json",
 				);
+				expect(assetRes.headers.get("cache-control")).toBe(
+					"public, max-age=31536000, immutable",
+				);
 			}
 		}
 	});

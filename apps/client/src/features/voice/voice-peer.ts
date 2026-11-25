@@ -429,6 +429,7 @@ export class VoicePeer {
 			this.output = document.createElement("audio");
 			this.output.hidden = true;
 			this.output.muted = true;
+			this.output.setAttribute("playsinline", "");
 			this.output.volume = this.volume / 100;
 			document.body.append(this.output);
 		}

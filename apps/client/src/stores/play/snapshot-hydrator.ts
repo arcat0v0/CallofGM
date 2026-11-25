@@ -44,6 +44,22 @@ export function hydrateSnapshot(
 			...ownRejected,
 		],
 	);
+	const sameSession = previous.sessionId === payload.session.id;
+	const activeCharIds = new Set(
+		payload.characters.map((character) => character.characterId),
+	);
+	const preservedDraft =
+		sameSession && previous.stageDraft
+			? {
+					...previous.stageDraft,
+					items: previous.stageDraft.items.filter((item) =>
+						activeCharIds.has(item.characterId),
+					),
+				}
+			: null;
+	const nextStageLiveRevision = sameSession
+		? previous.stageLiveRevision + 1
+		: 0;
 	return {
 		sessionId: payload.session.id,
 		moduleId: payload.session.moduleId,
@@ -60,6 +76,13 @@ export function hydrateSnapshot(
 		},
 		portraitLayout: payload.session.portraitLayout ?? "auto",
 		portraitScale: payload.session.portraitScale ?? "md",
+		stageComposition: payload.session.stageComposition ?? null,
+		stagePresets: payload.stagePresets ?? [],
+		stageDraft: preservedDraft,
+		stageLiveRevision: nextStageLiveRevision,
+		stageDraftBaseRevision: sameSession
+			? previous.stageDraftBaseRevision
+			: nextStageLiveRevision,
 		viewer: {
 			isGm: payload.viewer.isGm,
 			seatRole: payload.viewer.seatRole,

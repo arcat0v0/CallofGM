@@ -134,7 +134,7 @@ function PhaseCard() {
 				align="start"
 				side="bottom"
 				sideOffset={12}
-				className="bg-md-surface-container-high shadow-overlay w-[380px] rounded-xl p-3"
+				className="bg-md-surface-container-high shadow-overlay max-h-[70dvh] w-[min(380px,calc(100vw-1.5rem))] overflow-y-auto rounded-xl p-3"
 			>
 				<div className="flex h-11 items-center justify-between gap-3 px-3">
 					<span className="text-md-on-surface text-title-small-emph">
@@ -774,6 +774,7 @@ function AudioMiniCard() {
 				</Button>
 			</div>
 			<Slider
+				size="sm"
 				wavy
 				value={[displayPosition]}
 				min={0}
@@ -781,10 +782,7 @@ function AudioMiniCard() {
 				playing={Boolean(bgm?.playing)}
 				disabled={durationMs <= 0}
 				aria-label={t("gm.console.progressAria")}
-				className={cn(
-					durationMs <= 0 && "opacity-40",
-					"min-h-7! [&_[data-slot=slider-track]]:bg-md-outline-variant! [&_[data-slot=slider-thumb]]:h-6! [&_[data-slot=slider-thumb]]:w-1!",
-				)}
+				className={cn(durationMs <= 0 && "opacity-40", "min-h-7!")}
 				onValueChange={(value) => setSeekDraft(value[0] ?? 0)}
 				onValueCommit={(value) => seek(value[0] ?? 0)}
 			/>

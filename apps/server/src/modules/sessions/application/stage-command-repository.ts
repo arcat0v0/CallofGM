@@ -1,7 +1,8 @@
 import type {
 	BgmState,
+	PortraitLayout,
+	PortraitScale,
 	UpdateSessionSettingsCommand,
-	UpdateStageLayoutCommand,
 } from "@cogm/shared";
 import type { DbClient } from "@/platform/db/client";
 
@@ -37,9 +38,14 @@ export interface StageCommandRepository {
 		characterId: string,
 		expressionKey: string,
 	): Promise<void>;
+	listActiveSessionCharacterIds(sessionId: string): Promise<string[]>;
 	updateStageLayout(
 		sessionId: string,
-		layout: UpdateStageLayoutCommand,
+		layout: {
+			layout: PortraitLayout;
+			scale: PortraitScale;
+			stageCompositionJson: string | null;
+		},
 	): Promise<void>;
 	loadAudioState(sessionId: string): Promise<BgmState | null>;
 	findTrack(trackId: string): Promise<StageTrack | null>;

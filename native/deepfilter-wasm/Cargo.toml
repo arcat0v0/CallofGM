@@ -1,0 +1,27 @@
+[package]
+name = "cogm-deepfilter-wasm"
+version = "0.1.0"
+edition = "2021"
+publish = false
+license = "MIT OR Apache-2.0"
+description = "DeepFilterNet3 noise suppression for the CoGM voice AudioWorklet (plain C ABI, no JS glue)"
+
+[lib]
+crate-type = ["cdylib"]
+path = "src/lib.rs"
+
+[dependencies]
+# Upstream DeepFilterNet (MIT OR Apache-2.0), pinned. The model is not
+# embedded (no `default-model`); the client loads it as a separate asset.
+deep_filter = { git = "https://github.com/Rikorose/DeepFilterNet", rev = "7b14b895fe7fc42cab72b4a4c1e49c982bd6404b", default-features = false, features = ["tract"] }
+ndarray = "0.15"
+# tract-onnx-opl pulls rand (only for random ops DeepFilterNet3 never runs).
+# wasm32-unknown-unknown has no entropy source; register one that refuses.
+getrandom = { version = "0.2", features = ["custom"] }
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = true

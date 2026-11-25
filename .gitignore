@@ -15,3 +15,6 @@ design/shots/
 design/assets/src/
 design/audits/
 design/**/.critic/
+
+# DeepFilterNet3 wasm build output (rebuild: bun run native/deepfilter-wasm/build.ts)
+native/deepfilter-wasm/target/

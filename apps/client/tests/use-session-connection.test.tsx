@@ -1,4 +1,13 @@
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import {
+	afterEach,
+	beforeEach,
+	describe,
+	expect,
+	jest,
+	mock,
+	spyOn,
+	test,
+} from "bun:test";
 import {
 	type ServerMessage,
 	SessionCloseCode,
@@ -22,10 +31,12 @@ type ConnectOptions = {
 const connections: ConnectOptions[] = [];
 const voiceCommands: VoiceClientMessage[] = [];
 const nativePeerConnection = globalThis.RTCPeerConnection;
+let rejectHandshake = false;
 
 mock.module("@/lib/session-socket", () => ({
 	connectSession: async (options: ConnectOptions): Promise<SessionSocket> => {
 		connections.push(options);
+		if (rejectHandshake) throw new Error("WebSocket handshake failed");
 		return {
 			sendCommand: () => crypto.randomUUID(),
 			sendVoice: (message) => {
@@ -40,6 +51,7 @@ mock.module("@/lib/session-socket", () => ({
 
 const { useSessionConnection } = await import("@/lib/use-session-connection");
 const { usePlayStore } = await import("@/stores/play-store");
+const { useIdentityStore } = await import("@/stores/identity-store");
 
 const SNAPSHOT = {
 	protocolVersion: 1,
@@ -95,6 +107,12 @@ describe("useSessionConnection retry", () => {
 	beforeEach(() => {
 		connections.length = 0;
 		voiceCommands.length = 0;
+		rejectHandshake = false;
+		useIdentityStore.getState().setAccount({
+			userId: "user-1",
+			username: "gm",
+			role: "gm",
+		});
 		voice = null;
 		retry = null;
 		usePlayStore.getState().reset();
@@ -102,8 +120,66 @@ describe("useSessionConnection retry", () => {
 
 	afterEach(() => {
 		globalThis.RTCPeerConnection = nativePeerConnection;
+		useIdentityStore.getState().setAccount(null);
 	});
 
+	test.each([
+		{ account: true, status: 401, terminal: "loginExpired" },
+		{ account: true, status: 200, terminal: "unavailable" },
+		{ account: true, status: 503, terminal: "unavailable" },
+		{ account: true, status: null, terminal: "unavailable" },
+		{ account: false, status: 401, terminal: "unavailable" },
+	])(
+		"classifies repeated handshake failures with account=$account and auth status=$status",
+		async ({ account, status, terminal }) => {
+			jest.useFakeTimers();
+			rejectHandshake = true;
+			if (!account) useIdentityStore.getState().setAccount(null);
+			const fetcher = spyOn(globalThis, "fetch").mockImplementation(
+				Object.assign(
+					async () => {
+						if (status === null) throw new TypeError("Network request failed");
+						return Response.json({}, { status });
+					},
+					{ preconnect: globalThis.fetch.preconnect },
+				),
+			);
+			const view = render(<Harness />);
+			try {
+				await act(async () => {});
+				for (const delay of [800, 1600, 3200]) {
+					await act(async () => {
+						jest.advanceTimersByTime(delay);
+					});
+				}
+				expect(connections).toHaveLength(4);
+				expect(fetcher).not.toHaveBeenCalled();
+				expect(usePlayStore.getState().terminal).toBeNull();
+				await act(async () => {
+					jest.advanceTimersByTime(6400);
+				});
+				expect(usePlayStore.getState().terminal).toBe(terminal);
+				if (account) {
+					expect(fetcher).toHaveBeenCalledTimes(1);
+					expect(fetcher).toHaveBeenCalledWith(
+						"/api/v1/auth/me",
+						expect.objectContaining({ credentials: "include" }),
+					);
+				} else {
+					expect(fetcher).not.toHaveBeenCalled();
+				}
+				await act(async () => {
+					connections[4]?.onClose?.({ code: 1006, reason: "" });
+					jest.advanceTimersByTime(8_000);
+				});
+				expect(connections).toHaveLength(5);
+			} finally {
+				view.unmount();
+				fetcher.mockRestore();
+				jest.useRealTimers();
+			}
+		},
+	);
 	test("kicked retry resyncs with a fresh snapshot instead of replaying the old watermark", async () => {
 		render(<Harness />);
 		await waitFor(() => expect(connections.length).toBe(1));
@@ -248,6 +324,7 @@ describe("useSessionConnection retry", () => {
 		);
 		expect(voice?.getSnapshot().member).toBeNull();
 		expect(voice?.getSnapshot().link).toBe("offline");
+		expect(usePlayStore.getState().terminal).toBe("loginExpired");
 	});
 
 	test("skips onLiveEvent for replayed reconnect events while forwarding live events", async () => {

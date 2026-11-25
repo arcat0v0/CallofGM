@@ -209,8 +209,37 @@ describe("Media Storage contract tests", () => {
 		expect(body.code).toBe("UNSUPPORTED_MIME_TYPE");
 	});
 
+	test("Upload media - Accepts files above legacy 10MB limit within 100MB", async () => {
+		const mediumData = new Uint8Array(12 * 1024 * 1024);
+		mediumData.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+
+		const formData = new FormData();
+		formData.append(
+			"file",
+			new Blob([mediumData], { type: "image/png" }),
+			"scene-hd.png",
+		);
+		formData.append("purpose", "scene");
+		formData.append("filename", "scene-hd.png");
+
+		const response = await app.handle(
+			new Request("http://localhost/api/v1/media/upload", {
+				method: "POST",
+				headers: {
+					Authorization: `Bearer ${gmToken}`,
+				},
+				body: formData,
+			}),
+		);
+
+		expect(response.status).toBe(200);
+		const body = await response.json();
+		expect(body.size).toBe(12 * 1024 * 1024);
+		expect(body.mimeType).toBe("image/png");
+	});
+
 	test("Upload media - Size Exceeded limit", async () => {
-		const largeData = new Uint8Array(10 * 1024 * 1024 + 100);
+		const largeData = new Uint8Array(100 * 1024 * 1024 + 100);
 		largeData.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
 		const formData = new FormData();

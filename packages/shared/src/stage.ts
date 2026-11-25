@@ -26,10 +26,85 @@ export type PortraitLayout = z.infer<typeof PortraitLayout>;
 export const PortraitScale = z.enum(["md", "lg"]);
 export type PortraitScale = z.infer<typeof PortraitScale>;
 
-export const UpdateStageLayoutCommand = z.object({
-	layout: PortraitLayout,
-	scale: PortraitScale,
+export const STAGE_MAX_ITEMS = 12;
+export const STAGE_MAX_PRESETS = 16;
+
+export const StagePortraitItem = z.object({
+	characterId: z.string().min(1),
+	/** Horizontal center anchor as percentage of stage safe-area width (0..100). */
+	x: z.number().min(0).max(100),
+	/** Vertical offset from stage floor baseline as percentage of stage height (-30..50). */
+	y: z.number().min(-30).max(50),
+	/** Scale multiplier relative to standard base portrait height (0.4..1.8). */
+	scale: z.number().min(0.4).max(1.8),
+	/** Horizontal mirror flip. */
+	flipX: z.boolean().default(false),
+	/** Explicit stacking layer order (higher renders in front). */
+	zIndex: z.number().int().min(0).max(100),
 });
+export type StagePortraitItem = z.infer<typeof StagePortraitItem>;
+
+export const StageCompositionMode = z.enum(["auto", "custom"]);
+export type StageCompositionMode = z.infer<typeof StageCompositionMode>;
+
+export const StageComposition = z
+	.object({
+		mode: StageCompositionMode,
+		emphasizeSpeaker: z.boolean().default(true),
+		items: z.array(StagePortraitItem).max(STAGE_MAX_ITEMS),
+	})
+	.superRefine((val, ctx) => {
+		const seen = new Set<string>();
+		for (let index = 0; index < val.items.length; index += 1) {
+			const item = val.items[index];
+			if (!item) continue;
+			const id = item.characterId;
+			if (seen.has(id)) {
+				ctx.addIssue({
+					code: z.ZodIssueCode.custom,
+					path: ["items", index, "characterId"],
+					message: "Duplicate characterId in stage composition",
+				});
+			}
+			seen.add(id);
+		}
+	});
+export type StageComposition = z.infer<typeof StageComposition>;
+
+export const StagePresetDto = z.object({
+	id: z.string().min(1).max(64),
+	name: z.string().trim().min(1).max(40),
+	composition: StageComposition,
+	updatedAt: z.number().int().nonnegative(),
+});
+export type StagePresetDto = z.infer<typeof StagePresetDto>;
+
+export const SaveStagePresetRequest = z.object({
+	id: z.string().min(1).max(64).optional(),
+	name: z.string().trim().min(1).max(40),
+	composition: StageComposition,
+});
+export type SaveStagePresetRequest = z.infer<typeof SaveStagePresetRequest>;
+
+export const StagePresetsResponse = z.object({
+	presets: z.array(StagePresetDto),
+});
+export type StagePresetsResponse = z.infer<typeof StagePresetsResponse>;
+
+export const UpdateStageLayoutCommand = z
+	.object({
+		layout: PortraitLayout.optional(),
+		scale: PortraitScale.optional(),
+		composition: StageComposition.optional(),
+	})
+	.refine(
+		(val) =>
+			val.composition !== undefined ||
+			(val.layout !== undefined && val.scale !== undefined),
+		{
+			message: "Either composition or layout and scale must be provided",
+		},
+	);
 export type UpdateStageLayoutCommand = z.infer<typeof UpdateStageLayoutCommand>;
 
 export const BgmPlaybackMode = z.enum(["off", "single", "list", "shuffle"]);
@@ -82,7 +157,11 @@ export const ExpressionChangedEvent = z.object({
 export type ExpressionChangedEvent = z.infer<typeof ExpressionChangedEvent>;
 
 /** Event payload: stage:layout-changed（全团同步的立绘布局） */
-export const StageLayoutChangedEvent = UpdateStageLayoutCommand;
+export const StageLayoutChangedEvent = z.object({
+	layout: PortraitLayout,
+	scale: PortraitScale,
+	composition: StageComposition.nullable().optional(),
+});
 export type StageLayoutChangedEvent = z.infer<typeof StageLayoutChangedEvent>;
 
 export const BgmState = z.object({

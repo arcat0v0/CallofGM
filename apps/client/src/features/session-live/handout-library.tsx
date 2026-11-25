@@ -74,8 +74,8 @@ export function HandoutLibrary({
 						{t("handout.empty")}
 					</p>
 				) : (
-					<div className="grid min-h-0 flex-1 grid-cols-[200px_1fr] gap-4">
-						<div className="flex min-h-0 flex-col gap-1 overflow-y-auto pr-1">
+					<div className="grid min-h-0 flex-1 grid-cols-1 gap-3 sm:grid-cols-[200px_1fr] sm:gap-4">
+						<div className="flex max-h-40 min-h-0 flex-col gap-1 overflow-y-auto pr-1 sm:max-h-none">
 							{handouts.map((item) => {
 								const selected = item.grantId === active?.grantId;
 								return (

@@ -501,7 +501,7 @@ function CharactersPanel({ onClose }: { onClose: () => void }) {
 													</div>
 												</div>
 											) : null}
-											<div className="flex items-stretch gap-2">
+											<div className="flex flex-wrap items-stretch gap-2 [&>*:first-child]:min-w-[140px] [&>*:first-child]:flex-[1.4_1_140px] [&>*:not(:first-child)]:flex-[1_1_88px]">
 												{portraits.length > 0 ? (
 													<GmSelectField
 														label={t("gm.workbench.expression")}

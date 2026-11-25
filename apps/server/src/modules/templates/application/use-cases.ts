@@ -474,6 +474,8 @@ export class InstantiateTemplateUseCase {
 				diceSkin: settings.diceSkin,
 				portraitLayout: "auto",
 				portraitScale: "md",
+				stageCompositionJson: null,
+				stagePresetsJson: null,
 				voiceLimit: null,
 				growthConfirmedAt: null,
 				deletedAt: null,

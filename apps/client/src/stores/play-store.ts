@@ -26,7 +26,7 @@ import {
 	createSessionSlice,
 	sessionDefaults,
 } from "./play/slices/session-slice";
-import { stageDefaults } from "./play/slices/stage-slice";
+import { createStageSlice, stageDefaults } from "./play/slices/stage-slice";
 import { hydrateSnapshot } from "./play/snapshot-hydrator";
 import type {
 	CoordinatorSlice,
@@ -103,7 +103,7 @@ const createCoordinatorSlice: PlaySliceCreator<CoordinatorSlice> = (
 
 export const usePlayStore = create<PlayState>((...args) => ({
 	...createSessionSlice(...args),
-	...stageDefaults,
+	...createStageSlice(...args),
 	...chatDefaults,
 	...createAudioSlice(...args),
 	...createHandoutsSlice(...args),

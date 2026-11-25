@@ -166,7 +166,7 @@ export function CocStateEditor({ character, onClose }: RuleStateEditorProps) {
 				</p>
 			) : (
 				<div className="flex flex-col gap-4">
-					<div className="grid grid-cols-3 gap-2.5">
+					<div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
 						{STATS.map((stat) => (
 							<div
 								key={stat.key}
@@ -256,12 +256,12 @@ export function CocStateEditor({ character, onClose }: RuleStateEditorProps) {
 						<span className="text-md-on-surface-variant text-label-medium">
 							{t("gm.workbench.deltaHint")}
 						</span>
-						<div className="flex items-center gap-2">
+						<div className="flex flex-wrap items-center gap-2">
 							<Input
 								value={delta}
 								inputMode="numeric"
 								aria-label={t("gm.console.stateDelta")}
-								className="h-10 w-24"
+								className="h-10 w-24 shrink-0"
 								onChange={(event) => setDelta(event.target.value)}
 							/>
 							{STATS.map((stat) => (
@@ -270,7 +270,7 @@ export function CocStateEditor({ character, onClose }: RuleStateEditorProps) {
 									type="button"
 									variant="tertiary"
 									size="sm"
-									className="h-10 flex-1 gap-1.5"
+									className="h-10 min-w-[4.5rem] flex-1 gap-1.5"
 									onClick={() => applyDelta(stat.key)}
 								>
 									± {stat.label}

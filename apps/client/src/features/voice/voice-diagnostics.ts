@@ -1,5 +1,7 @@
+import type { VoiceAudioProcessing } from "./voice-capture";
+
 type MicState = "off" | "requesting" | "on" | "denied" | "unavailable";
-type AudioProcessing = "idle" | "starting" | "native" | "rnnoise" | "fallback";
+type AudioProcessing = VoiceAudioProcessing;
 type LocalDiagnosticsState = {
 	localMicState: MicState;
 	audioProcessing: AudioProcessing;
@@ -35,6 +37,7 @@ type VoiceDiagnosticsSample = Membership &
 	};
 type EventKind =
 	| "peer-state"
+	| "inbound-rtp-gap"
 	| "ice-restart"
 	| "ws-open"
 	| "ws-close"
@@ -69,6 +72,12 @@ type PeerDiagnostics = {
 	connection: RTCPeerConnection;
 	remoteTrack: MediaStreamTrack | null;
 	previous: RTCStatsCounters | null;
+	inboundRtp: {
+		id: string;
+		packets: number;
+		since: number;
+		reported: boolean;
+	} | null;
 };
 type RTCStatsCounters = {
 	packetsReceived: number | null;
@@ -211,7 +220,10 @@ export class VoiceDiagnostics {
 		this.sampling = false;
 		clearInterval(this.sampleTimer);
 		this.sampleTimer = undefined;
-		for (const peer of this.peers.values()) peer.previous = null;
+		for (const peer of this.peers.values()) {
+			peer.previous = null;
+			peer.inboundRtp = null;
+		}
 		if (this.sessionId && this.consent && this.membership) {
 			this.sampleTimer = setInterval(() => {
 				void this.sampleNow();
@@ -269,6 +281,7 @@ export class VoiceDiagnostics {
 			connection,
 			remoteTrack: this.peers.get(peerMemberId)?.remoteTrack ?? null,
 			previous: null,
+			inboundRtp: null,
 		});
 	}
 
@@ -286,6 +299,10 @@ export class VoiceDiagnostics {
 		previousState: EventState | null = null,
 		peerMemberId: string | null = null,
 	): void {
+		if (kind === "peer-state" && peerMemberId) {
+			const peer = this.peers.get(peerMemberId);
+			if (peer) peer.inboundRtp = null;
+		}
 		if (!this.sessionId || !this.consent || !this.membership) return;
 		const wasEmpty = !this.hasLog;
 		const events = this.log.events;
@@ -320,7 +337,7 @@ export class VoiceDiagnostics {
 					try {
 						return { id, peer, report: await peer.connection.getStats() };
 					} catch {
-						return null;
+						return { id, peer, report: null };
 					}
 				}),
 			);
@@ -329,7 +346,11 @@ export class VoiceDiagnostics {
 			const samples = this.log.samples;
 			let changed = false;
 			for (const entry of reports) {
-				if (!entry || this.peers.get(entry.id) !== entry.peer) continue;
+				if (this.peers.get(entry.id) !== entry.peer) continue;
+				if (!entry.report) {
+					entry.peer.inboundRtp = null;
+					continue;
+				}
 				if (samples.length === MAX_SAMPLES) samples.shift();
 				samples.push(
 					this.createSample(membership, at, entry.id, entry.peer, entry.report),
@@ -340,6 +361,42 @@ export class VoiceDiagnostics {
 		} finally {
 			if (generation === this.generation) this.sampling = false;
 		}
+	}
+
+	private recordInboundRtpGap(
+		peerMemberId: string,
+		peer: PeerDiagnostics,
+		inboundId: unknown,
+		packets: number | null,
+		at: number,
+	): void {
+		if (
+			peer.connection.connectionState !== "connected" ||
+			typeof inboundId !== "string" ||
+			packets === null
+		) {
+			peer.inboundRtp = null;
+			return;
+		}
+		const prior = peer.inboundRtp;
+		if (
+			!prior ||
+			prior.id !== inboundId ||
+			prior.packets !== packets ||
+			at < prior.since
+		) {
+			peer.inboundRtp = { id: inboundId, packets, since: at, reported: false };
+			return;
+		}
+		const elapsed = at - prior.since;
+		if (prior.reported || elapsed < SAMPLE_INTERVAL) return;
+		prior.reported = true;
+		this.recordEvent(
+			"inbound-rtp-gap",
+			Math.floor(elapsed / 1_000),
+			null,
+			peerMemberId,
+		);
 	}
 
 	private createSample(
@@ -374,6 +431,13 @@ export class VoiceDiagnostics {
 		};
 		const previous = peer.previous;
 		peer.previous = next;
+		this.recordInboundRtpGap(
+			peerMemberId,
+			peer,
+			inbound?.id,
+			next.packetsReceived,
+			Date.parse(at),
+		);
 		const roundTripTime = finiteMetric(pair?.currentRoundTripTime);
 		const jitter = finiteMetric(inbound?.jitter);
 		const remoteRms = finiteMetric(this.options.getRemoteRms?.(peerMemberId));

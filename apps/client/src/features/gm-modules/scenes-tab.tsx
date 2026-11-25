@@ -1,4 +1,4 @@
-import type { SceneDto } from "@cogm/shared";
+import { MAX_MEDIA_UPLOAD_BYTES, type SceneDto } from "@cogm/shared";
 import {
 	ArrowDown,
 	ArrowUp,
@@ -19,6 +19,7 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
+import { UploadProgressBar } from "@/components/shared/upload-progress";
 import { Button } from "@/components/ui/button";
 import {
 	Dialog,
@@ -43,7 +44,7 @@ import {
 } from "@/components/ui/input-group";
 import { Label } from "@/components/ui/label";
 import { t } from "@/i18n";
-import { api, mediaUrl } from "@/lib/api";
+import { api, mediaUrl, type UploadProgress } from "@/lib/api";
 import { errorText } from "@/lib/errors";
 import { uploadMediaAsset } from "@/lib/media-upload";
 
@@ -75,6 +76,9 @@ function SceneTile({
 	const [renaming, setRenaming] = useState(false);
 	const [draftName, setDraftName] = useState(scene.name);
 	const [busy, setBusy] = useState(false);
+	const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(
+		null,
+	);
 	const fileInputRef = useRef<HTMLInputElement>(null);
 
 	useEffect(() => {
@@ -108,7 +112,9 @@ function SceneTile({
 	async function replaceImage(file: File) {
 		setBusy(true);
 		try {
-			const bgAssetId = await uploadMediaAsset(file, "scene");
+			const bgAssetId = await uploadMediaAsset(file, "scene", {
+				onProgress: setUploadProgress,
+			});
 			await api(`/gm/modules/scenes/${encodeURIComponent(scene.id)}`, {
 				method: "PATCH",
 				body: JSON.stringify({ bgAssetId }),
@@ -118,6 +124,7 @@ function SceneTile({
 		} catch (error) {
 			toast.error(errorText(error, "gm.module.saveFailed"));
 		} finally {
+			setUploadProgress(null);
 			setBusy(false);
 		}
 	}
@@ -148,7 +155,12 @@ function SceneTile({
 				onChange={(event) => {
 					const file = event.target.files?.[0];
 					event.target.value = "";
-					if (file) void replaceImage(file);
+					if (!file) return;
+					if (file.size > MAX_MEDIA_UPLOAD_BYTES) {
+						toast.error(t("error.FILE_SIZE_EXCEEDED"));
+						return;
+					}
+					void replaceImage(file);
 				}}
 			/>
 
@@ -205,6 +217,15 @@ function SceneTile({
 						</span>
 					) : null}
 				</div>
+				{uploadProgress ? (
+					<div className="bg-md-scrim/75 absolute inset-0 z-10 flex items-center justify-center p-4 backdrop-blur-sm">
+						<UploadProgressBar
+							compact
+							progress={uploadProgress}
+							className="bg-md-surface-container-low/95 w-full max-w-64 rounded-lg px-3 py-2"
+						/>
+					</div>
+				) : null}
 			</div>
 
 			<div className="flex min-h-11 items-center gap-2 py-1.5 pr-1.5 pl-3.5">
@@ -352,6 +373,9 @@ export function ModuleScenesTab({
 	const [newFile, setNewFile] = useState<File | null>(null);
 	const [newPreviewUrl, setNewPreviewUrl] = useState<string | null>(null);
 	const [creating, setCreating] = useState(false);
+	const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(
+		null,
+	);
 	const [previewScene, setPreviewScene] = useState<SceneDto | null>(null);
 	const [deleteTarget, setDeleteTarget] = useState<SceneDto | null>(null);
 
@@ -377,7 +401,9 @@ export function ModuleScenesTab({
 		setCreating(true);
 		try {
 			const bgAssetId = newFile
-				? await uploadMediaAsset(newFile, "scene")
+				? await uploadMediaAsset(newFile, "scene", {
+						onProgress: setUploadProgress,
+					})
 				: null;
 			const nextOrder =
 				scenes.reduce((max, item) => Math.max(max, item.sortOrder), -1) + 1;
@@ -396,6 +422,7 @@ export function ModuleScenesTab({
 		} catch (error) {
 			toast.error(errorText(error, "gm.module.createSceneFailed"));
 		} finally {
+			setUploadProgress(null);
 			setCreating(false);
 		}
 	}
@@ -534,6 +561,9 @@ export function ModuleScenesTab({
 			<Dialog
 				open={createOpen}
 				onOpenChange={(open) => {
+					if (!open && creating) {
+						return;
+					}
 					setCreateOpen(open);
 					if (!open) {
 						setNewName("");
@@ -563,6 +593,7 @@ export function ModuleScenesTab({
 								id="new-scene-name"
 								value={newName}
 								autoFocus
+								disabled={creating}
 								onChange={(event) => setNewName(event.target.value)}
 								placeholder={t("gm.module.sceneNamePlaceholder")}
 							/>
@@ -571,7 +602,11 @@ export function ModuleScenesTab({
 							<Label htmlFor="new-scene-bg">{t("gm.module.sceneBgAria")}</Label>
 							<label
 								htmlFor="new-scene-bg"
-								className="group relative flex aspect-[16/9] cursor-pointer flex-col items-center justify-center gap-2 overflow-hidden rounded-lg border border-dashed border-md-outline-variant bg-md-surface-container-lowest text-md-on-surface-variant transition-colors hover:border-md-outline hover:text-md-on-surface"
+								className={
+									creating
+										? "group relative flex aspect-[16/9] pointer-events-none flex-col items-center justify-center gap-2 overflow-hidden rounded-lg border border-dashed border-md-outline-variant bg-md-surface-container-lowest text-md-on-surface-variant opacity-60"
+										: "group relative flex aspect-[16/9] cursor-pointer flex-col items-center justify-center gap-2 overflow-hidden rounded-lg border border-dashed border-md-outline-variant bg-md-surface-container-lowest text-md-on-surface-variant transition-colors hover:border-md-outline hover:text-md-on-surface"
+								}
 							>
 								{newPreviewUrl ? (
 									<img
@@ -591,10 +626,17 @@ export function ModuleScenesTab({
 									id="new-scene-bg"
 									type="file"
 									accept="image/*"
+									disabled={creating}
 									className="sr-only"
-									onChange={(event) =>
-										setNewFile(event.target.files?.[0] ?? null)
-									}
+									onChange={(event) => {
+										const file = event.target.files?.[0] ?? null;
+										if (file && file.size > MAX_MEDIA_UPLOAD_BYTES) {
+											toast.error(t("error.FILE_SIZE_EXCEEDED"));
+											event.target.value = "";
+											return;
+										}
+										setNewFile(file);
+									}}
 								/>
 							</label>
 							{newFile ? (
@@ -604,17 +646,26 @@ export function ModuleScenesTab({
 										type="button"
 										variant="text"
 										size="xs"
+										disabled={creating}
 										onClick={() => setNewFile(null)}
 									>
 										{t("gm.module.removeSceneBg")}
 									</Button>
 								</div>
-							) : null}
+							) : (
+								<p className="text-body-small text-md-on-surface-variant">
+									{t("gm.module.imageFormatHint")}
+								</p>
+							)}
 						</div>
+						{creating && newFile ? (
+							<UploadProgressBar progress={uploadProgress} />
+						) : null}
 						<DialogFooter>
 							<Button
 								type="button"
 								variant="tertiary"
+								disabled={creating}
 								onClick={() => setCreateOpen(false)}
 							>
 								{t("common.cancel")}

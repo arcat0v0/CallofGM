@@ -37,8 +37,7 @@ import { usePlayStore } from "@/stores/play-store";
 import { GmOnlinePopover } from "./gm-online-popover";
 import { GmSessionSettingsDialog } from "./gm-session-settings-dialog";
 import { GmSessionStatusControl } from "./gm-session-status-control";
-import { PlayerStagePreview } from "./player-stage-preview";
-import { StageLayoutControl } from "./stage-layout-control";
+import { StageStudio } from "./stage-studio";
 
 function GmTopBar() {
 	const { sessionId } = useParams({ from: "/gm/session/$sessionId" });
@@ -68,7 +67,10 @@ function GmTopBar() {
 	const [statusPending, setStatusPending] = useState(false);
 	const nextStatus = status ? nextSessionStatus(status) : null;
 	const title =
-		moduleName ?? sessionName ?? scene?.name ?? t("gm.workbench.unnamedSession");
+		moduleName ??
+		sessionName ??
+		scene?.name ??
+		t("gm.workbench.unnamedSession");
 	const subtitleBase =
 		sessionName && sessionName !== moduleName
 			? `${sessionName} · ${t("gm.workbench.role")}`
@@ -123,13 +125,17 @@ function GmTopBar() {
 	}
 
 	return (
-		<div className="flex h-16 items-center justify-between gap-4">
-			<div className="flex min-w-0 items-center gap-4 xl:max-w-[calc(50%-15.5rem)]">
+		<div className="flex h-12 items-center justify-between gap-2 lg:h-16 lg:gap-4">
+			<div
+				data-topbar-start=""
+				className="flex min-w-0 items-center gap-2 lg:gap-4"
+				style={{ maxWidth: "var(--gm-topbar-start-max, none)" }}
+			>
 				<Button
 					asChild
 					variant="tertiary"
 					size="icon-sm"
-					className="bg-md-surface-container-low text-md-on-surface-variant border border-md-outline-variant/50 size-11 shrink-0"
+					className="bg-md-surface-container-low text-md-on-surface-variant border border-md-outline-variant/50 size-9 shrink-0 lg:size-11"
 				>
 					<Link
 						to={backTarget.to as never}
@@ -145,25 +151,29 @@ function GmTopBar() {
 					</Link>
 				</Button>
 				<div className="flex min-w-0 flex-col">
-					<span className="text-md-on-surface truncate font-sans text-headline-small font-semibold">
+					<span className="text-md-on-surface truncate font-sans text-title-medium-emph font-semibold lg:text-headline-small">
 						{title}
 					</span>
-					<span className="text-md-on-surface-variant truncate text-label-medium">
-						{subtitle}
-					</span>
+					<div className="flex min-w-0 items-center gap-1.5">
+						<span className="text-md-on-surface-variant truncate text-label-small lg:text-label-medium">
+							{subtitle}
+						</span>
+						<VersionBadge className="text-md-on-surface-variant/80 hover:text-md-on-surface hidden h-5 shrink-0 px-1.5 md:inline-flex" />
+					</div>
 				</div>
 			</div>
 
-			<div className="flex shrink-0 items-center gap-2 2xl:gap-3">
-				<VersionBadge className="text-foreground-secondary" />
+			<div
+				data-topbar-end=""
+				className="flex shrink-0 items-center gap-1.5 sm:gap-2 2xl:gap-3"
+			>
 				<GmSessionStatusControl
 					status={status}
 					pending={statusPending}
 					onSelectStatus={(next) => void patchStatus(next)}
 					onRequestEnd={() => setEndOpen(true)}
 				/>
-				<PlayerStagePreview />
-				<StageLayoutControl />
+				<StageStudio />
 				{presenceAvailable ? <GmOnlinePopover /> : null}
 				<DropdownMenu>
 					<DropdownMenuTrigger asChild>
@@ -172,7 +182,7 @@ function GmTopBar() {
 							variant="tertiary"
 							size="icon-sm"
 							aria-label={t("gm.workbench.moreActions")}
-							className="bg-md-surface-container-low text-md-on-surface-variant border border-md-outline-variant/50 size-10"
+							className="bg-md-surface-container-low text-md-on-surface-variant border border-md-outline-variant/50 size-9 lg:size-10"
 						>
 							<Ellipsis />
 						</Button>
@@ -215,9 +225,6 @@ function GmTopBar() {
 						) : null}
 					</DropdownMenuContent>
 				</DropdownMenu>
-				<span className="bg-accent text-accent-foreground grid size-10 shrink-0 place-items-center rounded-full text-label-small-emph">
-					{t("common.gmShort")}
-				</span>
 			</div>
 
 			<ConfirmDialog

@@ -148,19 +148,19 @@ function PlayerHistoryOverlay({
 	}
 
 	return (
-		<div className="bg-background/85 fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-md">
+		<div className="bg-background/85 fixed inset-0 z-50 flex items-center justify-center p-2 backdrop-blur-md sm:p-4">
 			<div
 				role="dialog"
 				aria-modal="true"
 				aria-label={t("history.title")}
-				className="bg-md-surface-container border-md-outline-variant/40 shadow-modal flex h-[90dvh] w-full max-w-3xl flex-col overflow-hidden rounded-modal border"
+				className="bg-md-surface-container border-md-outline-variant/40 shadow-modal flex h-[92dvh] w-full max-w-3xl flex-col overflow-hidden rounded-modal border sm:h-[90dvh]"
 			>
-				<header className="border-separator-secondary flex shrink-0 flex-wrap items-center gap-2 border-b px-4 py-3">
+				<header className="border-separator-secondary flex shrink-0 flex-wrap items-center gap-2 border-b px-3 py-2.5 sm:px-4 sm:py-3">
 					<h2 className="text-foreground shrink-0 font-serif text-title-medium-emph">
 						{t("history.title")}
 					</h2>
-					<div className="ml-auto flex flex-wrap items-center justify-end gap-2">
-						<InputGroup className="h-9 w-48">
+					<div className="ml-auto flex flex-1 flex-wrap items-center justify-end gap-2 sm:flex-initial">
+						<InputGroup className="h-9 w-full min-w-[10rem] sm:w-48">
 							<InputGroupAddon>
 								<Search />
 							</InputGroupAddon>

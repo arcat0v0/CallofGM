@@ -12,13 +12,13 @@ const ENDED_ROSTER_ERRORS = {
 	"add-npc": "Cannot add NPCs to an ended session",
 	"remove-npc": "Cannot remove NPCs from an ended session",
 	sync: "Cannot sync characters in an ended session",
+	"stage-presets": "Cannot modify stage presets in an ended session",
 };
 
 export class SessionLifecycle {
 	constructor(
 		private readonly session: {
 			readonly status: string;
-			readonly phase: string;
 		},
 	) {}
 
@@ -102,17 +102,13 @@ export class SessionLifecycle {
 		);
 	}
 
-	canVoiceSpeak(
-		role: "gm" | SeatRole,
-		{ speakGranted, muted }: { speakGranted: boolean; muted: boolean },
-	): boolean {
-		return (
-			speakGranted &&
-			!muted &&
-			(role === "gm" ||
-				this.session.status === "preparing" ||
-				this.session.phase === "free_discussion" ||
-				this.session.phase === "free_performance")
-		);
+	canVoiceSpeak({
+		speakGranted,
+		muted,
+	}: {
+		speakGranted: boolean;
+		muted: boolean;
+	}): boolean {
+		return speakGranted && !muted;
 	}
 }

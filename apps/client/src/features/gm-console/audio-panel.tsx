@@ -47,7 +47,7 @@ import {
 	trackSourceLabel,
 	useBgmPlayback,
 } from "./gm-audio";
-import { GmPanelShell } from "./gm-panel-fields";
+import { GmPanelShell, gmWidePanelClass } from "./gm-panel-fields";
 
 const FADE_OPTIONS = [
 	{ value: "500", labelKey: "gm.workbench.fadeFast" },
@@ -159,7 +159,7 @@ function AudioPanel({ onClose }: { onClose: () => void }) {
 			title={t("gm.workbench.audioTitle")}
 			subtitle={t("gm.workbench.audioSubtitle")}
 			onClose={onClose}
-			className="w-[min(880px,calc(100vw-24px))] max-h-[calc(100dvh-176px)] xl:max-h-[calc(100dvh-112px)] [&>div]:[scrollbar-width:thin] [&>div]:[scrollbar-color:var(--color-scrollbar)_transparent]"
+			className={gmWidePanelClass}
 		>
 			<div className="@container flex min-w-0 flex-col gap-5 md:min-h-0 md:flex-1">
 				{!connected ? (
@@ -327,6 +327,7 @@ function AudioPanel({ onClose }: { onClose: () => void }) {
 								{formatDurationMmSs(displayPosition)}
 							</span>
 							<Slider
+								size="sm"
 								wavy
 								value={[displayPosition]}
 								min={0}

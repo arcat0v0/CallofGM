@@ -169,7 +169,7 @@ function HandoutPanel({ onClose }: { onClose: () => void }) {
 			title={t("gm.workbench.handoutTitle")}
 			subtitle={t("gm.workbench.handoutSubtitle")}
 			onClose={onClose}
-			className="w-[min(760px,calc(100vw-48px))]"
+			className="w-[min(760px,calc(100vw-24px))] md:w-[min(760px,calc(100vw-48px))]"
 			footer={
 				selected ? (
 					publicGrant ? (
@@ -236,8 +236,8 @@ function HandoutPanel({ onClose }: { onClose: () => void }) {
 					) : null}
 				</div>
 			) : (
-				<div className="grid h-full min-h-0 grid-cols-[236px_minmax(0,1fr)] gap-4">
-					<div className="flex min-h-0 flex-col gap-2">
+				<div className="grid h-full min-h-0 grid-cols-1 gap-3 md:grid-cols-[236px_minmax(0,1fr)] md:gap-4">
+					<div className="flex max-h-44 min-h-0 flex-col gap-2 md:max-h-none">
 						<InputGroup className="h-9 shrink-0">
 							<InputGroupAddon>
 								<Search />
