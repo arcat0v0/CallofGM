@@ -24,6 +24,7 @@ export function Coc7eCharacterCreationEditor({
 	onCharacterNameChange,
 	background,
 	onBackgroundChange,
+	backgroundRequired = true,
 	portraitPreviewUrl,
 	portraitPending,
 	onPickPortraitFile,
@@ -78,8 +79,19 @@ export function Coc7eCharacterCreationEditor({
 				errors,
 				characterName,
 				onCharacterNameChange,
+				background,
+				onBackgroundChange,
+				backgroundRequired,
 			),
-		[sheet, errors, characterName, onCharacterNameChange],
+		[
+			sheet,
+			errors,
+			characterName,
+			onCharacterNameChange,
+			background,
+			onBackgroundChange,
+			backgroundRequired,
+		],
 	);
 
 	useEffect(() => {
@@ -211,6 +223,8 @@ export function Coc7eCharacterCreationEditor({
 					onChange={update}
 					background={background}
 					onBackgroundChange={onBackgroundChange}
+					backgroundRequired={backgroundRequired}
+					showValidation={showValidation}
 					sheetContext={sheetContext}
 				/>
 			</div>

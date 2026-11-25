@@ -1,4 +1,8 @@
-import { coc7e } from "@cogm/shared";
+import {
+	coc7e,
+	hasUnsafeMultiLineChars,
+	hasUnsafeSingleLineChars,
+} from "@cogm/shared";
 import { t } from "@/i18n";
 
 export type Coc7eTabId =
@@ -73,6 +77,9 @@ export function computeCoc7eValidation(
 	errors: Record<string, string>,
 	characterName?: string,
 	onCharacterNameChange?: (name: string) => void,
+	background?: string,
+	onBackgroundChange?: (background: string) => void,
+	backgroundRequired = true,
 ): Coc7eValidationState {
 	const issues: Coc7eIssue[] = [];
 	const ledger = coc7e.deriveCoc7eSplitLedger(sheet);
@@ -89,6 +96,42 @@ export function computeCoc7eValidation(
 			message: `${t("characterCreation.name")}：${t("characterCreation.requiredText")}`,
 			targetTab: "identity",
 			targetLabel: t("characterCreation.reviewGoFix"),
+		});
+	} else if (
+		onCharacterNameChange &&
+		hasUnsafeSingleLineChars(characterName ?? "")
+	) {
+		issues.push({
+			id: "unsafe-name",
+			tab: "identity",
+			severity: "blocker",
+			message: `${t("characterCreation.name")}：${t("characterCreation.unsafeText")}`,
+			targetTab: "identity",
+			targetLabel: t("characterCreation.reviewGoFix"),
+		});
+	}
+
+	if (
+		onBackgroundChange &&
+		backgroundRequired &&
+		(background ?? "").trim() === ""
+	) {
+		issues.push({
+			id: "missing-background",
+			tab: "background",
+			severity: "blocker",
+			message: `${t("characterProfile.detailedBackground")}：${t("characterProfile.detailedBackgroundRequired")}`,
+			targetTab: "background",
+			targetLabel: t("characterCreation.goToBackgroundTab"),
+		});
+	} else if (onBackgroundChange && hasUnsafeMultiLineChars(background ?? "")) {
+		issues.push({
+			id: "unsafe-background",
+			tab: "background",
+			severity: "blocker",
+			message: `${t("characterProfile.detailedBackground")}：${t("characterCreation.unsafeText")}`,
+			targetTab: "background",
+			targetLabel: t("characterCreation.goToBackgroundTab"),
 		});
 	}
 

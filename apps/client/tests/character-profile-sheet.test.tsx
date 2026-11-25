@@ -178,8 +178,9 @@ describe("character profile editor full-sheet preservation", () => {
 			expect(profileTab.getAttribute("aria-selected")).toBe("true"),
 		);
 		expect(view.getByDisplayValue("旧调查员")).toBeTruthy();
-		expect(view.getByText("背景摘要")).toBeTruthy();
-		expect(view.getByText("旧背景")).toBeTruthy();
+		expect(view.getByText("人物卡背景设定")).toBeTruthy();
+		expect(view.getByText("详细背景描述")).toBeTruthy();
+		expect(view.getByDisplayValue("旧背景")).toBeTruthy();
 
 		const sheetTab = view.getByRole("tab", { name: "完整人物卡" });
 		fireEvent.mouseDown(sheetTab, { button: 0 });

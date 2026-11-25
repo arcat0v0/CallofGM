@@ -13,6 +13,7 @@ export function SheetFullEditor({
 	onCharacterNameChange,
 	background,
 	onBackgroundChange,
+	backgroundRequired,
 	portraitPreviewUrl,
 	portraitPending,
 	onPickPortraitFile,
@@ -34,6 +35,7 @@ export function SheetFullEditor({
 	onCharacterNameChange?: (name: string) => void;
 	background?: string;
 	onBackgroundChange?: (background: string) => void;
+	backgroundRequired?: boolean;
 	portraitPreviewUrl?: string | null;
 	portraitPending?: boolean;
 	onPickPortraitFile?: (file: File) => void;
@@ -57,6 +59,7 @@ export function SheetFullEditor({
 			onCharacterNameChange={onCharacterNameChange}
 			background={background}
 			onBackgroundChange={onBackgroundChange}
+			backgroundRequired={backgroundRequired}
 			portraitPreviewUrl={portraitPreviewUrl}
 			portraitPending={portraitPending}
 			onPickPortraitFile={onPickPortraitFile}

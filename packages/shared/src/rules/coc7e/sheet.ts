@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { safeMultiLineText, safeSingleLineText } from "../../text-safety";
 import { canonicalizeCoc7eSkillKey } from "./skills";
 
 export const Coc7eAttributeKey = z.enum([
@@ -30,14 +31,14 @@ export type Coc7eAttributes = z.infer<typeof Coc7eAttributes>;
 export const Coc7eEra = z.enum(["1920s", "modern"]);
 export type Coc7eEra = z.infer<typeof Coc7eEra>;
 
-const longText = z.string().trim().max(4000);
+const longText = safeMultiLineText({ max: 4000 });
 const money = z.number().finite().min(0).max(1_000_000_000_000_000);
 
 export const Coc7eProfileInfo = z.object({
-	gender: z.string().trim().max(40).default(""),
-	residence: z.string().trim().max(120).default(""),
-	birthplace: z.string().trim().max(120).default(""),
-	appearance: z.string().trim().max(1000).default(""),
+	gender: safeSingleLineText({ max: 40 }).default(""),
+	residence: safeSingleLineText({ max: 120 }).default(""),
+	birthplace: safeSingleLineText({ max: 120 }).default(""),
+	appearance: safeMultiLineText({ max: 1000 }).default(""),
 	storiedInvestigator: z.boolean().default(false),
 	experienceBonusPoints: z.number().int().min(0).max(500).default(100),
 });
@@ -56,10 +57,10 @@ export const Coc7eBackgroundFieldKey = z.enum([
 export type Coc7eBackgroundFieldKey = z.infer<typeof Coc7eBackgroundFieldKey>;
 
 export const Coc7eBackgroundPartner = z.object({
-	id: z.string().trim().min(1).max(120),
-	characterId: z.string().trim().max(120).nullable().default(null),
-	name: z.string().trim().max(100).default(""),
-	note: z.string().trim().max(200).default(""),
+	id: safeSingleLineText({ min: 1, max: 120 }),
+	characterId: safeSingleLineText({ max: 120 }).nullable().default(null),
+	name: safeSingleLineText({ max: 100 }).default(""),
+	note: safeMultiLineText({ max: 200 }).default(""),
 });
 export type Coc7eBackgroundPartner = z.infer<typeof Coc7eBackgroundPartner>;
 
@@ -74,8 +75,8 @@ export const Coc7eBackgroundProfile = z.object({
 	appearanceSummary: longText.default(""),
 	keyConnection: Coc7eBackgroundFieldKey.nullable().default(null),
 	keyConnectionStory: longText.default(""),
-	partnerCharacterId: z.string().trim().max(120).nullable().default(null),
-	partnerName: z.string().trim().max(100).default(""),
+	partnerCharacterId: safeSingleLineText({ max: 120 }).nullable().default(null),
+	partnerName: safeSingleLineText({ max: 100 }).default(""),
 	partners: z.array(Coc7eBackgroundPartner).max(20).default([]),
 });
 export type Coc7eBackgroundProfile = z.infer<typeof Coc7eBackgroundProfile>;
@@ -94,18 +95,21 @@ export const Coc7eGearStatus = z.enum(["in_use", "lent", "lost"]);
 export type Coc7eGearStatus = z.infer<typeof Coc7eGearStatus>;
 
 export const Coc7eExperienceEntry = z.object({
-	id: z.string().trim().min(1).max(120),
-	title: z.string().trim().min(1).max(200),
+	id: safeSingleLineText({ min: 1, max: 120 }),
+	title: safeSingleLineText({ min: 1, max: 200 }),
 	sourceType: z.enum(["manual", "record", "session_phase"]).default("manual"),
 	refKind: z
 		.enum(["spell", "tome", "encounter", "phase"])
 		.nullable()
 		.default(null),
-	refId: z.string().trim().max(120).nullable().default(null),
-	refLabel: z.string().trim().max(240).default(""),
+	refId: safeSingleLineText({ max: 120 }).nullable().default(null),
+	refLabel: safeSingleLineText({ max: 240 }).default(""),
 	summary: longText.default(""),
-	changes: z.array(z.string().trim().min(1).max(80)).max(16).default([]),
-	occurredLabel: z.string().trim().max(80).default(""),
+	changes: z
+		.array(safeSingleLineText({ min: 1, max: 80 }))
+		.max(16)
+		.default([]),
+	occurredLabel: safeSingleLineText({ max: 80 }).default(""),
 });
 export type Coc7eExperienceEntry = z.infer<typeof Coc7eExperienceEntry>;
 
@@ -119,8 +123,8 @@ export type Coc7eSkillAllocationEntry = z.infer<
 >;
 
 export const Coc7eOccupation = z.object({
-	presetId: z.string().trim().max(64).nullable().default(null),
-	name: z.string().trim().max(100).default(""),
+	presetId: safeSingleLineText({ max: 64 }).nullable().default(null),
+	name: safeSingleLineText({ max: 100 }).default(""),
 	skillPointFormula: z
 		.array(
 			z.object({
@@ -132,14 +136,20 @@ export const Coc7eOccupation = z.object({
 		.default([]),
 	creditMin: z.number().int().min(0).max(99).default(0),
 	creditMax: z.number().int().min(0).max(99).default(99),
-	skillKeys: z.array(z.string().trim().min(1).max(100)).max(32).default([]),
+	skillKeys: z
+		.array(safeSingleLineText({ min: 1, max: 100 }))
+		.max(32)
+		.default([]),
 	choiceSelections: z
 		.record(
-			z.string().trim().min(1).max(40),
-			z.array(z.string().trim().min(1).max(100)).max(16),
+			safeSingleLineText({ min: 1, max: 40 }),
+			z.array(safeSingleLineText({ min: 1, max: 100 })).max(16),
 		)
 		.default({}),
-	freeSkillKeys: z.array(z.string().trim().min(1).max(100)).max(16).default([]),
+	freeSkillKeys: z
+		.array(safeSingleLineText({ min: 1, max: 100 }))
+		.max(16)
+		.default([]),
 });
 export type Coc7eOccupation = z.infer<typeof Coc7eOccupation>;
 
@@ -150,11 +160,11 @@ export const Coc7eCustomSkill = z.object({
 export type Coc7eCustomSkill = z.infer<typeof Coc7eCustomSkill>;
 
 export const Coc7eWeapon = z.object({
-	name: z.string().trim().min(1).max(100),
-	skillKey: z.string().trim().min(1).max(100),
-	damage: z.string().trim().min(1).max(100),
-	range: z.string().trim().max(100).default(""),
-	attacks: z.string().trim().max(40).default(""),
+	name: safeSingleLineText({ min: 1, max: 100 }),
+	skillKey: safeSingleLineText({ min: 1, max: 100 }),
+	damage: safeSingleLineText({ min: 1, max: 100 }),
+	range: safeSingleLineText({ max: 100 }).default(""),
+	attacks: safeSingleLineText({ max: 40 }).default(""),
 	ammo: z.number().int().min(0).max(999).nullable().default(null),
 	malfunction: z.number().int().min(0).max(999).nullable().default(null),
 	impale: z.boolean().default(false),
@@ -163,35 +173,35 @@ export const Coc7eWeapon = z.object({
 export type Coc7eWeapon = z.infer<typeof Coc7eWeapon>;
 
 export const Coc7eArmor = z.object({
-	name: z.string().trim().max(100).default(""),
+	name: safeSingleLineText({ max: 100 }).default(""),
 	value: z.number().int().min(0).max(99).default(0),
-	locations: z.string().trim().max(200).default(""),
+	locations: safeSingleLineText({ max: 200 }).default(""),
 	penalty: z.number().int().min(0).max(99).default(0),
 });
 export type Coc7eArmor = z.infer<typeof Coc7eArmor>;
 
 export const Coc7eGearItem = z.object({
-	name: z.string().trim().min(1).max(200),
+	name: safeSingleLineText({ min: 1, max: 200 }),
 	quantity: z.number().int().min(0).max(9999).default(1),
 	slot: Coc7eGearSlot.optional(),
 	status: Coc7eGearStatus.optional(),
-	note: z.string().trim().max(400).optional(),
+	note: safeMultiLineText({ max: 400 }).optional(),
 	linkedPossession: z.boolean().optional(),
 });
 export type Coc7eGearItem = z.infer<typeof Coc7eGearItem>;
 
 export const Coc7eSpell = z.object({
-	name: z.string().trim().min(1).max(200),
-	mpCost: z.string().trim().max(100).default(""),
-	sanCost: z.string().trim().max(100).default(""),
-	castingTime: z.string().trim().max(100).default(""),
+	name: safeSingleLineText({ min: 1, max: 200 }),
+	mpCost: safeSingleLineText({ max: 100 }).default(""),
+	sanCost: safeSingleLineText({ max: 100 }).default(""),
+	castingTime: safeSingleLineText({ max: 100 }).default(""),
 	effect: longText.default(""),
 });
 export type Coc7eSpell = z.infer<typeof Coc7eSpell>;
 
 export const Coc7eMythosTome = z.object({
-	name: z.string().trim().min(1).max(200),
-	sanLoss: z.string().trim().max(100).default(""),
+	name: safeSingleLineText({ min: 1, max: 200 }),
+	sanLoss: safeSingleLineText({ max: 100 }).default(""),
 	mythosGain: z.number().int().min(0).max(999).default(0),
 	studyHours: z.number().finite().min(0).max(1_000_000).default(0),
 	spells: longText.default(""),
@@ -199,8 +209,8 @@ export const Coc7eMythosTome = z.object({
 export type Coc7eMythosTome = z.infer<typeof Coc7eMythosTome>;
 
 export const Coc7eEncounter = z.object({
-	name: z.string().trim().min(1).max(200),
-	sanLoss: z.string().trim().max(100).default(""),
+	name: safeSingleLineText({ min: 1, max: 200 }),
+	sanLoss: safeSingleLineText({ max: 100 }).default(""),
 	mythosGain: z.number().int().min(0).max(999).default(0),
 	count: z.number().int().min(0).max(9999).default(1),
 	notes: longText.default(""),
@@ -209,13 +219,13 @@ export type Coc7eEncounter = z.infer<typeof Coc7eEncounter>;
 
 export const Coc7eAssetDetail = z.object({
 	category: z.enum(["transport", "residence", "luxury", "securities", "other"]),
-	name: z.string().trim().min(1).max(200),
+	name: safeSingleLineText({ min: 1, max: 200 }),
 	value: money,
 });
 export type Coc7eAssetDetail = z.infer<typeof Coc7eAssetDetail>;
 
 export const Coc7eAssets = z.object({
-	currency: z.string().trim().min(1).max(16).default("$"),
+	currency: safeSingleLineText({ min: 1, max: 16 }).default("$"),
 	spendingLevel: money.default(0),
 	cash: money.default(0),
 	otherAssets: money.default(0),
@@ -281,14 +291,14 @@ const Coc7eCharacterSheetV2 = z.object({
 	movementModifier: z.number().int().min(-20).max(20).default(0),
 	attributes: Coc7eAttributes,
 	skills: z.record(
-		z.string().trim().min(1).max(100),
+		safeSingleLineText({ min: 1, max: 100 }),
 		z.number().int().min(0).max(999),
 	),
 	skillAllocation: z
-		.record(z.string().trim().min(1).max(100), Coc7eSkillAllocationEntry)
+		.record(safeSingleLineText({ min: 1, max: 100 }), Coc7eSkillAllocationEntry)
 		.default({}),
 	customSkills: z
-		.record(z.string().trim().min(1).max(100), Coc7eCustomSkill)
+		.record(safeSingleLineText({ min: 1, max: 100 }), Coc7eCustomSkill)
 		.default({}),
 	weapons: z.array(Coc7eWeapon).max(100).default([]),
 	armor: Coc7eArmor.default(emptyArmor),

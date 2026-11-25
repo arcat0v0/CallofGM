@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { Ability, catalogId, DamageType, Skill } from "./gameplay";
+import { safeMultiLineText, safeSingleLineText } from "../../text-safety";
 import {
 	ARMORS,
 	BACKGROUNDS,
@@ -9,6 +9,7 @@ import {
 	SPELLS,
 	WEAPONS,
 } from "./catalog";
+import { Ability, catalogId, DamageType, Skill } from "./gameplay";
 
 export const AbilityScores = z.strictObject({
 	str: z.number().int().min(1).max(30),
@@ -32,7 +33,7 @@ export const AttackDamage = z.strictObject({
 	type: DamageType,
 });
 export type AttackDamage = z.infer<typeof AttackDamage>;
-const label = z.string().trim().min(1).max(120);
+const label = safeSingleLineText({ min: 1, max: 120 });
 const attackBonus = z.number().int().min(-10).max(30);
 export const CustomAttack = z.strictObject({
 	id: catalogId,
@@ -63,7 +64,7 @@ export const CharacterSheet = z
 		abilities: AbilityScores,
 		classId,
 		className: label.optional(),
-		subclass: z.string().trim().max(120).default(""),
+		subclass: safeSingleLineText({ max: 120 }).default(""),
 		speciesId,
 		speciesName: label.optional(),
 		backgroundId,
@@ -93,7 +94,7 @@ export const CharacterSheet = z
 			.default([]),
 		feats: z.array(label).max(32).default([]),
 		languages: z.array(label).max(32).default([]),
-		notes: z.string().max(8000).default(""),
+		notes: safeMultiLineText({ max: 8000 }).default(""),
 		maxHpOverride: z.number().int().min(1).max(9999).optional(),
 		armorClassOverride: z.number().int().min(1).max(40).optional(),
 		speedOverride: z.number().int().min(0).max(300).optional(),

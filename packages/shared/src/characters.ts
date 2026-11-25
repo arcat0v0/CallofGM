@@ -1,32 +1,44 @@
 import { z } from "zod";
 import { RuleId } from "./rules/rule-id";
 import { CharacterRole } from "./session";
+import { safeMultiLineText, safeSingleLineText } from "./text-safety";
 
 export const CharacterOwnerKind = z.enum(["gm", "pl"]);
 export type CharacterOwnerKind = z.infer<typeof CharacterOwnerKind>;
 
 export const CreateCharacterRequest = z.object({
-	name: z.string().trim().min(1).max(100),
+	name: safeSingleLineText({ min: 1, max: 100 }),
 	kind: CharacterRole,
 	ruleId: RuleId,
-	background: z.string().max(4000).optional(),
+	background: safeMultiLineText({ max: 4000 }).optional(),
 	sheetData: z.unknown().optional(),
 });
 export type CreateCharacterRequest = z.infer<typeof CreateCharacterRequest>;
 
-export const CreatePlCharacterRequest = CreateCharacterRequest.omit({
-	kind: true,
+export const CreatePlCharacterRequest = z.object({
+	name: safeSingleLineText({ min: 1, max: 100 }),
+	ruleId: RuleId,
+	background: safeMultiLineText({ min: 1, max: 4000 }),
+	sheetData: z.unknown().optional(),
 });
 export type CreatePlCharacterRequest = z.infer<typeof CreatePlCharacterRequest>;
 
 export const UpdateCharacterRequest = z.object({
-	name: z.string().trim().min(1).max(100).optional(),
-	background: z.string().max(4000).optional(),
+	name: safeSingleLineText({ min: 1, max: 100 }).optional(),
+	background: safeMultiLineText({ max: 4000 }).optional(),
 	kind: CharacterRole.optional(),
 	sheetData: z.unknown().optional(),
 	expectedVersion: z.number().int().positive().optional(),
 });
 export type UpdateCharacterRequest = z.infer<typeof UpdateCharacterRequest>;
+
+export const UpdatePlCharacterRequest = z.object({
+	name: safeSingleLineText({ min: 1, max: 100 }).optional(),
+	background: safeMultiLineText({ min: 1, max: 4000 }).optional(),
+	sheetData: z.unknown().optional(),
+	expectedVersion: z.number().int().positive().optional(),
+});
+export type UpdatePlCharacterRequest = z.infer<typeof UpdatePlCharacterRequest>;
 
 export const AssignCharacterOwnerRequest = z.object({
 	ownerId: z.string().min(1),
@@ -46,19 +58,19 @@ export const ImportConfirmRequest = z.object({
 export type ImportConfirmRequest = z.infer<typeof ImportConfirmRequest>;
 
 export const AddPortraitRequest = z.object({
-	expressionKey: z.string().trim().min(1).max(64).optional(),
-	label: z.string().trim().max(64).optional(),
-	portraitAssetId: z.string().min(1),
+	expressionKey: safeSingleLineText({ min: 1, max: 64 }).optional(),
+	label: safeSingleLineText({ max: 64 }).optional(),
+	portraitAssetId: safeSingleLineText({ min: 1, max: 120 }),
 	isDefault: z.boolean().default(false),
 	sortOrder: z.number().int().min(0).optional(),
 });
 export type AddPortraitRequest = z.infer<typeof AddPortraitRequest>;
 
 export const UpdatePortraitRequest = z.object({
-	label: z.string().trim().max(64).optional(),
+	label: safeSingleLineText({ max: 64 }).optional(),
 	isDefault: z.boolean().optional(),
 	sortOrder: z.number().int().min(0).optional(),
-	portraitAssetId: z.string().min(1).optional(),
+	portraitAssetId: safeSingleLineText({ min: 1, max: 120 }).optional(),
 });
 export type UpdatePortraitRequest = z.infer<typeof UpdatePortraitRequest>;
 
@@ -166,10 +178,10 @@ export const CharacterHistoryResponse = z.object({
 export type CharacterHistoryResponse = z.infer<typeof CharacterHistoryResponse>;
 
 export const GmPermanentFieldEditRequest = z.object({
-	field: z.string().min(1).max(64),
+	field: safeSingleLineText({ min: 1, max: 64 }),
 	value: z.number().int(),
-	sessionId: z.string().min(1).optional(),
-	reason: z.string().max(500).optional(),
+	sessionId: safeSingleLineText({ min: 1, max: 120 }).optional(),
+	reason: safeMultiLineText({ max: 500 }).optional(),
 	expectedVersion: z.number().int().positive().optional(),
 });
 export type GmPermanentFieldEditRequest = z.infer<
@@ -278,13 +290,18 @@ export type CharacterInviteInfoResponse = z.infer<
 	typeof CharacterInviteInfoResponse
 >;
 
-export const SubmitCharacterRequest = z.object({
-	mode: z.enum(["new", "existing"]),
-	characterId: z.string().min(1).optional(),
-	name: z.string().trim().min(1).max(100).optional(),
-	background: z.string().max(4000).optional(),
-	sheetData: z.unknown().optional(),
-});
+export const SubmitCharacterRequest = z.discriminatedUnion("mode", [
+	z.object({
+		mode: z.literal("existing"),
+		characterId: safeSingleLineText({ min: 1, max: 120 }),
+	}),
+	z.object({
+		mode: z.literal("new"),
+		name: safeSingleLineText({ min: 1, max: 100 }),
+		background: safeMultiLineText({ min: 1, max: 4000 }),
+		sheetData: z.unknown().optional(),
+	}),
+]);
 export type SubmitCharacterRequest = z.infer<typeof SubmitCharacterRequest>;
 
 export const CharacterReviewStatus = z.enum([
@@ -320,7 +337,7 @@ export type CharacterReviewDto = z.infer<typeof CharacterReviewDto>;
 
 export const DecideReviewRequest = z.object({
 	approve: z.boolean(),
-	reason: z.string().max(500).optional(),
+	reason: safeMultiLineText({ max: 500 }).optional(),
 });
 export type DecideReviewRequest = z.infer<typeof DecideReviewRequest>;
 
@@ -379,7 +396,7 @@ export const GmCharacterLibraryQuery = z.object({
 	ownerKind: CharacterOwnerKind.optional(),
 	/** 模组 ID；`none` 表示未关联任何本人模组的人物 */
 	moduleId: z.string().trim().min(1).max(64).optional(),
-	q: z.string().trim().max(100).optional(),
+	q: safeSingleLineText({ max: 100 }).optional(),
 	sort: GmCharacterLibrarySort.default("updated"),
 	limit: z.coerce.number().int().min(1).max(200).default(100),
 	/** 不透明游标（当前实现为偏移量） */

@@ -1,3 +1,7 @@
+import {
+	hasUnsafeMultiLineChars,
+	hasUnsafeSingleLineChars,
+} from "@cogm/shared";
 import type { ReactNode } from "react";
 import { useEffect, useId, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
@@ -179,6 +183,7 @@ export function TextField({
 	value,
 	onChange,
 	required = false,
+	requiredMessage,
 	multiline = false,
 	showValidation = false,
 	maxLength = 100,
@@ -189,6 +194,7 @@ export function TextField({
 	value: string;
 	onChange: (value: string) => void;
 	required?: boolean;
+	requiredMessage?: string;
 	multiline?: boolean;
 	showValidation?: boolean;
 	maxLength?: number;
@@ -196,21 +202,34 @@ export function TextField({
 	className?: string;
 }) {
 	const id = useId();
+	const unsafe = multiline
+		? hasUnsafeMultiLineChars(value)
+		: hasUnsafeSingleLineChars(value);
 	const error =
 		required && value.trim() === ""
-			? t("characterCreation.requiredText")
-			: null;
+			? (requiredMessage ?? t("characterCreation.requiredText"))
+			: unsafe
+				? t("characterCreation.unsafeText")
+				: null;
 	return (
 		<div
 			className={cn("flex min-w-0 flex-col gap-1.5", className)}
 			data-invalid={Boolean(error)}
 		>
-			<Label htmlFor={id}>{label}</Label>
+			<div className="flex items-center gap-1">
+				<Label htmlFor={id}>{label}</Label>
+				{required ? (
+					<span className="text-danger text-label-medium" aria-hidden="true">
+						*
+					</span>
+				) : null}
+			</div>
 			{multiline ? (
 				<Textarea
 					id={id}
 					value={value}
 					aria-label={label}
+					aria-required={required || undefined}
 					aria-invalid={Boolean(error)}
 					maxLength={maxLength}
 					placeholder={placeholder}
@@ -222,13 +241,14 @@ export function TextField({
 					id={id}
 					value={value}
 					aria-label={label}
+					aria-required={required || undefined}
 					aria-invalid={Boolean(error)}
 					maxLength={maxLength}
 					placeholder={placeholder}
 					onInput={(event) => onChange(event.currentTarget.value)}
 				/>
 			)}
-			{error && showValidation ? (
+			{error && (showValidation || unsafe) ? (
 				<p className="text-body-small text-danger">{error}</p>
 			) : null}
 		</div>

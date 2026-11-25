@@ -296,6 +296,7 @@ describe("character creation page", () => {
 			within(view.container).getByRole("textbox", { name: "姓名" }),
 			"新调查员",
 		);
+		setValue(openLegacyBackground(view), "受邀调查员的详细背景。");
 		submitPage(view, "提交给主持人");
 		await confirmSoftWarningsIfShown();
 		await waitFor(() =>
@@ -311,6 +312,7 @@ describe("character creation page", () => {
 		>;
 		expect(payload.mode).toBe("new");
 		expect(payload.name).toBe("新调查员");
+		expect(payload.background).toBe("受邀调查员的详细背景。");
 		expect(payload.sheetData).toMatchObject({ schemaVersion: 2 });
 		await waitFor(() => expect(outcome.value?.mode).toBe("invite"));
 		expect(outcome.value).toEqual({ mode: "invite", characterId: null });
@@ -467,7 +469,7 @@ describe("character creation page", () => {
 	test("does not post if user cancels the soft-warning confirmation dialog", async () => {
 		const harness = setup();
 		cleanupHarness = harness.restore;
-		seedDraft("independent", "未确认者");
+		seedDraft("independent", "未确认者", "未确认的背景");
 		const view = render(
 			<Harness mode="independent" onDone={() => undefined} />,
 		);
@@ -479,6 +481,106 @@ describe("character creation page", () => {
 		expect(harness.calls.some((call) => call.init.method === "POST")).toBe(
 			false,
 		);
+	});
+
+	test("blocks empty, whitespace-only, or unsafe detailed background on CoC 7e and D&D 5r creation", async () => {
+		const harness = setup();
+		cleanupHarness = harness.restore;
+		seedDraft("independent", "背景测试员", "   ");
+		const view = render(
+			<Harness mode="independent" onDone={() => undefined} />,
+		);
+		submitPage(view, "创建人物");
+		expect(
+			within(view.container).getAllByText("请至少填写 1 个字的人物详细背景描述")
+				.length,
+		).toBeGreaterThan(0);
+		expect(harness.calls.some((call) => call.init.method === "POST")).toBe(
+			false,
+		);
+
+		const bgInput = openLegacyBackground(view);
+		setValue(bgInput, "恶意方向\u202E伪装");
+		submitPage(view, "创建人物");
+		expect(
+			within(view.container).getAllByText(
+				"不能包含不可见控制字符或方向伪装字符",
+			).length,
+		).toBeGreaterThan(0);
+		expect(harness.calls.some((call) => call.init.method === "POST")).toBe(
+			false,
+		);
+
+		// 至少填写 1 个字即可通过必填校验
+		setValue(bgInput, "探");
+		submitPage(view, "创建人物");
+		await confirmSoftWarningsIfShown();
+		await waitFor(() =>
+			expect(harness.calls.some((call) => call.init.method === "POST")).toBe(
+				true,
+			),
+		);
+		const cocCall = harness.calls.find((entry) => entry.init.method === "POST");
+		expect(
+			(JSON.parse(String(cocCall?.init.body)) as { background: string })
+				.background,
+		).toBe("探");
+	});
+
+	test("requires detailed background in D&D 5r creation and submits once filled", async () => {
+		const harness = setup();
+		cleanupHarness = harness.restore;
+		const view = render(
+			<Harness mode="independent" onDone={() => undefined} />,
+		);
+		fireEvent.keyDown(
+			within(view.container).getByRole("combobox", { name: "规则系统" }),
+			{ key: "Enter" },
+		);
+		fireEvent.click(
+			await within(document.body).findByRole("option", {
+				name: "Dungeons & Dragons 2024",
+			}),
+		);
+		await waitFor(() =>
+			expect(
+				within(view.container).getByRole("textbox", { name: "详细背景描述" }),
+			).toBeTruthy(),
+		);
+		setValue(
+			within(view.container).getByRole("textbox", { name: "姓名" }),
+			"艾拉",
+		);
+		submitPage(view, "创建人物");
+		expect(
+			within(view.container).getByText("请至少填写 1 个字的人物详细背景描述"),
+		).toBeTruthy();
+		expect(harness.calls.some((call) => call.init.method === "POST")).toBe(
+			false,
+		);
+
+		setValue(
+			within(view.container).getByRole("textbox", { name: "详细背景描述" }),
+			"守卫边疆的游侠。",
+		);
+		submitPage(view, "创建人物");
+		await waitFor(() =>
+			expect(harness.calls.some((call) => call.init.method === "POST")).toBe(
+				true,
+			),
+		);
+		const dndCall = harness.calls.find((entry) => entry.init.method === "POST");
+		expect(
+			JSON.parse(String(dndCall?.init.body)) as {
+				name: string;
+				background: string;
+				ruleId: string;
+			},
+		).toMatchObject({
+			name: "艾拉",
+			background: "守卫边疆的游侠。",
+			ruleId: "dnd5r",
+		});
 	});
 });
 

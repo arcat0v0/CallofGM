@@ -43,6 +43,7 @@ export type RuleCreationEditorProps = {
 	onCharacterNameChange?: (name: string) => void;
 	background?: string;
 	onBackgroundChange?: (background: string) => void;
+	backgroundRequired?: boolean;
 	portraitPreviewUrl?: string | null;
 	portraitPending?: boolean;
 	onPickPortraitFile?: (file: File) => void;

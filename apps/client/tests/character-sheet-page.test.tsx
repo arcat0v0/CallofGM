@@ -213,6 +213,40 @@ describe("character sheet page", () => {
 		}
 	});
 
+	test("pl scope blocks saving when detailed background is cleared to blank", async () => {
+		const char = detail({ background: "原有详细背景" });
+		const { calls, restore } = mockFetch(() => char);
+		try {
+			const view = render(
+				<CharacterSheetPage
+					scope="pl"
+					characterId="char-sheet"
+					onBack={() => undefined}
+				/>,
+			);
+			await view.findByRole("spinbutton", { name: "力量 STR" });
+			fireEvent.mouseDown(view.getByRole("tab", { name: "资料与立绘" }), {
+				button: 0,
+			});
+			const detailedInput = (await view.findByRole("textbox", {
+				name: "详细背景描述",
+			})) as HTMLTextAreaElement;
+			const setter = Object.getOwnPropertyDescriptor(
+				HTMLTextAreaElement.prototype,
+				"value",
+			)?.set;
+			setter?.call(detailedInput, "   ");
+			fireEvent.input(detailedInput);
+			fireEvent.click(view.getByRole("button", { name: "保存" }));
+			expect(
+				view.getByText("请至少填写 1 个字的人物详细背景描述"),
+			).toBeTruthy();
+			expect(calls.some((call) => call.method === "PATCH")).toBe(false);
+		} finally {
+			restore();
+		}
+	});
+
 	test("gm scope renders full read-only CoC 7e sheet, history, and portraits for a player-owned character", async () => {
 		const richSheet = coc7e.normalizeCoc7eSheet({
 			era: "modern",

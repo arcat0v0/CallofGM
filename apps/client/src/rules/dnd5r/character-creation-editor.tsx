@@ -1,4 +1,8 @@
-import { dnd5r } from "@cogm/shared";
+import {
+	dnd5r,
+	hasUnsafeMultiLineChars,
+	hasUnsafeSingleLineChars,
+} from "@cogm/shared";
 import { ImagePlus, Plus, Save, Trash2, UserRound, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -185,6 +189,9 @@ function DndEditor({
 	onWarningsChange,
 	characterName,
 	onCharacterNameChange,
+	background: detailedBackground,
+	onBackgroundChange,
+	backgroundRequired = true,
 	portraitPreviewUrl,
 	portraitPending,
 	onPickPortraitFile,
@@ -206,8 +213,33 @@ function DndEditor({
 	const species = dnd5r.SPECIES[sheet.speciesId];
 	const cls = dnd5r.CLASSES[sheet.classId];
 	const schema = dnd5r.CharacterSheet.safeParse(sheet);
+	const backgroundMissing =
+		Boolean(onBackgroundChange) &&
+		backgroundRequired &&
+		(detailedBackground ?? "").trim() === "";
+	const backgroundUnsafe =
+		Boolean(onBackgroundChange) &&
+		hasUnsafeMultiLineChars(detailedBackground ?? "");
+	const nameUnsafe =
+		Boolean(onCharacterNameChange) &&
+		hasUnsafeSingleLineChars(characterName ?? "");
 	const customIssues = useMemo(() => {
 		const issues: { tab: TabId; message: string }[] = [];
+		if (showValidation && backgroundMissing)
+			issues.push({
+				tab: "concept",
+				message: `${t("characterProfile.detailedBackground")}：${t("characterProfile.detailedBackgroundRequired")}`,
+			});
+		if (backgroundUnsafe)
+			issues.push({
+				tab: "concept",
+				message: `${t("characterProfile.detailedBackground")}：${t("characterCreation.unsafeText")}`,
+			});
+		if (nameUnsafe)
+			issues.push({
+				tab: "concept",
+				message: `${t("characterCreation.name")}：${t("characterCreation.unsafeText")}`,
+			});
 		if (sheet.classId === "custom" && !sheet.className?.trim())
 			issues.push({
 				tab: "concept",
@@ -226,7 +258,14 @@ function DndEditor({
 		if (abilityDraftDirty)
 			issues.push({ tab: "abilities", message: t("dnd5r.abilities.pending") });
 		return issues;
-	}, [sheet, abilityDraftDirty]);
+	}, [
+		sheet,
+		abilityDraftDirty,
+		showValidation,
+		backgroundMissing,
+		backgroundUnsafe,
+		nameUnsafe,
+	]);
 	const issues = useMemo(() => {
 		const result = [...customIssues];
 		if (!schema.success) {
@@ -241,8 +280,19 @@ function DndEditor({
 	}, [customIssues, schema]);
 
 	useEffect(() => {
-		onValidityChange(issues.length === 0);
-	}, [issues.length, onValidityChange]);
+		onValidityChange(
+			issues.length === 0 &&
+				!backgroundMissing &&
+				!backgroundUnsafe &&
+				!nameUnsafe,
+		);
+	}, [
+		issues.length,
+		backgroundMissing,
+		backgroundUnsafe,
+		nameUnsafe,
+		onValidityChange,
+	]);
 	useEffect(() => {
 		onWarningsChange?.(0);
 	}, [onWarningsChange]);
@@ -521,6 +571,19 @@ function DndEditor({
 						maxLength={120}
 						onChange={(value) => onChange({ subclass: value })}
 					/>
+					{onBackgroundChange ? (
+						<TextField
+							label={t("characterProfile.detailedBackground")}
+							value={detailedBackground ?? ""}
+							multiline
+							required={backgroundRequired}
+							requiredMessage={t("characterProfile.detailedBackgroundRequired")}
+							showValidation={showValidation}
+							maxLength={4000}
+							placeholder={t("characterProfile.detailedBackgroundHint")}
+							onChange={onBackgroundChange}
+						/>
+					) : null}
 					<DndSelectField
 						label={t("dnd5r.concept.creature")}
 						value={sheet.creatureId ?? "none"}

@@ -83,6 +83,7 @@ describe("车卡属性生成（CoC 7e 天命 / 购点）", () => {
 			body: JSON.stringify({
 				mode: "new",
 				name: "天命调查员",
+				background: "由天命骰出的调查员",
 				sheetData: { attributes, skills: {} },
 			}),
 		});
@@ -96,7 +97,11 @@ describe("车卡属性生成（CoC 7e 天命 / 购点）", () => {
 		const moduleRes = await api("/api/v1/gm/modules", {
 			method: "POST",
 			token: ctx.gmToken,
-			body: JSON.stringify({ name: "车卡模组", description: "", ruleId: "coc7e" }),
+			body: JSON.stringify({
+				name: "车卡模组",
+				description: "",
+				ruleId: "coc7e",
+			}),
 		});
 		moduleId = ModuleDto.parse(await moduleRes.json()).id;
 	});
@@ -106,12 +111,12 @@ describe("车卡属性生成（CoC 7e 天命 / 购点）", () => {
 	});
 
 	test("链接校验生成方式：天命数量越界被拒绝", async () => {
-		expect(
-			(await createInvite({ method: "destiny", count: 0 })).status,
-		).toBe(400);
-		expect(
-			(await createInvite({ method: "destiny", count: 11 })).status,
-		).toBe(400);
+		expect((await createInvite({ method: "destiny", count: 0 })).status).toBe(
+			400,
+		);
+		expect((await createInvite({ method: "destiny", count: 11 })).status).toBe(
+			400,
+		);
 		expect(
 			(await createInvite({ method: "destiny", fallbackPoints: 299 })).status,
 		).toBe(400);
@@ -166,9 +171,9 @@ describe("车卡属性生成（CoC 7e 天命 / 购点）", () => {
 		expect((await choose(invite.token, 5)).status).toBe(400);
 		const chosen = await choose(invite.token, 2);
 		expect(chosen.status).toBe(200);
-		expect(CharacterCreationRollDto.parse(await chosen.json()).chosenIndex).toBe(
-			2,
-		);
+		expect(
+			CharacterCreationRollDto.parse(await chosen.json()).chosenIndex,
+		).toBe(2);
 		const reselected = await choose(invite.token, 1);
 		expect(reselected.status).toBe(200);
 		expect(

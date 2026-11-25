@@ -23,6 +23,81 @@ import { isAllowedOrigin } from "./platform/security/origin";
 
 const clientDist = resolve(import.meta.dir, "../../client/dist");
 
+/**
+ * 非文件上传请求（JSON / 文本等）的请求体上限（2 MiB）。
+ * 文件上传路由走 multipart/form-data 并由各自业务上限校验；
+ * 此上限防止攻击者借助全局 maxRequestBodySize（1 GiB）向 JSON 接口灌入超大载荷触发内存 DoS。
+ */
+const MAX_NON_UPLOAD_BODY_BYTES = 2 * 1024 * 1024;
+
+const SECURITY_HEADERS = {
+	"X-Content-Type-Options": "nosniff",
+	"Referrer-Policy": "strict-origin-when-cross-origin",
+	"X-Frame-Options": "SAMEORIGIN",
+} as const;
+
+function applySecurityHeaders(set: {
+	headers: Record<string, string | number>;
+}): void {
+	set.headers["X-Content-Type-Options"] =
+		SECURITY_HEADERS["X-Content-Type-Options"];
+	set.headers["Referrer-Policy"] = SECURITY_HEADERS["Referrer-Policy"];
+	set.headers["X-Frame-Options"] = SECURITY_HEADERS["X-Frame-Options"];
+}
+
+function isBinaryUploadContentType(contentType: string): boolean {
+	const normalized = contentType.toLowerCase();
+	return (
+		normalized.includes("multipart/form-data") ||
+		normalized.includes("application/octet-stream")
+	);
+}
+
+async function readBoundedText(
+	request: Request,
+	maxBytes: number,
+): Promise<string> {
+	const declaredLength = Number(request.headers.get("content-length"));
+	if (Number.isFinite(declaredLength) && declaredLength > maxBytes) {
+		throw new AppError("PAYLOAD_TOO_LARGE", "Request body too large", 413);
+	}
+	if (!request.body) {
+		return "";
+	}
+	const reader = request.body.getReader();
+	const chunks: Uint8Array[] = [];
+	let total = 0;
+	try {
+		while (true) {
+			const { done, value } = await reader.read();
+			if (done) {
+				break;
+			}
+			if (!value) {
+				continue;
+			}
+			total += value.byteLength;
+			if (total > maxBytes) {
+				await reader.cancel();
+				throw new AppError("PAYLOAD_TOO_LARGE", "Request body too large", 413);
+			}
+			chunks.push(value);
+		}
+	} finally {
+		reader.releaseLock();
+	}
+	if (total === 0) {
+		return "";
+	}
+	const merged = new Uint8Array(total);
+	let offset = 0;
+	for (const chunk of chunks) {
+		merged.set(chunk, offset);
+		offset += chunk.byteLength;
+	}
+	return new TextDecoder().decode(merged);
+}
+
 function isApiPath(pathname: string): boolean {
 	return pathname === "/api" || pathname.startsWith("/api/");
 }
@@ -34,11 +109,15 @@ async function serveClient(pathname: string): Promise<Response> {
 		requested !== clientDist &&
 		!requested.startsWith(`${clientDist}${sep}`)
 	) {
-		return new Response("Not Found", { status: 404 });
+		return new Response("Not Found", {
+			status: 404,
+			headers: { ...SECURITY_HEADERS },
+		});
 	}
 	const asset = Bun.file(requested);
 	if (relativePath && (await asset.exists())) {
 		const headers: Record<string, string> = {
+			...SECURITY_HEADERS,
 			"Content-Type": asset.type || "application/octet-stream",
 		};
 		// Vite content-hashes everything under assets/ (including the
@@ -49,11 +128,19 @@ async function serveClient(pathname: string): Promise<Response> {
 		return new Response(asset, { headers });
 	}
 	if (relativePath && extname(relativePath))
-		return new Response("Not Found", { status: 404 });
+		return new Response("Not Found", {
+			status: 404,
+			headers: { ...SECURITY_HEADERS },
+		});
 	const index = Bun.file(resolve(clientDist, "index.html"));
 	return (await index.exists())
-		? new Response(index, { headers: { "Cache-Control": "no-cache" } })
-		: new Response("Client build not found", { status: 503 });
+		? new Response(index, {
+				headers: { ...SECURITY_HEADERS, "Cache-Control": "no-cache" },
+			})
+		: new Response("Client build not found", {
+				status: 503,
+				headers: { ...SECURITY_HEADERS },
+			});
 }
 
 function applyCors(
@@ -95,7 +182,69 @@ export function createApp(
 			return { requestId };
 		})
 		.onRequest(({ request, set }) => {
+			applySecurityHeaders(set);
 			applyCors(request, set, container);
+			const method = request.method.toUpperCase();
+			if (
+				method === "POST" ||
+				method === "PUT" ||
+				method === "PATCH" ||
+				method === "DELETE"
+			) {
+				const contentType = request.headers.get("content-type") ?? "";
+				if (!isBinaryUploadContentType(contentType)) {
+					const declaredLength = Number(request.headers.get("content-length"));
+					if (
+						Number.isFinite(declaredLength) &&
+						declaredLength > MAX_NON_UPLOAD_BODY_BYTES
+					) {
+						const requestId =
+							request.headers.get("x-request-id") || crypto.randomUUID();
+						const headers: Record<string, string> = {
+							"Content-Type": "application/json",
+							...SECURITY_HEADERS,
+						};
+						for (const [key, value] of Object.entries(set.headers)) {
+							headers[key] = String(value);
+						}
+						return new Response(
+							JSON.stringify({
+								code: "PAYLOAD_TOO_LARGE",
+								message: "Request body too large",
+								requestId,
+								metadata: {},
+							}),
+							{ status: 413, headers },
+						);
+					}
+				}
+			}
+		})
+		.onParse({ as: "global" }, async ({ request }, contentType) => {
+			const normalized = contentType.toLowerCase();
+			if (
+				normalized.startsWith("application/json") ||
+				normalized.endsWith("+json")
+			) {
+				if (!request.body) {
+					return undefined;
+				}
+				const raw = await readBoundedText(request, MAX_NON_UPLOAD_BODY_BYTES);
+				if (raw.trim() === "") {
+					return null;
+				}
+				try {
+					return JSON.parse(raw) as unknown;
+				} catch {
+					throw new AppError("VALIDATION_FAILED", "Invalid JSON body", 400);
+				}
+			}
+			if (normalized.startsWith("text/")) {
+				if (!request.body) {
+					return undefined;
+				}
+				return readBoundedText(request, MAX_NON_UPLOAD_BODY_BYTES);
+			}
 		})
 		.onBeforeHandle(({ request, requestId }) => {
 			logger.info("http.request", {
@@ -116,22 +265,35 @@ export function createApp(
 					? context.requestId
 					: request.headers.get("x-request-id") || crypto.randomUUID();
 
-			if (error instanceof AppError) {
-				set.status = error.statusCode;
+			const appError =
+				error instanceof AppError
+					? error
+					: error instanceof Error && error.cause instanceof AppError
+						? error.cause
+						: null;
+
+			if (appError) {
+				set.status = appError.statusCode;
 				if (
-					error.statusCode === 429 &&
-					typeof error.metadata.retryAfterSeconds === "number"
+					appError.statusCode === 429 &&
+					typeof appError.metadata.retryAfterSeconds === "number"
 				) {
-					set.headers["Retry-After"] = String(error.metadata.retryAfterSeconds);
+					set.headers["Retry-After"] = String(
+						appError.metadata.retryAfterSeconds,
+					);
 				}
 				return {
-					code: error.code,
-					message: error.message,
+					code: appError.code,
+					message: appError.message,
 					requestId,
-					metadata: error.metadata,
+					metadata: appError.metadata,
 				};
 			}
-			if (code === "VALIDATION" || error instanceof ZodError) {
+			if (
+				code === "VALIDATION" ||
+				code === "PARSE" ||
+				error instanceof ZodError
+			) {
 				set.status = 400;
 				return {
 					code: "VALIDATION_FAILED",

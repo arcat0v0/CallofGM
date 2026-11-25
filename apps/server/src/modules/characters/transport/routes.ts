@@ -2,18 +2,18 @@ import {
 	AddPortraitRequest,
 	ApplyCharacterSyncRequest,
 	AssignCharacterOwnerRequest,
+	CharacterCreationRollDto,
 	CharacterDetailDto,
 	CharacterDto,
 	CharacterHistoryResponse,
 	CharacterImportPreviewResponse,
-	CharacterCreationRollDto,
 	CharacterInviteDto,
 	CharacterInviteInfoResponse,
 	CharacterPortraitDto,
 	CharacterReviewDto,
-	ChooseCreationRollRequest,
 	CharacterSheetContextResponse,
 	CharacterSyncDiffDto,
+	ChooseCreationRollRequest,
 	CreateCharacterInviteRequest,
 	CreateCharacterRequest,
 	CreatePlCharacterRequest,
@@ -27,7 +27,9 @@ import {
 	LinkModuleCharacterRequest,
 	ModuleCharacterLinkDto,
 	RuleId,
+	SubmitCharacterRequest,
 	UpdateCharacterRequest,
+	UpdatePlCharacterRequest,
 	UpdatePortraitRequest,
 } from "@cogm/shared";
 import { Elysia, t } from "elysia";
@@ -42,9 +44,9 @@ import { assertTrustedOrigin } from "@/platform/security/origin";
 import type { CharacterReviewDetail } from "../application/ports";
 import {
 	AddPortraitUseCase,
-	ChooseCreationRollUseCase,
 	ApplyCharacterSyncUseCase,
 	AssignCharacterOwnerUseCase,
+	ChooseCreationRollUseCase,
 	CreateCharacterInviteUseCase,
 	CreateCharacterUseCase,
 	DecideReviewUseCase,
@@ -638,7 +640,7 @@ export function createCharactersRoutes(container: Container) {
 		})
 		.patch("/:id", async ({ actor, params, body }) => {
 			const user = requireUser(actor);
-			const data = parseBody(UpdateCharacterRequest, body);
+			const data = parseBody(UpdatePlCharacterRequest, body);
 			return CharacterDto.parse(
 				await updateCharacter.execute({
 					actorUserId: user.userId,
@@ -797,35 +799,19 @@ export function createCharactersRoutes(container: Container) {
 		)
 		.post("/invites/:token/submissions", async ({ actor, params, body }) => {
 			const user = requireUser(actor);
-			const data = parseBody(
-				{
-					safeParse: (input: unknown) => {
-						const value = input as Record<string, unknown> | null;
-						if (!value || (value.mode !== "new" && value.mode !== "existing")) {
-							return {
-								success: false as const,
-								error: new Error("mode must be new or existing"),
-							};
-						}
-						return {
-							success: true as const,
-							data: value as {
-								mode: "new" | "existing";
-								characterId?: string;
-								name?: string;
-								background?: string;
-								sheetData?: unknown;
-							},
-						};
-					},
-				},
-				body,
-			);
+			const data = parseBody(SubmitCharacterRequest, body);
+			if (data.mode === "existing") {
+				return submitCharacter.execute({
+					token: params.token,
+					userId: user.userId,
+					mode: "existing",
+					characterId: data.characterId,
+				});
+			}
 			return submitCharacter.execute({
 				token: params.token,
 				userId: user.userId,
-				mode: data.mode,
-				characterId: data.characterId,
+				mode: "new",
 				name: data.name,
 				background: data.background,
 				sheetData: data.sheetData,

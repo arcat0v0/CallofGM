@@ -1,6 +1,12 @@
-import type { CharacterDetailDto, CharacterDto } from "@cogm/shared";
+import {
+	type CharacterDetailDto,
+	type CharacterDto,
+	hasUnsafeMultiLineChars,
+	hasUnsafeSingleLineChars,
+} from "@cogm/shared";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { TextField } from "@/components/shared/creation-form";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,7 +20,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
 import { CharacterBackgroundSummary } from "@/features/characters/character-background-summary";
 import type { PortraitBasePath } from "@/features/characters/expression-manager";
 import { ExpressionManager } from "@/features/characters/expression-manager";
@@ -43,6 +48,7 @@ export function CharacterProfileEditorDialog({
 		scope === "gm" ? "/gm/characters" : "/pl/characters";
 	const rule = getRuleComponent(character.ruleId);
 	const canEditCharacter = scope === "pl" || character.ownerKind === "gm";
+	const backgroundRequired = scope === "pl";
 	const extractDetailedBackground = (sheet: unknown, raw: string | undefined) =>
 		rule.capabilities?.sheetBackground?.extractDetailedBackground?.(
 			sheet,
@@ -95,6 +101,27 @@ export function CharacterProfileEditorDialog({
 
 	async function save() {
 		if (saving || !canEditCharacter) {
+			return;
+		}
+		if (!name.trim() || hasUnsafeSingleLineChars(name)) {
+			setShowValidation(true);
+			toast.error(
+				hasUnsafeSingleLineChars(name)
+					? t("characterCreation.unsafeText")
+					: t("characterCreation.requiredText"),
+			);
+			return;
+		}
+		if (
+			(backgroundRequired && !background.trim()) ||
+			hasUnsafeMultiLineChars(background)
+		) {
+			setShowValidation(true);
+			toast.error(
+				hasUnsafeMultiLineChars(background)
+					? t("characterCreation.unsafeText")
+					: t("characterProfile.detailedBackgroundRequired"),
+			);
 			return;
 		}
 		const sheetData = canEditCharacter ? rule.parseSheet(fullSheet) : undefined;
@@ -200,25 +227,31 @@ export function CharacterProfileEditorDialog({
 								sheet={fullSheet}
 							/>
 						) : null}
-						<div className="flex flex-col gap-1.5">
-							<span className="text-md-on-surface-variant text-label-medium">
-								{t("characterProfile.detailedBackground")}
-							</span>
-							{canEditCharacter ? (
-								<Textarea
-									value={background}
-									maxLength={4000}
-									rows={4}
-									placeholder={t("characterProfile.detailedBackgroundHint")}
-									onChange={(event) => setBackground(event.target.value)}
-								/>
-							) : (
+						{canEditCharacter ? (
+							<TextField
+								label={t("characterProfile.detailedBackground")}
+								value={background}
+								multiline
+								required={backgroundRequired}
+								requiredMessage={t(
+									"characterProfile.detailedBackgroundRequired",
+								)}
+								showValidation={showValidation}
+								maxLength={4000}
+								placeholder={t("characterProfile.detailedBackgroundHint")}
+								onChange={setBackground}
+							/>
+						) : (
+							<div className="flex flex-col gap-1.5">
+								<span className="text-md-on-surface-variant text-label-medium">
+									{t("characterProfile.detailedBackground")}
+								</span>
 								<p className="text-foreground-secondary whitespace-pre-wrap rounded-2xl bg-md-surface-container px-4 py-3 text-body-medium select-text">
 									{background.trim() ||
 										t("characterProfile.detailedBackgroundEmpty")}
 								</p>
-							)}
-						</div>
+							</div>
+						)}
 						{canEditCharacter ? (
 							<ExpressionManager
 								characterId={character.id}
@@ -247,6 +280,7 @@ export function CharacterProfileEditorDialog({
 								onChange={setFullSheet}
 								background={background}
 								onBackgroundChange={setBackground}
+								backgroundRequired={backgroundRequired}
 								showValidation={showValidation}
 								onValidityChange={setSheetValid}
 							/>

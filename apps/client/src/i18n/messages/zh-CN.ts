@@ -375,6 +375,7 @@ export const zhCN: Record<string, string> = {
 	"characterCreation.removeEncounter": "移除遭遇 {index}",
 	"characterCreation.newEncounter": "新遭遇",
 	"characterCreation.requiredText": "此项不能为空",
+	"characterCreation.unsafeText": "不能包含不可见控制字符或方向伪装字符",
 	"characterCreation.tabsNav": "调查员档案分页",
 	"characterCreation.tabIdentity": "身份·属性",
 	"characterCreation.tabOccupation": "职业",
@@ -2206,7 +2207,9 @@ export const zhCN: Record<string, string> = {
 	"characterProfile.backgroundStructuredEmpty": "尚未填写结构化背景栏位。",
 	"characterProfile.detailedBackground": "详细背景描述",
 	"characterProfile.detailedBackgroundHint":
-		"填写人物生平、经历、性格动机与补充设定（独立保存，不会自动生成或覆盖）。",
+		"必填（至少 1 个字）。填写人物生平、经历、性格动机与补充设定（独立保存，不会自动生成或覆盖）。",
+	"characterProfile.detailedBackgroundRequired":
+		"请至少填写 1 个字的人物详细背景描述",
 	"characterProfile.detailedBackgroundEmpty": "尚未填写详细背景描述。",
 	"characterProfile.backgroundEmpty": "尚未填写背景。",
 	"characterProfile.profileSectionHint":

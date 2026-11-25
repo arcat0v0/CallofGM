@@ -1,6 +1,8 @@
 import {
 	CharacterCreationRollDto,
 	type CharacterInviteInfoResponse,
+	hasUnsafeMultiLineChars,
+	hasUnsafeSingleLineChars,
 	type RuleMetadata,
 } from "@cogm/shared";
 import {
@@ -281,9 +283,11 @@ export function CharacterCreationPageView({
 
 	const rule = getRuleComponent(ruleId || undefined);
 	const CreationEditor = rule.creationEditor;
-	const nameError = name.trim() === "";
+	const nameError = name.trim() === "" || hasUnsafeSingleLineChars(name);
+	const backgroundError =
+		background.trim() === "" || hasUnsafeMultiLineChars(background);
 	const ruleError = ruleId.trim() === "";
-	const valid = !nameError && !ruleError && ruleValid;
+	const valid = !nameError && !backgroundError && !ruleError && ruleValid;
 
 	function pickPortraitFile(file: File) {
 		setCropFileName(file.name || "portrait.png");
@@ -608,6 +612,7 @@ export function CharacterCreationPageView({
 						onCharacterNameChange={updateName}
 						background={background}
 						onBackgroundChange={updateBackground}
+						backgroundRequired
 						portraitPreviewUrl={pendingPortraitUrl}
 						portraitPending={Boolean(pendingPortraitBlob)}
 						onPickPortraitFile={pickPortraitFile}

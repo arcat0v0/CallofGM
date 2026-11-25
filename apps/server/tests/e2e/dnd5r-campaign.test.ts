@@ -26,8 +26,8 @@ import {
 	sendCommand,
 	setupTestApp,
 	stopServer,
-	testAppConfig,
 	type TestWebSocket,
+	testAppConfig,
 } from "../helpers/setup";
 
 async function snapshot(socket: TestWebSocket) {
@@ -101,6 +101,7 @@ test("a player-created 5R character joins by review and plays through rewind and
 			await request("/pl/characters", pcToken, "POST", {
 				name: "Rook",
 				ruleId: "dnd5r",
+				background: "Veteran scout from the northern border.",
 				sheetData: base,
 			}),
 		);

@@ -11,6 +11,7 @@ import {
 } from "@cogm/shared";
 import { createApp } from "@/app";
 import {
+	linkModuleCharacterDirect,
 	listenTestApp,
 	loginToken,
 	seedPlayers,
@@ -18,7 +19,6 @@ import {
 	stopServer,
 	type TestContext,
 	type TestServer,
-	linkModuleCharacterDirect,
 } from "../helpers/setup";
 
 const PASSWORD = "invite-flow-password";
@@ -115,6 +115,7 @@ describe("Invite, submit and review chain", () => {
 			body: JSON.stringify({
 				name,
 				ruleId: "coc7e",
+				background: `${name}的详细背景`,
 				sheetData: {
 					attributes: {
 						str: 50,
@@ -322,6 +323,7 @@ describe("Invite, submit and review chain", () => {
 			body: JSON.stringify({
 				name,
 				ruleId: "coc7e",
+				background: `${name}的详细背景`,
 				sheetData: {
 					attributes: {
 						str: 50,
@@ -556,7 +558,11 @@ describe("Invite, submit and review chain", () => {
 		const submit = await api(`/api/v1/pl/invites/${token}/submissions`, {
 			method: "POST",
 			token: plToken,
-			body: JSON.stringify({ mode: "new", name: "过期提交" }),
+			body: JSON.stringify({
+				mode: "new",
+				name: "过期提交",
+				background: "已撤销链接的背景",
+			}),
 		});
 		expect(submit.status).toBeGreaterThanOrEqual(400);
 	});
@@ -894,7 +900,7 @@ describe("Invite, submit and review chain", () => {
 				body: JSON.stringify({
 					mode: "new",
 					name: "非法提交人物",
-					background: "",
+					background: "合法背景文本",
 					sheetData: invalid,
 				}),
 			},

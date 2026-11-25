@@ -21,6 +21,7 @@ export * from "./site-settings";
 export * from "./snapshot";
 export * from "./stage";
 export * from "./templates";
+export * from "./text-safety";
 export * from "./themes";
 export * from "./version";
 export * from "./voice";

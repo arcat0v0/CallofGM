@@ -10,6 +10,7 @@ import {
 	sessionHistoryEvents,
 } from "@/platform/db/schema";
 import {
+	linkModuleCharacterDirect,
 	listenTestApp,
 	loginToken,
 	seedPlayers,
@@ -17,7 +18,6 @@ import {
 	stopServer,
 	type TestContext,
 	type TestServer,
-	linkModuleCharacterDirect,
 } from "../helpers/setup";
 
 const PASSWORD = "pl-flow-password";
@@ -145,7 +145,7 @@ describe("Character sheet context and v2 sheet fields", () => {
 			body: JSON.stringify({
 				name: "安妮·医师",
 				ruleId: "coc7e",
-				background: "",
+				background: "社区诊所医师",
 				sheetData: {
 					attributes: attrs,
 					skills: {},

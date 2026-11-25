@@ -1,8 +1,10 @@
-import type {
-	CharacterDetailDto,
-	CharacterDto,
-	CharacterHistoryResponse,
-	CharacterSheetContextResponse,
+import {
+	type CharacterDetailDto,
+	type CharacterDto,
+	type CharacterHistoryResponse,
+	type CharacterSheetContextResponse,
+	hasUnsafeMultiLineChars,
+	hasUnsafeSingleLineChars,
 } from "@cogm/shared";
 import { ChevronLeft, Save, UserRound } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
@@ -118,6 +120,7 @@ function CharacterSheetView({
 }) {
 	const rule = getRuleComponent(character.ruleId);
 	const canEditCharacter = scope === "pl" || character.ownerKind === "gm";
+	const backgroundRequired = scope === "pl";
 	const extractDetailedBackground = useCallback(
 		(sheet: unknown, raw: string | undefined) =>
 			rule.capabilities?.sheetBackground?.extractDetailedBackground?.(
@@ -207,6 +210,27 @@ function CharacterSheetView({
 
 	async function save() {
 		if (saving || !canEditCharacter) {
+			return;
+		}
+		if (!name.trim() || hasUnsafeSingleLineChars(name)) {
+			setShowValidation(true);
+			toast.error(
+				hasUnsafeSingleLineChars(name)
+					? t("characterCreation.unsafeText")
+					: t("characterCreation.requiredText"),
+			);
+			return;
+		}
+		if (
+			(backgroundRequired && !background.trim()) ||
+			hasUnsafeMultiLineChars(background)
+		) {
+			setShowValidation(true);
+			toast.error(
+				hasUnsafeMultiLineChars(background)
+					? t("characterCreation.unsafeText")
+					: t("characterProfile.detailedBackgroundRequired"),
+			);
 			return;
 		}
 		const sheetData = canEditCharacter ? rule.parseSheet(fullSheet) : undefined;
@@ -352,6 +376,7 @@ function CharacterSheetView({
 								onChange={setFullSheet}
 								background={background}
 								onBackgroundChange={setBackground}
+								backgroundRequired={backgroundRequired}
 								showValidation={showValidation}
 								onValidityChange={setSheetValid}
 								sheetContext={sheetContext}
@@ -415,6 +440,11 @@ function CharacterSheetView({
 									label={t("characterProfile.detailedBackground")}
 									value={background}
 									multiline
+									required={backgroundRequired}
+									requiredMessage={t(
+										"characterProfile.detailedBackgroundRequired",
+									)}
+									showValidation={showValidation}
 									maxLength={4000}
 									placeholder={t("characterProfile.detailedBackgroundHint")}
 									onChange={setBackground}

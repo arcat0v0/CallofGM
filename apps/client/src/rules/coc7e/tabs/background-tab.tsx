@@ -23,12 +23,16 @@ export function Coc7eBackgroundTab({
 	onChange,
 	background,
 	onBackgroundChange,
+	backgroundRequired = true,
+	showValidation = false,
 	sheetContext,
 }: {
 	sheet: Sheet;
 	onChange: (patch: Partial<Sheet>) => void;
 	background?: string;
 	onBackgroundChange?: (value: string) => void;
+	backgroundRequired?: boolean;
+	showValidation?: boolean;
 	sheetContext?: CharacterSheetContextResponse | null;
 }) {
 	const bg = sheet.backgroundProfile;
@@ -104,6 +108,20 @@ export function Coc7eBackgroundTab({
 			title={t("characterCreation.backgroundTitle")}
 			description={t("characterCreation.backgroundPageHint")}
 		>
+			{onBackgroundChange ? (
+				<TextField
+					label={t("characterProfile.detailedBackground")}
+					value={background ?? ""}
+					multiline
+					required={backgroundRequired}
+					requiredMessage={t("characterProfile.detailedBackgroundRequired")}
+					showValidation={showValidation}
+					maxLength={4000}
+					placeholder={t("characterProfile.detailedBackgroundHint")}
+					onChange={onBackgroundChange}
+				/>
+			) : null}
+
 			{bg.keyConnection === null ? (
 				<div
 					role="status"
@@ -304,17 +322,6 @@ export function Coc7eBackgroundTab({
 				placeholder={t("characterCreation.keyConnectionStoryHint")}
 				onChange={(keyConnectionStory) => updateBg({ keyConnectionStory })}
 			/>
-
-			{onBackgroundChange ? (
-				<TextField
-					label={t("characterProfile.detailedBackground")}
-					value={background ?? ""}
-					multiline
-					maxLength={4000}
-					placeholder={t("characterProfile.detailedBackgroundHint")}
-					onChange={onBackgroundChange}
-				/>
-			) : null}
 		</SheetSection>
 	);
 }

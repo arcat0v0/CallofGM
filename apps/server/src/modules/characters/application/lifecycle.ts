@@ -1,6 +1,7 @@
 import { ModuleNotFoundError } from "@/modules/catalog";
 import { hashToken, issueOpaqueToken } from "@/modules/identity";
 import { SessionNotFoundError } from "@/modules/sessions";
+import { AppError } from "@/platform/errors/app-error";
 import type { Clock, IdGenerator, RandomSource } from "@/platform/ports";
 import {
 	findCharacterCreationCapability,
@@ -296,6 +297,15 @@ export class SubmitCharacterUseCase {
 			}
 			characterId = character.id;
 		} else {
+			const trimmedName = (input.name ?? "").trim();
+			const trimmedBackground = (input.background ?? "").trim();
+			if (!trimmedName || !trimmedBackground) {
+				throw new AppError(
+					"VALIDATION_FAILED",
+					"Character name and detailed background are required",
+					400,
+				);
+			}
 			const ruleSystem = this.ruleRegistry.get(targetRuleId);
 			const sheet = ruleSystem.characterSheetSchema.parse(
 				input.sheetData ?? ruleSystem.createEmptySheet(),
@@ -313,8 +323,8 @@ export class SubmitCharacterUseCase {
 				id: characterId,
 				ownerId: input.userId,
 				ownerKind: "pl",
-				name: input.name ?? "未命名调查员",
-				background: input.background ?? "",
+				name: trimmedName,
+				background: trimmedBackground,
 				kind: "pc",
 				ruleId: targetRuleId,
 				sheetJson,
@@ -332,8 +342,8 @@ export class SubmitCharacterUseCase {
 				characterId,
 				version: 1,
 				sheetVersion: 1,
-				name: input.name ?? "未命名调查员",
-				background: input.background ?? "",
+				name: trimmedName,
+				background: trimmedBackground,
 				sheetJson,
 				actorUserId: input.userId,
 				reason: "submitted",

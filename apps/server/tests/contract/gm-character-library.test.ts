@@ -149,14 +149,22 @@ describe("GM 人物库（按规则浏览）与人物访问隔离", () => {
 		const plRes = await api("/api/v1/pl/characters", {
 			method: "POST",
 			token: plToken,
-			body: JSON.stringify({ name: "玩家调查员", ruleId: "coc7e" }),
+			body: JSON.stringify({
+				name: "玩家调查员",
+				ruleId: "coc7e",
+				background: "来自波士顿的调查员",
+			}),
 		});
 		expect(plRes.status).toBe(200);
 		ids.plLinked = (await json<{ id: string }>(plRes)).id;
 		const plRes2 = await api("/api/v1/pl/characters", {
 			method: "POST",
 			token: plToken,
-			body: JSON.stringify({ name: "未关联玩家人物", ruleId: "coc7e" }),
+			body: JSON.stringify({
+				name: "未关联玩家人物",
+				ruleId: "coc7e",
+				background: "尚未加入模组的调查员",
+			}),
 		});
 		ids.plUnlinked = (await json<{ id: string }>(plRes2)).id;
 
@@ -343,6 +351,7 @@ describe("GM 人物库（按规则浏览）与人物访问隔离", () => {
 				body: JSON.stringify({
 					mode: "new",
 					name: "团内审核调查员",
+					background: "应邀赴约的记者",
 				}),
 			},
 		);
