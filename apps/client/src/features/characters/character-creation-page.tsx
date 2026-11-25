@@ -129,7 +129,9 @@ export function CharacterCreationPageView({
 				}
 			: null,
 	);
-	const [inviteLoading, setInviteLoading] = useState(mode === "invite" && !inviteRuleId);
+	const [inviteLoading, setInviteLoading] = useState(
+		mode === "invite" && !inviteRuleId,
+	);
 	const [inviteError, setInviteError] = useState(false);
 	const [errorMessage, setErrorMessage] = useState("");
 	const [rollPending, setRollPending] = useState(false);
@@ -342,9 +344,7 @@ export function CharacterCreationPageView({
 			return;
 		}
 		setWarningConfirmOpen(false);
-		const serializedBackground =
-			rule.capabilities?.sheetBackground?.serialize(parsed, background) ??
-			background;
+		const trimmedBackground = background.trim();
 		setPending(true);
 		setErrorMessage("");
 		try {
@@ -353,7 +353,7 @@ export function CharacterCreationPageView({
 					method: "POST",
 					body: JSON.stringify({
 						name: name.trim(),
-						background: serializedBackground,
+						background: trimmedBackground,
 						ruleId,
 						sheetData: parsed,
 					}),
@@ -372,7 +372,7 @@ export function CharacterCreationPageView({
 						body: JSON.stringify({
 							mode: "new",
 							name: name.trim(),
-							background: serializedBackground,
+							background: trimmedBackground,
 							sheetData: parsed,
 						}),
 					},

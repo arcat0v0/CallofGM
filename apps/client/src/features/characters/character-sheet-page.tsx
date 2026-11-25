@@ -118,12 +118,27 @@ function CharacterSheetView({
 }) {
 	const rule = getRuleComponent(character.ruleId);
 	const canEditCharacter = scope === "pl" || character.ownerKind === "gm";
-	const [name, setName] = useState(character.name);
-	const [background, setBackground] = useState(character.background);
-	const [version, setVersion] = useState(character.version);
-	const [fullSheet, setFullSheet] = useState<unknown>(
-		rule.parseSheetJson(character.sheetJson) ?? rule.createEmptySheet(),
+	const extractDetailedBackground = useCallback(
+		(sheet: unknown, raw: string | undefined) =>
+			rule.capabilities?.sheetBackground?.extractDetailedBackground?.(
+				sheet,
+				raw ?? "",
+			) ??
+			raw ??
+			"",
+		[rule],
 	);
+	const [name, setName] = useState(character.name);
+	const [fullSheet, setFullSheet] = useState<unknown>(
+		() => rule.parseSheetJson(character.sheetJson) ?? rule.createEmptySheet(),
+	);
+	const [background, setBackground] = useState(() =>
+		extractDetailedBackground(
+			rule.parseSheetJson(character.sheetJson) ?? rule.createEmptySheet(),
+			character.background,
+		),
+	);
+	const [version, setVersion] = useState(character.version);
 	const [activeMainTab, setActiveMainTab] = useState("sheet");
 	const [showValidation, setShowValidation] = useState(false);
 	const [sheetValid, setSheetValid] = useState(true);
@@ -133,18 +148,19 @@ function CharacterSheetView({
 	const [history, setHistory] = useState<CharacterHistoryResponse | null>(null);
 
 	useEffect(() => {
+		const parsed =
+			rule.parseSheetJson(character.sheetJson) ?? rule.createEmptySheet();
 		setName(character.name);
-		setBackground(character.background);
+		setFullSheet(parsed);
+		setBackground(extractDetailedBackground(parsed, character.background));
 		setVersion(character.version);
 		setShowValidation(false);
-		setFullSheet(
-			rule.parseSheetJson(character.sheetJson) ?? rule.createEmptySheet(),
-		);
 	}, [
 		character.name,
 		character.background,
 		character.version,
 		character.sheetJson,
+		extractDetailedBackground,
 		rule,
 	]);
 
@@ -185,11 +201,9 @@ function CharacterSheetView({
 		character.portraits.find((portrait) => portrait.isDefault === 1) ??
 		character.portraits[0];
 	const portraitUrl = mediaUrl(defaultPortrait?.portraitAssetId);
-	const backgroundIsDerived = rule.backgroundSource === "sheet";
-	const backgroundSummary = backgroundIsDerived
-		? (rule.capabilities?.sheetBackground?.serialize(fullSheet, background) ??
-			background)
-		: background;
+	const hasStructuredBackground = Boolean(
+		rule.capabilities?.sheetBackground?.renderSummary,
+	);
 
 	async function save() {
 		if (saving || !canEditCharacter) {
@@ -201,13 +215,6 @@ function CharacterSheetView({
 			toast.error(t("characterCreation.ruleValidationSummary"));
 			return;
 		}
-		const serializedBackground =
-			sheetData === undefined
-				? background
-				: (rule.capabilities?.sheetBackground?.serialize(
-						sheetData,
-						background,
-					) ?? background);
 		setSaving(true);
 		try {
 			const next = await api<CharacterDto>(
@@ -216,7 +223,7 @@ function CharacterSheetView({
 					method: "PATCH",
 					body: JSON.stringify({
 						name: name.trim(),
-						background: serializedBackground,
+						background: background.trim(),
 						...(sheetData === undefined ? {} : { sheetData }),
 						expectedVersion: version,
 					}),
@@ -343,6 +350,8 @@ function CharacterSheetView({
 								ruleId={character.ruleId}
 								sheet={fullSheet}
 								onChange={setFullSheet}
+								background={background}
+								onBackgroundChange={setBackground}
 								showValidation={showValidation}
 								onValidityChange={setSheetValid}
 								sheetContext={sheetContext}
@@ -395,23 +404,29 @@ function CharacterSheetView({
 									</div>
 								</div>
 							</div>
-							{backgroundIsDerived ? (
-								<CharacterBackgroundSummary background={backgroundSummary} />
-							) : canEditCharacter ? (
+							{hasStructuredBackground ? (
+								<CharacterBackgroundSummary
+									ruleId={character.ruleId}
+									sheet={fullSheet}
+								/>
+							) : null}
+							{canEditCharacter ? (
 								<TextField
-									label={t("characterProfile.background")}
+									label={t("characterProfile.detailedBackground")}
 									value={background}
 									multiline
 									maxLength={4000}
+									placeholder={t("characterProfile.detailedBackgroundHint")}
 									onChange={setBackground}
 								/>
 							) : (
 								<div className="flex min-w-0 flex-col gap-1.5">
 									<span className="text-md-on-surface-variant text-label-medium">
-										{t("characterProfile.background")}
+										{t("characterProfile.detailedBackground")}
 									</span>
 									<p className="text-foreground-secondary whitespace-pre-wrap rounded-2xl bg-md-surface-container px-4 py-3 text-body-medium select-text">
-										{background.trim() || t("characterProfile.backgroundEmpty")}
+										{background.trim() ||
+											t("characterProfile.detailedBackgroundEmpty")}
 									</p>
 								</div>
 							)}

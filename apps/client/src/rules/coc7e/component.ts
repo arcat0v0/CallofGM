@@ -1,6 +1,7 @@
 import { coc7e } from "@cogm/shared";
 import { t } from "@/i18n";
 import type { RuleComponent, RuleStateBar } from "../types";
+import { Coc7eBackgroundSummaryView } from "./background-summary";
 import { Coc7eCharacterCreationEditor } from "./character-creation-editor";
 import { CocCheckCard } from "./check-card";
 import { CocCheckPanel } from "./check-panel";
@@ -139,16 +140,9 @@ export const coc7eComponent: RuleComponent = {
 			},
 		},
 		sheetBackground: {
-			serialize: (sheet, fallback) => {
-				const parsed = parseCocSheet(sheet);
-				return parsed
-					? coc7e.serializeCoc7eBackground(
-							parsed.profile,
-							parsed.backgroundProfile,
-							fallback,
-						)
-					: fallback;
-			},
+			renderSummary: Coc7eBackgroundSummaryView,
+			extractDetailedBackground: (_sheet, rawBackground) =>
+				coc7e.stripSerializedCoc7eBackground(rawBackground),
 		},
 	},
 	parseSheet: parseCocSheet,

@@ -400,11 +400,14 @@ function isCoc7eBackgroundHeaderLine(line: string): boolean {
 	if (closing < 0) {
 		return false;
 	}
-	const label = line.slice(1, closing).replace(/ ★关键链接$/, "").trim();
+	const label = line
+		.slice(1, closing)
+		.replace(/ ★关键链接$/, "")
+		.trim();
 	return COC7E_BACKGROUND_SECTION_HEADERS.has(label);
 }
 
-function stripSerializedBackground(fallback: string): string {
+export function stripSerializedCoc7eBackground(fallback: string): string {
 	const lines = fallback.split("\n");
 	const firstHeader = lines.findIndex((line) =>
 		isCoc7eBackgroundHeaderLine(line.trim()),
@@ -470,7 +473,7 @@ export function serializeCoc7eBackground(
 		);
 	}
 	if (lines.length === 0) {
-		return stripSerializedBackground(fallbackBackground).slice(0, 4000);
+		return stripSerializedCoc7eBackground(fallbackBackground).slice(0, 4000);
 	}
 	return lines.join("\n").slice(0, 4000);
 }

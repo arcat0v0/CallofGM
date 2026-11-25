@@ -7,9 +7,7 @@ import {
 	Search,
 	Shield,
 	Sparkles,
-	Star,
 	Swords,
-	Users,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { SheetSection } from "@/components/shared/creation-form";
@@ -24,6 +22,7 @@ import { t } from "@/i18n";
 import { formatStamp } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { RuleSheetViewerProps } from "../types";
+import { Coc7eBackgroundSummaryView } from "./background-summary";
 import { cocAttributeEntries, deriveStats, parseCocSheet } from "./sheet-data";
 
 const ASSET_CATEGORY_LABELS: Record<
@@ -198,36 +197,9 @@ export function Coc7eSheetViewer({
 		]),
 	);
 
-	const bg = sheet.backgroundProfile;
-	const backgroundEntries = coc7e.COC7E_BACKGROUND_FIELD_META.map((field) => {
-		const raw =
-			field.key === "appearanceSummary"
-				? bg.appearanceSummary || sheet.profile.appearance
-				: bg[field.key];
-		return {
-			key: field.key,
-			label: t(`characterCreation.bgField.${field.key}`),
-			value: raw.trim(),
-			isKey: bg.keyConnection === field.key,
-		};
-	});
-	const hasStructuredBackground = backgroundEntries.some(
-		(entry) => entry.value.length > 0,
-	);
-	const partners =
-		bg.partners.length > 0
-			? bg.partners
-			: bg.partnerName.trim()
-				? [
-						{
-							id: "legacy",
-							characterId: bg.partnerCharacterId,
-							name: bg.partnerName,
-							note: "",
-						},
-					]
-				: [];
-
+	const detailedBackground = coc7e
+		.stripSerializedCoc7eBackground(background)
+		.trim();
 	const growthRows =
 		history && history.growth.length > 0
 			? history.growth
@@ -750,85 +722,29 @@ export function Coc7eSheetViewer({
 
 			<SheetSection
 				title="背景故事与重要关系"
-				description="展示调查员全部八项背景栏位、关键链接及同伴关系。"
+				description="展示调查员八项结构化背景、关键链接、同伴关系与独立书写的详细背景描述。"
 			>
-				{hasStructuredBackground ? (
-					<div className="grid gap-3 md:grid-cols-2">
-						{backgroundEntries.map((entry) => (
-							<div
-								key={entry.key}
-								className={cn(
-									"flex flex-col gap-1.5 rounded-2xl p-4",
-									entry.isKey
-										? "border-dossier-gold bg-md-surface-container-high border"
-										: "bg-md-surface-container",
-								)}
-							>
-								<div className="flex items-center justify-between gap-2">
-									<span className="text-foreground text-title-small-emph">
-										{entry.label}
-									</span>
-									{entry.isKey ? (
-										<Badge variant="soft" tone="accent" size="sm">
-											<Star className="size-3" />
-											关键链接
-										</Badge>
-									) : null}
-								</div>
-								<p className="text-foreground-secondary whitespace-pre-wrap text-body-medium select-text">
-									{entry.value || "未填写"}
-								</p>
-							</div>
-						))}
-					</div>
-				) : background.trim() ? (
-					<p className="text-foreground-secondary whitespace-pre-wrap rounded-2xl bg-md-surface-container p-4 text-body-medium select-text">
-						{background}
+				<Coc7eBackgroundSummaryView
+					sheet={sheet}
+					includeIdentity={false}
+					showEmptyFields
+				/>
+				<div className="flex flex-col gap-1.5 rounded-2xl bg-md-surface-container p-4">
+					<span className="text-foreground text-title-small-emph">
+						{t("characterProfile.detailedBackground")}
+					</span>
+					<p
+						className={cn(
+							"whitespace-pre-wrap text-body-medium select-text",
+							detailedBackground
+								? "text-foreground-secondary"
+								: "text-foreground-tertiary",
+						)}
+					>
+						{detailedBackground ||
+							t("characterProfile.detailedBackgroundEmpty")}
 					</p>
-				) : (
-					<p className="text-foreground-tertiary text-body-medium">
-						尚未填写背景内容。
-					</p>
-				)}
-
-				{bg.keyConnectionStory.trim() ? (
-					<div className="rounded-2xl bg-md-surface-container-high/70 p-4">
-						<span className="text-foreground text-label-large-emph">
-							关键链接说明
-						</span>
-						<p className="text-foreground-secondary mt-1 whitespace-pre-wrap text-body-medium select-text">
-							{bg.keyConnectionStory}
-						</p>
-					</div>
-				) : null}
-
-				{partners.length > 0 ? (
-					<div className="flex flex-col gap-2.5 rounded-2xl bg-md-surface-container p-4">
-						<div className="flex items-center gap-2">
-							<Users className="text-foreground-secondary size-4" />
-							<h3 className="text-foreground text-title-small-emph">
-								调查员同伴（{partners.length}）
-							</h3>
-						</div>
-						<div className="grid gap-2 sm:grid-cols-2">
-							{partners.map((partner) => (
-								<div
-									key={partner.id}
-									className="rounded-xl bg-md-surface-container-high/60 px-3.5 py-2.5"
-								>
-									<p className="text-foreground text-body-medium-emph select-text">
-										{partner.name || "未命名同伴"}
-									</p>
-									{partner.note ? (
-										<p className="text-foreground-secondary mt-0.5 whitespace-pre-wrap text-body-small select-text">
-											{partner.note}
-										</p>
-									) : null}
-								</div>
-							))}
-						</div>
-					</div>
-				) : null}
+				</div>
 			</SheetSection>
 
 			{hasOccultOrExperience ? (

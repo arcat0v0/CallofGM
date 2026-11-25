@@ -54,11 +54,6 @@ export function Coc7eBackgroundTab({
 				? { ...sheet.profile, appearance: patch.appearanceSummary }
 				: sheet.profile;
 		onChange({ backgroundProfile: nextBg, profile: nextProfile });
-		if (onBackgroundChange) {
-			onBackgroundChange(
-				coc7e.serializeCoc7eBackground(nextProfile, nextBg, background ?? ""),
-			);
-		}
 	}
 
 	function updatePartners(next: Partner[]) {
@@ -103,12 +98,6 @@ export function Coc7eBackgroundTab({
 		}
 		return bg[key];
 	}
-
-	const synthesized = coc7e.serializeCoc7eBackground(
-		sheet.profile,
-		bg,
-		background ?? "",
-	);
 
 	return (
 		<SheetSection
@@ -317,20 +306,14 @@ export function Coc7eBackgroundTab({
 			/>
 
 			{onBackgroundChange ? (
-				<details className="bg-md-surface-container rounded-xl px-4 py-3">
-					<summary className="text-label-large-emph text-foreground cursor-pointer">
-						{t("characterCreation.legacyBackgroundTitle")}
-					</summary>
-					<div className="mt-3 flex flex-col gap-2">
-						<Textarea
-							aria-label={t("characterCreation.background")}
-							value={background ?? synthesized}
-							rows={4}
-							maxLength={4000}
-							onInput={(event) => onBackgroundChange(event.currentTarget.value)}
-						/>
-					</div>
-				</details>
+				<TextField
+					label={t("characterProfile.detailedBackground")}
+					value={background ?? ""}
+					multiline
+					maxLength={4000}
+					placeholder={t("characterProfile.detailedBackgroundHint")}
+					onChange={onBackgroundChange}
+				/>
 			) : null}
 		</SheetSection>
 	);

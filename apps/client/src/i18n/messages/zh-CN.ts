@@ -512,7 +512,7 @@ export const zhCN: Record<string, string> = {
 	"characterCreation.skillLedgerLegend":
 		"职业点与兴趣点分开记账；超支会标红拦截，未分完仅作提醒。",
 	"characterCreation.backgroundPageHint":
-		"填写调查员背景 8 格，并从中选出 1 项作为「关键链接」。保存时会自动同步为人物档案简介。",
+		"填写调查员背景 8 格、关键链接、同伴关系与独立的人物详细背景描述。",
 	"characterCreation.keyConnectionMissingBanner":
 		"还没选择「关键链接」——规则书建议从 8 项背景中标出最重要的一项。",
 	"characterCreation.setKeyConnection": "设为关键链接",
@@ -2202,16 +2202,17 @@ export const zhCN: Record<string, string> = {
 		"该人物属于玩家。主持人只能通过「永久修正」修改终生属性并留下审计，完整人物卡请由玩家本人编辑。",
 	"characterProfile.name": "姓名",
 	"characterProfile.background": "背景",
-	"characterProfile.backgroundSummary": "背景摘要",
-	"characterProfile.backgroundAutoSynced": "自动同步",
-	"characterProfile.backgroundDerivedHint":
-		"背景摘要由「完整人物卡 → 背景」自动生成；要修改内容请到人物卡中编辑。",
-	"characterProfile.backgroundEmpty":
-		"尚未填写背景。可在「完整人物卡 → 背景」中补充调查员经历、信念与重要关系。",
+	"characterProfile.backgroundStructuredTitle": "人物卡背景设定",
+	"characterProfile.backgroundStructuredEmpty": "尚未填写结构化背景栏位。",
+	"characterProfile.detailedBackground": "详细背景描述",
+	"characterProfile.detailedBackgroundHint":
+		"填写人物生平、经历、性格动机与补充设定（独立保存，不会自动生成或覆盖）。",
+	"characterProfile.detailedBackgroundEmpty": "尚未填写详细背景描述。",
+	"characterProfile.backgroundEmpty": "尚未填写背景。",
 	"characterProfile.profileSectionHint":
-		"维护对外展示的姓名和立绘；背景摘要由规则人物卡生成，不需要重复填写。",
+		"维护对外展示的姓名、详细背景描述与立绘；规则专属背景栏位可在「完整人物卡」中编辑。",
 	"characterProfile.profileReadOnlyHint":
-		"该人物的资料由玩家维护；主持人可在这里查看姓名、背景摘要与立绘。",
+		"该人物的资料由玩家维护；主持人可在这里查看姓名、背景设定、详细背景描述与立绘。",
 	"characterProfile.sheetHint":
 		"在这里维护规则数值与背景细节；姓名和立绘请回「资料与立绘」修改。",
 	"characterProfile.sheetReadOnlyHint":

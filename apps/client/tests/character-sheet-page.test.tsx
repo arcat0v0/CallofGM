@@ -145,9 +145,9 @@ describe("character sheet page", () => {
 		}
 	});
 
-	test("profile tab keeps name editable and derives background from the sheet", async () => {
+	test("profile tab renders structured background UI and keeps detailed background independently editable", async () => {
 		const char = detail({
-			background: "旧的纯文本背景",
+			background: "曾经在伦敦担任警探，后来转行做私家调查。",
 			sheetJson: JSON.stringify(
 				coc7e.normalizeCoc7eSheet({
 					attributes,
@@ -159,7 +159,7 @@ describe("character sheet page", () => {
 				}),
 			),
 		});
-		const { restore } = mockFetch(() => char);
+		const { calls, restore } = mockFetch(() => char);
 		try {
 			const view = render(
 				<CharacterSheetPage
@@ -180,12 +180,34 @@ describe("character sheet page", () => {
 				).toBe("true"),
 			);
 			expect(await view.findByRole("textbox", { name: "姓名" })).toBeTruthy();
-			expect(view.queryByRole("textbox", { name: "背景" })).toBeNull();
-			expect(view.getByText("背景摘要")).toBeTruthy();
-			expect(
-				view.getByText("【思想与信念 ★关键链接】真理高于一切"),
-			).toBeTruthy();
-			expect(view.queryByText("旧的纯文本背景")).toBeNull();
+			expect(view.getByText("人物卡背景设定")).toBeTruthy();
+			expect(view.getByText("思想与信念")).toBeTruthy();
+			expect(view.getByText("关键链接")).toBeTruthy();
+			expect(view.getByText("真理高于一切")).toBeTruthy();
+			expect(view.queryByText(/【思想与信念/)).toBeNull();
+			expect(view.queryByText("自动同步")).toBeNull();
+
+			const detailedInput = view.getByRole("textbox", {
+				name: "详细背景描述",
+			}) as HTMLTextAreaElement;
+			expect(detailedInput.value).toBe(
+				"曾经在伦敦担任警探，后来转行做私家调查。",
+			);
+			const setter = Object.getOwnPropertyDescriptor(
+				HTMLTextAreaElement.prototype,
+				"value",
+			)?.set;
+			setter?.call(detailedInput, "补充了详细的童年经历与动机。");
+			fireEvent.input(detailedInput);
+			fireEvent.click(view.getByRole("button", { name: "保存" }));
+			await waitFor(() =>
+				expect(calls.some((call) => call.method === "PATCH")).toBe(true),
+			);
+			const patch = calls.find((call) => call.method === "PATCH");
+			const payload = JSON.parse(patch?.body ?? "{}") as {
+				background: string;
+			};
+			expect(payload.background).toBe("补充了详细的童年经历与动机。");
 		} finally {
 			restore();
 		}
@@ -404,13 +426,18 @@ describe("character sheet page", () => {
 			expect(await view.findByText(/侦查：65 → 70/)).toBeTruthy();
 			expect(view.getByText(/原因：仪式祝福/)).toBeTruthy();
 
-			// 切换到「资料与立绘」可只读查看立绘表情
+			// 切换到「资料与立绘」以结构化 UI 展示背景并只读查看立绘与详细背景描述
 			fireEvent.mouseDown(view.getByRole("tab", { name: "资料与立绘" }), {
 				button: 0,
 			});
 			expect(await view.findByText("表情立绘")).toBeTruthy();
+			expect(view.getByText("人物卡背景设定")).toBeTruthy();
+			expect(view.getByText("详细背景描述")).toBeTruthy();
+			expect(view.getByText("曾经的警探")).toBeTruthy();
+			expect(view.queryByText(/【思想与信念/)).toBeNull();
 			expect(view.getByAltText("微笑")).toBeTruthy();
 			expect(view.queryByRole("textbox", { name: "姓名" })).toBeNull();
+			expect(view.queryByRole("textbox", { name: "详细背景描述" })).toBeNull();
 			expect(
 				calls.some(
 					(call) =>

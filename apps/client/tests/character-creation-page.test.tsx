@@ -160,13 +160,8 @@ function submitPage(view: ReturnType<typeof render>, label: string) {
 
 function openLegacyBackground(view: ReturnType<typeof render>) {
 	fireEvent.click(within(view.container).getByRole("tab", { name: /背景/ }));
-	const summary = within(view.container).getByText(/档案纯文本摘要/);
-	const details = summary.closest("details");
-	if (details && !details.open) {
-		fireEvent.click(summary);
-	}
 	return within(view.container).getByRole("textbox", {
-		name: "背景",
+		name: "详细背景描述",
 	}) as HTMLTextAreaElement;
 }
 
@@ -427,7 +422,7 @@ describe("character creation page", () => {
 		).toBeTruthy();
 	});
 
-	test("cancels soft-warning submission dialog without posting and serializes structured background when warnings are cleared", async () => {
+	test("submits directly without soft-warning dialog and preserves detailed background without auto-generating text", async () => {
 		const harness = setup();
 		cleanupHarness = harness.restore;
 		const sheet = coc7e.Coc7eCharacterSheet.parse(createEmptyCharacterSheet());
@@ -444,7 +439,7 @@ describe("character creation page", () => {
 			JSON.stringify({
 				version: 1,
 				name: "卡尔·斯坦",
-				background: "",
+				background: "在阿卡姆大学图书馆工作的年轻学者。",
 				ruleId: "coc7e",
 				sheet,
 			}),
@@ -466,9 +461,7 @@ describe("character creation page", () => {
 		const payload = JSON.parse(String(call?.init.body)) as {
 			background: string;
 		};
-		expect(payload.background).toContain(
-			"【思想与信念 ★关键链接】真理高于一切",
-		);
+		expect(payload.background).toBe("在阿卡姆大学图书馆工作的年轻学者。");
 	});
 
 	test("does not post if user cancels the soft-warning confirmation dialog", async () => {

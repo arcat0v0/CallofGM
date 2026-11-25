@@ -123,89 +123,99 @@ function PlCharactersPage() {
 						{t("pl.characters.count", { count: characters.length })}
 					</span>
 					<div className="animate-in fade-in slide-in-from-bottom-4 overflow-hidden rounded-2xl bg-md-surface-container-low duration-500 ease-standard-default-spatial">
-						{characters.map((character) => (
-							<article
-								key={character.id}
-								className="border-separator-secondary/60 flex flex-col gap-3 border-b p-4 last:border-b-0 sm:flex-row sm:items-center sm:gap-4"
-							>
-								<Link
-									to="/pl/characters/$characterId"
-									params={{ characterId: character.id }}
-									className="group flex min-w-0 flex-1 items-center gap-3.5 rounded-xl"
+						{characters.map((character) => {
+							const rule = getRuleComponent(character.ruleId);
+							const detailedBackground = (
+								rule.capabilities?.sheetBackground?.extractDetailedBackground?.(
+									null,
+									character.background ?? "",
+								) ??
+								character.background ??
+								""
+							).trim();
+							return (
+								<article
+									key={character.id}
+									className="border-separator-secondary/60 flex flex-col gap-3 border-b p-4 last:border-b-0 sm:flex-row sm:items-center sm:gap-4"
 								>
-									<Avatar
-										size="lg"
-										shape="arch"
-										className="bg-md-primary-container"
+									<Link
+										to="/pl/characters/$characterId"
+										params={{ characterId: character.id }}
+										className="group flex min-w-0 flex-1 items-center gap-3.5 rounded-xl"
 									>
-										<AvatarFallback className="text-md-on-primary-container font-sans text-title-medium-emph">
-											{initialsOf(character.name)}
-										</AvatarFallback>
-									</Avatar>
-									<div className="flex min-w-0 flex-col gap-1">
-										<div className="flex flex-wrap items-center gap-2">
-											<h2 className="text-foreground group-hover:text-md-primary truncate font-sans text-title-medium-emph transition-colors">
-												{character.name}
-											</h2>
-											<Badge variant="soft" tone="accent" size="sm">
-												<VenetianMask className="size-3" />
-												{t("common.pc")}
-											</Badge>
+										<Avatar
+											size="lg"
+											shape="arch"
+											className="bg-md-primary-container"
+										>
+											<AvatarFallback className="text-md-on-primary-container font-sans text-title-medium-emph">
+												{initialsOf(character.name)}
+											</AvatarFallback>
+										</Avatar>
+										<div className="flex min-w-0 flex-col gap-1">
+											<div className="flex flex-wrap items-center gap-2">
+												<h2 className="text-foreground group-hover:text-md-primary truncate font-sans text-title-medium-emph transition-colors">
+													{character.name}
+												</h2>
+												<Badge variant="soft" tone="accent" size="sm">
+													<VenetianMask className="size-3" />
+													{t("common.pc")}
+												</Badge>
+											</div>
+											<div className="text-foreground-tertiary font-mono text-label-small">
+												{character.ruleId} · v{character.version}
+											</div>
+											{detailedBackground ? (
+												<p className="text-foreground-secondary line-clamp-1 text-body-small">
+													{detailedBackground}
+												</p>
+											) : null}
 										</div>
-										<div className="text-foreground-tertiary font-mono text-label-small">
-											{character.ruleId} · v{character.version}
-										</div>
-										{character.background ? (
-											<p className="text-foreground-secondary line-clamp-1 text-body-small">
-												{character.background}
-											</p>
+									</Link>
+									<div className="flex items-center gap-1.5 sm:shrink-0">
+										<Button
+											type="button"
+											variant="outline"
+											size="sm"
+											onClick={() =>
+												void navigate({
+													to: "/pl/characters/$characterId",
+													params: { characterId: character.id },
+												})
+											}
+										>
+											<Pencil className="size-3.5" />
+											{t("common.edit")}
+										</Button>
+										{rule.capabilities?.excelImport ? (
+											<Button
+												type="button"
+												variant="ghost"
+												size="sm"
+												title={t("pl.characters.updateFromExcel")}
+												onClick={() => {
+													setImportTarget(character);
+													setImportOpen(true);
+												}}
+											>
+												<FileSpreadsheet className="size-3.5" />
+												{t("pl.characters.updateFromExcel")}
+											</Button>
 										) : null}
-									</div>
-								</Link>
-								<div className="flex items-center gap-1.5 sm:shrink-0">
-									<Button
-										type="button"
-										variant="outline"
-										size="sm"
-										onClick={() =>
-											void navigate({
-												to: "/pl/characters/$characterId",
-												params: { characterId: character.id },
-											})
-										}
-									>
-										<Pencil className="size-3.5" />
-										{t("common.edit")}
-									</Button>
-									{getRuleComponent(character.ruleId).capabilities
-										?.excelImport ? (
 										<Button
 											type="button"
 											variant="ghost"
-											size="sm"
-											title={t("pl.characters.updateFromExcel")}
-											onClick={() => {
-												setImportTarget(character);
-												setImportOpen(true);
-											}}
+											size="icon-sm"
+											title={t("common.delete")}
+											aria-label={`${t("common.delete")} ${character.name}`}
+											onClick={() => setDeleteTarget(character)}
 										>
-											<FileSpreadsheet className="size-3.5" />
-											{t("pl.characters.updateFromExcel")}
+											<Trash2 />
 										</Button>
-									) : null}
-									<Button
-										type="button"
-										variant="ghost"
-										size="icon-sm"
-										title={t("common.delete")}
-										aria-label={`${t("common.delete")} ${character.name}`}
-										onClick={() => setDeleteTarget(character)}
-									>
-										<Trash2 />
-									</Button>
-								</div>
-							</article>
-						))}
+									</div>
+								</article>
+							);
+						})}
 					</div>
 				</div>
 			)}

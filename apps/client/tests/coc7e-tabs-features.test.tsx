@@ -126,7 +126,11 @@ describe("CoC 7e v2 7-tab features", () => {
 			lockedAt: null,
 		};
 		const calls: string[] = [];
-		function DestinyHarness({ onChange }: { onChange: (sheet: Sheet) => void }) {
+		function DestinyHarness({
+			onChange,
+		}: {
+			onChange: (sheet: Sheet) => void;
+		}) {
 			const [roll, setRoll] = useState<CharacterCreationRollDto | null>(null);
 			return (
 				<Harness
@@ -192,7 +196,11 @@ describe("CoC 7e v2 7-tab features", () => {
 			lockedAt: null,
 		};
 		const calls: string[] = [];
-		function FallbackHarness({ onChange }: { onChange: (sheet: Sheet) => void }) {
+		function FallbackHarness({
+			onChange,
+		}: {
+			onChange: (sheet: Sheet) => void;
+		}) {
 			const [roll, setRoll] = useState<CharacterCreationRollDto | null>(null);
 			return (
 				<Harness
@@ -243,7 +251,9 @@ describe("CoC 7e v2 7-tab features", () => {
 		await waitFor(() => expect(latest.attributes).toEqual(setB));
 		expect(calls).toEqual(["roll", "choose:2", "choose:1"]);
 		expect(view.queryByText("幸运 70")).toBeNull();
-		expect(view.getByRole("button", { name: "改用购点（460 点）" })).toBeTruthy();
+		expect(
+			view.getByRole("button", { name: "改用购点（460 点）" }),
+		).toBeTruthy();
 	});
 
 	test("creation roll locks its choice after submission", async () => {
@@ -331,7 +341,9 @@ describe("CoC 7e v2 7-tab features", () => {
 		expect(view.getByText("剩余 60")).toBeTruthy();
 		fireEvent.click(view.getByRole("button", { name: "骰幸运（只能掷一次）" }));
 		await waitFor(() => expect(latest.attributes.luck).toBe(65));
-		expect(view.queryByRole("button", { name: "骰幸运（只能掷一次）" })).toBeNull();
+		expect(
+			view.queryByRole("button", { name: "骰幸运（只能掷一次）" }),
+		).toBeNull();
 		expect(view.getByText("幸运 65")).toBeTruthy();
 	});
 
@@ -507,19 +519,26 @@ describe("CoC 7e v2 7-tab features", () => {
 		);
 	});
 
-	test("clears the auto-synced background when the last partner is emptied", async () => {
+	test("keeps detailed background narrative independent from structured fields and partners", async () => {
 		const view = render(<BackgroundHarness />);
-		fireEvent.click(view.getByRole("button", { name: "添加一位伙伴" }));
-		const nameField = view.getByRole("textbox", { name: "伙伴姓名" });
-		setValue(nameField, "1");
+		const detailedField = view.getByRole("textbox", { name: "详细背景描述" });
+		setValue(detailedField, "出生于秋叶原的大学生，独自照顾母亲。");
 		await waitFor(() =>
 			expect(view.getByTestId("background-value").textContent).toBe(
-				"【调查员伙伴】1",
+				"出生于秋叶原的大学生，独自照顾母亲。",
 			),
 		);
-		setValue(nameField, "");
+		fireEvent.click(view.getByRole("button", { name: "添加一位伙伴" }));
+		const nameField = view.getByRole("textbox", { name: "伙伴姓名" });
+		setValue(nameField, "小林");
+		setValue(
+			view.getByRole("textbox", { name: "思想与信念" }),
+			"只想平静地读完大学",
+		);
 		await waitFor(() =>
-			expect(view.getByTestId("background-value").textContent).toBe(""),
+			expect(view.getByTestId("background-value").textContent).toBe(
+				"出生于秋叶原的大学生，独自照顾母亲。",
+			),
 		);
 	});
 

@@ -207,7 +207,13 @@ export type RuleComponent = {
 			) => Array<{ label: string; value: number }>;
 		};
 		sheetBackground?: {
-			serialize: (sheet: unknown, fallback: string) => string;
+			/** 以结构化 UI 渲染规则专属背景字段，替代纯文本摘要拼接 */
+			renderSummary: ComponentType<{ sheet: unknown }>;
+			/** 剥离旧版自动拼接的摘要文本，保留玩家独立书写的详细背景描述 */
+			extractDetailedBackground?: (
+				sheet: unknown,
+				rawBackground: string,
+			) => string;
 		};
 		/** 车卡属性生成方式（GM 在提交链接上设定，服务端掷骰） */
 		characterCreation?: {

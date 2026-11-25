@@ -41,33 +41,46 @@ export function CharacterProfileEditorDialog({
 }) {
 	const basePath: PortraitBasePath =
 		scope === "gm" ? "/gm/characters" : "/pl/characters";
+	const rule = getRuleComponent(character.ruleId);
+	const canEditCharacter = scope === "pl" || character.ownerKind === "gm";
+	const extractDetailedBackground = (sheet: unknown, raw: string | undefined) =>
+		rule.capabilities?.sheetBackground?.extractDetailedBackground?.(
+			sheet,
+			raw ?? "",
+		) ??
+		raw ??
+		"";
+	const initialSheet =
+		rule.parseSheetJson(character.sheetJson) ?? rule.createEmptySheet();
 	const [name, setName] = useState(character.name);
-	const [background, setBackground] = useState(character.background);
+	const [background, setBackground] = useState(() =>
+		extractDetailedBackground(initialSheet, character.background),
+	);
 	const [version, setVersion] = useState(character.version);
 	const [saving, setSaving] = useState(false);
 	const [showValidation, setShowValidation] = useState(false);
 	const [sheetValid, setSheetValid] = useState(true);
 	const characterRef = useRef(character);
-	const rule = getRuleComponent(character.ruleId);
-	const canEditCharacter = scope === "pl" || character.ownerKind === "gm";
-	const initialSheet = rule.parseSheetJson(character.sheetJson);
-	const [fullSheet, setFullSheet] = useState<unknown>(
-		initialSheet ?? rule.createEmptySheet(),
+	const [fullSheet, setFullSheet] = useState<unknown>(initialSheet);
+	const hasStructuredBackground = Boolean(
+		rule.capabilities?.sheetBackground?.renderSummary,
 	);
-	const backgroundIsDerived = rule.backgroundSource === "sheet";
-	const backgroundSummary = backgroundIsDerived
-		? (rule.capabilities?.sheetBackground?.serialize(fullSheet, background) ??
-			background)
-		: background;
 
 	useEffect(() => {
+		const parsed =
+			rule.parseSheetJson(character.sheetJson) ?? rule.createEmptySheet();
 		setName(character.name);
-		setBackground(character.background);
+		setBackground(
+			rule.capabilities?.sheetBackground?.extractDetailedBackground?.(
+				parsed,
+				character.background ?? "",
+			) ??
+				character.background ??
+				"",
+		);
 		setVersion(character.version);
 		setShowValidation(false);
-		setFullSheet(
-			rule.parseSheetJson(character.sheetJson) ?? rule.createEmptySheet(),
-		);
+		setFullSheet(parsed);
 	}, [
 		character.version,
 		character.name,
@@ -90,13 +103,6 @@ export function CharacterProfileEditorDialog({
 			toast.error(t("characterCreation.ruleValidationSummary"));
 			return;
 		}
-		const serializedBackground =
-			sheetData === undefined
-				? background
-				: (rule.capabilities?.sheetBackground?.serialize(
-						sheetData,
-						background,
-					) ?? background);
 		setSaving(true);
 		try {
 			const next = await api<CharacterDto>(
@@ -105,7 +111,7 @@ export function CharacterProfileEditorDialog({
 					method: "PATCH",
 					body: JSON.stringify({
 						name: name.trim(),
-						background: serializedBackground,
+						background: background.trim(),
 						...(sheetData === undefined ? {} : { sheetData }),
 						expectedVersion: version,
 					}),
@@ -188,22 +194,31 @@ export function CharacterProfileEditorDialog({
 								</Badge>
 							</div>
 						</div>
-						{backgroundIsDerived ? (
-							<CharacterBackgroundSummary background={backgroundSummary} />
-						) : (
-							<div className="flex flex-col gap-1.5">
-								<span className="text-md-on-surface-variant text-label-medium">
-									{t("characterProfile.background")}
-								</span>
+						{hasStructuredBackground ? (
+							<CharacterBackgroundSummary
+								ruleId={character.ruleId}
+								sheet={fullSheet}
+							/>
+						) : null}
+						<div className="flex flex-col gap-1.5">
+							<span className="text-md-on-surface-variant text-label-medium">
+								{t("characterProfile.detailedBackground")}
+							</span>
+							{canEditCharacter ? (
 								<Textarea
 									value={background}
 									maxLength={4000}
 									rows={4}
-									readOnly={!canEditCharacter}
+									placeholder={t("characterProfile.detailedBackgroundHint")}
 									onChange={(event) => setBackground(event.target.value)}
 								/>
-							</div>
-						)}
+							) : (
+								<p className="text-foreground-secondary whitespace-pre-wrap rounded-2xl bg-md-surface-container px-4 py-3 text-body-medium select-text">
+									{background.trim() ||
+										t("characterProfile.detailedBackgroundEmpty")}
+								</p>
+							)}
+						</div>
 						{canEditCharacter ? (
 							<ExpressionManager
 								characterId={character.id}
@@ -230,6 +245,8 @@ export function CharacterProfileEditorDialog({
 								ruleId={character.ruleId}
 								sheet={fullSheet}
 								onChange={setFullSheet}
+								background={background}
+								onBackgroundChange={setBackground}
 								showValidation={showValidation}
 								onValidityChange={setSheetValid}
 							/>
