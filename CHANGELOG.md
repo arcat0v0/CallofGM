@@ -7,9 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-25
+
+发布验证与 systemd 部署使用 Bun `1.4.4`；Docker 构建与运行使用 Bun `1.3.14`。
+
 ### Added
 
+- 升级 GM 导演工作台舞台立绘编排与预览：顶栏合并原「玩家视角预览」与「立绘」为统一「舞台」入口，提供 1:1 玩家视角与模组主题的交互画布，支持逐角色上下台（最多 12 人，支持空台）、自由拖拽 X/Y 定位（含智能吸附线与方向键微调）、独立缩放、水平镜像翻转、前后层级、一键快捷排版、聚焦发言人开关（尊重手动层级）、桌面含聊 / 桌面全屏 / 手机竖屏多视口预览、本地借看场景与试看表情，以及默认草稿预排确认后再「同步放映」（附可选实时同步开关）。
+- 新增本团命名「机位快照」（最多 16 个，`POST/DELETE /api/v1/gm/sessions/:id/stage-presets`，仅 GM 快照可见）并放开 `waiting` 状态提前预摆台；新增可空数据库迁移 `0013_stage_composition_and_presets`，移出 NPC 时自动清理舞台对应立绘。
 - 新增直接通过 systemd 管理的无 Docker 部署方案：`config/cogm.systemd.toml`（默认 `/opt/cogm/data` 与 `127.0.0.1:15632`）、`deploy/systemd/cogm.service`、`deploy/systemd/cogm.env.example` 与一键部署/更新脚本 `deploy/systemd/deploy.sh`，并同步更新 `docs/release.md` 等部署文档。
+- 新增管理员全站面板配置与 S3 兼容对象存储直传、上传进度展示及 3D 骰子资产一键迁移与 OSS 托管（迁移 `0012_site_settings_and_oss`）。
 
 ### Changed
 
@@ -17,7 +24,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 语音深度降噪新增 DeepFilterNet3 模型并设为默认（可在面板切回轻量的 RNNoise）。模型由上游源码自行编译、随客户端自托管，首次使用后台下载约 11 MB，加载完成前由 RNNoise 处理，加载或运行失败时自动回退。
 - 噪声门改为由 RNNoise 人声概率驱动：开启深度降噪时只在检测到人声时放行，压住说话间隙的呼吸声与底噪。
 - 深度降噪、噪声门与压限器改为默认开启；已保存过音频设置的用户会一次性切换到新的默认值，其余偏好保留。
-- 服务端为 `/assets/` 下带内容哈希的静态资源返回长期缓存头。
+- 统一各音频播放器进度条为可拖动波浪样式，并为 `/assets/` 下带内容哈希的静态资源返回长期缓存头。
+
+### Fixed
+
+- 修复麦克风音频发送与恢复链路问题。
+- 修复公开界面设置路由挂载在 admin 前缀下返回 404 的问题。
+- 修复玩家端登录失效被误报为网络故障的问题。
+- 移除 GM 工作台顶栏无功能 KP 头像，并在横向空间紧张时自动下移中央工具坞防止遮挡顶栏控件。
 
 ## [0.2.3] - 2026-11-23
 
