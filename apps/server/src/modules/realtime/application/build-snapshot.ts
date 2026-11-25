@@ -10,7 +10,12 @@ import { buildHandoutGrantOverview } from "@/modules/handouts";
 import type { ActorContext } from "@/modules/identity";
 import { holderOfActor } from "@/modules/identity";
 import type { SeatHolderInput } from "@/modules/sessions";
-import { loadAudioState, SessionNotFoundError } from "@/modules/sessions";
+import {
+	loadAudioState,
+	parseStageCompositionJson,
+	parseStagePresetsJson,
+	SessionNotFoundError,
+} from "@/modules/sessions";
 import type { DbClient } from "@/platform/db/client";
 import { loadHolderDisplayNames } from "@/platform/db/holder-display-names";
 import {
@@ -212,6 +217,10 @@ export class BuildSessionSnapshotUseCase {
 					session.portraitLayout as SessionSnapshotPayload["session"]["portraitLayout"],
 				portraitScale:
 					session.portraitScale as SessionSnapshotPayload["session"]["portraitScale"],
+				stageComposition: parseStageCompositionJson(
+					session.stageCompositionJson,
+					new Set(charactersSnapshot.map(({ characterId }) => characterId)),
+				),
 			},
 			currentScene,
 			characters: charactersSnapshot,
@@ -241,6 +250,9 @@ export class BuildSessionSnapshotUseCase {
 			discardedQueue,
 			online,
 			kickedPlayers,
+			stagePresets: isGm
+				? parseStagePresetsJson(session.stagePresetsJson)
+				: undefined,
 		};
 	}
 

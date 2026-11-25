@@ -1,12 +1,40 @@
 import { beforeEach, describe, expect, test } from "bun:test";
-import { render, waitFor } from "@testing-library/react";
+import type { SnapshotCharacter } from "@cogm/shared";
+import { fireEvent, render, waitFor } from "@testing-library/react";
 import { ChatMessageCard } from "../src/features/chat/chat-message-card";
 import { GmChatPanel } from "../src/features/gm-console/gm-chat-panel";
 import { GmToolProvider } from "../src/features/gm-console/gm-tool-context";
-import { PlayerStagePreview } from "../src/features/gm-console/player-stage-preview";
+import { StageStudio } from "../src/features/gm-console/stage-studio";
 import { DialogueBox } from "../src/features/session-stage/dialogue-box";
+import { PortraitLayer } from "../src/features/session-stage/portrait-layer";
 import { usePlayStore } from "../src/stores/play-store";
 import { GmConsoleStage } from "../src/themes/default/slots/gm-console-stage";
+
+function sampleCharacter(
+	characterId: string,
+	name: string,
+	kind: "pc" | "npc",
+): SnapshotCharacter {
+	return {
+		characterId,
+		name,
+		kind,
+		ruleId: "coc7e",
+		currentExpressionKey: null,
+		state: null,
+		portraits: [
+			{
+				expressionKey: "default",
+				portraitAssetId: `asset-${characterId}`,
+				isDefault: true,
+				label: "默认",
+				sortOrder: 0,
+			},
+		],
+		claim: null,
+		sheet: null,
+	};
+}
 
 beforeEach(() => {
 	usePlayStore.getState().reset();
@@ -192,11 +220,143 @@ describe("GM stage and speaker labels", () => {
 		expect(view.queryByTestId("audio")).toBeNull();
 	});
 
-	test("player stage preview is available from the GM top bar", async () => {
-		const view = render(<PlayerStagePreview />);
+	test("unified stage studio trigger is available from the GM top bar", async () => {
+		const view = render(<StageStudio />);
 		const button = view.getByRole("button", {
-			name: "玩家视角预览",
+			name: "舞台编排与玩家视角预览",
 		});
 		expect(button).toBeTruthy();
+	});
+
+	test("stage studio previews draft edits locally without altering live composition until published", async () => {
+		usePlayStore.setState({
+			sessionId: "sess-1",
+			status: "waiting",
+			characters: [
+				sampleCharacter("pc-1", "林婉", "pc"),
+				sampleCharacter("npc-1", "神秘侦探", "npc"),
+			],
+		});
+
+		const view = render(<StageStudio />);
+		fireEvent.click(
+			view.getByRole("button", { name: "舞台编排与玩家视角预览" }),
+		);
+
+		await waitFor(() => {
+			expect(view.getByText("与线上一致")).toBeTruthy();
+		});
+
+		// Put NPC onto stage in draft
+		const putOnButtons = view.getAllByRole("button", { name: "上台" });
+		fireEvent.click(putOnButtons[0]!);
+
+		await waitFor(() => {
+			expect(view.getByText("有未放映改动")).toBeTruthy();
+		});
+		// Live composition must remain untouched before clicking 同步放映
+		expect(usePlayStore.getState().stageComposition).toBeNull();
+		expect(usePlayStore.getState().stageDraft?.items).toHaveLength(2);
+
+		// Close and reopen: draft is preserved
+		fireEvent.click(view.getByRole("button", { name: "关闭" }));
+		await waitFor(() => {
+			expect(view.queryByText("有未放映改动")).toBeNull();
+		});
+		expect(usePlayStore.getState().stageDraft?.items).toHaveLength(2);
+
+		fireEvent.click(
+			view.getByRole("button", { name: "舞台编排与玩家视角预览" }),
+		);
+		await waitFor(() => {
+			expect(view.getByText("有未放映改动")).toBeTruthy();
+		});
+
+		// Discard draft restores synced status
+		fireEvent.click(view.getByRole("button", { name: "还原线上" }));
+		await waitFor(() => {
+			expect(view.getByText("与线上一致")).toBeTruthy();
+		});
+		expect(usePlayStore.getState().stageDraft).toBeNull();
+	});
+
+	test("stage studio opens read-only pure preview when session has ended", async () => {
+		usePlayStore.setState({
+			sessionId: "sess-ended",
+			status: "ended",
+			characters: [sampleCharacter("pc-1", "林婉", "pc")],
+		});
+		const view = render(<StageStudio />);
+		fireEvent.click(
+			view.getByRole("button", { name: "舞台编排与玩家视角预览" }),
+		);
+		await waitFor(() => {
+			expect(view.getByText("已结团 · 只读")).toBeTruthy();
+		});
+		expect(view.queryByRole("button", { name: "同步放映" })).toBeNull();
+	});
+
+	test("PortraitLayer renders custom coordinates, flips image only, and preserves manual z-order during speaker focus", () => {
+		usePlayStore.setState({
+			characters: [
+				sampleCharacter("pc-1", "林婉", "pc"),
+				sampleCharacter("npc-1", "礼帽男子", "npc"),
+			],
+			messages: [
+				{
+					id: "m1",
+					sortKey: 1,
+					speakerName: "林婉",
+					speakerRoleLabel: "PC",
+					avatarInitials: "林",
+					avatarBg: "",
+					avatarFg: "",
+					time: "20:00",
+					body: "你好",
+					tone: "ic",
+				},
+			],
+			stageComposition: {
+				mode: "custom",
+				emphasizeSpeaker: true,
+				items: [
+					{
+						characterId: "pc-1",
+						x: 25,
+						y: 10,
+						scale: 1.2,
+						flipX: false,
+						zIndex: 10,
+					},
+					{
+						characterId: "npc-1",
+						x: 75,
+						y: -5,
+						scale: 0.9,
+						flipX: true,
+						zIndex: 20,
+					},
+				],
+			},
+		});
+
+		const view = render(<PortraitLayer audience="player" showNameplate />);
+		const pcSlot = view.container.querySelector<HTMLElement>(
+			'[data-stage-character="pc-1"]',
+		);
+		const npcSlot = view.container.querySelector<HTMLElement>(
+			'[data-stage-character="npc-1"]',
+		);
+		expect(pcSlot?.style.left).toBe("25%");
+		expect(pcSlot?.style.bottom).toBe("10%");
+		// Speaking pc-1 must NOT override npc-1's higher manual zIndex
+		expect(pcSlot?.style.zIndex).toBe("10");
+		expect(npcSlot?.style.zIndex).toBe("20");
+		// Non-speaker is dimmed when emphasizeSpeaker=true
+		expect(npcSlot?.className).toContain("opacity-55");
+		// Flip applies to the portrait <img>, NOT the whole slot containing nameplate text
+		const npcImg = npcSlot?.querySelector("img");
+		expect(npcImg?.className).toContain("-scale-x-100");
+		expect(npcSlot?.className).not.toContain("-scale-x-100");
 	});
 });

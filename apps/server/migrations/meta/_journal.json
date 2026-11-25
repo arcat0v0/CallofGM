@@ -92,6 +92,13 @@
       "when": 1795494922038,
       "tag": "0012_site_settings_and_oss",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1795609943534,
+      "tag": "0013_stage_composition_and_presets",
+      "breakpoints": true
     }
   ]
 }

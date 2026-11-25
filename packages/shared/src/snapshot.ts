@@ -14,7 +14,13 @@ import {
 	SessionSettings,
 	SessionStatus,
 } from "./session";
-import { BgmState, PortraitLayout, PortraitScale } from "./stage";
+import {
+	BgmState,
+	PortraitLayout,
+	PortraitScale,
+	StageComposition,
+	StagePresetDto,
+} from "./stage";
 
 export const SnapshotPortrait = z.object({
 	expressionKey: z.string(),
@@ -65,6 +71,7 @@ export const SessionSnapshotPayload = z.object({
 		settings: SessionSettings,
 		portraitLayout: PortraitLayout.optional(),
 		portraitScale: PortraitScale.optional(),
+		stageComposition: StageComposition.nullable().optional(),
 	}),
 	currentScene: z
 		.object({
@@ -98,5 +105,7 @@ export const SessionSnapshotPayload = z.object({
 	/** GM 专属：在线列表 */
 	online: z.array(OnlinePlayerDto).optional(),
 	kickedPlayers: z.array(KickedPlayerDto).optional(),
+	/** GM 专属：本团已保存的舞台机位快照 */
+	stagePresets: z.array(StagePresetDto).optional(),
 });
 export type SessionSnapshotPayload = z.infer<typeof SessionSnapshotPayload>;

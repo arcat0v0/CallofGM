@@ -1,5 +1,12 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mediaAssets, modules, scenes, tracks } from "@/platform/db/schema";
+import { eq } from "drizzle-orm";
+import {
+	mediaAssets,
+	modules,
+	scenes,
+	sessions,
+	tracks,
+} from "@/platform/db/schema";
 import {
 	closeWs,
 	connectWs,
@@ -414,5 +421,250 @@ describe("Stage control contract tests", () => {
 		expect(restartEvent.payload.bgm.playing).toBe(true);
 
 		await closeAll(gm, pc);
+	});
+
+	test("自由摆台编排：广播全团、校验角色归属、支持空台并在快照恢复", async () => {
+		const { gm, pc } = await openAll();
+
+		const composition = {
+			mode: "custom" as const,
+			emphasizeSpeaker: false,
+			items: [
+				{
+					characterId: "char-pc1",
+					x: 32.5,
+					y: 8,
+					scale: 1.25,
+					flipX: true,
+					zIndex: 14,
+				},
+			],
+		};
+
+		sendCommand(gm, "stage:layout", { composition }, "comp-1");
+		const accepted = await gm.waitFor((m) => m.commandId === "comp-1");
+		expect(accepted.type).toBe("command:accepted");
+		const event = await pc.waitFor((m) => m.type === "stage:layout-changed");
+		expect(event.payload.composition).toEqual(composition);
+
+		// 未知角色应被拒绝
+		sendCommand(
+			gm,
+			"stage:layout",
+			{
+				composition: {
+					mode: "custom",
+					emphasizeSpeaker: true,
+					items: [
+						{
+							characterId: "char-ghost",
+							x: 50,
+							y: 0,
+							scale: 1,
+							flipX: false,
+							zIndex: 10,
+						},
+					],
+				},
+			},
+			"comp-invalid",
+		);
+		const invalid = await gm.waitFor((m) => m.commandId === "comp-invalid");
+		expect(invalid.type).toBe("command:rejected");
+		expect(invalid.payload.code).toBe("CHARACTER_NOT_IN_SESSION");
+
+		// 重复 characterId 应被 schema 校验拒绝
+		sendCommand(
+			gm,
+			"stage:layout",
+			{
+				composition: {
+					mode: "custom",
+					emphasizeSpeaker: true,
+					items: [
+						{
+							characterId: "char-pc1",
+							x: 20,
+							y: 0,
+							scale: 1,
+							flipX: false,
+							zIndex: 10,
+						},
+						{
+							characterId: "char-pc1",
+							x: 80,
+							y: 0,
+							scale: 1,
+							flipX: false,
+							zIndex: 12,
+						},
+					],
+				},
+			},
+			"comp-dup",
+		);
+		const dup = await gm.waitFor((m) => m.commandId === "comp-dup");
+		expect(dup.type).toBe("command:rejected");
+		expect(dup.payload.code).toBe("VALIDATION_FAILED");
+
+		// 重连快照恢复自由摆台
+		const reconnected = await connectWs(wsUrl(), ctx.playerTokens.get("pc1")!);
+		const snap = await reconnected.waitFor((m) => m.type === "snapshot");
+		expect(snap.payload.session.stageComposition).toEqual(composition);
+
+		// 支持空台
+		sendCommand(
+			gm,
+			"stage:layout",
+			{
+				composition: {
+					mode: "custom",
+					emphasizeSpeaker: true,
+					items: [],
+				},
+			},
+			"comp-empty",
+		);
+		const emptyAcc = await gm.waitFor((m) => m.commandId === "comp-empty");
+		expect(emptyAcc.type).toBe("command:accepted");
+		const emptyEvent = await pc.waitFor(
+			(m) =>
+				m.type === "stage:layout-changed" &&
+				m.payload.composition?.items?.length === 0,
+		);
+		expect(emptyEvent.payload.composition.items).toEqual([]);
+
+		await closeAll(gm, pc, reconnected);
+	});
+
+	test("等待开始状态允许 GM 预摆台与管理本团机位快照，且机位仅对 GM 快照可见", async () => {
+		const db = ctx.container.db;
+		const baseUrl = `http://localhost:${server.server?.port}`;
+		const gmHeaders = {
+			"content-type": "application/json",
+			cookie: `cogm_session=${ctx.gmToken}`,
+		};
+		const plHeaders = {
+			"content-type": "application/json",
+			cookie: `cogm_session=${ctx.playerTokens.get("pc1")!}`,
+		};
+
+		// 临时切回 waiting 验证开团前可预摆台
+		await db
+			.update(sessions)
+			.set({ status: "waiting" })
+			.where(eq(sessions.id, ctx.sessionId));
+
+		try {
+			const gm = await connectWs(wsUrl(), ctx.gmToken);
+			await gm.waitFor((m) => m.type === "snapshot");
+
+			const waitingComposition = {
+				mode: "custom" as const,
+				emphasizeSpeaker: true,
+				items: [
+					{
+						characterId: "char-pc1",
+						x: 42,
+						y: 4,
+						scale: 1.1,
+						flipX: false,
+						zIndex: 10,
+					},
+				],
+			};
+
+			sendCommand(
+				gm,
+				"stage:layout",
+				{ composition: waitingComposition },
+				"wait-layout",
+			);
+			const waitRes = await gm.waitFor((m) => m.commandId === "wait-layout");
+			expect(waitRes.type).toBe("command:accepted");
+
+			// PL 禁止保存机位
+			const plDenied = await fetch(
+				`${baseUrl}/api/v1/gm/sessions/${ctx.sessionId}/stage-presets`,
+				{
+					method: "POST",
+					headers: plHeaders,
+					body: JSON.stringify({
+						name: "玩家越权",
+						composition: waitingComposition,
+					}),
+				},
+			);
+			expect(plDenied.status).toBe(403);
+
+			// GM 创建机位快照
+			const createRes = await fetch(
+				`${baseUrl}/api/v1/gm/sessions/${ctx.sessionId}/stage-presets`,
+				{
+					method: "POST",
+					headers: gmHeaders,
+					body: JSON.stringify({
+						name: "开场站位",
+						composition: waitingComposition,
+					}),
+				},
+			);
+			expect(createRes.status).toBe(200);
+			const createdBody = (await createRes.json()) as {
+				presets: Array<{ id: string; name: string; composition: unknown }>;
+			};
+			expect(createdBody.presets).toHaveLength(1);
+			const presetId = createdBody.presets[0]!.id;
+			expect(createdBody.presets[0]!.name).toBe("开场站位");
+
+			// GM 重连快照含 stagePresets，玩家快照不含
+			const gm2 = await connectWs(wsUrl(), ctx.gmToken);
+			const gmSnap = await gm2.waitFor((m) => m.type === "snapshot");
+			expect(gmSnap.payload.stagePresets).toHaveLength(1);
+			expect(gmSnap.payload.stagePresets[0].id).toBe(presetId);
+
+			const pc = await connectWs(wsUrl(), ctx.playerTokens.get("pc1")!);
+			const pcSnap = await pc.waitFor((m) => m.type === "snapshot");
+			expect(pcSnap.payload.stagePresets).toBeUndefined();
+
+			// 覆盖更新机位
+			const updateRes = await fetch(
+				`${baseUrl}/api/v1/gm/sessions/${ctx.sessionId}/stage-presets`,
+				{
+					method: "POST",
+					headers: gmHeaders,
+					body: JSON.stringify({
+						id: presetId,
+						name: "开场特写",
+						composition: {
+							...waitingComposition,
+							items: [{ ...waitingComposition.items[0]!, scale: 1.4 }],
+						},
+					}),
+				},
+			);
+			expect(updateRes.status).toBe(200);
+			const updatedBody = (await updateRes.json()) as {
+				presets: Array<{ id: string; name: string }>;
+			};
+			expect(updatedBody.presets).toHaveLength(1);
+			expect(updatedBody.presets[0]!.name).toBe("开场特写");
+
+			// 删除机位
+			const delRes = await fetch(
+				`${baseUrl}/api/v1/gm/sessions/${ctx.sessionId}/stage-presets/${presetId}`,
+				{ method: "DELETE", headers: gmHeaders },
+			);
+			expect(delRes.status).toBe(200);
+			const delBody = (await delRes.json()) as { presets: unknown[] };
+			expect(delBody.presets).toHaveLength(0);
+
+			await closeAll(gm, gm2, pc);
+		} finally {
+			await db
+				.update(sessions)
+				.set({ status: "active" })
+				.where(eq(sessions.id, ctx.sessionId));
+		}
 	});
 });

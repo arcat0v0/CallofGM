@@ -16,9 +16,11 @@ import {
 	RemoveSessionNpcResponse,
 	RenameSessionRequest,
 	ResolveSessionReferenceResponse,
+	SaveStagePresetRequest,
 	SessionCloseCode,
 	SessionDetailResponse,
 	SessionDto,
+	StagePresetsResponse,
 	UpdateSessionPhaseRequest,
 	UpdateSessionStatusRequest,
 } from "@cogm/shared";
@@ -60,6 +62,12 @@ import {
 	SessionStateInvalidError,
 } from "../domain/errors";
 import { SessionLifecycle } from "../domain/session-lifecycle";
+import {
+	parseStagePresetsJson,
+	pruneCharacterFromStageCompositionJson,
+	removeStagePreset,
+	upsertStagePreset,
+} from "../domain/stage-state";
 
 async function effectiveThemeId(
 	container: Container,
@@ -149,8 +157,15 @@ export function createSessionsRoutes(container: Container) {
 		const security = container.siteSettings.getSecurityConfig();
 		assertTrustedOrigin(request, security.corsOrigins, security.trustProxy);
 	};
-	const requestIp = (request: Request, server: Parameters<typeof clientIp>[1]) =>
-		clientIp(request, server, container.siteSettings.getSecurityConfig().trustProxy);
+	const requestIp = (
+		request: Request,
+		server: Parameters<typeof clientIp>[1],
+	) =>
+		clientIp(
+			request,
+			server,
+			container.siteSettings.getSecurityConfig().trustProxy,
+		);
 
 	return new Elysia()
 		.use(authPlugin)
@@ -332,11 +347,16 @@ export function createSessionsRoutes(container: Container) {
 									ruleStateJson = next === null ? null : JSON.stringify(next);
 							}
 						}
+						const stageCompositionJson = pruneCharacterFromStageCompositionJson(
+							session.stageCompositionJson,
+							characterId,
+						);
 						return repo.softDeleteSessionNpc(
 							id,
 							characterId,
 							container.clock.nowEpochMs(),
 							ruleStateJson,
+							stageCompositionJson,
 						);
 					},
 				);
@@ -349,6 +369,101 @@ export function createSessionsRoutes(container: Container) {
 					});
 				}
 				return RemoveSessionNpcResponse.parse({ characterId, removed });
+			},
+		)
+		.post(
+			"/api/v1/gm/sessions/:id/stage-presets",
+			async ({ actor, params: { id }, body, request }) => {
+				assertOrigin(request);
+				const gm = requireGm(actor);
+				const parsed = SaveStagePresetRequest.safeParse(body);
+				if (!parsed.success) {
+					throw validationFailed(parsed.error);
+				}
+				const result = await container.sessionCommandExecutor.runExclusive(
+					id,
+					async () => {
+						const session = await repo.findSessionById(id);
+						if (!session || session.ownerId !== gm.userId) {
+							return new SessionNotFoundError();
+						}
+						const lifecycleError = new SessionLifecycle(
+							session,
+						).rosterOrSyncError("stage-presets");
+						if (lifecycleError) return lifecycleError;
+						if (parsed.data.composition.items.length > 0) {
+							const sessionChars =
+								await repo.findSessionCharactersWithClaims(id);
+							const activeIds = new Set(
+								sessionChars.map((entry) => entry.characterId),
+							);
+							for (const item of parsed.data.composition.items) {
+								if (!activeIds.has(item.characterId)) {
+									return new AppError(
+										"CHARACTER_NOT_IN_SESSION",
+										"Character is not participating in this session",
+										404,
+									);
+								}
+							}
+						}
+						try {
+							const current = parseStagePresetsJson(session.stagePresetsJson);
+							const next = upsertStagePreset(
+								current,
+								parsed.data,
+								container.clock.nowEpochMs(),
+								() => container.idGenerator.nextId(),
+							);
+							await repo.updateSession(id, {
+								stagePresetsJson: JSON.stringify(next),
+							});
+							return next;
+						} catch (error) {
+							if (error instanceof AppError) {
+								return error;
+							}
+							throw error;
+						}
+					},
+				);
+				if (result instanceof AppError) throw result;
+				return StagePresetsResponse.parse({ presets: result });
+			},
+		)
+		.delete(
+			"/api/v1/gm/sessions/:id/stage-presets/:presetId",
+			async ({ actor, params: { id, presetId }, request }) => {
+				assertOrigin(request);
+				const gm = requireGm(actor);
+				const result = await container.sessionCommandExecutor.runExclusive(
+					id,
+					async () => {
+						const session = await repo.findSessionById(id);
+						if (!session || session.ownerId !== gm.userId) {
+							return new SessionNotFoundError();
+						}
+						const lifecycleError = new SessionLifecycle(
+							session,
+						).rosterOrSyncError("stage-presets");
+						if (lifecycleError) return lifecycleError;
+						try {
+							const current = parseStagePresetsJson(session.stagePresetsJson);
+							const next = removeStagePreset(current, presetId);
+							await repo.updateSession(id, {
+								stagePresetsJson: JSON.stringify(next),
+							});
+							return next;
+						} catch (error) {
+							if (error instanceof AppError) {
+								return error;
+							}
+							throw error;
+						}
+					},
+				);
+				if (result instanceof AppError) throw result;
+				return StagePresetsResponse.parse({ presets: result });
 			},
 		)
 		.post(
@@ -645,9 +760,7 @@ export function createSessionsRoutes(container: Container) {
 						403,
 					);
 				}
-				container.httpLimits.joinRateLimiter.assert(
-					requestIp(request, server),
-				);
+				container.httpLimits.joinRateLimiter.assert(requestIp(request, server));
 				const result = ClaimSeatRequest.safeParse(body);
 				if (!result.success) {
 					throw validationFailed(result.error);

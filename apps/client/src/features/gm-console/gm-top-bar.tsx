@@ -37,8 +37,7 @@ import { usePlayStore } from "@/stores/play-store";
 import { GmOnlinePopover } from "./gm-online-popover";
 import { GmSessionSettingsDialog } from "./gm-session-settings-dialog";
 import { GmSessionStatusControl } from "./gm-session-status-control";
-import { PlayerStagePreview } from "./player-stage-preview";
-import { StageLayoutControl } from "./stage-layout-control";
+import { StageStudio } from "./stage-studio";
 
 function GmTopBar() {
 	const { sessionId } = useParams({ from: "/gm/session/$sessionId" });
@@ -174,8 +173,7 @@ function GmTopBar() {
 					onSelectStatus={(next) => void patchStatus(next)}
 					onRequestEnd={() => setEndOpen(true)}
 				/>
-				<PlayerStagePreview />
-				<StageLayoutControl />
+				<StageStudio />
 				{presenceAvailable ? <GmOnlinePopover /> : null}
 				<DropdownMenu>
 					<DropdownMenuTrigger asChild>

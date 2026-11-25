@@ -2,27 +2,73 @@ import {
 	PortraitLayout,
 	PortraitScale,
 	type SnapshotCharacter,
+	StageComposition,
+	type StageComposition as StageCompositionType,
+	type StagePresetDto,
 } from "@cogm/shared";
 import { toast } from "sonner";
+import { stageCompositionsEqual } from "@/features/session-stage/portrait-layout";
 import { t } from "@/i18n";
-import type { PlayState } from "../types";
+import type { PlaySliceCreator, PlayState } from "../types";
 import { withActivityMessage } from "./chat-slice";
 
-export type StageSlice = {
+export type StageSliceData = {
 	portraitLayout: PortraitLayout;
 	portraitScale: PortraitScale;
+	stageComposition: StageCompositionType | null;
+	stagePresets: StagePresetDto[];
+	stageDraft: StageCompositionType | null;
+	stageDraftBaseRevision: number;
+	stageLiveRevision: number;
+	stageLiveSync: boolean;
 	characters: SnapshotCharacter[];
 	ruleState: unknown;
 	scene: { id: string; name: string; bgAssetId: string | null } | null;
 };
 
-export const stageDefaults: StageSlice = {
+export type StageSliceActions = {
+	setStageDraft: (draft: StageCompositionType | null) => void;
+	clearStageDraft: () => void;
+	setStageLiveSync: (enabled: boolean) => void;
+	setStagePresets: (presets: StagePresetDto[]) => void;
+};
+
+export type StageSlice = StageSliceData & StageSliceActions;
+
+export const stageDefaults: StageSliceData = {
 	portraitLayout: "auto",
 	portraitScale: "md",
+	stageComposition: null,
+	stagePresets: [],
+	stageDraft: null,
+	stageDraftBaseRevision: 0,
+	stageLiveRevision: 0,
+	stageLiveSync: false,
 	characters: [],
 	ruleState: null,
 	scene: null,
 };
+
+export const createStageSlice: PlaySliceCreator<StageSlice> = (set) => ({
+	...stageDefaults,
+	setStageDraft: (draft) =>
+		set((state) => ({
+			stageDraft: draft,
+			stageDraftBaseRevision:
+				draft === null
+					? state.stageLiveRevision
+					: state.stageDraft === null
+						? state.stageLiveRevision
+						: state.stageDraftBaseRevision,
+		})),
+	clearStageDraft: () =>
+		set((state) => ({
+			stageDraft: null,
+			stageDraftBaseRevision: state.stageLiveRevision,
+		})),
+	setStageLiveSync: (enabled) => set({ stageLiveSync: enabled }),
+	setStagePresets: (presets) => set({ stagePresets: presets }),
+});
 
 export function characterStatePatch(
 	state: StageSlice,
@@ -93,15 +139,39 @@ export function reduceScene(
 }
 
 export function reduceLayout(
-	_state: PlayState,
+	state: PlayState,
 	payload: Record<string, unknown>,
-): Partial<StageSlice> {
+): Partial<StageSliceData> {
 	const layout = PortraitLayout.safeParse(payload.layout);
 	const scale = PortraitScale.safeParse(payload.scale);
+	const hasCompositionKey = "composition" in payload;
+	const parsedComposition =
+		hasCompositionKey && payload.composition !== null
+			? StageComposition.safeParse(payload.composition)
+			: null;
+	if (parsedComposition && !parsedComposition.success) {
+		return {};
+	}
 	if (!layout.success || !scale.success) {
 		return {};
 	}
-	return { portraitLayout: layout.data, portraitScale: scale.data };
+	const nextComposition = hasCompositionKey
+		? (parsedComposition?.data ?? null)
+		: null;
+	const nextRevision = state.stageLiveRevision + 1;
+	const draftMatchesLive =
+		state.stageDraft !== null &&
+		nextComposition !== null &&
+		stageCompositionsEqual(state.stageDraft, nextComposition);
+	return {
+		portraitLayout: layout.data,
+		portraitScale: scale.data,
+		stageComposition: nextComposition,
+		stageLiveRevision: nextRevision,
+		...(draftMatchesLive
+			? { stageDraft: null, stageDraftBaseRevision: nextRevision }
+			: {}),
+	};
 }
 
 export function reduceExpression(
@@ -157,14 +227,14 @@ export function reduceCharacterActivity(
 export function reduceRuleState(
 	_state: PlayState,
 	payload: Record<string, unknown>,
-): Partial<StageSlice> {
+): Partial<StageSliceData> {
 	return { ruleState: payload.state ?? null };
 }
 
 export function reduceStateHint(
 	state: StageSlice,
 	payload: Record<string, unknown>,
-): Partial<StageSlice> {
+): Partial<StageSliceData> {
 	const characterId =
 		typeof payload.characterId === "string" ? payload.characterId : null;
 	const name =
