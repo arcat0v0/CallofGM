@@ -1,6 +1,6 @@
 import { CharacterReviewDto } from "@cogm/shared";
-import { createFileRoute } from "@tanstack/react-router";
-import { Check, ClipboardCheck, Link2, X } from "lucide-react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { Check, ClipboardCheck, Link2, ScrollText, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { EmptyState, ListSkeleton } from "@/components/shared/empty-state";
@@ -134,6 +134,16 @@ function ReviewsPage() {
 									</div>
 
 									<div className="flex flex-wrap gap-2 lg:shrink-0">
+										<Button asChild variant="text" size="sm">
+											<Link
+												to="/gm/characters/$characterId"
+												params={{ characterId: review.characterId }}
+												search={{ from: "/gm/reviews" }}
+											>
+												<ScrollText className="size-3.5" />
+												{t("gm.library.view")}
+											</Link>
+										</Button>
 										<Button
 											type="button"
 											variant="tonal"

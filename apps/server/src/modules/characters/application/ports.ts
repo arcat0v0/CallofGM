@@ -207,7 +207,7 @@ export interface CharacterLibraryScope {
 
 export interface CharactersRepository {
 	findCharacterById(id: string): Promise<CharacterRecord | null>;
-	/** GM 可见的人物库：自有人物 + 关联到其模组的玩家人物 */
+	/** GM 可见的人物库：自有人物 + 关联到其模组或进入其团内的玩家人物 */
 	listLibraryScope(gmUserId: string): Promise<CharacterLibraryScope>;
 	/**
 	 * GM 是否可只读访问该人物：自有，或经模组关联、团内参与、提交给该 GM 的审核而产生关系。

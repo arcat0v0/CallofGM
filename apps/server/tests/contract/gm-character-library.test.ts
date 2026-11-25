@@ -29,7 +29,13 @@ describe("GM 人物库（按规则浏览）与人物访问隔离", () => {
 	let dndModuleId = "";
 	let otherGmModuleId = "";
 	const ids = {} as Record<
-		"irene" | "jack" | "osborne" | "ranger" | "foreign" | "plLinked" | "plUnlinked",
+		| "irene"
+		| "jack"
+		| "osborne"
+		| "ranger"
+		| "foreign"
+		| "plLinked"
+		| "plUnlinked",
 		string
 	>;
 
@@ -109,11 +115,36 @@ describe("GM 人物库（按规则浏览）与人物访问隔离", () => {
 		dndModuleId = await createModule(ctx.gmToken, "破晓矿坑", "dnd5r");
 		otherGmModuleId = await createModule(otherGmToken, "别人的模组", "coc7e");
 
-		ids.irene = await createGmCharacter(ctx.gmToken, "艾琳·沃克", "pc", "coc7e");
-		ids.jack = await createGmCharacter(ctx.gmToken, "码头工人 杰克", "npc", "coc7e");
-		ids.osborne = await createGmCharacter(ctx.gmToken, "奥斯本教授", "npc", "coc7e");
-		ids.ranger = await createGmCharacter(ctx.gmToken, "艾拉·晨风", "pc", "dnd5r");
-		ids.foreign = await createGmCharacter(otherGmToken, "别人的人物", "npc", "coc7e");
+		ids.irene = await createGmCharacter(
+			ctx.gmToken,
+			"艾琳·沃克",
+			"pc",
+			"coc7e",
+		);
+		ids.jack = await createGmCharacter(
+			ctx.gmToken,
+			"码头工人 杰克",
+			"npc",
+			"coc7e",
+		);
+		ids.osborne = await createGmCharacter(
+			ctx.gmToken,
+			"奥斯本教授",
+			"npc",
+			"coc7e",
+		);
+		ids.ranger = await createGmCharacter(
+			ctx.gmToken,
+			"艾拉·晨风",
+			"pc",
+			"dnd5r",
+		);
+		ids.foreign = await createGmCharacter(
+			otherGmToken,
+			"别人的人物",
+			"npc",
+			"coc7e",
+		);
 
 		const plRes = await api("/api/v1/pl/characters", {
 			method: "POST",
@@ -130,7 +161,9 @@ describe("GM 人物库（按规则浏览）与人物访问隔离", () => {
 		ids.plUnlinked = (await json<{ id: string }>(plRes2)).id;
 
 		expect((await link(ctx.gmToken, fogModuleId, ids.irene)).status).toBe(200);
-		expect((await link(ctx.gmToken, lighthouseModuleId, ids.irene)).status).toBe(200);
+		expect(
+			(await link(ctx.gmToken, lighthouseModuleId, ids.irene)).status,
+		).toBe(200);
 		expect((await link(ctx.gmToken, fogModuleId, ids.jack)).status).toBe(200);
 		expect((await link(ctx.gmToken, dndModuleId, ids.ranger)).status).toBe(200);
 		// 玩家人物经审核关联到模组（模拟审核通过后的内部关联）
@@ -186,10 +219,14 @@ describe("GM 人物库（按规则浏览）与人物访问隔离", () => {
 	});
 
 	test("过滤条件可组合，分面按其余条件计数", async () => {
-		const npcInFog = await library(`ruleId=coc7e&kind=npc&moduleId=${fogModuleId}`);
+		const npcInFog = await library(
+			`ruleId=coc7e&kind=npc&moduleId=${fogModuleId}`,
+		);
 		expect(npcInFog.items.map((item) => item.name)).toEqual(["码头工人 杰克"]);
 		expect(npcInFog.facets.kinds).toEqual({ pc: 1, npc: 1 });
-		expect(npcInFog.facets.modules.find((m) => m.id === fogModuleId)?.count).toBe(1);
+		expect(
+			npcInFog.facets.modules.find((m) => m.id === fogModuleId)?.count,
+		).toBe(1);
 
 		const unlinked = await library("ruleId=coc7e&moduleId=none");
 		expect(unlinked.items.map((item) => item.name)).toEqual(["奥斯本教授"]);
@@ -197,7 +234,9 @@ describe("GM 人物库（按规则浏览）与人物访问隔离", () => {
 		const players = await library("ruleId=coc7e&ownerKind=pl");
 		expect(players.items.map((item) => item.name)).toEqual(["玩家调查员"]);
 
-		const search = await library(`ruleId=coc7e&q=${encodeURIComponent("艾琳")}`);
+		const search = await library(
+			`ruleId=coc7e&q=${encodeURIComponent("艾琳")}`,
+		);
 		expect(search.items.map((item) => item.name)).toEqual(["艾琳·沃克"]);
 	});
 
@@ -235,10 +274,15 @@ describe("GM 人物库（按规则浏览）与人物访问隔离", () => {
 			.where(eq(characters.id, ids.irene));
 		expect(row?.deletedAt).toBeNull();
 
-		expect((await link(otherGmToken, otherGmModuleId, ids.irene)).status).toBe(404);
+		expect((await link(otherGmToken, otherGmModuleId, ids.irene)).status).toBe(
+			404,
+		);
 		expect(
-			(await api(`/api/v1/gm/modules/${fogModuleId}/characters`, { token: otherGmToken }))
-				.status,
+			(
+				await api(`/api/v1/gm/modules/${fogModuleId}/characters`, {
+					token: otherGmToken,
+				})
+			).status,
 		).toBe(404);
 	});
 
@@ -254,12 +298,97 @@ describe("GM 人物库（按规则浏览）与人物访问隔离", () => {
 		expect(del.status).toBeGreaterThanOrEqual(403);
 
 		expect(
-			(await api(`/api/v1/gm/characters/${ids.plUnlinked}`, { token: ctx.gmToken }))
-				.status,
+			(
+				await api(`/api/v1/gm/characters/${ids.plUnlinked}`, {
+					token: ctx.gmToken,
+				})
+			).status,
 		).toBe(404);
-		expect((await link(ctx.gmToken, fogModuleId, ids.plUnlinked)).status).toBe(404);
+		expect((await link(ctx.gmToken, fogModuleId, ids.plUnlinked)).status).toBe(
+			404,
+		);
 		// 已有关系的玩家人物可以再关联到本人的其他同规则模组
-		expect((await link(ctx.gmToken, fogModuleId, ids.plLinked)).status).toBe(200);
+		expect((await link(ctx.gmToken, fogModuleId, ids.plLinked)).status).toBe(
+			200,
+		);
+	});
+
+	test("经团提交链接审核通过的玩家人物未关联模组时也出现在 GM 人物库，且仍对其他 GM 隔离", async () => {
+		const sessionRes = await api("/api/v1/gm/sessions", {
+			method: "POST",
+			token: ctx.gmToken,
+			body: JSON.stringify({
+				moduleId: fogModuleId,
+				name: "团邀请测试",
+				characterIds: [],
+				status: "preparing",
+			}),
+		});
+		expect(sessionRes.status).toBe(200);
+		const { session } = await json<{ session: { id: string } }>(sessionRes);
+
+		const inviteRes = await api("/api/v1/gm/invites", {
+			method: "POST",
+			token: ctx.gmToken,
+			body: JSON.stringify({ scope: "session", targetId: session.id }),
+		});
+		expect(inviteRes.status).toBe(200);
+		const invite = await json<{ token: string }>(inviteRes);
+
+		const submitRes = await api(
+			`/api/v1/pl/invites/${invite.token}/submissions`,
+			{
+				method: "POST",
+				token: plToken,
+				body: JSON.stringify({
+					mode: "new",
+					name: "团内审核调查员",
+				}),
+			},
+		);
+		expect(submitRes.status).toBe(200);
+		const { reviewId, characterId } = await json<{
+			reviewId: string;
+			characterId: string;
+		}>(submitRes);
+
+		// 审核前未进入人物库
+		const before = await library("ruleId=coc7e&ownerKind=pl");
+		expect(before.items.some((item) => item.id === characterId)).toBe(false);
+
+		const decideRes = await api(`/api/v1/gm/reviews/${reviewId}/decide`, {
+			method: "POST",
+			token: ctx.gmToken,
+			body: JSON.stringify({ approve: true }),
+		});
+		expect(decideRes.status).toBe(200);
+
+		const after = await library("ruleId=coc7e&ownerKind=pl");
+		const entry = after.items.find((item) => item.id === characterId);
+		expect(entry).toBeDefined();
+		expect(entry?.name).toBe("团内审核调查员");
+		expect(entry?.ownedByMe).toBe(false);
+		expect(entry?.ownerName).toBe("library-pl");
+		expect(entry?.modules).toEqual([]);
+
+		const unlinked = await library("ruleId=coc7e&moduleId=none");
+		expect(unlinked.items.some((item) => item.id === characterId)).toBe(true);
+
+		expect(
+			(
+				await api(`/api/v1/gm/characters/${characterId}`, {
+					token: ctx.gmToken,
+				})
+			).status,
+		).toBe(200);
+		expect(
+			(
+				await api(`/api/v1/gm/characters/${characterId}`, {
+					token: otherGmToken,
+				})
+			).status,
+		).toBe(404);
+		const other = await library("ruleId=coc7e", otherGmToken);
+		expect(other.items.some((item) => item.id === characterId)).toBe(false);
 	});
 });
-

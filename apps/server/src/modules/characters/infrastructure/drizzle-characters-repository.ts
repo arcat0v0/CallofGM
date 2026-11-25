@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gt, inArray, isNull, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import type { DbClient } from "@/platform/db/client";
 import {
 	characterAudits,
@@ -22,8 +22,8 @@ import type {
 	CharacterAuditRecord,
 	CharacterCreationRollRecord,
 	CharacterGrowthRecord,
-	CharacterLibraryScope,
 	CharacterInviteRecord,
+	CharacterLibraryScope,
 	CharacterReviewDetail,
 	CharacterReviewRecord,
 	CharacterSheetContextCompanionRow,
@@ -83,7 +83,26 @@ export class DrizzleCharactersRepository implements CharactersRepository {
 							),
 						)
 						.orderBy(asc(moduleCharacters.createdAt));
-		const linkedIds = [...new Set(links.map((link) => link.characterId))];
+		const sessionCharacterRows = await this.db
+			.select({ characterId: sessionCharacters.characterId })
+			.from(sessionCharacters)
+			.innerJoin(
+				sessionsTable,
+				eq(sessionsTable.id, sessionCharacters.sessionId),
+			)
+			.where(
+				and(
+					eq(sessionsTable.ownerId, gmUserId),
+					isNull(sessionsTable.deletedAt),
+					isNull(sessionCharacters.deletedAt),
+				),
+			);
+		const linkedIds = [
+			...new Set([
+				...links.map((link) => link.characterId),
+				...sessionCharacterRows.map((row) => row.characterId),
+			]),
+		];
 		const rows = await this.db
 			.select({
 				id: characters.id,
@@ -109,8 +128,9 @@ export class DrizzleCharactersRepository implements CharactersRepository {
 				),
 			);
 		const scopedIds = new Set(rows.map((row) => row.id));
+		const scopedIdList = [...scopedIds];
 		const portraitRows =
-			rows.length === 0
+			scopedIdList.length === 0
 				? []
 				: await this.db
 						.select({
@@ -121,20 +141,10 @@ export class DrizzleCharactersRepository implements CharactersRepository {
 							createdAt: characterPortraits.createdAt,
 						})
 						.from(characterPortraits)
-						.innerJoin(
-							characters,
-							eq(characters.id, characterPortraits.characterId),
-						)
 						.where(
 							and(
 								isNull(characterPortraits.deletedAt),
-								isNull(characters.deletedAt),
-								linkedIds.length === 0
-									? eq(characters.ownerId, gmUserId)
-									: or(
-											eq(characters.ownerId, gmUserId),
-											inArray(characters.id, linkedIds),
-										),
+								inArray(characterPortraits.characterId, scopedIdList),
 							),
 						);
 		return {
@@ -181,7 +191,10 @@ export class DrizzleCharactersRepository implements CharactersRepository {
 		const viaSession = await this.db
 			.select({ id: sessionCharacters.id })
 			.from(sessionCharacters)
-			.innerJoin(sessionsTable, eq(sessionsTable.id, sessionCharacters.sessionId))
+			.innerJoin(
+				sessionsTable,
+				eq(sessionsTable.id, sessionCharacters.sessionId),
+			)
 			.where(
 				and(
 					eq(sessionCharacters.characterId, characterId),
@@ -648,7 +661,10 @@ export class DrizzleCharactersRepository implements CharactersRepository {
 			.insert(characterCreationRolls)
 			.values(roll)
 			.onConflictDoNothing({
-				target: [characterCreationRolls.inviteId, characterCreationRolls.userId],
+				target: [
+					characterCreationRolls.inviteId,
+					characterCreationRolls.userId,
+				],
 			});
 		const stored = await this.findCreationRoll(roll.inviteId, roll.userId);
 		if (!stored) {
@@ -794,8 +810,7 @@ export class DrizzleCharactersRepository implements CharactersRepository {
 						? character.sheetJson
 						: null,
 				creationRoll: row.inviteId
-					? (rollByKey.get(`${row.inviteId}:${row.submittedByUserId}`) ??
-						null)
+					? (rollByKey.get(`${row.inviteId}:${row.submittedByUserId}`) ?? null)
 					: null,
 			};
 		});
