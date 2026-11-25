@@ -510,6 +510,9 @@ export function StageStudioSidebar({
 															{isOnStage
 																? t("gm.stageStudio.onStageBadge")
 																: t("gm.stageStudio.offStageBadge")}
+															{character.portraits.length === 0 && (
+																<> · {t("gm.stageStudio.portraitMissing")}</>
+															)}
 														</span>
 													</div>
 												</button>

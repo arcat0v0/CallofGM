@@ -9,6 +9,7 @@ import { DialogueBox } from "@/features/session-stage/dialogue-box";
 import { PortraitLayer } from "@/features/session-stage/portrait-layer";
 import { SceneAudioControl } from "@/features/session-stage/scene-audio-control";
 import { SessionLoadingTransition } from "@/features/session-stage/session-loading-transition";
+import { latestStageDialogue } from "@/features/session-stage/stage-dialogue";
 import { t, useI18nVersion } from "@/i18n";
 import { fetchAllPages, mediaUrl } from "@/lib/api";
 import { usePlayAudio } from "@/lib/bgm";
@@ -34,7 +35,7 @@ function GmConsoleView() {
 	const status = usePlayStore((state) => state.status);
 	const phase = usePlayStore((state) => state.phase);
 	const scene = usePlayStore((state) => state.scene);
-	const messages = usePlayStore((state) => state.messages);
+	const latest = usePlayStore((state) => latestStageDialogue(state.messages));
 	const moduleId = usePlayStore((state) => state.moduleId);
 	const snapshotReady = usePlayStore((state) => state.snapshotReady);
 	const storeSessionId = usePlayStore((state) => state.sessionId);
@@ -84,10 +85,6 @@ function GmConsoleView() {
 			cancelled = true;
 		};
 	}, [catalogRevision, moduleId, setCatalog, setCatalogStatus]);
-
-	const latest = [...messages]
-		.reverse()
-		.find((message) => message.tone !== "ooc");
 
 	const dialogue = latest ? (
 		<DialogueBox

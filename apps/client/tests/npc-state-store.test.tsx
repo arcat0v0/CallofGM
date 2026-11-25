@@ -18,7 +18,15 @@ function npcCharacter(
 		state,
 		publicState,
 		publicStateFields,
-		portraits: [],
+		portraits: [
+			{
+				expressionKey: "default",
+				portraitAssetId: "npc-1-portrait",
+				isDefault: true,
+				label: null,
+				sortOrder: 0,
+			},
+		],
 		claim: null,
 		sheet: null,
 	};

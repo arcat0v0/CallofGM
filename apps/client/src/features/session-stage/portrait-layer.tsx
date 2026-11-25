@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { getRuleComponent } from "@/rules/registry";
 import { usePlayStore } from "@/stores/play-store";
 import { resolveStagePlacements } from "./portrait-layout";
+import { latestStageDialogue } from "./stage-dialogue";
 
 export type StageResizeCorner = "nw" | "ne" | "sw" | "se";
 
@@ -103,15 +104,9 @@ function PortraitLayer({
 	const layout = usePlayStore((state) => state.portraitLayout);
 	const scale = usePlayStore((state) => state.portraitScale);
 	const storeComposition = usePlayStore((state) => state.stageComposition);
-	const storeLatestSpeaker = usePlayStore((state) => {
-		for (let index = state.messages.length - 1; index >= 0; index -= 1) {
-			const message = state.messages[index];
-			if (message && message.tone !== "ooc") {
-				return message.speakerName;
-			}
-		}
-		return null;
-	});
+	const storeLatestSpeaker = usePlayStore(
+		(state) => latestStageDialogue(state.messages)?.speakerName ?? null,
+	);
 
 	const composition =
 		compositionOverride !== undefined ? compositionOverride : storeComposition;
@@ -164,6 +159,9 @@ function PortraitLayer({
 					) ??
 					portraits.find((item) => item.isDefault) ??
 					portraits[0];
+				const portraitUrl = mediaUrl(current?.portraitAssetId);
+				if (!portraitUrl && !interactive) return null;
+
 				const ruleComponent = getRuleComponent(character.ruleId);
 				const stateSource =
 					audience === "player" &&
@@ -184,8 +182,6 @@ function PortraitLayer({
 				const maxWidthCqw = compact
 					? Math.min(72, Math.round(52 * placement.scale))
 					: Math.min(68, Math.round(48 * placement.scale));
-				const placeholderWidthCqh = Math.round(imgHeightCqh * 0.68 * 10) / 10;
-
 				return (
 					<div
 						key={character.characterId}
@@ -231,9 +227,9 @@ function PortraitLayer({
 									"ring-md-primary bg-md-primary/6 ring-2 ring-offset-2 ring-offset-transparent",
 							)}
 						>
-							{current ? (
+							{portraitUrl ? (
 								<img
-									src={mediaUrl(current.portraitAssetId) ?? undefined}
+									src={portraitUrl}
 									alt={character.name}
 									draggable={false}
 									style={{
@@ -251,58 +247,15 @@ function PortraitLayer({
 									)}
 								/>
 							) : (
-								<div
-									role="img"
-									aria-label={t("stage.portraitPendingAria", {
-										name: character.name,
-									})}
-									style={{
-										height: `${imgHeightCqh}cqh`,
-										width: `${placeholderWidthCqh}cqh`,
-										maxWidth: `${maxWidthCqw}cqw`,
-									}}
-									className={cn(
-										"bg-stage-panel relative flex shrink-0 flex-col items-center justify-end overflow-hidden rounded-t-full rounded-b-xl select-none",
-										!noTransition &&
-											cn(
-												"transition-[height,width,transform] duration-500",
-												spatialEase,
-											),
-									)}
+								<span
+									title={character.name}
+									className="stage-glass text-md-on-surface flex min-h-9 max-w-[min(45cqw,12rem)] items-center rounded-xl px-3 text-label-medium-emph select-none"
 								>
-									<span
-										aria-hidden
-										className={cn(
-											"bg-md-on-surface/15 absolute bottom-0 left-1/2 h-[52%] w-[64%] -translate-x-1/2 rounded-t-full",
-											placement.flipX && "-scale-x-100",
-										)}
-									/>
-									<span
-										aria-hidden
-										className="bg-md-on-surface/15 absolute bottom-[44%] left-1/2 size-[28%] -translate-x-1/2 rounded-full"
-									/>
-									<span
-										className={cn(
-											"text-md-on-surface/85 relative font-serif",
-											compact
-												? "mb-1 text-title-medium-emph"
-												: "mb-2 text-headline-small-emph",
-										)}
-									>
-										{character.name.slice(0, 1)}
-									</span>
-									<span
-										className={cn(
-											"text-md-on-surface relative mb-2 text-label-small",
-											compact && "mb-1",
-										)}
-									>
-										{t("stage.portraitPending")}
-									</span>
-								</div>
+									<span className="truncate">{character.name}</span>
+								</span>
 							)}
 
-							{interactive && isSelected ? (
+							{interactive && isSelected && portraitUrl ? (
 								<>
 									<div className="bg-md-primary text-md-on-primary pointer-events-none absolute -top-7 left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-full px-2.5 py-0.5 text-label-small-emph whitespace-nowrap shadow-card">
 										<span>{character.name}</span>
@@ -336,7 +289,7 @@ function PortraitLayer({
 							) : null}
 						</div>
 
-						{showNameplate ? (
+						{showNameplate && portraitUrl ? (
 							<>
 								<div
 									className={cn(

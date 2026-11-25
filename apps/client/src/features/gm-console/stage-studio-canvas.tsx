@@ -21,6 +21,7 @@ import {
 	type SnapGuide,
 } from "@/features/session-stage/portrait-layout";
 import { SceneAudioControl } from "@/features/session-stage/scene-audio-control";
+import { latestStageDialogue } from "@/features/session-stage/stage-dialogue";
 import { t } from "@/i18n";
 import { mediaUrl } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -82,17 +83,15 @@ export function StageStudioCanvas({
 }) {
 	const status = usePlayStore((state) => state.status);
 	const phase = usePlayStore((state) => state.phase);
-	const messages = usePlayStore((state) => state.messages);
+	const latestMessage = usePlayStore((state) =>
+		latestStageDialogue(state.messages),
+	);
 	const stageRootRef = useRef<HTMLDivElement>(null);
 	const dragRef = useRef<DragSession | null>(null);
 	const latestCompositionRef = useRef(composition);
 	latestCompositionRef.current = composition;
 	const [draggingId, setDraggingId] = useState<string | null>(null);
 	const [guides, setGuides] = useState<SnapGuide[]>([]);
-
-	const latestMessage = [...messages]
-		.reverse()
-		.find((message) => message.tone !== "ooc");
 
 	const dialogue = showDialogue ? (
 		latestMessage ? (

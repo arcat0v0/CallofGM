@@ -1373,8 +1373,6 @@ export const zhCN: Record<string, string> = {
 	"stage.audioRetry": "重试播放",
 	"stage.audioLoading": "正在加载音频",
 	"stage.localVolume": "本地音量",
-	"stage.portraitPending": "立绘待上传",
-	"stage.portraitPendingAria": "{name} · 立绘待上传",
 
 	"chat.title": "桌边对话",
 	"chat.realtime": "实时",
@@ -2557,6 +2555,7 @@ export const zhCN: Record<string, string> = {
 	"gm.stageStudio.castCount": "在台 {count}/{max}",
 	"gm.stageStudio.castSearch": "搜索角色姓名…",
 	"gm.stageStudio.castEmpty": "本团还没有角色",
+	"gm.stageStudio.portraitMissing": "无立绘",
 	"gm.stageStudio.castLimitReached": "同台最多展示 {max} 位角色",
 	"gm.stageStudio.quickPresetsTitle": "快捷排版",
 	"gm.stageStudio.quickPresetsHint":

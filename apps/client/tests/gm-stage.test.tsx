@@ -2,11 +2,13 @@ import { beforeEach, describe, expect, test } from "bun:test";
 import type { SnapshotCharacter } from "@cogm/shared";
 import { fireEvent, render, waitFor } from "@testing-library/react";
 import { ChatMessageCard } from "../src/features/chat/chat-message-card";
+import type { ChatMessage } from "../src/features/chat/types";
 import { GmChatPanel } from "../src/features/gm-console/gm-chat-panel";
 import { GmToolProvider } from "../src/features/gm-console/gm-tool-context";
 import { StageStudio } from "../src/features/gm-console/stage-studio";
 import { DialogueBox } from "../src/features/session-stage/dialogue-box";
 import { PortraitLayer } from "../src/features/session-stage/portrait-layer";
+import { latestStageDialogue } from "../src/features/session-stage/stage-dialogue";
 import { usePlayStore } from "../src/stores/play-store";
 import { GmConsoleStage } from "../src/themes/default/slots/gm-console-stage";
 
@@ -88,6 +90,70 @@ describe("GM stage and speaker labels", () => {
 			/>,
 		);
 		expect(view.getByText("tip_hat_smile")).toBeTruthy();
+	});
+
+	test("portraitless characters speak without creating a live stage placeholder", () => {
+		usePlayStore.setState({
+			characters: [
+				{ ...sampleCharacter("yumi", "由美", "pc"), portraits: [] },
+				sampleCharacter("mirror", "御剑镜", "pc"),
+			],
+		});
+		const view = render(
+			<>
+				<PortraitLayer />
+				<DialogueBox speaker="由美" text="等一下。" />
+			</>,
+		);
+		expect(
+			view.container.querySelector('[data-stage-character="yumi"]'),
+		).toBeNull();
+		expect(view.getByRole("img", { name: "御剑镜" })).toBeTruthy();
+		expect(view.getByText("由美")).toBeTruthy();
+		expect(view.getByText("等一下。")).toBeTruthy();
+	});
+
+	test("stage editing retains the position of a portraitless character", () => {
+		usePlayStore.setState({
+			characters: [{ ...sampleCharacter("yumi", "由美", "pc"), portraits: [] }],
+		});
+		const selected: string[] = [];
+		const view = render(
+			<PortraitLayer
+				interactive={{
+					selectedId: null,
+					draggingId: null,
+					onSelect: (id) => selected.push(id),
+					onPointerDownMove: () => undefined,
+					onPointerDownScale: () => undefined,
+				}}
+			/>,
+		);
+		fireEvent.pointerDown(view.getByText("由美"));
+		expect(selected).toEqual(["yumi"]);
+		expect(view.queryByRole("img")).toBeNull();
+	});
+
+	test("stage dialogue and speaker focus use only presented roleplay messages", () => {
+		const presented: ChatMessage = {
+			id: "presented",
+			sortKey: 1,
+			speakerName: "由美",
+			speakerRoleLabel: "PC",
+			avatarInitials: "由",
+			avatarBg: "",
+			avatarFg: "",
+			time: "20:00",
+			body: "等一下。",
+			tone: "ic",
+		};
+		const excluded: ChatMessage[] = [
+			{ ...presented, id: "pending", pending: true },
+			{ ...presented, id: "rejected", rejected: true },
+			{ ...presented, id: "ooc", tone: "ooc" },
+		];
+		expect(latestStageDialogue(excluded)).toBeUndefined();
+		expect(latestStageDialogue([presented, ...excluded])).toBe(presented);
 	});
 
 	test("long stage dialogue scrolls in place and resets for a new line", () => {

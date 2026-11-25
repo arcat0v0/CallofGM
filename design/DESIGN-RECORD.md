@@ -264,3 +264,29 @@ r1/r2/gate/final 四轮中位数都是 6（桌面最后一轮升到 7/7/7）。�
 ## 交付后修订（gm-music）
 - 2026-11-22 用户反馈“/gm/music 页面风格有些老旧，需要像 /gm/modules 和 /gm/characters 一样，多用 MD3 Expressive”：改为与模组库同源的工作台——`LibraryNavigation` 圆角侧栏（模组项复用文件夹样式，选中 accent-soft）、`bg-md-surface` 画布与 `p-3/4` 内边距、胶囊搜索/排序与 `SegmentedControl`、台账收进 `rounded-xl bg-md-surface-container-low` 面板（BGM/SE 40px 分组条 + 计数药丸，行内选中用表面色阶与强调线）、试听条改为底部圆角浮岛；行内左缘与面板圆角之间留 12px，标题与艺术家/专辑并排，不再悬浮。列结构、拖放、全部曲目分组与键盘快捷键保持不变；移动端工具栏两行换行。
 - 2026-11-22 模组工作台音乐页修复：补齐 `gm.music.bgmCount` / `seCount` / `noBgm` / `noSe` 文案键，不再直接显示 key；试听补齐 Howler 格式提示（Howler 对无扩展名的媒体/流地址会直接判定无可用编码），网易云用 mp3、QQ 用 m4a，并在 `music-page.test.tsx` 断言平台流的 `format`。Chromium 实测 1440×900 与 390×844（模组视图、全部曲目、试听中），以及模组工作台音乐页平台曲目实际播放（206 + audio/mpeg）。截图待补。
+
+## 舞台无立绘展示（2026-11-25）
+
+状态为设计原型，供用户对照。演示使用项目自带的雨夜船屋场景。初始评审为三位 GPT-6.2 Astra，参考提炼为 GPT-6.2 Astra，原型对照为 GPT-6.2 Sol。截图使用 Orca Chromium。
+
+用户提供的导演工作台截图作为现状基线，三位评审均为 6/10。共同发现为立绘尺寸的深色人形遮挡了场景主体，同时用单字代替全名。原型在同一场景里展示现有占位、常驻姓名牌和随发言显示。对照评审认为随发言显示清晰保留了场景的视觉重心，并能通过对话框识别由美。
+
+用户随后指定参考 GalGame。推荐随发言显示作为默认。角色未发言时，场景通过现有立绘和背景呈现。角色台词被放行后，播放器在现有对话框里显示公开姓名与台词。GM 可在舞台编排的人物列表查看素材状态和机位；会话中的角色身份与素材独立。
+
+公开参考使用游戏官方发行截图。《命运石之门》街景画面把伦太郎姓名与台词绑定。《CLANNAD》的课堂截图为插话使用 Student 名签，空房间的叙述保留正文区。《Kanon》的对话截图把姓名签放在底部阅读区的左上方。
+- [《命运石之门》发行商截图](https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/412830/ss_18e33276a72437c7728c969fe079e7bda6b7fb08.1920x1080.jpg?t=1715703398)
+- [《CLANNAD》发行商图库](https://store.steampowered.com/app/324160/CLANNAD)
+- [《Kanon》官方图库](https://store.steampowered.com/app/2850310/Kanon)
+
+随机启发记录如下。
+- `e7u00UIGhx6I24IqFtR7li9e4rc8SY0qfXtws0NC2UIlDCOMHltcbXjLzc46UFE1T5RohmIH6g7x8V4uIH1jIL8WhpB6MO1A`。连续的零启发静场仅保留场景。
+- `YqSbYO950Ybas2j8IZ0EwRT9PQbOzCQTEUMJOPNJXKripe474btxbGOPjlE8EZ9dk4QI8dMdLiyHJ1Rmk1PwlaXO0SgIc0BH`。中间重复的大写字形启发将姓名排在同一基线。
+- `QYMlipNDWWOu30ZxhbZBUE6Q0ejavSK9l3csoVL1rJiL6HFIwbFYd90CojGDTutIxhlSJTQXS9iUYPI45MTcYLLicZVjHaGo`。两组重复字符之间的间隔启发固定的姓名与台词阅读位置。
+
+原型见 `design/explorations/stage-without-portraits/index.html`。桌面 1440 × 900 与移动 390 × 844 的截图位于 `design/shots/stage-without-portraits/`。原型 Lighthouse Accessibility 100。真实界面与权限边界待实现后验证。
+
+### 真实页面接入
+
+玩家舞台和 GM 控制台接入共用立绘层。没有立绘的机位仅在编辑画布显示紧凑姓名牌，编排名单附「无立绘」。纯净预览使用与玩家一致的渲染条件。舞台对话和发言聚焦共用最近一次已呈现发言，送审和拒绝状态在聊天中呈现。
+
+用独立的 CoGM 测试团在正式页面路由走过场景切换、发言送审、GM 放行和混合编排放映。素材为自带的「雨夜船屋」。桌面 1440 × 900 和竖屏 390 × 844 的实拍见 `design/shots/stage-without-portraits/live-*`。玩家路由 Lighthouse Accessibility 100。对照评审认为新版的开放舞台更清晰保留了场景纵深，两张评审截图使用不同背景。

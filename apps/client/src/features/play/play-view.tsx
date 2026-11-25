@@ -16,6 +16,7 @@ import {
 	SessionLoadingCurtain,
 	SessionLoadingTransition,
 } from "@/features/session-stage/session-loading-transition";
+import { latestStageDialogue } from "@/features/session-stage/stage-dialogue";
 import { t, useI18nVersion } from "@/i18n";
 import { mediaUrl } from "@/lib/api";
 import { usePlayAudio } from "@/lib/bgm";
@@ -197,9 +198,7 @@ function PlaySession({ sessionId }: { sessionId: string }) {
 	const selfName =
 		claimed?.name ??
 		(isOb ? t("chat.spectatorFallback") : t("chat.playerFallback"));
-	const latest = [...messages]
-		.reverse()
-		.find((message) => message.tone !== "ooc");
+	const latest = latestStageDialogue(messages);
 
 	useEffect(() => {
 		if (status === "ended") {
