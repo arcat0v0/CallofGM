@@ -385,4 +385,45 @@ describe("BGM position and Howler synchronization", () => {
 		se.finish();
 		expect(se.unload).toHaveBeenCalledTimes(1);
 	});
+
+	test("pauses before seeking when GM pauses with drift and stops late queued onplay", () => {
+		const order: string[] = [];
+		const initial = bgm({ seekOffsetMs: 5_000, startedAtMs: Date.now() });
+		const hook = renderHook(
+			({ state }) =>
+				useBgmPlayback(state, "/api/v1/media/asset-a", null, undefined, {
+					isGm: false,
+				}),
+			{ initialProps: { state: initial } },
+		);
+		const howl = firstHowl();
+		const originalSeek = howl.seek.bind(howl);
+		howl.pause.mockImplementation(() => {
+			order.push("pause");
+			howl.isPlaying = false;
+			return howl;
+		});
+		howl.seek = ((value?: number) => {
+			if (value !== undefined) order.push(`seek:${value}`);
+			return originalSeek(value);
+		}) as typeof howl.seek;
+
+		// Simulate GM pausing with >0.75s offset difference (the exact html5 Howler seek-resumes-play trigger)
+		hook.rerender({
+			state: bgm({
+				playing: false,
+				seekOffsetMs: 20_000,
+				startedAtMs: Date.now(),
+				version: 2,
+			}),
+		});
+		expect(order).toEqual(["pause", "seek:20"]);
+		expect(howl.playing()).toBe(false);
+
+		// If a queued HTML5 play event fires late after pause, onplay immediately re-pauses
+		howl.isPlaying = true;
+		(howl.options.onplay as () => void)();
+		expect(howl.playing()).toBe(false);
+		expect(howl.pause).toHaveBeenCalledTimes(2);
+	});
 });

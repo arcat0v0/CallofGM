@@ -2,6 +2,7 @@ import {
 	type VoiceClientMessage,
 	type VoiceMember,
 	type VoiceServerMessage,
+	type VoiceSignal,
 	type VoiceState,
 	voiceProtocolVersion,
 } from "@cogm/shared";
@@ -26,7 +27,13 @@ export type { VoiceAudioSettings } from "./voice-audio-settings";
 
 import { VoiceActivityMonitor, VoiceMicTester } from "./voice-activity";
 import { VoiceDiagnostics } from "./voice-diagnostics";
-import { VoicePeer } from "./voice-peer";
+import {
+	type PeerHealth,
+	supportsAudioOutputSelection,
+	VoicePeer,
+} from "./voice-peer";
+
+export type { PeerHealth } from "./voice-peer";
 
 type VoiceCommand = {
 	[Kind in VoiceClientMessage["type"]]: Pick<
@@ -60,6 +67,8 @@ export type VoiceSnapshot = {
 	micTestLoopback: boolean;
 	audioSettings: VoiceAudioSettings;
 	audioDevices: Array<{ deviceId: string; label: string }>;
+	audioOutputDevices: Array<{ deviceId: string; label: string }>;
+	supportsOutputSelection: boolean;
 	appliedAudioConstraints: AppliedAudioConstraints;
 	audioProcessing: VoiceAudioProcessing;
 	micSuspended: boolean;
@@ -67,7 +76,9 @@ export type VoiceSnapshot = {
 	playbackMuted: boolean;
 	playbackBlocked: boolean;
 	peerConnecting: number;
+	peerConnected: number;
 	peerFailed: number;
+	peerStates: Record<string, PeerHealth>;
 	speakingIds: string[];
 	memberVolumes: Record<string, number>;
 	speakerPopupOpen: boolean;
@@ -86,6 +97,7 @@ export type VoiceActivityMonitorLike = {
 export type VoiceMicTesterLike = {
 	start: (stream: MediaStream) => void;
 	startTap?: (context: AudioContext, node: AudioNode) => void;
+	setOutputDevice?: (deviceId: string) => void;
 	setLoopback: (enabled: boolean) => void;
 	stop: () => void;
 };
@@ -102,6 +114,8 @@ type VoiceOptions = {
 };
 
 const REQUEST_TIMEOUT = 6_000;
+const MAX_EARLY_SIGNAL_SENDERS = 16;
+const MAX_EARLY_SIGNALS_PER_SENDER = 32;
 const INITIAL: VoiceSnapshot = {
 	link: "connecting",
 	state: null,
@@ -114,6 +128,8 @@ const INITIAL: VoiceSnapshot = {
 	micTestLoopback: false,
 	audioSettings: DEFAULT_VOICE_AUDIO_SETTINGS,
 	audioDevices: [{ deviceId: "default", label: "" }],
+	audioOutputDevices: [{ deviceId: "default", label: "" }],
+	supportsOutputSelection: false,
 	appliedAudioConstraints: {
 		echoCancellation: null,
 		noiseSuppression: null,
@@ -125,7 +141,9 @@ const INITIAL: VoiceSnapshot = {
 	playbackMuted: false,
 	playbackBlocked: false,
 	peerConnecting: 0,
+	peerConnected: 0,
 	peerFailed: 0,
+	peerStates: {},
 	speakingIds: [],
 	memberVolumes: {},
 	speakerPopupOpen: true,
@@ -138,9 +156,9 @@ function speakerKey(member: Pick<VoiceMember, "role" | "name">): string {
 	return `${member.role}:${member.name}`;
 }
 
-function shallowEqualRecord(
-	a: Record<string, number>,
-	b: Record<string, number>,
+function shallowEqualRecord<T>(
+	a: Record<string, T>,
+	b: Record<string, T>,
 ): boolean {
 	const aKeys = Object.keys(a);
 	const bKeys = Object.keys(b);
@@ -182,6 +200,7 @@ export class VoiceController {
 	private readonly options: VoiceOptions;
 	private readonly listeners = new Set<() => void>();
 	private readonly peers = new Map<string, VoicePeer>();
+	private readonly earlySignals = new Map<string, VoiceSignal[]>();
 	private readonly lastAudibleVolumes = new Map<string, number>();
 	private readonly monitor: VoiceActivityMonitorLike;
 	private readonly micTester: VoiceMicTesterLike;
@@ -190,6 +209,7 @@ export class VoiceController {
 	private snapshot: VoiceSnapshot = {
 		...INITIAL,
 		audioSettings: readVoiceAudioSettings(),
+		supportsOutputSelection: supportsAudioOutputSelection(),
 	};
 	private transport: VoiceTransport | null = null;
 	private pending: PendingCommand | null = null;
@@ -355,7 +375,9 @@ export class VoiceController {
 			member: null,
 			pending: null,
 			peerConnecting: 0,
+			peerConnected: 0,
 			peerFailed: 0,
+			peerStates: {},
 			playbackBlocked: false,
 			speakingIds: [],
 			pushToTalkActive: false,
@@ -365,20 +387,39 @@ export class VoiceController {
 		});
 	}
 
+	private bufferEarlySignal(fromMemberId: string, signal: VoiceSignal): void {
+		let queue = this.earlySignals.get(fromMemberId);
+		if (!queue) {
+			if (this.earlySignals.size >= MAX_EARLY_SIGNAL_SENDERS) return;
+			queue = [];
+			this.earlySignals.set(fromMemberId, queue);
+		}
+		if (queue.length < MAX_EARLY_SIGNALS_PER_SENDER) {
+			queue.push(signal);
+		}
+	}
+
 	receive(message: VoiceServerMessage): void {
 		if (!this.transport) return;
 		if (message.type === "voice:state") {
 			this.applyState(message.payload);
 		} else if (message.type === "voice:signal") {
-			void this.peers
-				.get(message.payload.fromMemberId)
-				?.accept(message.payload.signal);
+			const peer = this.peers.get(message.payload.fromMemberId);
+			if (peer) {
+				void peer.accept(message.payload.signal);
+			} else if (this.pending?.message.type === "voice:join") {
+				this.bufferEarlySignal(
+					message.payload.fromMemberId,
+					message.payload.signal,
+				);
+			}
 		} else {
 			const { payload } = message;
 			const pending = this.pending?.message;
 			if (payload.requestId !== pending?.requestId) return;
 			if (!payload.ok) {
 				this.clearPending();
+				this.earlySignals.clear();
 				this.patch({ pending: null, error: payload.code });
 			} else if (pending.type !== "voice:join") {
 				this.clearPending();
@@ -408,6 +449,9 @@ export class VoiceController {
 		if (!member && previous.member) this.clearMedia();
 		if (previous.member?.canSpeak && !member?.canSpeak) this.stopMic();
 		if (member && requestedMembership) this.clearPending();
+		if (!state.selfId && this.pending?.message.type === "voice:leave") {
+			this.clearPending();
+		}
 		if (!state.selfId) this.unwantedMember = null;
 		if (state.selfId && !member && state.selfId !== this.unwantedMember) {
 			this.unwantedMember = state.selfId;
@@ -418,7 +462,17 @@ export class VoiceController {
 			state,
 			member,
 			pending: this.pending?.message.type ?? null,
-			...(member ? {} : { speakingIds: [], memberVolumes: {} }),
+			...(member
+				? {}
+				: {
+						speakingIds: [],
+						memberVolumes: {},
+						peerConnecting: 0,
+						peerConnected: 0,
+						peerFailed: 0,
+						peerStates: {},
+						playbackBlocked: false,
+					}),
 		});
 		if (member) {
 			this.diagnostics.setMembership(
@@ -464,6 +518,7 @@ export class VoiceController {
 					const options: ConstructorParameters<typeof VoicePeer>[0] = {
 						initiator: ownId < item.id,
 						iceServers: state.iceServers,
+						outputDeviceId: this.snapshot.audioSettings.outputDeviceId,
 						send: (signal) => {
 							if (
 								this.peers.get(item.id) === peer &&
@@ -500,14 +555,23 @@ export class VoiceController {
 					this.peers.set(item.id, peer);
 					if (this.stream)
 						peer.setTrack(this.stream.getAudioTracks()[0] ?? null);
+					const buffered = this.earlySignals.get(item.id);
+					if (buffered) {
+						this.earlySignals.delete(item.id);
+						for (const signal of buffered) {
+							void peer.accept(signal);
+						}
+					}
 				} catch {
 					this.failedPeers += 1;
 					continue;
 				}
 			}
+			peer.setOutputDevice?.(this.snapshot.audioSettings.outputDeviceId);
 			peer.setVolume?.(volume);
 			peer.setAudible(item.canSpeak && !this.snapshot.playbackMuted);
 		}
+		this.earlySignals.clear();
 		if (!shallowEqualRecord(this.snapshot.memberVolumes, nextVolumes)) {
 			this.patch({ memberVolumes: nextVolumes });
 		}
@@ -551,19 +615,32 @@ export class VoiceController {
 
 	private publishPeerStatus(): void {
 		let peerConnecting = 0;
+		let peerConnected = 0;
 		let peerFailed = this.failedPeers;
 		let playbackBlocked = false;
-		for (const peer of this.peers.values()) {
-			if (peer.health === "connecting") peerConnecting += 1;
-			if (peer.health === "failed") peerFailed += 1;
-			playbackBlocked ||= peer.playbackBlocked;
+		const peerStates: Record<string, PeerHealth> = {};
+		for (const [id, peer] of this.peers) {
+			const health = peer.health;
+			if (health === "connecting") peerConnecting += 1;
+			else if (health === "connected") peerConnected += 1;
+			else if (health === "failed") peerFailed += 1;
+			if (health) peerStates[id] = health;
+			playbackBlocked ||= Boolean(peer.playbackBlocked);
 		}
 		if (
 			peerConnecting !== this.snapshot.peerConnecting ||
+			peerConnected !== this.snapshot.peerConnected ||
 			peerFailed !== this.snapshot.peerFailed ||
-			playbackBlocked !== this.snapshot.playbackBlocked
+			playbackBlocked !== this.snapshot.playbackBlocked ||
+			!shallowEqualRecord(this.snapshot.peerStates, peerStates)
 		) {
-			this.patch({ peerConnecting, peerFailed, playbackBlocked });
+			this.patch({
+				peerConnecting,
+				peerConnected,
+				peerFailed,
+				peerStates,
+				playbackBlocked,
+			});
 		}
 	}
 
@@ -630,10 +707,36 @@ export class VoiceController {
 			member: null,
 			pending: null,
 			peerConnecting: 0,
+			peerConnected: 0,
 			peerFailed: 0,
+			peerStates: {},
 			playbackBlocked: false,
 			speakingIds: [],
 			memberVolumes: {},
+		});
+		this.request({ type: "voice:leave", payload: {} });
+	}
+
+	reconnect(): void {
+		const { member, state } = this.snapshot;
+		if (!member || !state?.roomId) return;
+		this.rejoinRoom = state.roomId;
+		this.unwantedMember = member.id;
+		this.diagnostics.setMembership(null, null);
+		this.clearPending();
+		this.stopMicTest();
+		this.clearMedia();
+		this.patch({
+			member: null,
+			pending: null,
+			peerConnecting: 0,
+			peerConnected: 0,
+			peerFailed: 0,
+			peerStates: {},
+			playbackBlocked: false,
+			speakingIds: [],
+			memberVolumes: {},
+			error: null,
 		});
 		this.request({ type: "voice:leave", payload: {} });
 	}
@@ -721,6 +824,16 @@ export class VoiceController {
 	async updateAudioSettings(patch: Partial<VoiceAudioSettings>): Promise<void> {
 		const previous = this.snapshot.audioSettings;
 		const next = normalizeVoiceAudioSettings(patch, previous);
+		const outputChanged = next.outputDeviceId !== previous.outputDeviceId;
+		const captureChanged =
+			next.deviceId !== previous.deviceId ||
+			next.echoCancellation !== previous.echoCancellation ||
+			next.noiseSuppression !== previous.noiseSuppression ||
+			next.autoGainControl !== previous.autoGainControl ||
+			next.deepNoiseSuppression !== previous.deepNoiseSuppression ||
+			next.noiseSuppressionEngine !== previous.noiseSuppressionEngine ||
+			next.noiseGate !== previous.noiseGate ||
+			next.compressor !== previous.compressor;
 		const releasePtt =
 			next.pushToTalk !== previous.pushToTalk ||
 			next.pushToTalkKey !== previous.pushToTalkKey;
@@ -729,12 +842,18 @@ export class VoiceController {
 			audioSettings: next,
 			...(releasePtt ? { pushToTalkActive: false } : {}),
 		});
+		if (outputChanged) {
+			for (const peer of this.peers.values()) {
+				peer.setOutputDevice?.(next.outputDeviceId);
+			}
+			this.micTester.setOutputDevice?.(next.outputDeviceId);
+		}
 		this.applyTrackState();
 		this.syncActivityAllowed();
 		const pipeline = this.pipeline;
 		const activeCapture =
 			this.snapshot.mic === "on" || this.snapshot.micTest === "active";
-		if (pipeline && activeCapture) {
+		if (pipeline && activeCapture && captureChanged) {
 			pipeline.resume?.();
 			try {
 				await pipeline.update(next);
@@ -766,6 +885,9 @@ export class VoiceController {
 				const tap = pipeline.getAudioTap?.();
 				if (stream !== this.testStream) {
 					this.testStream = stream;
+					this.micTester.setOutputDevice?.(
+						this.snapshot.audioSettings.outputDeviceId,
+					);
 					if (tap && this.micTester.startTap) {
 						this.micTester.startTap(tap.context, tap.node);
 					} else {
@@ -782,19 +904,23 @@ export class VoiceController {
 
 	async refreshAudioDevices(): Promise<void> {
 		const generation = ++this.deviceGeneration;
+		const supportsOutputSelection = supportsAudioOutputSelection();
 		if (
 			typeof navigator === "undefined" ||
 			typeof navigator.mediaDevices?.enumerateDevices !== "function"
 		) {
+			if (this.snapshot.supportsOutputSelection !== supportsOutputSelection) {
+				this.patch({ supportsOutputSelection });
+			}
 			return;
 		}
 		try {
 			const devices = await navigator.mediaDevices.enumerateDevices();
 			if (generation !== this.deviceGeneration) return;
 			const inputs = devices.filter((device) => device.kind === "audioinput");
-			const defaultLabel =
+			const defaultInputLabel =
 				inputs.find((device) => device.deviceId === "default")?.label ?? "";
-			const audioDevices = [{ deviceId: "default", label: defaultLabel }];
+			const audioDevices = [{ deviceId: "default", label: defaultInputLabel }];
 			for (const device of inputs) {
 				if (device.deviceId && device.deviceId !== "default") {
 					audioDevices.push({
@@ -803,7 +929,25 @@ export class VoiceController {
 					});
 				}
 			}
-			this.patch({ audioDevices });
+			const outputs = devices.filter((device) => device.kind === "audiooutput");
+			const defaultOutputLabel =
+				outputs.find((device) => device.deviceId === "default")?.label ?? "";
+			const audioOutputDevices = [
+				{ deviceId: "default", label: defaultOutputLabel },
+			];
+			for (const device of outputs) {
+				if (device.deviceId && device.deviceId !== "default") {
+					audioOutputDevices.push({
+						deviceId: device.deviceId,
+						label: device.label,
+					});
+				}
+			}
+			this.patch({
+				audioDevices,
+				audioOutputDevices,
+				supportsOutputSelection,
+			});
 			const selected = this.snapshot.audioSettings.deviceId;
 			const active = this.pipeline?.deviceId ?? selected;
 			if (
@@ -941,6 +1085,9 @@ export class VoiceController {
 				micTestDetected: false,
 			});
 			const tap = pipeline.getAudioTap?.();
+			this.micTester.setOutputDevice?.(
+				this.snapshot.audioSettings.outputDeviceId,
+			);
 			if (tap && this.micTester.startTap) {
 				this.micTester.startTap(tap.context, tap.node);
 			} else {
@@ -1240,6 +1387,7 @@ export class VoiceController {
 		this.stopMic();
 		this.monitor.clear();
 		this.lastAudibleVolumes.clear();
+		this.earlySignals.clear();
 		for (const peer of this.peers.values()) peer.close();
 		this.peers.clear();
 		this.failedPeers = 0;

@@ -18,7 +18,6 @@ import { t } from "@/i18n";
 import { api } from "@/lib/api";
 import { errorText } from "@/lib/errors";
 import { cn } from "@/lib/utils";
-import { useIdentityStore } from "@/stores/identity-store";
 import { usePlayStore } from "@/stores/play-store";
 import { ThemeSlot } from "@/themes/runtime/theme-slot";
 
@@ -164,10 +163,14 @@ function PlayerChatPanel({
 			</ChatPanelHeader>
 
 			{visible.length === 0 && !historyHasMore ? (
-				<ChatEmptyState
-					title={t("chat.emptyTitle")}
-					description={t("chat.emptyDescription")}
-				/>
+				<div
+					className={cn("flex min-h-0 flex-1 flex-col", !compact && "pb-36")}
+				>
+					<ChatEmptyState
+						title={t("chat.emptyTitle")}
+						description={t("chat.emptyDescription")}
+					/>
+				</div>
 			) : (
 				<MessageList
 					messages={visible}
@@ -178,7 +181,10 @@ function PlayerChatPanel({
 					olderLoads={historyPagesLoaded}
 					renderMessage={renderMessage}
 					stickToBottom
-					className="min-h-0 flex-1 overflow-y-auto px-3.5 py-2"
+					className={cn(
+						"min-h-0 flex-1 overflow-y-auto px-3.5 pt-2",
+						compact ? "pb-2" : "pb-40",
+					)}
 				/>
 			)}
 

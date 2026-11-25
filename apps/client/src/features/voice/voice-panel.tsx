@@ -10,14 +10,20 @@ import {
 	Volume2,
 	VolumeX,
 } from "lucide-react";
-import { type ReactNode, type Ref, useEffect, useId, useRef, useState } from "react";
-import { SegmentedControl } from "@/components/shared/segmented-control";
+import {
+	type ReactNode,
+	type Ref,
+	useEffect,
+	useId,
+	useRef,
+	useState,
+} from "react";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { SegmentedControl } from "@/components/shared/segmented-control";
 import { Alert, AlertContent, AlertDescription } from "@/components/ui/alert";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { IconButton } from "@/components/ui/icon-button";
 import {
 	Dialog,
 	DialogContent,
@@ -26,6 +32,8 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
+import { IconButton } from "@/components/ui/icon-button";
+import { Progress } from "@/components/ui/progress";
 import {
 	Select,
 	SelectContent,
@@ -34,7 +42,6 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import { Progress } from "@/components/ui/progress";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -43,18 +50,41 @@ import { initialsOf } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import {
 	isVoiceMemberSpeaking,
+	type PeerHealth,
 	type VoiceAudioSettings,
 	type VoiceController,
 	type VoiceSnapshot,
 } from "./voice-controller";
 
 export function voiceStatusKey(snapshot: VoiceSnapshot): string {
-	const { link, pending, member, state } = snapshot;
+	const {
+		link,
+		pending,
+		member,
+		state,
+		peerConnecting,
+		peerConnected,
+		peerFailed,
+	} = snapshot;
 	const roomFull = !!state && state.memberCount >= state.limit;
 	if (link !== "ready") return `voice.link.${link}`;
 	if (pending === "voice:join") return "voice.joining";
 	if (pending === "voice:leave") return "voice.leaving";
-	if (member) return "voice.joined";
+	if (member) {
+		const remoteCount = Math.max(0, (state?.members.length ?? 1) - 1);
+		if (remoteCount > 0) {
+			if (peerFailed > 0 && peerConnected === 0 && peerConnecting === 0) {
+				return "voice.connectionFailed";
+			}
+			if (peerFailed > 0) {
+				return "voice.connectionPartial";
+			}
+			if (peerConnecting > 0 && peerConnected === 0) {
+				return "voice.connectingPeers";
+			}
+		}
+		return "voice.joined";
+	}
 	if (!state?.available) return "voice.unavailable";
 	if (!state.enabled) return "voice.closed";
 	if (roomFull) return "voice.full";
@@ -117,6 +147,7 @@ export function SpeakerVolumeControl({
 				<VolumeIcon className="size-4" aria-hidden="true" />
 			</Button>
 			<Slider
+				size="sm"
 				value={[volume]}
 				min={0}
 				max={100}
@@ -124,10 +155,8 @@ export function SpeakerVolumeControl({
 				aria-label={t("voice.speakerVolumeFor", { name: member.name })}
 				aria-valuetext={`${volume}%`}
 				className={cn(
-					"flex-1 [&_[data-slot=slider-track]]:bg-md-surface-container-highest! [&_[data-slot=slider-thumb]]:w-1!",
-					compact
-						? "min-h-7! [&_[data-slot=slider-thumb]]:h-5!"
-						: "min-h-8! [&_[data-slot=slider-thumb]]:h-6!",
+					"flex-1 [&_[data-slot=slider-track]]:bg-md-surface-container-highest!",
+					compact ? "min-h-7!" : "min-h-8!",
 				)}
 				onValueChange={(next) =>
 					voice.setMemberVolume(member.id, next[0] ?? volume)
@@ -158,6 +187,7 @@ function VoiceMemberCard({
 	isSelf,
 	joined,
 	speaking,
+	peerHealth,
 	volume,
 	manage,
 	busy,
@@ -167,6 +197,7 @@ function VoiceMemberCard({
 	isSelf: boolean;
 	joined: boolean;
 	speaking: boolean;
+	peerHealth?: PeerHealth;
 	volume: number;
 	manage: boolean;
 	busy: boolean;
@@ -228,6 +259,21 @@ function VoiceMemberCard({
 								aria-hidden="true"
 							/>
 							{t("voice.speaking")}
+						</Badge>
+					) : null}
+					{joined && !isSelf && peerHealth ? (
+						<Badge
+							variant="soft"
+							tone={
+								peerHealth === "failed"
+									? "danger"
+									: peerHealth === "connecting"
+										? "warning"
+										: "default"
+							}
+							size="sm"
+						>
+							{t(`voice.peerState.${peerHealth}`)}
 						</Badge>
 					) : null}
 					{!item.canSpeak && (item.muted || item.role !== "ob") ? (
@@ -428,7 +474,11 @@ function VoiceMicTestCard({
 
 type AudioProcessingSetting = Exclude<
 	keyof VoiceAudioSettings,
-	"deviceId" | "pushToTalk" | "pushToTalkKey" | "noiseSuppressionEngine"
+	| "deviceId"
+	| "outputDeviceId"
+	| "pushToTalk"
+	| "pushToTalkKey"
+	| "noiseSuppressionEngine"
 >;
 
 /** Row in a grouped settings list: label + hint on the left, switch on the right. */
@@ -550,10 +600,10 @@ function VoiceSwitchGroup({
 	children: ReactNode;
 }) {
 	return (
-		<div role="group" aria-label={title} className="flex min-w-0 flex-col gap-2">
+		<fieldset aria-label={title} className="flex min-w-0 flex-col gap-2">
 			<SubsectionTitle>{title}</SubsectionTitle>
 			<SwitchList>{children}</SwitchList>
-		</div>
+		</fieldset>
 	);
 }
 
@@ -632,9 +682,16 @@ function VoiceAudioSettingsSection({
 }) {
 	const [refreshing, setRefreshing] = useState(false);
 	const deviceId = useId();
+	const outputId = useId();
 	const keyId = useId();
 	const engineId = useId();
-	const { audioSettings, audioDevices, audioProcessing } = snapshot;
+	const {
+		audioSettings,
+		audioDevices,
+		audioOutputDevices,
+		supportsOutputSelection,
+		audioProcessing,
+	} = snapshot;
 	// Before capture starts nothing has been applied yet, so there is no
 	// browser-reported state to compare against.
 	const reported = audioProcessing !== "idle";
@@ -644,6 +701,14 @@ function VoiceAudioSettingsSection({
 	const selectedDeviceMissing =
 		audioSettings.deviceId !== "default" &&
 		!devices.some((device) => device.deviceId === audioSettings.deviceId);
+	const outputDevices = (audioOutputDevices ?? []).filter(
+		(device) => device.deviceId && device.deviceId !== "default",
+	);
+	const selectedOutputMissing =
+		audioSettings.outputDeviceId !== "default" &&
+		!outputDevices.some(
+			(device) => device.deviceId === audioSettings.outputDeviceId,
+		);
 
 	useEffect(() => {
 		void voice.refreshAudioDevices();
@@ -701,7 +766,11 @@ function VoiceAudioSettingsSection({
 								>
 									<SelectValue />
 								</SelectTrigger>
-								<SelectContent position="popper" align="start">
+								<SelectContent
+									position="popper"
+									align="start"
+									className="max-w-[min(24rem,calc(100vw-2rem))]"
+								>
 									<SelectGroup>
 										<SelectItem value="default">
 											{t("voice.audio.defaultDevice")}
@@ -738,6 +807,61 @@ function VoiceAudioSettingsSection({
 								<RefreshCw className={cn(refreshing && "animate-spin")} />
 							</IconButton>
 						</div>
+					</div>
+
+					<div className="flex min-w-0 flex-col gap-2">
+						<label
+							htmlFor={outputId}
+							className="text-md-on-surface-variant text-label-large"
+						>
+							{t("voice.audio.speaker")}
+						</label>
+						<Select
+							value={
+								supportsOutputSelection
+									? audioSettings.outputDeviceId
+									: "default"
+							}
+							disabled={!supportsOutputSelection}
+							onValueChange={(value) => {
+								void voice.updateAudioSettings({ outputDeviceId: value });
+							}}
+						>
+							<SelectTrigger
+								id={outputId}
+								aria-label={t("voice.audio.speaker")}
+								className="w-full min-w-0"
+							>
+								<SelectValue />
+							</SelectTrigger>
+							<SelectContent
+								position="popper"
+								align="start"
+								className="max-w-[min(24rem,calc(100vw-2rem))]"
+							>
+								<SelectGroup>
+									<SelectItem value="default">
+										{t("voice.audio.defaultDevice")}
+									</SelectItem>
+									{selectedOutputMissing ? (
+										<SelectItem value={audioSettings.outputDeviceId}>
+											{t("voice.audio.unavailableDevice")}
+										</SelectItem>
+									) : null}
+									{outputDevices.map((device) => (
+										<SelectItem key={device.deviceId} value={device.deviceId}>
+											{device.label.trim() ||
+												t("voice.audio.unnamedOutputDevice")}
+										</SelectItem>
+									))}
+								</SelectGroup>
+							</SelectContent>
+						</Select>
+						{!supportsOutputSelection ? (
+							<p className="text-md-on-surface-variant text-body-small">
+								{t("voice.audio.outputUnsupported")}
+							</p>
+						) : null}
 					</div>
 
 					<VoiceMicTestCard voice={voice} snapshot={snapshot} />
@@ -823,7 +947,11 @@ function VoiceAudioSettingsSection({
 							setting="echoCancellation"
 							label={t("voice.audio.echoCancellation")}
 							hint={t("voice.audio.echoCancellationHint")}
-							applied={reported ? snapshot.appliedAudioConstraints.echoCancellation : undefined}
+							applied={
+								reported
+									? snapshot.appliedAudioConstraints.echoCancellation
+									: undefined
+							}
 						/>
 						<VoiceProcessingSwitch
 							voice={voice}
@@ -831,7 +959,11 @@ function VoiceAudioSettingsSection({
 							setting="noiseSuppression"
 							label={t("voice.audio.noiseSuppression")}
 							hint={t("voice.audio.noiseSuppressionHint")}
-							applied={reported ? snapshot.appliedAudioConstraints.noiseSuppression : undefined}
+							applied={
+								reported
+									? snapshot.appliedAudioConstraints.noiseSuppression
+									: undefined
+							}
 						/>
 						<VoiceProcessingSwitch
 							voice={voice}
@@ -839,7 +971,11 @@ function VoiceAudioSettingsSection({
 							setting="autoGainControl"
 							label={t("voice.audio.autoGainControl")}
 							hint={t("voice.audio.autoGainControlHint")}
-							applied={reported ? snapshot.appliedAudioConstraints.autoGainControl : undefined}
+							applied={
+								reported
+									? snapshot.appliedAudioConstraints.autoGainControl
+									: undefined
+							}
 						/>
 					</VoiceSwitchGroup>
 					<VoiceSwitchGroup title={t("voice.audio.groupEnhanced")}>
@@ -866,7 +1002,8 @@ function VoiceAudioSettingsSection({
 										<Select
 											value={audioSettings.noiseSuppressionEngine}
 											onValueChange={(value) => {
-												if (value !== "deepfilter" && value !== "rnnoise") return;
+												if (value !== "deepfilter" && value !== "rnnoise")
+													return;
 												void voice.updateAudioSettings({
 													noiseSuppressionEngine: value,
 												});
@@ -875,7 +1012,7 @@ function VoiceAudioSettingsSection({
 											<SelectTrigger
 												id={engineId}
 												aria-label={t("voice.audio.noiseSuppressionEngine")}
-												className="w-48 min-w-0"
+												className="w-56 max-w-full min-w-0"
 											>
 												<SelectValue />
 											</SelectTrigger>
@@ -1180,6 +1317,8 @@ function VoiceHero({
 		audioSettings,
 		playbackMuted,
 		peerConnecting,
+		peerConnected,
+		peerFailed,
 	} = snapshot;
 	const status = voiceStatusKey(snapshot);
 	const roomFull = !!state && state.memberCount >= state.limit;
@@ -1189,6 +1328,12 @@ function VoiceHero({
 	const canOpen = !!state?.canManage && !state.enabled && state.available;
 	const linkReady = snapshot.link === "ready";
 	const supportingId = useId();
+	const peerIssue = member !== null && peerFailed > 0;
+	const peerPending =
+		member !== null &&
+		peerFailed === 0 &&
+		peerConnecting > 0 &&
+		peerConnected === 0;
 
 	let supporting: string;
 	let reason: string | null = null;
@@ -1209,6 +1354,8 @@ function VoiceHero({
 			supporting = t("voice.speakingSummary", {
 				names: activeSpeakers.map((item) => item.name).join("、"),
 			});
+		} else if (peerFailed > 0) {
+			supporting = t("voice.peersFailed", { count: peerFailed });
 		} else if (peerConnecting > 0) {
 			supporting = t("voice.peersConnecting", { count: peerConnecting });
 		} else {
@@ -1233,9 +1380,13 @@ function VoiceHero({
 			aria-label={t("voice.currentSection")}
 			className={cn(
 				"relative flex flex-wrap items-center gap-x-4 gap-y-3 rounded-2xl p-4 transition-colors",
-				member
-					? "bg-md-primary-container/25 ring-1 ring-md-primary/30"
-					: "bg-md-surface-container-low",
+				peerIssue
+					? "bg-warning-soft/20 ring-1 ring-warning/45"
+					: peerPending
+						? "bg-md-surface-container-high/80 ring-1 ring-md-outline-variant/60"
+						: member
+							? "bg-md-primary-container/25 ring-1 ring-md-primary/30"
+							: "bg-md-surface-container-low",
 			)}
 		>
 			<div
@@ -1249,9 +1400,13 @@ function VoiceHero({
 						"grid size-12 shrink-0 place-items-center rounded-full transition-colors",
 						speaking
 							? "bg-md-primary text-md-on-primary"
-							: member
-								? "bg-md-primary-container text-md-on-primary-container"
-								: "bg-md-surface-container-highest text-md-on-surface-variant",
+							: peerIssue
+								? "bg-warning-soft text-warning-soft-foreground"
+								: peerPending
+									? "bg-md-surface-container-highest text-md-on-surface"
+									: member
+										? "bg-md-primary-container text-md-on-primary-container"
+										: "bg-md-surface-container-highest text-md-on-surface-variant",
 					)}
 				>
 					{speaking ? (
@@ -1298,10 +1453,7 @@ function VoiceHero({
 						{supporting}
 					</p>
 					{reason ? (
-						<p
-							id={supportingId}
-							className="text-md-tertiary text-body-small"
-						>
+						<p id={supportingId} className="text-md-tertiary text-body-small">
 							{reason}
 						</p>
 					) : null}
@@ -1417,7 +1569,7 @@ function VoiceMembersView({
 	snapshot: VoiceSnapshot;
 	activeSpeakers: VoiceMember[];
 }) {
-	const { state, member, pending, memberVolumes } = snapshot;
+	const { state, member, pending, memberVolumes, peerStates } = snapshot;
 	const hasMembers = !!state && state.members.length > 0;
 
 	return (
@@ -1435,6 +1587,7 @@ function VoiceMembersView({
 							isSelf={member?.id === item.id}
 							joined={member !== null}
 							speaking={activeSpeakers.some((s) => s.id === item.id)}
+							peerHealth={peerStates?.[item.id]}
 							volume={memberVolumes[item.id] ?? 100}
 							manage={state.canManage}
 							busy={pending !== null}
@@ -1558,6 +1711,15 @@ export function VoicePanelBody({
 							{t("voice.peersFailed", { count: peerFailed })}
 						</AlertDescription>
 					</AlertContent>
+					<Button
+						type="button"
+						variant="tertiary"
+						size="sm"
+						onClick={() => voice.reconnect()}
+					>
+						<RefreshCw data-icon="inline-start" />
+						{t("voice.reconnect")}
+					</Button>
 				</Alert>
 			) : null}
 

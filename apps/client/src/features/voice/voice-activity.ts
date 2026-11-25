@@ -345,6 +345,7 @@ export class VoiceMicTester {
 	private lastLevel = 0;
 	private lastDetected = false;
 	private loopback = false;
+	private outputDeviceId = "default";
 	private unlockAttached = false;
 	private stateListenerContext: AudioContext | null = null;
 
@@ -460,6 +461,7 @@ export class VoiceMicTester {
 		if (!ctx) return;
 		this.context = ctx;
 		this.ownsContext = true;
+		this.applyOutputSink(ctx);
 		this.resumeContext();
 		try {
 			const source = ctx.createMediaStreamSource(stream);
@@ -475,6 +477,7 @@ export class VoiceMicTester {
 		this.context = context;
 		this.ownsContext = false;
 		this.tapNode = node;
+		this.applyOutputSink(context);
 		this.resumeContext();
 		try {
 			this.attachMonitorGraph(context, node);
@@ -483,11 +486,36 @@ export class VoiceMicTester {
 		}
 	}
 
+	setOutputDevice(deviceId: string): void {
+		const next = deviceId || "default";
+		if (this.outputDeviceId === next) return;
+		this.outputDeviceId = next;
+		if (this.context) {
+			this.applyOutputSink(this.context);
+		}
+	}
+
+	private applyOutputSink(ctx: AudioContext): void {
+		const sinkable = ctx as AudioContext & {
+			setSinkId?: (sinkId: string) => Promise<void>;
+		};
+		if (typeof sinkable.setSinkId !== "function" || isAudioContextClosed(ctx)) {
+			return;
+		}
+		const target = this.outputDeviceId === "default" ? "" : this.outputDeviceId;
+		try {
+			void sinkable.setSinkId(target).catch(() => {});
+		} catch {}
+	}
+
 	setLoopback(enabled: boolean): void {
 		this.loopback = enabled;
 		const ctx = this.context;
 		const gain = this.gainNode;
 		if (!ctx || !gain) return;
+		if (enabled) {
+			this.applyOutputSink(ctx);
+		}
 		if (enabled && !isAudioContextRunning(ctx) && !isAudioContextClosed(ctx)) {
 			this.resumeContext();
 		}

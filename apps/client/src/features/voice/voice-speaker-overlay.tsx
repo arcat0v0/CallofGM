@@ -5,6 +5,7 @@ import {
 	Headphones,
 	Mic,
 	MicOff,
+	RefreshCw,
 	Volume2,
 	X,
 } from "lucide-react";
@@ -29,6 +30,7 @@ import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 import {
 	isVoiceMemberSpeaking,
+	type PeerHealth,
 	type VoiceController,
 	type VoiceSnapshot,
 } from "./voice-controller";
@@ -42,8 +44,14 @@ function clampPosition(
 	width: number,
 	height: number,
 ): { x: number; y: number } {
-	const maxX = Math.max(VIEWPORT_MARGIN, window.innerWidth - width - VIEWPORT_MARGIN);
-	const maxY = Math.max(VIEWPORT_MARGIN, window.innerHeight - height - VIEWPORT_MARGIN);
+	const maxX = Math.max(
+		VIEWPORT_MARGIN,
+		window.innerWidth - width - VIEWPORT_MARGIN,
+	);
+	const maxY = Math.max(
+		VIEWPORT_MARGIN,
+		window.innerHeight - height - VIEWPORT_MARGIN,
+	);
 	return {
 		x: Math.min(maxX, Math.max(VIEWPORT_MARGIN, Math.round(x))),
 		y: Math.min(maxY, Math.max(VIEWPORT_MARGIN, Math.round(y))),
@@ -53,11 +61,13 @@ function clampPosition(
 function SpeakerVolumeRow({
 	item,
 	speaking,
+	peerHealth,
 	volume,
 	voice,
 }: {
 	item: VoiceMember;
 	speaking: boolean;
+	peerHealth?: PeerHealth;
 	volume: number;
 	voice: VoiceController;
 }) {
@@ -82,6 +92,15 @@ function SpeakerVolumeRow({
 				>
 					{item.name}
 				</span>
+				{peerHealth === "connecting" || peerHealth === "failed" ? (
+					<Badge
+						variant="soft"
+						tone={peerHealth === "failed" ? "danger" : "warning"}
+						size="sm"
+					>
+						{t(`voice.peerState.${peerHealth}`)}
+					</Badge>
+				) : null}
 				<Badge variant="soft" size="sm">
 					{t(`voice.role.${item.role}`)}
 				</Badge>
@@ -108,8 +127,17 @@ function SpeakerPopupContent({
 	voice: VoiceController;
 	snapshot: VoiceSnapshot;
 }) {
-	const { state, member, playbackMuted, playbackBlocked, memberVolumes } =
-		snapshot;
+	const {
+		state,
+		member,
+		playbackMuted,
+		playbackBlocked,
+		memberVolumes,
+		peerConnecting,
+		peerConnected,
+		peerFailed,
+		peerStates,
+	} = snapshot;
 	if (!state || !member) return null;
 
 	const members = state.members;
@@ -125,7 +153,9 @@ function SpeakerPopupContent({
 					"flex flex-col gap-2 rounded-xl p-2.5",
 					activeSpeakers.length > 0
 						? "bg-md-primary-container/40"
-						: "bg-md-surface-container/75",
+						: peerFailed > 0
+							? "bg-warning-soft/25"
+							: "bg-md-surface-container/75",
 				)}
 			>
 				<div className="flex items-center gap-2">
@@ -134,14 +164,20 @@ function SpeakerPopupContent({
 							"size-4 shrink-0",
 							activeSpeakers.length > 0
 								? "text-md-primary animate-pulse"
-								: "text-md-on-surface-variant",
+								: peerFailed > 0
+									? "text-warning"
+									: "text-md-on-surface-variant",
 						)}
 						aria-hidden="true"
 					/>
 					<span className="text-md-on-surface-variant text-label-medium">
 						{activeSpeakers.length > 0
 							? t("voice.speakingNow")
-							: t("voice.nobodySpeaking")}
+							: peerFailed > 0 && peerConnected === 0 && peerConnecting === 0
+								? t("voice.connectionFailed")
+								: peerConnecting > 0 && peerConnected === 0
+									? t("voice.peersConnecting", { count: peerConnecting })
+									: t("voice.nobodySpeaking")}
 					</span>
 				</div>
 				{activeSpeakers.length > 0 ? (
@@ -192,6 +228,19 @@ function SpeakerPopupContent({
 				</Button>
 			) : null}
 
+			{peerFailed > 0 ? (
+				<Button
+					type="button"
+					variant="tertiary"
+					size="sm"
+					className="bg-warning-soft/40 text-warning-soft-foreground min-h-9 w-full"
+					onClick={() => voice.reconnect()}
+				>
+					<RefreshCw data-icon="inline-start" />
+					{t("voice.reconnect")}
+				</Button>
+			) : null}
+
 			<div className="flex flex-col gap-2">
 				<div className="flex items-center justify-between gap-2 px-0.5">
 					<span className="text-md-on-surface-variant text-label-medium">
@@ -211,6 +260,7 @@ function SpeakerPopupContent({
 								key={item.id}
 								item={item}
 								speaking={isVoiceMemberSpeaking(snapshot, item)}
+								peerHealth={peerStates?.[item.id]}
 								volume={memberVolumes[item.id] ?? 100}
 								voice={voice}
 							/>
@@ -312,7 +362,13 @@ export function VoiceSpeakerOverlay({
 			? t("voice.speakingSummary", {
 					names: activeSpeakers.map((item) => item.name).join("、"),
 				})
-			: t("voice.compactPill", { count: state.memberCount });
+			: snapshot.peerFailed > 0 &&
+					snapshot.peerConnected === 0 &&
+					snapshot.peerConnecting === 0
+				? t("voice.connectionFailed")
+				: snapshot.peerConnecting > 0 && snapshot.peerConnected === 0
+					? t("voice.connectingPeers")
+					: t("voice.compactPill", { count: state.memberCount });
 
 	const defaultAnchorClass =
 		placement === "gm"

@@ -182,6 +182,7 @@ function renderAudioSettings(overrides: Record<string, unknown> = {}) {
 		...controller.getSnapshot(),
 		audioSettings: {
 			deviceId: "default",
+			outputDeviceId: "default",
 			echoCancellation: true,
 			noiseSuppression: true,
 			autoGainControl: false,
@@ -197,6 +198,11 @@ function renderAudioSettings(overrides: Record<string, unknown> = {}) {
 			{ deviceId: "usb-mic", label: "USB 麦克风" },
 			{ deviceId: "unlabelled-mic", label: "" },
 		],
+		audioOutputDevices: [
+			{ deviceId: "usb-spk", label: "USB 耳机" },
+			{ deviceId: "unlabelled-spk", label: "" },
+		],
+		supportsOutputSelection: true,
 		appliedAudioConstraints: {
 			echoCancellation: true,
 			noiseSuppression: true,
@@ -365,7 +371,9 @@ describe("voice panel & speaker popup UI", () => {
 		openSettings(within(panel));
 
 		await act(async () => {
-			fireEvent.click(within(panel).getByRole("button", { name: "测试麦克风" }));
+			fireEvent.click(
+				within(panel).getByRole("button", { name: "测试麦克风" }),
+			);
 		});
 
 		const meter = within(panel).getByRole("progressbar", {
@@ -381,7 +389,9 @@ describe("voice panel & speaker popup UI", () => {
 
 		fireEvent.click(within(panel).getByRole("button", { name: "开启回听" }));
 		expect(controller.getSnapshot().micTestLoopback).toBe(true);
-		expect(within(panel).getByRole("button", { name: "关闭回听" })).toBeTruthy();
+		expect(
+			within(panel).getByRole("button", { name: "关闭回听" }),
+		).toBeTruthy();
 
 		// Closing the voice panel automatically stops the mic test and releases the track
 		fireEvent.click(within(panel).getByRole("button", { name: "关闭" }));
@@ -404,7 +414,9 @@ describe("voice audio settings UI", () => {
 		const engine = within(section).getByRole("combobox", { name: "降噪模型" });
 		expect(engine.textContent).toContain("DeepFilterNet3（高质量）");
 		fireEvent.keyDown(engine, { key: "ArrowDown" });
-		fireEvent.click(await view.findByRole("option", { name: "RNNoise（轻量）" }));
+		fireEvent.click(
+			await view.findByRole("option", { name: "RNNoise（轻量）" }),
+		);
 		expect(updateAudioSettings).toHaveBeenLastCalledWith({
 			noiseSuppressionEngine: "rnnoise",
 		});
@@ -676,17 +688,93 @@ describe("voice audio settings UI", () => {
 		expect(noiseRow).not.toBeNull();
 		// Browser-decided (null) constraints keep the plain hint instead of
 		// claiming a state the browser never reported.
-		expect(
-			within(echoRow as HTMLElement).queryByText(/实际/),
-		).toBeNull();
+		expect(within(echoRow as HTMLElement).queryByText(/实际/)).toBeNull();
 		expect(
 			within(noiseRow as HTMLElement).getByText(
 				"浏览器未按设置应用（实际：关闭）",
 			),
 		).toBeTruthy();
+		expect(within(section).queryByText(/RNNoise 替代浏览器降噪/)).toBeNull();
+	});
+
+	test("speaker output selector updates outputDeviceId and degrades gracefully when unsupported", async () => {
+		const supported = renderAudioSettings();
+		const speakerTrigger = within(supported.section).getByRole("combobox", {
+			name: "扬声器设备",
+		});
+		fireEvent.keyDown(speakerTrigger, { key: "ArrowDown" });
 		expect(
-			within(section).queryByText(/RNNoise 替代浏览器降噪/),
-		).toBeNull();
+			await supported.view.findByRole("option", { name: "未命名扬声器" }),
+		).toBeTruthy();
+		fireEvent.click(supported.view.getByRole("option", { name: "USB 耳机" }));
+		expect(supported.updateAudioSettings).toHaveBeenLastCalledWith({
+			outputDeviceId: "usb-spk",
+		});
+		supported.view.unmount();
+
+		const unsupported = renderAudioSettings({
+			supportsOutputSelection: false,
+		});
+		expect(
+			within(unsupported.section)
+				.getByRole("combobox", { name: "扬声器设备" })
+				.hasAttribute("disabled"),
+		).toBe(true);
+		expect(
+			within(unsupported.section).getByText(
+				"当前浏览器不支持切换扬声器输出，将跟随系统默认设备。",
+			),
+		).toBeTruthy();
+	});
+
+	test("reflects true WebRTC peer connecting and failed states with reconnect action", () => {
+		const { controller, joinRoom } = createVoiceFixture(true);
+		joinRoom();
+		const reconnect = mock(() => {});
+		const voice = Object.create(controller) as VoiceController;
+		Object.assign(voice, { reconnect, stopMicTest: mock(() => {}) });
+		const base = controller.getSnapshot();
+
+		const connecting = render(
+			<VoicePanelBody
+				voice={voice}
+				snapshot={{
+					...base,
+					peerConnecting: 2,
+					peerConnected: 0,
+					peerFailed: 0,
+					peerStates: {
+						[playerOne.id]: "connecting",
+						[playerTwo.id]: "connecting",
+					},
+				}}
+			/>,
+		);
+		expect(connecting.getByText("正在建立语音连接…")).toBeTruthy();
+		expect(connecting.getAllByText("连接中")).toHaveLength(2);
+		connecting.unmount();
+
+		const failed = render(
+			<VoicePanelBody
+				voice={voice}
+				snapshot={{
+					...base,
+					peerConnecting: 0,
+					peerConnected: 0,
+					peerFailed: 2,
+					peerStates: {
+						[playerOne.id]: "failed",
+						[playerTwo.id]: "failed",
+					},
+				}}
+			/>,
+		);
+		expect(failed.getByText("语音连接失败")).toBeTruthy();
+		expect(failed.getAllByText("连接失败")).toHaveLength(2);
+		fireEvent.click(failed.getByRole("button", { name: "重新连接" }));
+		expect(reconnect).toHaveBeenCalledTimes(1);
+		failed.unmount();
+		controller.disconnect(false);
 	});
 });
 

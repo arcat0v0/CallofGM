@@ -26,7 +26,6 @@ import { mediaUrl } from "@/lib/api";
 import { expressionLabel, initialsOf, phaseChatHint } from "@/lib/format";
 import { sendSessionCommand } from "@/lib/session-socket";
 import { cn } from "@/lib/utils";
-import { useIdentityStore } from "@/stores/identity-store";
 import { useBlockingModalOpen } from "@/stores/modal-store";
 import { usePlayStore } from "@/stores/play-store";
 
@@ -161,7 +160,7 @@ function Composer({
 				"shrink-0",
 				compact
 					? "px-2.5 pb-2 [@media(max-height:430px)]:px-2 [@media(max-height:430px)]:pb-1.5"
-					: "px-3.5 pb-3.5",
+					: "pointer-events-none px-3 pb-3",
 				className,
 			)}
 			onSubmit={(event) => {
@@ -171,10 +170,10 @@ function Composer({
 		>
 			<div
 				className={cn(
-					"border border-md-outline-variant/40 bg-md-surface-container/70 flex flex-col rounded-xl",
+					"pointer-events-auto flex flex-col border rounded-xl",
 					compact
-						? "gap-1.5 p-2 [@media(max-height:430px)]:gap-1 [@media(max-height:430px)]:p-1.5"
-						: "gap-2.5 p-3",
+						? "border-md-outline-variant/40 bg-md-surface-container/70 gap-1.5 p-2 [@media(max-height:430px)]:gap-1 [@media(max-height:430px)]:p-1.5"
+						: "border-md-outline-variant/55 bg-md-surface-container-low/82 shadow-overlay backdrop-blur-stage-glass gap-2.5 p-3",
 				)}
 			>
 				<div className="flex items-center justify-between gap-2">

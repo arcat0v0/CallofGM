@@ -601,3 +601,153 @@ describe("local voice diagnostics lifecycle", () => {
 		}
 	});
 });
+
+describe("voice rejoin resilience and speaker output selection", () => {
+	test("buffers early voice:signal offers arriving while join is in flight and replays on peer creation", () => {
+		const { controller, state, peer } = fixture();
+		state(waiting);
+		controller.join();
+		const earlyOffer = {
+			kind: "description" as const,
+			description: { type: "offer" as const, sdp: "v=0\r\nm=audio 9\r\n" },
+		};
+		controller.receive({
+			protocolVersion: 1,
+			type: "voice:signal",
+			payload: { fromMemberId: remote.id, signal: earlyOffer },
+		});
+		expect(peer.accept).not.toHaveBeenCalled();
+		state(joined);
+		expect(peer.accept).toHaveBeenCalledWith(earlyOffer);
+		controller.disconnect(false);
+	});
+
+	test("tracks real peer connection states and reconnects via leave + automatic rejoin", () => {
+		let onChanged: (() => void) | undefined;
+		const sent: VoiceClientMessage[] = [];
+		const peer = {
+			health: "connecting" as "connecting" | "connected" | "failed",
+			playbackBlocked: false,
+			setTrack: mock(() => {}),
+			setAudible: mock(() => {}),
+			setVolume: mock(() => {}),
+			setOutputDevice: mock(() => {}),
+			retryPlayback: mock(() => {}),
+			close: mock(() => {}),
+			accept: mock(() => {}),
+		};
+		const controller = new VoiceController({
+			createPeer: (options) => {
+				onChanged = options.changed;
+				return peer as unknown as VoicePeer;
+			},
+		});
+		controller.connect((message) => {
+			sent.push(message);
+			return true;
+		});
+		controller.receive({
+			protocolVersion: 1,
+			type: "voice:state",
+			payload: waiting,
+		});
+		controller.join();
+		controller.receive({
+			protocolVersion: 1,
+			type: "voice:state",
+			payload: joined,
+		});
+		expect(controller.getSnapshot().peerConnecting).toBe(1);
+		expect(controller.getSnapshot().peerConnected).toBe(0);
+		expect(controller.getSnapshot().peerStates[remote.id]).toBe("connecting");
+
+		peer.health = "connected";
+		onChanged?.();
+		expect(controller.getSnapshot().peerConnecting).toBe(0);
+		expect(controller.getSnapshot().peerConnected).toBe(1);
+		expect(controller.getSnapshot().peerStates[remote.id]).toBe("connected");
+
+		peer.health = "failed";
+		onChanged?.();
+		expect(controller.getSnapshot().peerFailed).toBe(1);
+		expect(controller.getSnapshot().peerStates[remote.id]).toBe("failed");
+
+		controller.reconnect();
+		expect(sent.at(-1)?.type).toBe("voice:leave");
+		controller.receive({
+			protocolVersion: 1,
+			type: "voice:state",
+			payload: waiting,
+		});
+		expect(sent.at(-1)?.type).toBe("voice:join");
+		controller.disconnect(false);
+	});
+
+	test("enumerates audiooutput devices and forwards outputDeviceId to peers and mic tester", async () => {
+		const mediaDescriptor = Object.getOwnPropertyDescriptor(
+			navigator,
+			"mediaDevices",
+		);
+		const setOutputDevicePeer = mock((_id: string) => {});
+		const setOutputDeviceTester = mock((_id: string) => {});
+		const peer = {
+			setTrack: mock(() => {}),
+			setAudible: mock(() => {}),
+			setVolume: mock(() => {}),
+			setOutputDevice: setOutputDevicePeer,
+			retryPlayback: mock(() => {}),
+			close: mock(() => {}),
+			accept: mock(() => {}),
+		};
+		Object.defineProperty(navigator, "mediaDevices", {
+			configurable: true,
+			value: {
+				enumerateDevices: async () => [
+					{ deviceId: "mic-1", kind: "audioinput", label: "USB Mic" },
+					{ deviceId: "spk-1", kind: "audiooutput", label: "Headphones" },
+				],
+			},
+		});
+		const controller = new VoiceController({
+			createPeer: () => peer as unknown as VoicePeer,
+			createMicTester: () => ({
+				start: mock(() => {}),
+				setLoopback: mock(() => {}),
+				setOutputDevice: setOutputDeviceTester,
+				stop: mock(() => {}),
+			}),
+		});
+		try {
+			controller.connect(() => true);
+			await controller.refreshAudioDevices();
+			expect(controller.getSnapshot().audioOutputDevices).toEqual([
+				{ deviceId: "default", label: "" },
+				{ deviceId: "spk-1", label: "Headphones" },
+			]);
+			controller.receive({
+				protocolVersion: 1,
+				type: "voice:state",
+				payload: waiting,
+			});
+			controller.join();
+			controller.receive({
+				protocolVersion: 1,
+				type: "voice:state",
+				payload: joined,
+			});
+			await controller.updateAudioSettings({ outputDeviceId: "spk-1" });
+			expect(controller.getSnapshot().audioSettings.outputDeviceId).toBe(
+				"spk-1",
+			);
+			expect(setOutputDevicePeer).toHaveBeenLastCalledWith("spk-1");
+			expect(setOutputDeviceTester).toHaveBeenLastCalledWith("spk-1");
+		} finally {
+			controller.disconnect(false);
+			if (mediaDescriptor) {
+				Object.defineProperty(navigator, "mediaDevices", mediaDescriptor);
+			} else {
+				delete (navigator as { mediaDevices?: unknown }).mediaDevices;
+			}
+		}
+	});
+});

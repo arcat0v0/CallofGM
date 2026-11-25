@@ -77,7 +77,7 @@ export function VoiceDockButton({
 						side="bottom"
 						sideOffset={12}
 						collisionPadding={12}
-						className="stage-glass shadow-overlay flex max-h-[calc(100dvh-120px)] w-[min(820px,calc(100vw-24px))] flex-col gap-4 overflow-hidden rounded-xl p-5"
+						className="stage-glass shadow-overlay flex max-h-[calc(100dvh-120px)] w-[min(820px,calc(100vw-24px))] flex-col gap-4 overflow-hidden rounded-xl p-4 sm:p-5 lg:p-6"
 					>
 						<header className="shrink-0">
 							<PanelHeading

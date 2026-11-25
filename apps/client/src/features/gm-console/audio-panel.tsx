@@ -6,8 +6,8 @@ import {
 	Pause,
 	Play,
 	Repeat1,
-	RotateCcw,
 	Repeat2,
+	RotateCcw,
 	Shuffle,
 	SkipBack,
 	SkipForward,
@@ -22,7 +22,6 @@ import { useEffect, useRef, useState } from "react";
 import { SegmentedControl } from "@/components/shared/segmented-control";
 import {
 	Alert,
-	AlertAction,
 	AlertContent,
 	AlertDescription,
 	AlertIcon,
@@ -90,9 +89,7 @@ function AudioPanel({ onClose }: { onClose: () => void }) {
 	const retryPlayback = usePlayStore((state) => state.retryAudioPlayback);
 	const [fadeMs, setFadeMs] = useState("1000");
 	const committedVolume = Math.round(bgm?.volume ?? 100);
-	const lastAudibleVolume = useRef(
-		committedVolume > 0 ? committedVolume : 80,
-	);
+	const lastAudibleVolume = useRef(committedVolume > 0 ? committedVolume : 80);
 	const hasCurrent = Boolean(bgm?.trackId);
 	const playing = Boolean(bgm?.playing);
 	const mode = bgm?.mode ?? "single";
@@ -139,7 +136,7 @@ function AudioPanel({ onClose }: { onClose: () => void }) {
 	]
 		.filter(Boolean)
 		.join(" · ");
-		const status = !connected
+	const status = !connected
 		? { tone: "bg-warning", text: t("gm.workbench.currentStale") }
 		: playbackError
 			? {
@@ -163,10 +160,7 @@ function AudioPanel({ onClose }: { onClose: () => void }) {
 		>
 			<div className="@container flex min-w-0 flex-col gap-5 md:min-h-0 md:flex-1">
 				{!connected ? (
-					<Alert
-						variant="warning"
-						className="items-center shadow-none"
-					>
+					<Alert variant="warning" className="items-center shadow-none">
 						<AlertIcon>
 							<WifiOff aria-hidden="true" />
 						</AlertIcon>
@@ -178,10 +172,7 @@ function AudioPanel({ onClose }: { onClose: () => void }) {
 					</Alert>
 				) : null}
 				{commandError ? (
-					<Alert
-						variant="danger"
-						className="items-center shadow-none"
-					>
+					<Alert variant="danger" className="items-center shadow-none">
 						<AlertIcon>
 							<CircleAlert aria-hidden="true" />
 						</AlertIcon>
@@ -244,24 +235,24 @@ function AudioPanel({ onClose }: { onClose: () => void }) {
 												</span>
 												{meta}
 											</span>
-												{playbackError ? (
-													<>
-														<span role="alert" className="sr-only">
-															{playbackError}
-														</span>
-														<Button
-															type="button"
-															variant="dangerSoft"
-															size="xs"
-															className="-my-1 h-6 px-2.5 text-label-medium"
-															title={playbackError}
-															onClick={retryPlayback}
-														>
-															<RotateCcw data-icon="inline-start" />
-															{t("stage.audioRetry")}
-														</Button>
-													</>
-												) : null}
+											{playbackError ? (
+												<>
+													<span role="alert" className="sr-only">
+														{playbackError}
+													</span>
+													<Button
+														type="button"
+														variant="dangerSoft"
+														size="xs"
+														className="-my-1 h-6 px-2.5 text-label-medium"
+														title={playbackError}
+														onClick={retryPlayback}
+													>
+														<RotateCcw data-icon="inline-start" />
+														{t("stage.audioRetry")}
+													</Button>
+												</>
+											) : null}
 										</p>
 									</>
 								) : (
@@ -361,126 +352,127 @@ function AudioPanel({ onClose }: { onClose: () => void }) {
 					) : null}
 
 					<Separator className="bg-md-outline-variant/40" />
-							<div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
-								<div className="flex min-w-56 flex-1 items-center gap-2">
-									<Button
-										type="button"
-										variant="ghost"
-										size="xs"
-										disabled={offlineDisabled}
-										aria-disabled={commandPending || undefined}
-										aria-label={muteLabel}
-										title={muteLabel}
-										className="-ml-2.5 cursor-pointer gap-1.5 px-2.5 text-md-on-surface-variant hover:text-md-on-surface disabled:bg-transparent! disabled:opacity-40"
-										onClick={toggleMute}
+					<div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
+						<div className="flex min-w-56 flex-1 items-center gap-2">
+							<Button
+								type="button"
+								variant="ghost"
+								size="xs"
+								disabled={offlineDisabled}
+								aria-disabled={commandPending || undefined}
+								aria-label={muteLabel}
+								title={muteLabel}
+								className="-ml-2.5 cursor-pointer gap-1.5 px-2.5 text-md-on-surface-variant hover:text-md-on-surface disabled:bg-transparent! disabled:opacity-40"
+								onClick={toggleMute}
+							>
+								{silent ? (
+									<VolumeX className="size-5" aria-hidden="true" />
+								) : (
+									<Volume1 className="size-5" aria-hidden="true" />
+								)}
+								{t("gm.workbench.bgmVolumeShort")}
+							</Button>
+							<Slider
+								size="sm"
+								value={[displayVolume]}
+								min={0}
+								max={100}
+								disabled={offlineDisabled}
+								aria-label={t("gm.workbench.groupVolume")}
+								aria-valuetext={`${displayVolume}%`}
+								className="min-w-24 flex-1"
+								onValueChange={(value) => {
+									if (!commandPending) setVolumeDraft(value[0] ?? 0);
+								}}
+								onValueCommit={(value) => commitVolume(value[0] ?? 0)}
+							/>
+							<span
+								className="text-md-on-surface-variant w-10 shrink-0 text-right font-mono text-label-medium tabular-nums"
+								aria-hidden="true"
+							>
+								{displayVolume}%
+							</span>
+						</div>
+						<SplitButton
+							type="button"
+							variant="accentSoft"
+							size="xs"
+							groupClassName="@max-md:flex @max-md:w-full"
+							className="@max-md:flex-1"
+							disabled={currentOfflineDisabled}
+							aria-disabled={commandPending || undefined}
+							onClick={toggleFade}
+							title={t("gm.workbench.fadeHint")}
+							aria-label={
+								silent
+									? t("gm.workbench.fadeInToVolume", {
+											volume: lastAudibleVolume.current,
+										})
+									: t("gm.workbench.fadeOutToSilence")
+							}
+							menuLabel={t("gm.workbench.fadeDuration")}
+							menu={
+								<>
+									<DropdownMenuLabel>
+										{t("gm.workbench.fadeDuration")}
+									</DropdownMenuLabel>
+									<DropdownMenuRadioGroup
+										value={fadeMs}
+										onValueChange={setFadeMs}
 									>
-										{silent ? (
-											<VolumeX className="size-5" aria-hidden="true" />
-										) : (
-											<Volume1 className="size-5" aria-hidden="true" />
-										)}
-										{t("gm.workbench.bgmVolumeShort")}
-									</Button>
-									<Slider
-										value={[displayVolume]}
-										min={0}
-										max={100}
-										disabled={offlineDisabled}
-										aria-label={t("gm.workbench.groupVolume")}
-										aria-valuetext={`${displayVolume}%`}
-										className="min-w-24 flex-1"
-										onValueChange={(value) => {
-											if (!commandPending) setVolumeDraft(value[0] ?? 0);
-										}}
-										onValueCommit={(value) => commitVolume(value[0] ?? 0)}
-									/>
-									<span
-										className="text-md-on-surface-variant w-10 shrink-0 text-right font-mono text-label-medium tabular-nums"
-										aria-hidden="true"
-									>
-										{displayVolume}%
-									</span>
-								</div>
-								<SplitButton
-									type="button"
-									variant="accentSoft"
-									size="xs"
-									groupClassName="@max-md:flex @max-md:w-full"
-									className="@max-md:flex-1"
-									disabled={currentOfflineDisabled}
-									aria-disabled={commandPending || undefined}
-									onClick={toggleFade}
-									title={t("gm.workbench.fadeHint")}
-									aria-label={
-										silent
-											? t("gm.workbench.fadeInToVolume", {
-													volume: lastAudibleVolume.current,
-												})
-											: t("gm.workbench.fadeOutToSilence")
-									}
-									menuLabel={t("gm.workbench.fadeDuration")}
-									menu={
-										<>
-											<DropdownMenuLabel>
-												{t("gm.workbench.fadeDuration")}
-											</DropdownMenuLabel>
-											<DropdownMenuRadioGroup
-												value={fadeMs}
-												onValueChange={setFadeMs}
+										{FADE_OPTIONS.map((option) => (
+											<DropdownMenuRadioItem
+												key={option.value}
+												value={option.value}
 											>
-												{FADE_OPTIONS.map((option) => (
-													<DropdownMenuRadioItem
-														key={option.value}
-														value={option.value}
-													>
-														{t(option.labelKey)}
-													</DropdownMenuRadioItem>
-												))}
-											</DropdownMenuRadioGroup>
-										</>
-									}
-								>
-									{silent ? (
-										<TrendingUp data-icon="inline-start" />
-									) : (
-										<TrendingDown data-icon="inline-start" />
-									)}
-									{silent
-										? t("gm.workbench.fadeInShort")
-										: t("gm.workbench.fadeOutShort")}
-									<span className="font-normal tabular-nums">{fadeLabel}</span>
-								</SplitButton>
-							</div>
+												{t(option.labelKey)}
+											</DropdownMenuRadioItem>
+										))}
+									</DropdownMenuRadioGroup>
+								</>
+							}
+						>
+							{silent ? (
+								<TrendingUp data-icon="inline-start" />
+							) : (
+								<TrendingDown data-icon="inline-start" />
+							)}
+							{silent
+								? t("gm.workbench.fadeInShort")
+								: t("gm.workbench.fadeOutShort")}
+							<span className="font-normal tabular-nums">{fadeLabel}</span>
+						</SplitButton>
+					</div>
 
-							<div className="flex min-w-0 flex-col gap-1.5">
-								<SegmentedControl<BgmPlaybackMode>
-									aria-label={t("gm.workbench.playbackModeTitle")}
-									value={mode}
-									className="w-full gap-1 bg-md-surface-container-highest"
-									itemClassName="min-h-10 px-3 [&_svg]:size-4"
-									onValueChange={(nextMode) => {
-										if (!commandPending && nextMode !== mode) {
-											sendBgm("mode", { mode: nextMode });
-										}
-									}}
-									options={PLAYBACK_MODES.map(({ value, icon: Icon }) => ({
-										value,
-										disabled: offlineDisabled,
-										ariaDisabled: commandPending || undefined,
-										label: (
-											<>
-												<Icon aria-hidden="true" />
-											<span className="@max-md:sr-only">
-												{playbackModeLabel(value)}
-											</span>
-											</>
-										),
-									}))}
-								/>
-								<p className="text-md-on-surface-variant px-1 text-body-small">
-									{t(`gm.workbench.playbackModeHint.${mode}`)}
-								</p>
-							</div>
+					<div className="flex min-w-0 flex-col gap-1.5">
+						<SegmentedControl<BgmPlaybackMode>
+							aria-label={t("gm.workbench.playbackModeTitle")}
+							value={mode}
+							className="w-full gap-1 bg-md-surface-container-highest"
+							itemClassName="min-h-10 px-3 [&_svg]:size-4"
+							onValueChange={(nextMode) => {
+								if (!commandPending && nextMode !== mode) {
+									sendBgm("mode", { mode: nextMode });
+								}
+							}}
+							options={PLAYBACK_MODES.map(({ value, icon: Icon }) => ({
+								value,
+								disabled: offlineDisabled,
+								ariaDisabled: commandPending || undefined,
+								label: (
+									<>
+										<Icon aria-hidden="true" />
+										<span className="@max-md:sr-only">
+											{playbackModeLabel(value)}
+										</span>
+									</>
+								),
+							}))}
+						/>
+						<p className="text-md-on-surface-variant px-1 text-body-small">
+							{t(`gm.workbench.playbackModeHint.${mode}`)}
+						</p>
+					</div>
 				</Card>
 
 				<AudioLibrary

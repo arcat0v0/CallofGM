@@ -218,6 +218,66 @@ describe("voice peer", () => {
 			jest.useRealTimers();
 		}
 	});
+
+	test("routes remote output through setSinkId before and after track attachment", () => {
+		const { subject, connection } = fixture(false);
+		const setSinkId = mock(async (_id: string) => {});
+		subject.setOutputDevice("speaker-usb");
+		const track = { kind: "audio", enabled: true, stop: mock(() => {}) };
+		connection.ontrack?.({ track: track as unknown as MediaStreamTrack });
+		const output = document.querySelector("audio") as
+			| (HTMLAudioElement & { setSinkId?: typeof setSinkId })
+			| null;
+		expect(output).not.toBeNull();
+		if (output) output.setSinkId = setSinkId;
+		subject.setOutputDevice("speaker-bt");
+		expect(setSinkId).toHaveBeenLastCalledWith("speaker-bt");
+		subject.setOutputDevice("default");
+		expect(setSinkId).toHaveBeenLastCalledWith("");
+		subject.close();
+	});
+
+	test("resends an offer with ICE restart when the initiator is stuck waiting for an answer", async () => {
+		jest.useFakeTimers();
+		try {
+			const { subject, connection, send } = fixture(true);
+			const createOffer = mock(async (_options?: RTCOfferOptions) => ({
+				type: "offer" as const,
+				sdp: audioSdp("restarted"),
+			}));
+			(
+				connection as PeerConnection & { createOffer?: typeof createOffer }
+			).createOffer = createOffer;
+			connection.setLocalDescription.mockImplementation(
+				async (desc?: RTCSessionDescriptionInit) => {
+					const type =
+						desc?.type ??
+						(connection.signalingState === "have-remote-offer"
+							? "answer"
+							: "offer");
+					connection.signalingState =
+						type === "offer" ? "have-local-offer" : "stable";
+					connection.localDescription = {
+						type,
+						sdp: desc?.sdp ?? audioSdp("local"),
+					};
+				},
+			);
+			connection.onnegotiationneeded?.();
+			for (let i = 0; i < 6; i += 1) await Promise.resolve();
+			expect(connection.signalingState).toBe("have-local-offer");
+			expect(send).toHaveBeenCalledTimes(1);
+
+			jest.advanceTimersByTime(15_000);
+			for (let i = 0; i < 6; i += 1) await Promise.resolve();
+			expect(createOffer).toHaveBeenCalledWith({ iceRestart: true });
+			expect(send).toHaveBeenCalledTimes(2);
+			expect(send).toHaveBeenLastCalledWith(description("offer", "restarted"));
+			expect(subject.health).toBe("connecting");
+		} finally {
+			jest.useRealTimers();
+		}
+	});
 });
 
 describe("Opus voice configuration", () => {

@@ -763,4 +763,37 @@ describe("Voice realtime contract", () => {
 		expect((await pc.closed).code).toBe(1001);
 		expect((await currentGm.closed).code).toBe(1001);
 	});
+
+	test("allows quick rejoin after closing the previous tab and delivers voice:state cleanly", async () => {
+		await prepare();
+		const gm = await connect(ctx.gmToken);
+		const pc1First = await connect(required(ctx.playerTokens.get("one")));
+		await Promise.all([voiceState(gm), voiceState(pc1First)]);
+
+		const enable = sendVoice(gm, "voice:configure", { enabled: true });
+		expect(await voiceReply(gm, enable)).toMatchObject({ ok: true });
+		const opening = await voiceState(gm, (state) => state.enabled);
+		const roomId = required(opening.payload.roomId);
+
+		const gmJoin = sendVoice(gm, "voice:join", { roomId });
+		expect(await voiceReply(gm, gmJoin)).toMatchObject({ ok: true });
+		const pc1Join = sendVoice(pc1First, "voice:join", { roomId });
+		expect(await voiceReply(pc1First, pc1Join)).toMatchObject({ ok: true });
+		const firstJoined = await voiceState(
+			pc1First,
+			(state) => state.selfId !== null,
+		);
+
+		// Simulate page refresh: close old WS and immediately connect + rejoin
+		await closeWs(pc1First);
+		const pc1Reloaded = await connect(required(ctx.playerTokens.get("one")));
+		await voiceState(pc1Reloaded);
+		const rejoin = sendVoice(pc1Reloaded, "voice:join", { roomId });
+		expect(await voiceReply(pc1Reloaded, rejoin)).toMatchObject({ ok: true });
+		const reloadedState = await voiceState(
+			pc1Reloaded,
+			(state) => state.selfId !== null && state.memberCount === 2,
+		);
+		expect(reloadedState.payload.selfId).not.toBe(firstJoined.payload.selfId);
+	});
 });

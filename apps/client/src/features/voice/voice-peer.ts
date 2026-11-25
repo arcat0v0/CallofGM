@@ -5,7 +5,16 @@ const CONNECTION_TIMEOUT = 15_000;
 const DISCONNECT_GRACE = 4_000;
 const MAX_RESTARTS = 2;
 
-type PeerHealth = "connecting" | "connected" | "failed";
+export type PeerHealth = "connecting" | "connected" | "failed";
+
+export function supportsAudioOutputSelection(): boolean {
+	return (
+		typeof HTMLMediaElement !== "undefined" &&
+		typeof (
+			HTMLMediaElement.prototype as HTMLMediaElement & { setSinkId?: unknown }
+		).setSinkId === "function"
+	);
+}
 
 type VoicePeerDiagnostics = {
 	setConnection: (connection: RTCPeerConnection | null) => void;
@@ -20,6 +29,7 @@ type VoicePeerDiagnostics = {
 type VoicePeerOptions = {
 	initiator: boolean;
 	iceServers: RTCIceServer[];
+	outputDeviceId?: string;
 	send: (signal: VoiceSignal) => void;
 	changed: () => void;
 	onRemoteTrack?: (track: MediaStreamTrack | null) => void;
@@ -188,6 +198,7 @@ export class VoicePeer {
 	private transceiver: RTCRtpTransceiver | undefined;
 	private track: MediaStreamTrack | null = null;
 	private output: HTMLAudioElement | null = null;
+	private outputDeviceId: string;
 	private remoteTrack: MediaStreamTrack | null = null;
 	private audible = false;
 	private volume = 100;
@@ -209,6 +220,7 @@ export class VoicePeer {
 
 	constructor(options: VoicePeerOptions) {
 		this.options = options;
+		this.outputDeviceId = options.outputDeviceId || "default";
 		const connection = new RTCPeerConnection({
 			iceServers: options.iceServers,
 		});
@@ -242,6 +254,7 @@ export class VoicePeer {
 		};
 		connection.ontrack = ({ track }) => this.attachOutput(track);
 		connection.onconnectionstatechange = () => this.connectionChanged();
+		connection.oniceconnectionstatechange = () => this.iceConnectionChanged();
 		if (options.initiator) {
 			this.transceiver = connection.addTransceiver("audio", {
 				direction: "sendrecv",
@@ -357,13 +370,20 @@ export class VoicePeer {
 		} catch {}
 	}
 
-	private async setLocalDescription(): Promise<void> {
+	private async setLocalDescription(
+		offerOptions?: RTCOfferOptions,
+	): Promise<void> {
 		const connection = this.connection;
 		if (
 			!this.opus.support.opus ||
 			typeof connection.createOffer !== "function" ||
 			typeof connection.createAnswer !== "function"
 		) {
+			if (offerOptions && typeof connection.createOffer === "function") {
+				const description = await connection.createOffer(offerOptions);
+				await connection.setLocalDescription(description);
+				return;
+			}
 			await connection.setLocalDescription();
 			return;
 		}
@@ -371,7 +391,9 @@ export class VoicePeer {
 			const description =
 				connection.signalingState === "have-remote-offer"
 					? await connection.createAnswer()
-					: await connection.createOffer();
+					: offerOptions
+						? await connection.createOffer(offerOptions)
+						: await connection.createOffer();
 			if (!description.sdp) throw new Error("Missing local SDP");
 			await connection.setLocalDescription({
 				type: description.type,
@@ -432,11 +454,30 @@ export class VoicePeer {
 			this.output.setAttribute("playsinline", "");
 			this.output.volume = this.volume / 100;
 			document.body.append(this.output);
+			this.applyOutputSink();
 		}
 		this.output.srcObject = new MediaStream([track]);
 		this.options.onRemoteTrack?.(track);
 		this.options.diagnostics?.setRemoteTrack(track);
 		this.updatePlayback();
+	}
+
+	setOutputDevice(deviceId: string): void {
+		const next = deviceId || "default";
+		if (this.outputDeviceId === next) return;
+		this.outputDeviceId = next;
+		this.applyOutputSink();
+	}
+
+	private applyOutputSink(): void {
+		const output = this.output as
+			| (HTMLAudioElement & { setSinkId?: (sinkId: string) => Promise<void> })
+			| null;
+		if (!output || typeof output.setSinkId !== "function") return;
+		const target = this.outputDeviceId === "default" ? "" : this.outputDeviceId;
+		try {
+			void output.setSinkId(target).catch(() => {});
+		} catch {}
 	}
 
 	setAudible(audible: boolean): void {
@@ -502,6 +543,30 @@ export class VoicePeer {
 		}
 	}
 
+	private iceConnectionChanged(): void {
+		const iceState = this.connection.iceConnectionState;
+		if (!iceState) return;
+		const connState = this.connection.connectionState;
+		if (
+			(iceState === "connected" || iceState === "completed") &&
+			connState === "connected"
+		) {
+			clearTimeout(this.timer);
+			this.restarts = 0;
+			this.setHealth("connected");
+			return;
+		}
+		if (
+			(iceState === "failed" || iceState === "disconnected") &&
+			connState !== "disconnected" &&
+			connState !== "failed"
+		) {
+			if (this.health === "failed") this.restarts = 0;
+			this.setHealth("connecting");
+			this.armRecovery(DISCONNECT_GRACE);
+		}
+	}
+
 	private armRecovery(delay: number): void {
 		clearTimeout(this.timer);
 		this.timer = setTimeout(() => {
@@ -512,7 +577,19 @@ export class VoicePeer {
 			}
 			this.restarts += 1;
 			this.setHealth("connecting");
-			this.connection.restartIce();
+			if (
+				this.options.initiator &&
+				this.connection.signalingState === "have-local-offer"
+			) {
+				// Initial offer was never answered (e.g. lost during rejoin); resend a fresh offer.
+				this.enqueue(async () => {
+					if (this.closed || !this.transceiver) return;
+					await this.setLocalDescription({ iceRestart: true });
+					this.sendDescription();
+				});
+			} else {
+				this.connection.restartIce();
+			}
 			this.options.diagnostics?.recordEvent(
 				"ice-restart",
 				"requested",

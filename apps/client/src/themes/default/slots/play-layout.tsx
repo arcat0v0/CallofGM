@@ -108,7 +108,11 @@ export function PlayLayout({ viewport, nodes, view, actions }: PlayLayoutCtx) {
 			{chatOpen ? (
 				<div className="stage-glass shadow-overlay animate-in fade-in absolute top-4 right-4 bottom-4 z-20 flex w-[clamp(344px,26vw,400px)] flex-col duration-350 ease-expressive-fast-effects overflow-hidden rounded-xl">
 					{nodes.chat}
-					{nodes.composer}
+					{nodes.composer ? (
+						<div className="pointer-events-none absolute inset-x-0 bottom-0 z-10">
+							{nodes.composer}
+						</div>
+					) : null}
 				</div>
 			) : (
 				<ExpandChatButton

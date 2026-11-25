@@ -16,9 +16,16 @@ function SelectGroup({
 }
 
 function SelectValue({
+	className,
 	...props
 }: React.ComponentProps<typeof SelectPrimitive.Value>) {
-	return <SelectPrimitive.Value data-slot="select-value" {...props} />;
+	return (
+		<SelectPrimitive.Value
+			data-slot="select-value"
+			className={cn("min-w-0 truncate", className)}
+			{...props}
+		/>
+	);
 }
 
 function SelectTrigger({
@@ -30,7 +37,7 @@ function SelectTrigger({
 		<SelectPrimitive.Trigger
 			data-slot="select-trigger"
 			className={cn(
-				"flex h-10 w-full items-center justify-between gap-2 rounded-md border border-field-border bg-field px-3.5 font-sans text-body-medium whitespace-nowrap text-field-foreground outline-none transition-[background-color,border-color,box-shadow] duration-200 ease-standard-fast-effects data-placeholder:text-field-placeholder hover:border-field-border-hover hover:bg-field-hover focus-visible:border-field-border-focus focus-visible:ring-4 focus-visible:ring-focus-ring/35 disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-md-on-surface-variant",
+				"flex h-10 w-full min-w-0 items-center justify-between gap-2 overflow-hidden rounded-md border border-field-border bg-field px-3.5 font-sans text-body-medium whitespace-nowrap text-field-foreground outline-none transition-[background-color,border-color,box-shadow] duration-200 ease-standard-fast-effects data-placeholder:text-field-placeholder hover:border-field-border-hover hover:bg-field-hover focus-visible:border-field-border-focus focus-visible:ring-4 focus-visible:ring-focus-ring/35 disabled:cursor-not-allowed disabled:opacity-50 [&>[data-slot=select-value]]:min-w-0 [&>[data-slot=select-value]]:truncate [&>[data-slot=select-value]]:text-left [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-md-on-surface-variant",
 				className,
 			)}
 			{...props}
@@ -105,7 +112,7 @@ function SelectItem({
 		<SelectPrimitive.Item
 			data-slot="select-item"
 			className={cn(
-				"relative flex h-9 w-full cursor-default items-center gap-3 rounded-sm px-3 pr-9 font-sans text-label-large text-foreground transition-colors duration-150 ease-standard-fast-effects outline-hidden select-none data-checked:bg-accent-soft data-checked:text-accent-soft-foreground data-disabled:pointer-events-none data-disabled:opacity-50 data-highlighted:bg-md-on-surface/8 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+				"relative flex h-9 w-full min-w-0 cursor-default items-center gap-3 rounded-sm px-3 pr-9 font-sans text-label-large text-foreground transition-colors duration-150 ease-standard-fast-effects outline-hidden select-none data-checked:bg-accent-soft data-checked:text-accent-soft-foreground data-disabled:pointer-events-none data-disabled:opacity-50 data-highlighted:bg-md-on-surface/8 [&>span:first-child]:min-w-0 [&>span:first-child]:truncate [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
 				className,
 			)}
 			{...props}

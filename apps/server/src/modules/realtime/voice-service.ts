@@ -183,10 +183,14 @@ export class VoiceService {
 		if (!new SessionLifecycle(session).isVoiceAvailable()) {
 			throw new VoiceError("VOICE_UNAVAILABLE");
 		}
-		for (const member of room.members.values()) {
-			if (member.claimId === identity.claimId) {
+		for (const [existingConnectionId, member] of [...room.members.entries()]) {
+			if (member.claimId !== identity.claimId) continue;
+			const existing =
+				this.connectionRegistry.getConnection(existingConnectionId);
+			if (existing?.state === "active") {
 				throw new VoiceError("VOICE_DUPLICATE_TAB");
 			}
+			room.members.delete(existingConnectionId);
 		}
 		const limit = this.effectiveLimit(session);
 		if (
@@ -213,7 +217,11 @@ export class VoiceService {
 			});
 		}
 		this.reply(connection, requestId, true);
-		await this.broadcast(connection.sessionId);
+		await this.broadcast(
+			connection.sessionId,
+			undefined,
+			connection.connectionId,
+		);
 	}
 
 	private async configure(
@@ -313,14 +321,25 @@ export class VoiceService {
 	private async broadcast(
 		sessionId: string,
 		session?: VoiceSession | null,
+		priorityConnectionId?: string,
 	): Promise<void> {
 		const connections = this.connectionRegistry
 			.getConnectionsBySession(sessionId)
 			.filter((connection) => connection.state === "active");
 		if (connections.length === 0) return;
+		const ordered = priorityConnectionId
+			? [
+					...connections.filter(
+						(connection) => connection.connectionId === priorityConnectionId,
+					),
+					...connections.filter(
+						(connection) => connection.connectionId !== priorityConnectionId,
+					),
+				]
+			: connections;
 		const snapshot =
 			session === undefined ? await this.store.loadSession(sessionId) : session;
-		this.sendStates(sessionId, connections, snapshot);
+		this.sendStates(sessionId, ordered, snapshot);
 	}
 
 	private sendStates(

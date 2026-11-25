@@ -2,6 +2,7 @@ export type VoiceNoiseSuppressionEngine = "deepfilter" | "rnnoise";
 
 export type VoiceAudioSettings = {
 	deviceId: string;
+	outputDeviceId: string;
 	echoCancellation: boolean;
 	noiseSuppression: boolean;
 	autoGainControl: boolean;
@@ -31,6 +32,7 @@ const RESET_BEFORE_V2 = [
 
 export const DEFAULT_VOICE_AUDIO_SETTINGS: VoiceAudioSettings = {
 	deviceId: "default",
+	outputDeviceId: "default",
 	echoCancellation: true,
 	noiseSuppression: true,
 	autoGainControl: true,
@@ -77,6 +79,15 @@ export function normalizeVoiceAudioSettings(
 		next.deviceId = record.deviceId;
 	} else if (record.deviceId !== undefined) {
 		next.deviceId = "default";
+	}
+	if (
+		typeof record.outputDeviceId === "string" &&
+		record.outputDeviceId.length > 0 &&
+		record.outputDeviceId.length <= 512
+	) {
+		next.outputDeviceId = record.outputDeviceId;
+	} else if (record.outputDeviceId !== undefined) {
+		next.outputDeviceId = "default";
 	}
 	if (
 		typeof record.pushToTalkKey === "string" &&

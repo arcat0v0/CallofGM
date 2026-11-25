@@ -31,7 +31,7 @@ function GmPanelShell({
 		<section
 			aria-label={title}
 			className={cn(
-				"stage-glass animate-in fade-in slide-in-from-top-2 shadow-overlay flex max-h-[calc(100dvh_-_132px)] w-[584px] max-w-[calc(100vw-24px)] flex-col gap-3 overflow-hidden rounded-xl p-4 duration-350 ease-standard-default-spatial sm:p-5 lg:max-h-[calc(100dvh_-_220px)] 2xl:gap-4 2xl:p-6",
+				"stage-glass animate-in fade-in slide-in-from-top-2 shadow-overlay flex max-h-[calc(100dvh_-_132px)] w-[584px] max-w-[calc(100vw-24px)] flex-col gap-3 overflow-hidden rounded-xl p-4 duration-350 ease-standard-default-spatial sm:p-5 lg:max-h-[calc(100dvh_-_220px)] lg:p-6 2xl:gap-4",
 				className,
 			)}
 		>
@@ -190,7 +190,7 @@ function GmSelectItem({
 }
 
 const gmWidePanelClass =
-	"w-[min(880px,calc(100vw-24px))] max-h-[calc(100dvh-132px)] lg:max-h-[var(--gm-dock-panel-max-h,calc(100dvh-176px))] xl:max-h-[var(--gm-dock-panel-max-h,calc(100dvh-112px))] [&>div]:[scrollbar-width:thin] [&>div]:[scrollbar-color:var(--color-scrollbar)_transparent]";
+	"w-[min(880px,calc(100vw-24px))] max-h-[calc(100dvh-132px)] lg:max-h-[var(--gm-dock-panel-max-h,calc(100dvh-176px))] xl:max-h-[var(--gm-dock-panel-max-h,calc(100dvh-112px))]";
 
 export {
 	GmField,

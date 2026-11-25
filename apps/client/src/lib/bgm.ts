@@ -125,8 +125,21 @@ export function useBgmPlayback(
 				xhr: { withCredentials: true },
 				loop: bgm.mode === "single",
 				volume: 0,
-				onload: () => onPlaybackStatus?.("ready"),
-				onplay: () => onPlaybackStatus?.("ready"),
+				onload: () => {
+					if (howlRef.current !== created) return;
+					if (!playbackRef.current.bgm?.playing) {
+						created.pause();
+					}
+					onPlaybackStatus?.("ready");
+				},
+				onplay: () => {
+					if (howlRef.current !== created) return;
+					if (!playbackRef.current.bgm?.playing) {
+						created.pause();
+						return;
+					}
+					onPlaybackStatus?.("ready");
+				},
 				onloaderror: () => onPlaybackStatus?.("error"),
 				onplayerror: () => onPlaybackStatus?.("error"),
 				onend: () => {
@@ -160,7 +173,7 @@ export function useBgmPlayback(
 			isGm,
 		});
 		if (Math.abs(howl.volume() - targetVolume) > 0.01) {
-			if (transitionMs > 0 && howl.state() === "loaded") {
+			if (bgm.playing && transitionMs > 0 && howl.state() === "loaded") {
 				howl.fade(howl.volume(), targetVolume, transitionMs);
 			} else {
 				howl.volume(targetVolume);
@@ -177,26 +190,31 @@ export function useBgmPlayback(
 			endedRef.current ??= { signature, reportedVersion: null };
 		}
 		if (bgm.playing && endedRef.current?.signature === signature) {
-			if (howl.playing()) howl.pause();
+			howl.pause();
 			reportEnd();
 			return;
 		}
 		const seekSec = position / 1000;
 		const currentSeek =
 			typeof howl.seek() === "number" ? Number(howl.seek()) : 0;
+		if (!bgm.playing) {
+			// Pause before seeking: Howler's html5 seek() pauses synchronously and
+			// reschedules play() on a macrotask if playing() was true when called.
+			howl.pause();
+			if (Math.abs(currentSeek - seekSec) > 0.75) {
+				howl.seek(seekSec);
+			}
+			return;
+		}
 		if (Math.abs(currentSeek - seekSec) > 0.75) {
 			howl.seek(seekSec);
 		}
-		if (bgm.playing) {
-			if (!howl.playing()) {
-				try {
-					howl.play();
-				} catch {
-					onPlaybackStatus?.("error");
-				}
+		if (!howl.playing()) {
+			try {
+				howl.play();
+			} catch {
+				onPlaybackStatus?.("error");
 			}
-		} else if (howl.playing()) {
-			howl.pause();
 		}
 	}, [
 		bgm,
