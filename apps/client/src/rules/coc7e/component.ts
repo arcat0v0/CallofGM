@@ -5,15 +5,15 @@ import { Coc7eCharacterCreationEditor } from "./character-creation-editor";
 import { CocCheckCard } from "./check-card";
 import { CocCheckPanel } from "./check-panel";
 import {
-	Coc7eCreationOptionsEditor,
-	Coc7eCreationReviewSummary,
-	describeCoc7eCreationOptions,
-} from "./creation-method";
-import {
 	buildCheckDiceAnimation,
 	formatCheckEvent,
 	formatCheckRequest,
 } from "./check-view";
+import {
+	Coc7eCreationOptionsEditor,
+	Coc7eCreationReviewSummary,
+	describeCoc7eCreationOptions,
+} from "./creation-method";
 import { CocDiceTray } from "./dice-tray";
 import { luck } from "./luck";
 import { CocSessionSheet } from "./session-sheet";
@@ -26,6 +26,7 @@ import {
 	parseCocState,
 	statusLabels,
 } from "./sheet-data";
+import { Coc7eSheetViewer } from "./sheet-viewer";
 import { CocStateEditor } from "./state-editor";
 
 function coc7eStateView(state: unknown) {
@@ -115,6 +116,7 @@ export const coc7eComponent: RuleComponent = {
 			luck: 50,
 		}),
 	creationEditor: Coc7eCharacterCreationEditor,
+	sheetViewer: Coc7eSheetViewer,
 	creationTitle: () => t("characterCreation.pageTitle"),
 	backgroundSource: "sheet",
 	capabilities: {

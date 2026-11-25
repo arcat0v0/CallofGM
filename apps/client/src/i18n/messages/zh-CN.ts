@@ -2214,6 +2214,12 @@ export const zhCN: Record<string, string> = {
 		"该人物的资料由玩家维护；主持人可在这里查看姓名、背景摘要与立绘。",
 	"characterProfile.sheetHint":
 		"在这里维护规则数值与背景细节；姓名和立绘请回「资料与立绘」修改。",
+	"characterProfile.sheetReadOnlyHint":
+		"以只读方式查看完整属性、技能、装备、背景与成长记录。",
+	"characterProfile.portraitsReadOnlyTitle": "表情立绘",
+	"characterProfile.portraitsReadOnlyHint":
+		"该人物已上传的全部表情立绘（只读）。",
+	"characterProfile.portraitsReadOnlyEmpty": "该人物尚未上传表情立绘。",
 	"characterProfile.rule": "规则",
 	"characterProfile.saved": "已保存",
 	"characterProfile.saveFailed": "保存失败",

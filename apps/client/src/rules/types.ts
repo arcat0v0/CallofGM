@@ -1,5 +1,6 @@
 import type {
 	CharacterCreationRollDto,
+	CharacterHistoryResponse,
 	CharacterSheetContextResponse,
 	CheckRequestDto,
 	RuleMetadata,
@@ -72,6 +73,13 @@ export type RuleSummaryMetric = {
 	tone?: "default";
 };
 export type RuleSheetOverview = { label: string; value: string };
+
+export type RuleSheetViewerProps = {
+	sheet: unknown;
+	background: string;
+	sheetContext?: CharacterSheetContextResponse | null;
+	history?: CharacterHistoryResponse | null;
+};
 
 export type RuleSessionSheetProps = {
 	target: SnapshotCharacter;
@@ -153,6 +161,7 @@ export type RuleComponent = {
 	shortName: string;
 	createEmptySheet: () => unknown;
 	creationEditor: (props: RuleCreationEditorProps) => ReactNode;
+	sheetViewer: ComponentType<RuleSheetViewerProps>;
 	creationTitle?: () => string;
 	backgroundSource: RuleBackgroundSource;
 	parseSheet: (value: unknown) => unknown | null;

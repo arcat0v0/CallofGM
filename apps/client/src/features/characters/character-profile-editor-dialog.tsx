@@ -18,7 +18,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { CharacterBackgroundSummary } from "@/features/characters/character-background-summary";
 import type { PortraitBasePath } from "@/features/characters/expression-manager";
 import { ExpressionManager } from "@/features/characters/expression-manager";
+import { PortraitGalleryReadOnly } from "@/features/characters/portrait-gallery-readonly";
 import { SheetFullEditor } from "@/features/characters/sheet-full-editor";
+import { SheetFullViewer } from "@/features/characters/sheet-full-viewer";
 import { t } from "@/i18n";
 import { api } from "@/lib/api";
 import { errorText } from "@/lib/errors";
@@ -152,16 +154,11 @@ export function CharacterProfileEditorDialog({
 						{t("characterProfile.description")}
 					</DialogDescription>
 				</DialogHeader>
-				<Tabs
-					defaultValue={canEditCharacter ? "sheet" : "profile"}
-					className="min-h-0 flex-1 gap-0"
-				>
+				<Tabs defaultValue="sheet" className="min-h-0 flex-1 gap-0">
 					<TabsList className="mx-6 mt-4 shrink-0">
-						{canEditCharacter ? (
-							<TabsTrigger value="sheet">
-								{t("characterProfile.sheetTab")}
-							</TabsTrigger>
-						) : null}
+						<TabsTrigger value="sheet">
+							{t("characterProfile.sheetTab")}
+						</TabsTrigger>
 						<TabsTrigger value="profile">
 							{t("characterProfile.profileTab")}
 						</TabsTrigger>
@@ -202,6 +199,7 @@ export function CharacterProfileEditorDialog({
 									value={background}
 									maxLength={4000}
 									rows={4}
+									readOnly={!canEditCharacter}
 									onChange={(event) => setBackground(event.target.value)}
 								/>
 							</div>
@@ -213,7 +211,9 @@ export function CharacterProfileEditorDialog({
 								basePath={basePath}
 								onChange={() => void refreshPortraits()}
 							/>
-						) : null}
+						) : (
+							<PortraitGalleryReadOnly portraits={character.portraits} />
+						)}
 						{canEditCharacter ? null : (
 							<p className="text-foreground-secondary text-body-medium">
 								{t("characterProfile.permanentOnly")}
@@ -221,11 +221,11 @@ export function CharacterProfileEditorDialog({
 						)}
 						<Separator />
 					</TabsContent>
-					{canEditCharacter ? (
-						<TabsContent
-							value="sheet"
-							className="min-h-0 flex-1 overflow-y-auto px-6 py-5"
-						>
+					<TabsContent
+						value="sheet"
+						className="min-h-0 flex-1 overflow-y-auto px-6 py-5"
+					>
+						{canEditCharacter ? (
 							<SheetFullEditor
 								ruleId={character.ruleId}
 								sheet={fullSheet}
@@ -233,8 +233,14 @@ export function CharacterProfileEditorDialog({
 								showValidation={showValidation}
 								onValidityChange={setSheetValid}
 							/>
-						</TabsContent>
-					) : null}
+						) : (
+							<SheetFullViewer
+								ruleId={character.ruleId}
+								sheet={fullSheet}
+								background={background}
+							/>
+						)}
+					</TabsContent>
 				</Tabs>
 				<DialogFooter className="border-separator-secondary/50 shrink-0 border-t px-6 py-4">
 					<Button type="button" variant="tertiary" onClick={onClose}>

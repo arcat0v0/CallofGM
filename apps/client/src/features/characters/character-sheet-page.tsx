@@ -1,6 +1,7 @@
 import type {
 	CharacterDetailDto,
 	CharacterDto,
+	CharacterHistoryResponse,
 	CharacterSheetContextResponse,
 } from "@cogm/shared";
 import { ChevronLeft, Save, UserRound } from "lucide-react";
@@ -14,7 +15,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CharacterBackgroundSummary } from "@/features/characters/character-background-summary";
 import type { PortraitBasePath } from "@/features/characters/expression-manager";
 import { ExpressionManager } from "@/features/characters/expression-manager";
+import { PortraitGalleryReadOnly } from "@/features/characters/portrait-gallery-readonly";
 import { SheetFullEditor } from "@/features/characters/sheet-full-editor";
+import { SheetFullViewer } from "@/features/characters/sheet-full-viewer";
 import { t, useI18nVersion } from "@/i18n";
 import { api, mediaUrl } from "@/lib/api";
 import { errorText } from "@/lib/errors";
@@ -121,14 +124,13 @@ function CharacterSheetView({
 	const [fullSheet, setFullSheet] = useState<unknown>(
 		rule.parseSheetJson(character.sheetJson) ?? rule.createEmptySheet(),
 	);
-	const [activeMainTab, setActiveMainTab] = useState(
-		canEditCharacter ? "sheet" : "profile",
-	);
+	const [activeMainTab, setActiveMainTab] = useState("sheet");
 	const [showValidation, setShowValidation] = useState(false);
 	const [sheetValid, setSheetValid] = useState(true);
 	const [saving, setSaving] = useState(false);
 	const [sheetContext, setSheetContext] =
 		useState<CharacterSheetContextResponse | null>(null);
+	const [history, setHistory] = useState<CharacterHistoryResponse | null>(null);
 
 	useEffect(() => {
 		setName(character.name);
@@ -148,12 +150,28 @@ function CharacterSheetView({
 
 	useEffect(() => {
 		let cancelled = false;
+		setSheetContext(null);
+		setHistory(null);
 		void api<CharacterSheetContextResponse>(
 			`${basePath}/${encodeURIComponent(character.id)}/sheet-context`,
 		)
 			.then((context) => {
 				if (!cancelled && context && Array.isArray(context.companions)) {
 					setSheetContext(context);
+				}
+			})
+			.catch(() => undefined);
+		void api<CharacterHistoryResponse>(
+			`${basePath}/${encodeURIComponent(character.id)}/history`,
+		)
+			.then((nextHistory) => {
+				if (
+					!cancelled &&
+					nextHistory &&
+					Array.isArray(nextHistory.growth) &&
+					Array.isArray(nextHistory.audits)
+				) {
+					setHistory(nextHistory);
 				}
 			})
 			.catch(() => undefined);
@@ -304,23 +322,23 @@ function CharacterSheetView({
 				>
 					<div className="flex flex-col gap-2">
 						<TabsList>
-							{canEditCharacter ? (
-								<TabsTrigger value="sheet">
-									{t("characterProfile.sheetTab")}
-								</TabsTrigger>
-							) : null}
+							<TabsTrigger value="sheet">
+								{t("characterProfile.sheetTab")}
+							</TabsTrigger>
 							<TabsTrigger value="profile">
 								{t("characterProfile.profileTab")}
 							</TabsTrigger>
 						</TabsList>
 						{activeMainTab === "sheet" ? (
 							<p className="text-body-small text-foreground-tertiary">
-								{t("characterProfile.sheetHint")}
+								{canEditCharacter
+									? t("characterProfile.sheetHint")
+									: t("characterProfile.sheetReadOnlyHint")}
 							</p>
 						) : null}
 					</div>
-					{canEditCharacter ? (
-						<TabsContent value="sheet">
+					<TabsContent value="sheet">
+						{canEditCharacter ? (
 							<SheetFullEditor
 								ruleId={character.ruleId}
 								sheet={fullSheet}
@@ -329,8 +347,16 @@ function CharacterSheetView({
 								onValidityChange={setSheetValid}
 								sheetContext={sheetContext}
 							/>
-						</TabsContent>
-					) : null}
+						) : (
+							<SheetFullViewer
+								ruleId={character.ruleId}
+								sheet={fullSheet}
+								background={background}
+								sheetContext={sheetContext}
+								history={history}
+							/>
+						)}
+					</TabsContent>
 					<TabsContent value="profile" className="flex flex-col gap-4">
 						<SheetSection
 							title={t("characterProfile.profileTab")}
@@ -371,7 +397,7 @@ function CharacterSheetView({
 							</div>
 							{backgroundIsDerived ? (
 								<CharacterBackgroundSummary background={backgroundSummary} />
-							) : (
+							) : canEditCharacter ? (
 								<TextField
 									label={t("characterProfile.background")}
 									value={background}
@@ -379,6 +405,15 @@ function CharacterSheetView({
 									maxLength={4000}
 									onChange={setBackground}
 								/>
+							) : (
+								<div className="flex min-w-0 flex-col gap-1.5">
+									<span className="text-md-on-surface-variant text-label-medium">
+										{t("characterProfile.background")}
+									</span>
+									<p className="text-foreground-secondary whitespace-pre-wrap rounded-2xl bg-md-surface-container px-4 py-3 text-body-medium select-text">
+										{background.trim() || t("characterProfile.backgroundEmpty")}
+									</p>
+								</div>
 							)}
 						</SheetSection>
 						{canEditCharacter ? (
@@ -388,7 +423,9 @@ function CharacterSheetView({
 								basePath={basePath}
 								onChange={() => void refreshPortraits()}
 							/>
-						) : null}
+						) : (
+							<PortraitGalleryReadOnly portraits={character.portraits} />
+						)}
 					</TabsContent>
 				</Tabs>
 			</div>

@@ -20,6 +20,7 @@ import {
 	speciesLabel,
 } from "./labels";
 import { DndSessionSheet } from "./session-sheet";
+import { DndSheetViewer } from "./sheet-viewer";
 import { DndStateEditor } from "./state-editor";
 
 function parseSheet(value: unknown): dnd5r.CharacterSheet | null {
@@ -65,6 +66,7 @@ export const dnd5rComponent: RuleComponent = {
 	},
 	createEmptySheet: dnd5r.createBlankSheet,
 	creationEditor: DndCharacterCreationEditor,
+	sheetViewer: DndSheetViewer,
 	backgroundSource: "profile",
 	parseSheet,
 	parseSheetJson: (json) => {
