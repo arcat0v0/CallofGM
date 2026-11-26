@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { t } from "@/i18n";
 import { mapChatMessage } from "@/lib/chat-map";
 import { mapHistoryItems, mergeMessages } from "./slices/chat-slice";
+import { keepUnappliedStageExpressions } from "./slices/stage-slice";
 import type { PlayState } from "./types";
 
 export function hydrateSnapshot(
@@ -26,11 +27,11 @@ export function hydrateSnapshot(
 		);
 	}
 	const ownPending = (payload.ownPendingMessages ?? []).map((dto) => ({
-		...mapChatMessage(dto),
+		...mapChatMessage(dto, payload.characters),
 		pending: true,
 	}));
 	const ownRejected = (payload.ownRejectedMessages ?? []).map((dto) => ({
-		...mapChatMessage(dto),
+		...mapChatMessage(dto, payload.characters),
 		rejected: true,
 		rejectionReason: dto.rejectionReason ?? null,
 	}));
@@ -79,6 +80,12 @@ export function hydrateSnapshot(
 		stageComposition: payload.session.stageComposition ?? null,
 		stagePresets: payload.stagePresets ?? [],
 		stageDraft: preservedDraft,
+		stageExpressionDraft: sameSession
+			? keepUnappliedStageExpressions(
+					previous.stageExpressionDraft,
+					payload.characters,
+				)
+			: {},
 		stageLiveRevision: nextStageLiveRevision,
 		stageDraftBaseRevision: sameSession
 			? previous.stageDraftBaseRevision

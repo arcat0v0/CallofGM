@@ -91,11 +91,22 @@ export const StagePresetsResponse = z.object({
 });
 export type StagePresetsResponse = z.infer<typeof StagePresetsResponse>;
 
+const StageExpressionChanges = z
+	.array(SetExpressionCommand)
+	.max(STAGE_MAX_ITEMS)
+	.refine(
+		(changes) =>
+			new Set(changes.map(({ characterId }) => characterId)).size ===
+			changes.length,
+		{ message: "Duplicate characterId in stage expression changes" },
+	);
+
 export const UpdateStageLayoutCommand = z
 	.object({
 		layout: PortraitLayout.optional(),
 		scale: PortraitScale.optional(),
 		composition: StageComposition.optional(),
+		expressions: StageExpressionChanges.optional(),
 	})
 	.refine(
 		(val) =>
@@ -161,6 +172,7 @@ export const StageLayoutChangedEvent = z.object({
 	layout: PortraitLayout,
 	scale: PortraitScale,
 	composition: StageComposition.nullable().optional(),
+	expressions: StageExpressionChanges.optional(),
 });
 export type StageLayoutChangedEvent = z.infer<typeof StageLayoutChangedEvent>;
 

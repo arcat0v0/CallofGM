@@ -148,6 +148,64 @@ describe("Stage control contract tests", () => {
 		}
 	}
 
+	test("同步放映在同一事务内校验、持久化并广播排布与表情", async () => {
+		const { gm, pc } = await openAll();
+		const item = {
+			characterId: "char-pc1",
+			x: 48,
+			y: -30,
+			scale: 1.4,
+			flipX: false,
+			zIndex: 10,
+		};
+		const composition = {
+			mode: "custom",
+			emphasizeSpeaker: true,
+			items: [item],
+		};
+		const expressions = [
+			{ characterId: item.characterId, expressionKey: "angry" },
+		];
+		sendCommand(
+			gm,
+			"stage:layout",
+			{ composition, expressions },
+			"broadcast-expression",
+		);
+		expect(
+			(await gm.waitFor((m) => m.commandId === "broadcast-expression")).type,
+		).toBe("command:accepted");
+		const event = await pc.waitFor((m) => m.type === "stage:layout-changed");
+		expect(event.payload).toMatchObject({ composition, expressions });
+		expect(
+			(await pc.waitFor((m) => m.type === "expression:changed")).payload,
+		).toEqual(expressions[0]);
+
+		sendCommand(
+			gm,
+			"stage:layout",
+			{
+				composition: { ...composition, items: [{ ...item, x: 80 }] },
+				expressions: [
+					{ characterId: item.characterId, expressionKey: "nonexistent" },
+				],
+			},
+			"invalid-broadcast-expression",
+		);
+		const rejected = await gm.waitFor(
+			(m) => m.commandId === "invalid-broadcast-expression",
+		);
+		expect(rejected.type).toBe("command:rejected");
+		expect(rejected.payload.code).toBe("EXPRESSION_NOT_FOUND");
+
+		const reconnect = await connectWs(wsUrl(), ctx.playerTokens.get("pc1")!);
+		const snapshot = (await reconnect.waitFor((m) => m.type === "snapshot"))
+			.payload;
+		expect(snapshot.session.stageComposition).toEqual(composition);
+		expect(snapshot.characters[0].currentExpressionKey).toBe("angry");
+		await closeAll(gm, pc, reconnect);
+	});
+
 	test("场景切换：仅限本模组场景，广播全员", async () => {
 		const { gm, pc } = await openAll();
 

@@ -122,6 +122,14 @@ export function StageStudioSidebar({
 		? (characters.find((character) => character.characterId === selectedId) ??
 			null)
 		: null;
+	const selectedPortraits = selectedCharacter?.portraits ?? [];
+	const livePortrait =
+		selectedPortraits.find(
+			(portrait) =>
+				portrait.expressionKey === selectedCharacter?.currentExpressionKey,
+		) ??
+		selectedPortraits.find((portrait) => portrait.isDefault) ??
+		selectedPortraits[0];
 
 	const keyword = search.trim();
 	const filteredCharacters = characters
@@ -290,7 +298,7 @@ export function StageStudioSidebar({
 										</div>
 									</div>
 
-									{selectedCharacter.portraits.length > 1 ? (
+									{selectedPortraits.length > 1 ? (
 										<div className="flex flex-col gap-1.5">
 											<span className="text-md-on-surface-variant text-label-small">
 												{t("gm.stageStudio.previewExpression")}
@@ -307,14 +315,22 @@ export function StageStudioSidebar({
 													)
 												}
 											>
-												<SelectTrigger className="h-8 text-label-medium">
+												<SelectTrigger
+													aria-label={t("gm.stageStudio.previewExpression")}
+													className="h-8 text-label-medium"
+												>
 													<SelectValue />
 												</SelectTrigger>
 												<SelectContent>
 													<SelectItem value="__live__">
-														{t("gm.stageStudio.previewExpressionLive")}
+														{t("gm.stageStudio.previewExpressionLive", {
+															expression: expressionLabel(
+																livePortrait?.expressionKey,
+																livePortrait?.label,
+															),
+														})}
 													</SelectItem>
-													{selectedCharacter.portraits.map((portrait) => (
+													{selectedPortraits.map((portrait) => (
 														<SelectItem
 															key={portrait.expressionKey}
 															value={portrait.expressionKey}

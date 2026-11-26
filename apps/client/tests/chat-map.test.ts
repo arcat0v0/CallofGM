@@ -105,6 +105,36 @@ describe("chat speaker identity", () => {
 		expect(mapped.expressionLabel).toBe("tip_hat_smile");
 	});
 
+	test("uses the speaking-time portrait label even after the character changes expression", () => {
+		const character: SnapshotCharacter = {
+			characterId: "npc1",
+			name: "七味桐桐",
+			kind: "npc",
+			ruleId: "coc7e",
+			currentExpressionKey: "c01-00",
+			state: null,
+			claim: null,
+			sheet: null,
+			portraits: [
+				{
+					expressionKey: "c01-01",
+					label: "恐惧瑟缩",
+					portraitAssetId: "portrait",
+					isDefault: false,
+					sortOrder: 1,
+				},
+			],
+		};
+		const message = dto({
+			characterId: "npc1",
+			channel: "roleplay",
+			expressionKey: "c01-01",
+		});
+		expect(mapChatMessage(message, [character]).expressionLabel).toBe(
+			"恐惧瑟缩",
+		);
+	});
+
 	test("observer dice rolls use the same short id instead of a generic label", () => {
 		const event = mapActivityEvent(
 			"dice:rolled",
@@ -251,9 +281,7 @@ describe("luck check and amendment mapping", () => {
 			15,
 			1_700_000_000_015,
 		);
-		expect(event?.body).toBe(
-			"幸运恢复 78/42 超过当前幸运，回复 7 点（42→49）",
-		);
+		expect(event?.body).toBe("幸运恢复 78/42 超过当前幸运，回复 7 点（42→49）");
 		expect(event?.isSystem).toBe(true);
 	});
 });

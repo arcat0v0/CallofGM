@@ -304,13 +304,13 @@ function GmHistoryOverlay({
 		() =>
 			auditItems.map((item) => ({
 				message: {
-					...mapChatMessage(item),
+					...mapChatMessage(item, characters),
 					rejected: true,
 					rejectionReason: item.rejectionReason ?? null,
 				},
 				reason: item.rejectionReason?.trim() ?? null,
 			})),
-		[auditItems],
+		[auditItems, characters],
 	);
 
 	useEffect(() => {

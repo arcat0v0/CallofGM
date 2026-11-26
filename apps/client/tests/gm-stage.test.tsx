@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import type { SnapshotCharacter } from "@cogm/shared";
-import { fireEvent, render, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, waitFor } from "@testing-library/react";
 import { ChatMessageCard } from "../src/features/chat/chat-message-card";
 import type { ChatMessage } from "../src/features/chat/types";
 import { GmChatPanel } from "../src/features/gm-console/gm-chat-panel";
@@ -292,6 +292,55 @@ describe("GM stage and speaker labels", () => {
 			name: "舞台编排与玩家视角预览",
 		});
 		expect(button).toBeTruthy();
+	});
+
+	test("an expression-only stage edit can be published and follows the server after confirmation", async () => {
+		const character = sampleCharacter("pc-1", "林婉", "pc");
+		character.currentExpressionKey = "default";
+		character.portraits.push({
+			expressionKey: "c01-01",
+			portraitAssetId: "asset-afraid",
+			isDefault: false,
+			label: "恐惧瑟缩",
+			sortOrder: 1,
+		});
+		usePlayStore.setState({ sessionId: "sess-1", characters: [character] });
+		const view = render(<StageStudio />);
+		fireEvent.click(
+			view.getByRole("button", { name: "舞台编排与玩家视角预览" }),
+		);
+		expect(
+			(view.getByRole("button", { name: "同步放映" }) as HTMLButtonElement)
+				.disabled,
+		).toBe(true);
+		act(() =>
+			usePlayStore.getState().setStageExpressionDraft({ "pc-1": "c01-01" }),
+		);
+		expect(
+			(view.getByRole("button", { name: "同步放映" }) as HTMLButtonElement)
+				.disabled,
+		).toBe(false);
+		expect(usePlayStore.getState().characters[0]?.currentExpressionKey).toBe(
+			"default",
+		);
+		const expressions = [{ characterId: "pc-1", expressionKey: "c01-01" }];
+		act(() =>
+			usePlayStore.getState().applyMessage({
+				protocolVersion: 1,
+				eventId: 1,
+				occurredAt: 1,
+				type: "stage:layout-changed",
+				payload: { layout: "auto", scale: "md", expressions },
+			}),
+		);
+		expect(usePlayStore.getState().characters[0]?.currentExpressionKey).toBe(
+			"c01-01",
+		);
+		expect(usePlayStore.getState().stageExpressionDraft).toEqual({});
+		expect(
+			(view.getByRole("button", { name: "同步放映" }) as HTMLButtonElement)
+				.disabled,
+		).toBe(true);
 	});
 
 	test("stage studio previews draft edits locally without altering live composition until published", async () => {

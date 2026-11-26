@@ -1,4 +1,5 @@
 import type {
+	SetExpressionCommand,
 	StageComposition,
 	StagePresetDto,
 	StagePresetsResponse,
@@ -57,6 +58,16 @@ import {
 } from "./stage-studio-canvas";
 import { StageStudioSidebar } from "./stage-studio-sidebar";
 
+function stageExpressionsFor(
+	composition: StageComposition,
+	draft: Record<string, string>,
+): SetExpressionCommand[] {
+	return composition.items.flatMap(({ characterId }) => {
+		const expressionKey = draft[characterId];
+		return expressionKey ? [{ characterId, expressionKey }] : [];
+	});
+}
+
 export function StageStudio() {
 	const sessionId = usePlayStore((state) => state.sessionId);
 	const status = usePlayStore((state) => state.status);
@@ -69,12 +80,18 @@ export function StageStudio() {
 	const stageComposition = usePlayStore((state) => state.stageComposition);
 	const stagePresets = usePlayStore((state) => state.stagePresets);
 	const stageDraft = usePlayStore((state) => state.stageDraft);
+	const stageExpressionDraft = usePlayStore(
+		(state) => state.stageExpressionDraft,
+	);
 	const stageDraftBaseRevision = usePlayStore(
 		(state) => state.stageDraftBaseRevision,
 	);
 	const stageLiveRevision = usePlayStore((state) => state.stageLiveRevision);
 	const stageLiveSync = usePlayStore((state) => state.stageLiveSync);
 	const setStageDraft = usePlayStore((state) => state.setStageDraft);
+	const setStageExpressionDraft = usePlayStore(
+		(state) => state.setStageExpressionDraft,
+	);
 	const clearStageDraft = usePlayStore((state) => state.clearStageDraft);
 	const setStageLiveSync = usePlayStore((state) => state.setStageLiveSync);
 	const setStagePresets = usePlayStore((state) => state.setStagePresets);
@@ -87,9 +104,6 @@ export function StageStudio() {
 		useState<StudioViewportMode>("desktop-chat");
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const [previewSceneId, setPreviewSceneId] = useState<string | null>(null);
-	const [expressionOverrides, setExpressionOverrides] = useState<
-		Record<string, string>
-	>({});
 	const [showDialogue, setShowDialogue] = useState(true);
 	const [showNameplate, setShowNameplate] = useState(true);
 	const [playerTheme, setPlayerTheme] = useState<LoadedTheme | null>(null);
@@ -138,8 +152,9 @@ export function StageStudio() {
 	const activeComposition = stageDraft ?? liveMaterialized;
 	const hasUnsavedDraft =
 		!ended &&
-		stageDraft !== null &&
-		!stageCompositionsEqual(stageDraft, liveMaterialized);
+		((stageDraft !== null &&
+			!stageCompositionsEqual(stageDraft, liveMaterialized)) ||
+			stageExpressionsFor(activeComposition, stageExpressionDraft).length > 0);
 	const hasLiveConflict =
 		hasUnsavedDraft &&
 		stageLiveRevision > stageDraftBaseRevision &&
@@ -162,44 +177,57 @@ export function StageStudio() {
 	}, [previewSceneId, scenes, scene]);
 
 	const publishComposition = useCallback(
-		(next: StageComposition, silent = false) => {
+		(next: StageComposition, draft = stageExpressionDraft) => {
 			if (ended) return false;
+			const expressions = stageExpressionsFor(next, draft);
 			const sent = sendSessionCommand("stage:layout", {
 				layout: portraitLayout,
 				scale: portraitScale,
 				composition: next,
+				...(expressions.length > 0 ? { expressions } : {}),
 			});
 			if (!sent) {
 				toast.error(t("chat.notConnected"));
 				return false;
 			}
-			if (!silent) {
-				toast.success(t("gm.stageStudio.published"));
-			}
 			return true;
 		},
-		[ended, portraitLayout, portraitScale],
+		[ended, portraitLayout, portraitScale, stageExpressionDraft],
 	);
 
 	const handleChangeComposition = useCallback(
 		(next: StageComposition) => {
-			if (stageCompositionsEqual(next, liveMaterialized)) {
-				clearStageDraft();
-			} else {
-				setStageDraft(next);
-			}
+			setStageDraft(
+				stageCompositionsEqual(next, liveMaterialized) ? null : next,
+			);
 		},
-		[liveMaterialized, clearStageDraft, setStageDraft],
+		[liveMaterialized, setStageDraft],
 	);
 
 	const handleCommitComposition = useCallback(
 		(next: StageComposition) => {
 			if (stageLiveSync && !ended) {
-				publishComposition(next, true);
+				publishComposition(next);
 			}
 		},
 		[stageLiveSync, ended, publishComposition],
 	);
+
+	function handleChangeExpression(characterId: string, key: string | null) {
+		const next = { ...stageExpressionDraft };
+		const live = characters.find(
+			(character) => character.characterId === characterId,
+		);
+		if (key && (stageLiveSync || key !== live?.currentExpressionKey)) {
+			next[characterId] = key;
+		} else {
+			delete next[characterId];
+		}
+		setStageExpressionDraft(next);
+		if (stageLiveSync && next[characterId]) {
+			publishComposition(activeComposition, next);
+		}
+	}
 
 	// Keep selectedId valid if staged items change.
 	useEffect(() => {
@@ -405,7 +433,7 @@ export function StageStudio() {
 	function handleToggleLiveSync(enabled: boolean) {
 		setStageLiveSync(enabled);
 		if (enabled && hasUnsavedDraft) {
-			publishComposition(activeComposition, true);
+			publishComposition(activeComposition);
 		}
 	}
 
@@ -638,7 +666,7 @@ export function StageStudio() {
 							previewSceneId && previewSceneId !== scene?.id,
 						)}
 						onResetPreviewScene={() => setPreviewSceneId(null)}
-						expressionOverrides={expressionOverrides}
+						expressionOverrides={stageExpressionDraft}
 						showDialogue={showDialogue}
 						showNameplate={showNameplate}
 					/>
@@ -651,16 +679,8 @@ export function StageStudio() {
 							onSelect={setSelectedId}
 							onChangeComposition={handleChangeComposition}
 							onCommitComposition={handleCommitComposition}
-							expressionOverrides={expressionOverrides}
-							onSetExpressionOverride={(characterId, key) =>
-								setExpressionOverrides((current) => {
-									if (!key) {
-										const { [characterId]: _, ...rest } = current;
-										return rest;
-									}
-									return { ...current, [characterId]: key };
-								})
-							}
+							expressionOverrides={stageExpressionDraft}
+							onSetExpressionOverride={handleChangeExpression}
 							presets={stagePresets}
 							presetSaving={presetSaving}
 							onSavePreset={handleSavePreset}
@@ -736,7 +756,7 @@ export function StageStudio() {
 								disabled={!hasUnsavedDraft}
 								className="h-9 gap-2 px-5"
 								onClick={() => {
-									publishComposition(activeComposition, false);
+									publishComposition(activeComposition);
 								}}
 							>
 								<Send className="size-4" />

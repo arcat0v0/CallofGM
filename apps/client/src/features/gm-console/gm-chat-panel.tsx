@@ -101,14 +101,17 @@ function GmChatPanel({
 	const speaker =
 		npcs.find((character) => character.characterId === activeSpeakerId) ?? null;
 	const portraits = speaker?.portraits ?? [];
-	const defaultExpression =
-		speaker?.currentExpressionKey ??
-		portraits.find((portrait) => portrait.isDefault)?.expressionKey ??
-		portraits[0]?.expressionKey ??
-		"";
-	const speakerExpression = speaker
-		? (npcExpressions[speaker.characterId] ?? defaultExpression)
-		: "";
+	const chosenExpression = speaker
+		? npcExpressions[speaker.characterId]
+		: undefined;
+	const speakerPortrait =
+		portraits.find((portrait) => portrait.expressionKey === chosenExpression) ??
+		portraits.find(
+			(portrait) => portrait.expressionKey === speaker?.currentExpressionKey,
+		) ??
+		portraits.find((portrait) => portrait.isDefault) ??
+		portraits[0];
+	const speakerExpression = speakerPortrait?.expressionKey ?? "";
 	const speakerLabel = speaker
 		? `${speaker.name} · ${t("common.npc")}`
 		: t("chat.role.gm");
@@ -321,7 +324,10 @@ function GmChatPanel({
 											aria-label={t("gm.workbench.expressionMenuAria")}
 											className="text-md-on-surface-variant hover:bg-md-on-surface/8 flex items-center gap-1 rounded-full px-2 py-0.5 text-label-medium outline-none focus-visible:ring-4 focus-visible:ring-focus-ring/50"
 										>
-											{expressionLabel(speakerExpression)}
+											{expressionLabel(
+												speakerExpression,
+												speakerPortrait?.label,
+											)}
 											<ChevronDown className="size-3.5" />
 										</button>
 									</DropdownMenuTrigger>
@@ -340,7 +346,10 @@ function GmChatPanel({
 													key={portrait.expressionKey}
 													value={portrait.expressionKey}
 												>
-													{expressionLabel(portrait.expressionKey)}
+													{expressionLabel(
+														portrait.expressionKey,
+														portrait.label,
+													)}
 												</DropdownMenuRadioItem>
 											))}
 										</DropdownMenuRadioGroup>

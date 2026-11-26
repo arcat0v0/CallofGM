@@ -157,6 +157,7 @@ export class UpdateStageLayoutHandler implements CommandHandler {
 
 		const repo = this.repoFactory(ctx.tx);
 		const composition = parsed.data.composition ?? null;
+		const expressions = parsed.data.expressions ?? [];
 		if (composition && composition.items.length > 0) {
 			const activeIds = new Set(
 				await repo.listActiveSessionCharacterIds(ctx.sessionId),
@@ -165,6 +166,21 @@ export class UpdateStageLayoutHandler implements CommandHandler {
 				if (!activeIds.has(item.characterId)) {
 					throw new CharacterNotInSessionError();
 				}
+			}
+		}
+		const stagedIds = new Set(
+			composition?.items.map((item) => item.characterId),
+		);
+		for (const { characterId, expressionKey } of expressions) {
+			if (!stagedIds.has(characterId)) {
+				throw new AppError(
+					"VALIDATION_FAILED",
+					"Expression changes require a staged character",
+					400,
+				);
+			}
+			if (!(await repo.hasActiveExpression(characterId, expressionKey))) {
+				throw new ExpressionNotFoundError();
 			}
 		}
 
@@ -184,11 +200,15 @@ export class UpdateStageLayoutHandler implements CommandHandler {
 			scale,
 			stageCompositionJson,
 		});
+		for (const { characterId, expressionKey } of expressions) {
+			await repo.updateExpression(ctx.sessionId, characterId, expressionKey);
+		}
 
 		const eventPayload = {
 			layout,
 			scale,
 			composition,
+			...(expressions.length > 0 ? { expressions } : {}),
 		};
 
 		return {
@@ -198,6 +218,11 @@ export class UpdateStageLayoutHandler implements CommandHandler {
 					payload: eventPayload,
 					visibility: { type: "public" },
 				},
+				...expressions.map((expression) => ({
+					type: "expression:changed",
+					payload: expression,
+					visibility: { type: "public" as const },
+				})),
 			],
 			replyPayload: eventPayload,
 		};

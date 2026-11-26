@@ -125,7 +125,10 @@ const eventHandlers: Record<EventType, EventReducer> = {
 			return {};
 		}
 		return {
-			messages: appendLiveMessage(state.messages, mapChatMessage(dto)),
+			messages: appendLiveMessage(
+				state.messages,
+				mapChatMessage(dto, state.characters),
+			),
 		};
 	},
 	"session:status-changed": (_state, payload) => {

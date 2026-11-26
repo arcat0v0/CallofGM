@@ -87,9 +87,17 @@ export function speakerRoleLabelOf(dto: ChatMessageDto): string {
 	return dto.channel === "ooc" ? t("chat.role.ooc") : t("chat.role.pc");
 }
 
-export function mapChatMessage(dto: ChatMessageDto): ChatMessage {
+export function mapChatMessage(
+	dto: ChatMessageDto,
+	characters: readonly SnapshotCharacter[] = [],
+): ChatMessage {
 	const isGmNarration = dto.senderType === "gm" && !dto.characterName;
 	const speakerName = speakerNameOf(dto);
+	const label = characters
+		.find((character) => character.characterId === dto.characterId)
+		?.portraits.find(
+			(portrait) => portrait.expressionKey === dto.expressionKey,
+		)?.label;
 	return {
 		id: dto.id,
 		sortKey: dto.eventId ?? dto.createdAt,
@@ -98,7 +106,7 @@ export function mapChatMessage(dto: ChatMessageDto): ChatMessage {
 		speakerName,
 		speakerRoleLabel: speakerRoleLabelOf(dto),
 		expressionLabel: dto.expressionKey
-			? expressionLabel(dto.expressionKey)
+			? expressionLabel(dto.expressionKey, label)
 			: null,
 		avatarInitials: speakerInitialsOf(dto),
 		avatarBg: isGmNarration ? "bg-accent" : "bg-default",
@@ -400,7 +408,7 @@ export function mapHistoryItem(
 ): ChatMessage | null {
 	if (item.kind === "chat") {
 		return {
-			...mapChatMessage(item.message),
+			...mapChatMessage(item.message, characters),
 			eventId: item.eventId,
 			anchorable: true,
 		};

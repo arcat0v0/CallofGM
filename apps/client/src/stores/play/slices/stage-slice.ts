@@ -1,9 +1,9 @@
 import {
-	PortraitLayout,
-	PortraitScale,
+	type PortraitLayout,
+	type PortraitScale,
 	type SnapshotCharacter,
-	StageComposition,
-	type StageComposition as StageCompositionType,
+	type StageComposition,
+	StageLayoutChangedEvent,
 	type StagePresetDto,
 } from "@cogm/shared";
 import { toast } from "sonner";
@@ -15,9 +15,10 @@ import { withActivityMessage } from "./chat-slice";
 export type StageSliceData = {
 	portraitLayout: PortraitLayout;
 	portraitScale: PortraitScale;
-	stageComposition: StageCompositionType | null;
+	stageComposition: StageComposition | null;
 	stagePresets: StagePresetDto[];
-	stageDraft: StageCompositionType | null;
+	stageDraft: StageComposition | null;
+	stageExpressionDraft: Record<string, string>;
 	stageDraftBaseRevision: number;
 	stageLiveRevision: number;
 	stageLiveSync: boolean;
@@ -27,7 +28,8 @@ export type StageSliceData = {
 };
 
 export type StageSliceActions = {
-	setStageDraft: (draft: StageCompositionType | null) => void;
+	setStageDraft: (draft: StageComposition | null) => void;
+	setStageExpressionDraft: (draft: Record<string, string>) => void;
 	clearStageDraft: () => void;
 	setStageLiveSync: (enabled: boolean) => void;
 	setStagePresets: (presets: StagePresetDto[]) => void;
@@ -41,6 +43,7 @@ export const stageDefaults: StageSliceData = {
 	stageComposition: null,
 	stagePresets: [],
 	stageDraft: null,
+	stageExpressionDraft: {},
 	stageDraftBaseRevision: 0,
 	stageLiveRevision: 0,
 	stageLiveSync: false,
@@ -55,20 +58,43 @@ export const createStageSlice: PlaySliceCreator<StageSlice> = (set) => ({
 		set((state) => ({
 			stageDraft: draft,
 			stageDraftBaseRevision:
-				draft === null
+				!state.stageDraft &&
+				Object.keys(state.stageExpressionDraft).length === 0
 					? state.stageLiveRevision
-					: state.stageDraft === null
-						? state.stageLiveRevision
-						: state.stageDraftBaseRevision,
+					: state.stageDraftBaseRevision,
+		})),
+	setStageExpressionDraft: (draft) =>
+		set((state) => ({
+			stageExpressionDraft: draft,
+			stageDraftBaseRevision:
+				!state.stageDraft &&
+				Object.keys(state.stageExpressionDraft).length === 0
+					? state.stageLiveRevision
+					: state.stageDraftBaseRevision,
 		})),
 	clearStageDraft: () =>
 		set((state) => ({
 			stageDraft: null,
+			stageExpressionDraft: {},
 			stageDraftBaseRevision: state.stageLiveRevision,
 		})),
 	setStageLiveSync: (enabled) => set({ stageLiveSync: enabled }),
 	setStagePresets: (presets) => set({ stagePresets: presets }),
 });
+
+export function keepUnappliedStageExpressions(
+	draft: Record<string, string>,
+	characters: SnapshotCharacter[],
+): Record<string, string> {
+	return Object.fromEntries(
+		characters.flatMap(({ characterId, currentExpressionKey }) => {
+			const expressionKey = draft[characterId];
+			return expressionKey && expressionKey !== currentExpressionKey
+				? [[characterId, expressionKey]]
+				: [];
+		}),
+	);
+}
 
 export function characterStatePatch(
 	state: StageSlice,
@@ -142,32 +168,43 @@ export function reduceLayout(
 	state: PlayState,
 	payload: Record<string, unknown>,
 ): Partial<StageSliceData> {
-	const layout = PortraitLayout.safeParse(payload.layout);
-	const scale = PortraitScale.safeParse(payload.scale);
-	const hasCompositionKey = "composition" in payload;
-	const parsedComposition =
-		hasCompositionKey && payload.composition !== null
-			? StageComposition.safeParse(payload.composition)
-			: null;
-	if (parsedComposition && !parsedComposition.success) {
-		return {};
-	}
-	if (!layout.success || !scale.success) {
-		return {};
-	}
-	const nextComposition = hasCompositionKey
-		? (parsedComposition?.data ?? null)
-		: null;
+	const parsed = StageLayoutChangedEvent.safeParse(payload);
+	if (!parsed.success) return {};
+	const {
+		layout,
+		scale,
+		composition: nextComposition = null,
+		expressions,
+	} = parsed.data;
+	const expressionsById = new Map(
+		expressions?.map(({ characterId, expressionKey }) => [
+			characterId,
+			expressionKey,
+		]),
+	);
+	const characters = expressionsById.size
+		? state.characters.map((character) => {
+				const expressionKey = expressionsById.get(character.characterId);
+				return expressionKey
+					? { ...character, currentExpressionKey: expressionKey }
+					: character;
+			})
+		: state.characters;
 	const nextRevision = state.stageLiveRevision + 1;
 	const draftMatchesLive =
 		state.stageDraft !== null &&
 		nextComposition !== null &&
 		stageCompositionsEqual(state.stageDraft, nextComposition);
 	return {
-		portraitLayout: layout.data,
-		portraitScale: scale.data,
+		portraitLayout: layout,
+		portraitScale: scale,
 		stageComposition: nextComposition,
 		stageLiveRevision: nextRevision,
+		characters,
+		stageExpressionDraft: keepUnappliedStageExpressions(
+			state.stageExpressionDraft,
+			characters,
+		),
 		...(draftMatchesLive
 			? { stageDraft: null, stageDraftBaseRevision: nextRevision }
 			: {}),
@@ -199,7 +236,13 @@ export function reduceExpression(
 		payload,
 		eventId,
 		occurredAt,
-		{ characters: nextCharacters },
+		{
+			characters: nextCharacters,
+			stageExpressionDraft: keepUnappliedStageExpressions(
+				state.stageExpressionDraft,
+				nextCharacters,
+			),
+		},
 		nextCharacters,
 	);
 }

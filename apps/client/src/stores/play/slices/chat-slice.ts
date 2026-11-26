@@ -124,13 +124,13 @@ export function applyPendingChat(set: PlaySet, rawPayload: unknown): void {
 	if (!dto?.id) {
 		return;
 	}
-	const next: ChatMessage = {
-		...mapChatMessage(dto),
-		pending: true,
-		rejected: false,
-		rejectionReason: null,
-	};
 	set((state) => {
+		const next: ChatMessage = {
+			...mapChatMessage(dto, state.characters),
+			pending: true,
+			rejected: false,
+			rejectionReason: null,
+		};
 		const existing = state.messages.find((item) => item.id === next.id);
 		if (existing && !existing.pending && !existing.rejected) {
 			return {};
