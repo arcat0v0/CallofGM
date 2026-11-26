@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.5] - 2026-11-26
+
+发布验证使用 Bun `1.4.4`，systemd 部署使用 Bun `1.4.4`，Docker 构建与运行使用 Bun `1.3.14`。
+
+### Fixed
+
+- 舞台编排选中的表情可随站位同步放映，单独更换表情也可放映。实时同步和重新进入房间均使用已放映的立绘。
+- NPC 发言的表情菜单、聊天记录和舞台对话优先显示立绘名称，例如「恐惧瑟缩」。
+
 ## [0.3.4] - 2026-11-26
 
 发布验证使用 Bun `1.4.4`，systemd 部署使用 Bun `1.4.4`，Docker 构建与运行使用 Bun `1.3.14`。
