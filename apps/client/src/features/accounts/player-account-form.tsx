@@ -1,5 +1,5 @@
 import { CreatePlayerAccountRequest } from "@cogm/shared";
-import { useId, useState, type FormEvent } from "react";
+import { type FormEvent, useId, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
 	Field,

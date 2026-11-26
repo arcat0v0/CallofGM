@@ -13,6 +13,7 @@ export function usePlayEntry(sessionId: string): {
 	const [failed, setFailed] = useState(false);
 	const [attempt, setAttempt] = useState(0);
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: retry intentionally reruns the entry request
 	useEffect(() => {
 		let cancelled = false;
 		setClaim(null);

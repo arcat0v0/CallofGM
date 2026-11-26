@@ -8,8 +8,8 @@ import {
 	type CharacterReviewDto,
 	CharacterSyncDiffDto,
 	coc7e,
-	ModuleDto,
 	LoginResponse,
+	ModuleDto,
 	MyClaimResponse,
 	UserDto,
 } from "@cogm/shared";

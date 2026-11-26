@@ -123,7 +123,7 @@ export async function resolveAutomaticSessionCharacterId(
 		isSessionCharacterClaimable(reviews.get(id), undefined, userId),
 	);
 	if (approvedIds.length > 0) {
-		return approvedIds.length === 1 ? approvedIds[0]! : null;
+		return approvedIds.length === 1 ? (approvedIds[0] ?? null) : null;
 	}
 
 	const unreviewedIds = openIds.filter((id) => !reviews.has(id));
@@ -133,13 +133,13 @@ export async function resolveAutomaticSessionCharacterId(
 		return owner?.ownerId === userId && !owner.characterDeleted;
 	});
 	if (ownedIds.length > 0 || !allowUnassigned) {
-		return ownedIds.length === 1 ? ownedIds[0]! : null;
+		return ownedIds.length === 1 ? (ownedIds[0] ?? null) : null;
 	}
 
 	const availableIds = unreviewedIds.filter((id) =>
 		isSessionCharacterClaimable(undefined, owners.get(id), userId),
 	);
-	return availableIds.length === 1 ? availableIds[0]! : null;
+	return availableIds.length === 1 ? (availableIds[0] ?? null) : null;
 }
 
 export class CreateSessionUseCase {

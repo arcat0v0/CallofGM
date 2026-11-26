@@ -80,6 +80,7 @@ function JoinPage() {
 	const [leavingGm, setLeavingGm] = useState(false);
 	const [reloadToken, setReloadToken] = useState(0);
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: retry and account switching rerun the join request
 	useEffect(() => {
 		let cancelled = false;
 		setLoading(true);

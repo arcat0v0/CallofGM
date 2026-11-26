@@ -74,7 +74,8 @@ export const zhCN: Record<string, string> = {
 
 	"submit.title": "提交人物",
 	"submit.intro": "为本团提交一张人物卡，主持人审核通过后即可入团。",
-	"submit.moduleIntro": "为本模组提交一张人物卡，审核通过后主持人可将角色加入团。",
+	"submit.moduleIntro":
+		"为本模组提交一张人物卡，审核通过后主持人可将角色加入团。",
 	"submit.invalid": "链接无效或已过期",
 	"submit.modeNew": "新建人物",
 	"submit.modeExisting": "选择现有",

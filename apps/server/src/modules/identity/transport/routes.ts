@@ -22,6 +22,7 @@ import { PlayerIdentityUseCase } from "../application/player-identity";
 import {
 	ChangeOwnPasswordUseCase,
 	CreateUserUseCase,
+	type LoginResult,
 	LoginUseCase,
 } from "../application/user-accounts";
 import {
@@ -84,7 +85,7 @@ export function createIdentityRoutes(container: Container) {
 				throw validationFailed(parsed.error);
 			}
 
-			let result;
+			let result: LoginResult;
 			try {
 				result = await loginUseCase.execute(
 					parsed.data.username,
