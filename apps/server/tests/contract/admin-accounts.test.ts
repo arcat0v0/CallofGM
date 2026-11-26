@@ -111,6 +111,40 @@ describe("Admin account management", () => {
 		);
 	});
 
+	test("主持人只能创建玩家账号，管理员与归属主持人都能查看创建来源", async () => {
+		const path = "/api/v1/gm/player-accounts";
+		const create = (token: string, attributes = {}) =>
+			api(path, {
+				method: "POST",
+				token,
+				body: JSON.stringify({
+					username: "gm-created-player",
+					password: PASSWORD,
+					...attributes,
+				}),
+			});
+		expect((await create(adminToken)).status).toBe(403);
+		expect((await create(ctx.gmToken, { role: "gm" })).status).toBe(400);
+		const response = await create(ctx.gmToken);
+		expect(response.status).toBe(200);
+		const player = (await response.json()) as UserDto;
+		expect(player).toMatchObject({
+			role: "pl",
+			createdUnderGmId: ctx.gmUserId,
+			creationSource: "gm",
+		});
+		expect(player).not.toHaveProperty("passwordHash");
+		const own = await api(path, { token: ctx.gmToken });
+		expect((await own.json()).items).toContainEqual(player);
+		const otherGm = await createUser("flow-other-gm", "gm");
+		const otherGmToken = await loginToken(ctx.app, otherGm.username, PASSWORD);
+		const other = await api(path, { token: otherGmToken });
+		expect(await other.json()).toEqual({ items: [] });
+		expect(await listUsers()).toContainEqual(player);
+		const playerToken = await loginToken(ctx.app, player.username, PASSWORD);
+		expect((await api(path, { token: playerToken })).status).toBe(403);
+	});
+
 	test("禁用后该账号无法登录，且撤销其活动会话", async () => {
 		const created = await createUser("flow-disable", "pl");
 		const before = await loginToken(ctx.app, "flow-disable", PASSWORD);

@@ -9,6 +9,7 @@ import { t, useI18nVersion } from "@/i18n";
 import { api, isApiError } from "@/lib/api";
 import { initialsOf } from "@/lib/format";
 import { ensurePlayer, fetchAccountMe, logoutAccount } from "@/lib/identity";
+import { enterWithPlayerCharacter } from "@/lib/session-entry";
 import { cn } from "@/lib/utils";
 import { ThemeScope } from "@/themes/runtime/theme-scope";
 import { ThemeSlot } from "@/themes/runtime/theme-slot";
@@ -101,6 +102,21 @@ function JoinPage() {
 				if (cancelled) {
 					return;
 				}
+				if (account?.role === "pl" && info.session.status !== "ended") {
+					const entry = await enterWithPlayerCharacter(
+						sessionId,
+						account.userId,
+					);
+					if (cancelled) return;
+					if (entry.sessionStatus !== "ended" && entry.claim?.role === "pc") {
+						await navigate({
+							to: "/play/$sessionId",
+							params: { sessionId },
+							replace: true,
+						});
+						return;
+					}
+				}
 				const nextPcSeats = info.characters
 					.filter((character) => character.kind === "pc" && character.claimable)
 					.map((character) => ({
@@ -136,7 +152,7 @@ function JoinPage() {
 		return () => {
 			cancelled = true;
 		};
-	}, [sessionId, reloadToken]);
+	}, [navigate, sessionId, reloadToken]);
 
 	const isEnded = status === "ended";
 	const loginRequired =
@@ -311,7 +327,7 @@ function JoinPage() {
 			</div>
 		) : null;
 
-	const action = loginRequired ? (
+	const action = loading ? null : loginRequired ? (
 		<div className="animate-in fade-in slide-in-from-bottom-4 ease-expressive-default-spatial flex flex-wrap items-center justify-center gap-2 duration-500">
 			<Button asChild variant="primary" size="lg">
 				<Link to="/login" search={{ returnTo: `/join/${sessionId}` }}>

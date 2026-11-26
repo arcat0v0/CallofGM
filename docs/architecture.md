@@ -219,9 +219,9 @@ BgmState = { trackId, playing, volume, mode: off|single|list|shuffle, seekOffset
 
 ## 账号、所有权与在线
 
-- 统一账号表 `users`：`username_normalized` 全局唯一、`password_hash`、`role`（`admin` / `gm` / `pl`，创建后不可变）、`disabled_at`、`deleted_at`。角色之间无能力继承。
+- 统一账号表 `users`：`username_normalized` 全局唯一、`password_hash`、`role`（`admin` / `gm` / `pl`，创建后不可变）、`disabled_at`、`deleted_at`。玩家账号可记录创建归属 `created_under_gm_id` 与来源 `creation_source`，角色与创建归属均不可通过账号管理接口修改。角色之间无能力继承。
 - 统一会话表 `user_sessions`：只存 token 哈希；登录成功撤销该账号全部旧会话并签发新 HttpOnly Cookie `cogm_session`。同浏览器多标签页共享 Cookie；新浏览器登录会顶替并断开旧连接。密码修改保留当前会话、撤销其他会话；admin 重置密码和禁用账号撤销全部会话。
-- 无公开注册：`admin` 创建账号；首个 admin 由 `bun run setup:admin` 引导。至少保留一个可用 admin。软删除后用户名继续占用，可恢复。
+- 无公开注册。管理员可创建账号，GM 可在玩家账号页创建及查看归属自己的 PL。未登录玩家可凭有效人物提交链接注册 PL，注册事务同时写入归属主持人和首个登录会话。首个 admin 由 `bun run setup:admin` 引导。至少保留一个可用 admin。软删除后用户名继续占用，可恢复。
 - 匿名 OB：保留 `anonymous_players` 与 `player_tokens`，指纹签发 30 天 HttpOnly `player_token`；只能认领 OB。PC 席位必须由 `pl` 账号持有。
 - 服务端 actor 为判别联合：`{ type: 'user', userId, role } | { type: 'anonymous', anonymousPlayerId }`。
 - **所有权**：模组、团、人物、模板、媒体均带 `owner_id`。GM 列表/详情只查自己的资源；他人资源与不存在资源都返回 404。admin 不进入任何 GM/PL 内容路径。PC 人物归 PL（GM 预建后分配时转移所有者），NPC 始终归 GM。
@@ -236,7 +236,7 @@ BgmState = { trackId, playing, volume, mode: off|single|list|shuffle, seekOffset
 - `characters` 保存当前姓名、背景、`sheet_json`、`owner_id`、`kind`、`rule_id`、`sheet_version`、`profile_version`、`version` 与来源字段；`character_versions` 保存追加式完整快照。
 - 客户端规则组件声明背景来自人物卡时（CoC 7e：`backgroundSource=sheet`），顶层 `background` 是保存时由规则卡派生的展示摘要；服务端仍按请求字段独立存储，不反向推导，客户端不得为该规则提供第二套背景编辑入口。
 - 审核记录绑定 `sheet_version`；规则数值/技能/终生字段变化提升 `sheet_version` 并使旧审核过期，资料/立绘变化只提升 `profile_version`。
-- 提交链接 `character_invites`：目标为模组或团，token 哈希存储，默认 7 天，可撤销；PL 登录后提交新建人物或已有同规则人物，生成 `character_reviews`。审核通过只建立模组关联或团内 PC 席位，不自动认领。
+- 提交链接 `character_invites`：目标为模组或团，token 哈希存储，默认 7 天，可撤销；PL 注册或登录后提交新建人物或已有同规则人物，生成 `character_reviews`。审核通过后建立模组关联或将人物纳入团内 PC 列表。进入未结团时，服务端优先按提交者与当前审核版本匹配唯一可用角色，客户端沿用既有席位认领接口自动进团。
 - 链接可带规则专属的车卡生成方式 `creation_options_json`（NULL 为手填）。`character_creation_rolls` 以 `(invite_id, user_id)` 唯一：`POST /api/v1/pl/invites/:token/creation-roll` 首次调用时由服务端掷骰并保存，重复调用返回同一结果；`POST .../creation-roll/choice` 仅在未选定时写入 `chosen_index`（只有一套可选时掷骰即自动选定）。设定了生成方式的链接，新建人物提交前必须已选定，否则返回 `CREATION_ROLL_REQUIRED`；提交已有人物不受此限制。提交后人物卡仍可修改（如年龄调整），审核列表附带提交者在该链接的掷骰记录与提交版本卡面，由客户端规则组件比对差异，服务端不强制一致。
 - `session_characters` 保存入团快照（姓名、背景、`sheet_json`、`base_sheet_version`、`base_profile_version`），检定与状态初始化读取团内快照。主卡变化不会自动同步。GM 通过差异预览与显式同步更新所选字段，规则模块在同步规则卡时按新卡调整团内状态上限。
 - GM 修改规则声明的终生字段、结团成长确认都写入追加式 `character_audits` / `character_growth_entries`；成长确认对主卡技能做增量累加，历史团保持旧快照。
@@ -257,10 +257,11 @@ BgmState = { trackId, playing, volume, mode: off|single|list|shuffle, seekOffset
 | `/login`                 | 统一登录（admin / gm / pl），成功后按角色跳转                                        |
 | `/admin`                 | admin 控制台：账号、主题包、实例设置                                                 |
 | `/pl`                    | PL 工作台：我的人物、参与的团、提交记录、回收站、账号设置                            |
-| `/submit/$token`         | PL 通过 GM 提交链接建卡或选择已有任务                                                |
-| `/join/$sessionId`       | 玩家进团：选 PC 或 OB 位（标题优先显示团名，未命名时回退模组名）；未登录 PC 先跳登录 |
+| `/submit/$token`         | 玩家注册或登录后建卡或选择已有角色，可返回个人工作台                                 |
+| `/join/$sessionId`       | 玩家进团：自动进入已确定的角色，其他玩家选择角色或观战，未登录玩家先登录              |
 | `/play/$sessionId`       | 玩家沉浸视图                                                                         |
 | `/gm`                    | GM 后台：模组/人物/团/模板/审核待办/回收站                                           |
+| `/gm/player-accounts`    | GM 创建玩家账号，查看归属自己的账号与注册来源                                         |
 | `/gm/session/$sessionId` | GM 控制台：控场、切场景/立绘/音乐、发放情报、演绎队列放行、历史与回溯、在线管理      |
 
 选 TanStack Router 而非 React Router：路由参数与 search params 全类型安全，`$sessionId` 这类参数不会出现手写字符串取参的运行时错误，与 Eden Treaty / Drizzle / zod 的端到端类型安全路线一致。路由树按角色挂守卫：`/admin/*` 仅 admin，`/gm/*` 仅 gm，`/pl/*` 仅 pl；未登录访问重定向到 `/login`，已登录但角色不符时重定向到当前角色自己的工作台，不继承其他角色权限。

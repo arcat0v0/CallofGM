@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
-import type { JoinInfoResponse } from "@cogm/shared";
+import type { ClaimDto, JoinInfoResponse } from "@cogm/shared";
 import {
 	createMemoryHistory,
 	createRootRoute,
@@ -68,7 +68,7 @@ function renderJoinPage() {
 	const playRoute = createRoute({
 		getParentRoute: () => rootRoute,
 		path: "/play/$sessionId",
-		component: () => null,
+		component: () => createElement("p", null, "进入游玩房间"),
 	});
 	const joinRoute = createRoute({
 		getParentRoute: () => rootRoute,
@@ -109,7 +109,9 @@ describe("JoinPage claimable filtering", () => {
 	function stubJoinFetch(options: {
 		account: unknown | null;
 		joinInfo: JoinInfoResponse;
+		autoCharacterId?: string;
 	}) {
+		let claim: ClaimDto | null = null;
 		globalThis.fetch = (async (
 			input: RequestInfo | URL,
 			init?: RequestInit,
@@ -139,23 +141,64 @@ describe("JoinPage claimable filtering", () => {
 			if (path === "/api/v1/public/sessions/session-1/join-info") {
 				return jsonResponse(200, options.joinInfo);
 			}
-			if (path === "/api/v1/sessions/session-1/claim") {
+			if (path === "/api/v1/sessions/session-1/my-claim") {
 				return jsonResponse(200, {
+					claim,
+					isGm: false,
+					sessionStatus: options.joinInfo.session.status,
+					canAutoClaimCharacterId: options.autoCharacterId ?? null,
+				});
+			}
+			if (path === "/api/v1/sessions/session-1/claim") {
+				claim = {
 					id: "claim-1",
 					sessionId: "session-1",
 					holderKind: options.account ? "user" : "anonymous",
 					playerId: options.account ? null : "anon-player-1",
 					userId: options.account ? "pl-1" : null,
-					role: (body as { role?: string } | null)?.role ?? "ob",
+					role: (body as { role?: ClaimDto["role"] } | null)?.role ?? "ob",
 					characterId:
 						(body as { characterId?: string } | null)?.characterId ?? null,
 					releasedAt: null,
 					createdAt: 1,
-				});
+				};
+				return jsonResponse(200, claim);
 			}
 			return jsonResponse(404, { code: "NOT_FOUND" });
 		}) as unknown as typeof fetch;
 	}
+
+	test("uses the automatic character and enters play without rendering a claim action", async () => {
+		stubJoinFetch({
+			account: { type: "user", userId: "pl-1", username: "pl1", role: "pl" },
+			joinInfo: makeJoinInfo([
+				{
+					id: "pc-prebuilt",
+					name: "预建调查员",
+					kind: "pc",
+					claimed: false,
+					claimable: true,
+				},
+				{
+					id: "pc-mine",
+					name: "我的调查员",
+					kind: "pc",
+					claimed: false,
+					claimable: true,
+				},
+			]),
+			autoCharacterId: "pc-mine",
+		});
+		const view = renderJoinPage();
+		await within(view.container).findByText("进入游玩房间");
+		expect(calls.filter((call) => call.method === "POST")).toEqual([
+			{
+				path: "/api/v1/sessions/session-1/claim",
+				method: "POST",
+				body: { role: "pc", characterId: "pc-mine" },
+			},
+		]);
+	});
 
 	test("authenticated PL does not render or select claimable:false PCs when another PC is claimable", async () => {
 		stubJoinFetch({
@@ -255,13 +298,11 @@ describe("JoinPage claimable filtering", () => {
 		const view = renderJoinPage();
 		await waitFor(() =>
 			expect(
-				within(view.container).queryByText(
-					"认领 PC 席位需要玩家账号，请先登录",
-				),
+				within(view.container).queryByText("请登录玩家账号后以人物身份入团"),
 			).toBeTruthy(),
 		);
 		const loginLink = within(view.container).getByRole("link", {
-			name: /登录并认领/,
+			name: /登录并进入/,
 		});
 		expect(loginLink.getAttribute("href")).toContain("/login");
 	});
@@ -307,6 +348,13 @@ describe("JoinPage claimable filtering", () => {
 				const deferred = Promise.withResolvers<Response>();
 				deferredRequests.push(deferred);
 				return deferred.promise;
+			}
+			if (path === "/api/v1/sessions/session-1/my-claim") {
+				return jsonResponse(200, {
+					claim: null,
+					isGm: false,
+					sessionStatus: "waiting",
+				});
 			}
 			return jsonResponse(404, { code: "NOT_FOUND" });
 		}) as unknown as typeof fetch;

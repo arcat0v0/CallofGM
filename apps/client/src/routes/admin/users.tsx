@@ -178,6 +178,7 @@ function AdminUsersPage() {
 		deleted: users.filter((user) => matchesFilter(user, "deleted")).length,
 	};
 	const visible = users.filter((user) => matchesFilter(user, filter));
+	const usernames = new Map(users.map((user) => [user.id, user.username]));
 
 	return (
 		<AdminShell>
@@ -280,6 +281,15 @@ function AdminUsersPage() {
 														</Badge>
 													) : null}
 												</div>
+												{user.createdUnderGmId && (
+													<span className="text-foreground-secondary truncate text-label-small">
+														{t("admin.createdUnderGm", {
+															name:
+																usernames.get(user.createdUnderGmId) ??
+																user.createdUnderGmId,
+														})}
+													</span>
+												)}
 												<div className="flex flex-wrap items-center gap-1.5 md:hidden">
 													<Badge variant="soft" tone="default" size="sm">
 														{roleLabel(user.role)}

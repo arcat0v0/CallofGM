@@ -1,5 +1,6 @@
 import type {
 	AuthMeResponse,
+	CreatePlayerAccountRequest,
 	LoginResponse,
 	PlayerIdentityResponse,
 	PlayerMeResponse,
@@ -55,6 +56,21 @@ export async function loginAccount(
 		method: "POST",
 		body: JSON.stringify({ username, password }),
 	});
+	return acceptLogin(result);
+}
+
+export async function registerInvitedPlayer(
+	token: string,
+	credentials: CreatePlayerAccountRequest,
+): Promise<LoginResponse> {
+	const result = await api<LoginResponse>(
+		`/public/character-invites/${encodeURIComponent(token)}/register`,
+		{ method: "POST", body: JSON.stringify(credentials) },
+	);
+	return acceptLogin(result);
+}
+
+function acceptLogin(result: LoginResponse): LoginResponse {
 	resetPlayerIdentityCache();
 	useIdentityStore.getState().setAccount({
 		userId: result.userId,

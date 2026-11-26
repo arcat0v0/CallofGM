@@ -477,6 +477,7 @@ export class DrizzleCharactersRepository implements CharactersRepository {
 				ownerId: modules.ownerId,
 				name: modules.name,
 				ruleId: modules.ruleId,
+				deletedAt: modules.deletedAt,
 			})
 			.from(modules)
 			.where(eq(modules.id, id))
@@ -492,6 +493,7 @@ export class DrizzleCharactersRepository implements CharactersRepository {
 				name: sessionsTable.name,
 				moduleId: sessionsTable.moduleId,
 				ruleId: sessionsTable.ruleId,
+				deletedAt: sessionsTable.deletedAt,
 			})
 			.from(sessionsTable)
 			.where(eq(sessionsTable.id, id))

@@ -1,4 +1,10 @@
-import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import {
+	type AnySQLiteColumn,
+	index,
+	integer,
+	sqliteTable,
+	text,
+} from "drizzle-orm/sqlite-core";
 
 export const users = sqliteTable(
 	"users",
@@ -8,12 +14,19 @@ export const users = sqliteTable(
 		usernameNormalized: text("username_normalized").notNull().unique(),
 		passwordHash: text("password_hash").notNull(),
 		role: text("role").notNull(),
+		createdUnderGmId: text("created_under_gm_id").references(
+			(): AnySQLiteColumn => users.id,
+		),
+		creationSource: text("creation_source", { enum: ["gm", "invite"] }),
 		disabledAt: integer("disabled_at"),
 		deletedAt: integer("deleted_at"),
 		createdAt: integer("created_at").notNull(),
 		updatedAt: integer("updated_at").notNull(),
 	},
-	(table) => [index("users_role_idx").on(table.role)],
+	(table) => [
+		index("users_role_idx").on(table.role),
+		index("users_created_under_gm_idx").on(table.createdUnderGmId),
+	],
 );
 
 export const userSessions = sqliteTable(

@@ -1,3 +1,4 @@
+import type { CreatePlayerAccountRequest } from "@cogm/shared";
 import type { Clock, IdGenerator } from "@/platform/ports";
 import type { UserRole } from "../domain/actor";
 import {
@@ -8,7 +9,11 @@ import {
 	UserNotFoundError,
 	UsernameTakenError,
 } from "../domain/errors";
-import type { IdentityRepository, UserRecord } from "./ports";
+import type {
+	IdentityRepository,
+	UserRecord,
+	UserSessionRecord,
+} from "./ports";
 import { issueOpaqueToken } from "./token";
 import { normalizeUsername } from "./username";
 
@@ -19,6 +24,20 @@ export interface LoginResult {
 	expiresAt: number;
 	user: UserRecord;
 	replacedSessionIds: string[];
+}
+
+function issueUserSession(id: string, userId: string, now: number) {
+	const issued = issueOpaqueToken();
+	const session: UserSessionRecord = {
+		id,
+		userId,
+		sessionTokenHash: issued.tokenHash,
+		expiresAt: now + USER_SESSION_TTL_MS,
+		revokedAt: null,
+		replacedBySessionId: null,
+		createdAt: now,
+	};
+	return { token: issued.token, session };
 }
 
 export class LoginUseCase {
@@ -49,25 +68,23 @@ export class LoginUseCase {
 			.filter((s) => s.revokedAt === null)
 			.map((s) => s.id);
 
-		const issued = issueOpaqueToken();
-		const newSessionId = this.idGenerator.nextId();
-		const expiresAt = now + USER_SESSION_TTL_MS;
-
-		await this.repo.createUserSession({
-			id: newSessionId,
-			userId: user.id,
-			sessionTokenHash: issued.tokenHash,
-			expiresAt,
-			revokedAt: null,
-			replacedBySessionId: null,
-			createdAt: now,
-		});
+		const { token, session } = issueUserSession(
+			this.idGenerator.nextId(),
+			user.id,
+			now,
+		);
+		await this.repo.createUserSession(session);
 
 		for (const previousId of replacedSessionIds) {
-			await this.repo.revokeSession(previousId, now, newSessionId);
+			await this.repo.revokeSession(previousId, now, session.id);
 		}
 
-		return { sessionToken: issued.token, expiresAt, user, replacedSessionIds };
+		return {
+			sessionToken: token,
+			expiresAt: session.expiresAt,
+			user,
+			replacedSessionIds,
+		};
 	}
 }
 
@@ -110,30 +127,67 @@ export class CreateUserUseCase {
 		private readonly repo: IdentityRepository,
 	) {}
 
-	async execute(input: {
-		username: string;
-		password: string;
-		role: UserRole;
-	}): Promise<UserRecord> {
+	async execute(
+		input: CreatePlayerAccountRequest &
+			(
+				| { role: UserRole; createdUnderGmId?: never }
+				| { role: "pl"; createdUnderGmId: string }
+			),
+	): Promise<UserRecord> {
+		const user = await this.prepare(input, input.role);
+		if (input.createdUnderGmId) {
+			user.createdUnderGmId = input.createdUnderGmId;
+			user.creationSource = "gm";
+		}
+		await this.repo.createUser(user);
+		return user;
+	}
+
+	async registerInvitedPlayer(
+		input: CreatePlayerAccountRequest,
+		resolveGmId: () => Promise<string>,
+	): Promise<LoginResult> {
+		const user = await this.prepare(input, "pl");
+		user.createdUnderGmId = await resolveGmId();
+		user.creationSource = "invite";
+		const { token, session } = issueUserSession(
+			this.idGenerator.nextId(),
+			user.id,
+			this.clock.nowEpochMs(),
+		);
+		await this.repo.createUser(user, session);
+		return {
+			sessionToken: token,
+			expiresAt: session.expiresAt,
+			user,
+			replacedSessionIds: [],
+		};
+	}
+
+	private async prepare(
+		input: CreatePlayerAccountRequest,
+		role: UserRole,
+	): Promise<UserRecord> {
 		const normalized = normalizeUsername(input.username);
 		const existing = await this.repo.findUserByUsernameNormalized(normalized);
 		if (existing) {
 			throw new UsernameTakenError();
 		}
+		const passwordHash = await Bun.password.hash(input.password);
 		const now = this.clock.nowEpochMs();
-		const user: UserRecord = {
+		return {
 			id: this.idGenerator.nextId(),
 			username: input.username.trim(),
 			usernameNormalized: normalized,
-			passwordHash: await Bun.password.hash(input.password),
-			role: input.role,
+			passwordHash,
+			role,
+			createdUnderGmId: null,
+			creationSource: null,
 			disabledAt: null,
 			deletedAt: null,
 			createdAt: now,
 			updatedAt: now,
 		};
-		await this.repo.createUser(user);
-		return user;
 	}
 }
 

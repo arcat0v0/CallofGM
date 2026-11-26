@@ -315,6 +315,7 @@ export interface CharactersRepository {
 		ownerId: string;
 		name: string;
 		ruleId: string;
+		deletedAt: number | null;
 	} | null>;
 	findSession(id: string): Promise<{
 		id: string;
@@ -322,6 +323,7 @@ export interface CharactersRepository {
 		name: string | null;
 		moduleId: string;
 		ruleId: string;
+		deletedAt: number | null;
 	} | null>;
 	findModuleCharacterLink(
 		moduleId: string,

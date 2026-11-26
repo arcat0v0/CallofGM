@@ -46,9 +46,16 @@ export const ChangePasswordRequest = z.object({
 });
 export type ChangePasswordRequest = z.infer<typeof ChangePasswordRequest>;
 
-export const CreateUserRequest = z.object({
+export const CreatePlayerAccountRequest = z.strictObject({
 	username: UsernameSchema,
 	password: PasswordSchema,
+});
+export type CreatePlayerAccountRequest = z.infer<
+	typeof CreatePlayerAccountRequest
+>;
+
+export const CreateUserRequest = z.object({
+	...CreatePlayerAccountRequest.shape,
 	role: UserRole,
 });
 export type CreateUserRequest = z.infer<typeof CreateUserRequest>;
@@ -71,6 +78,8 @@ export const UserDto = z.object({
 	id: z.string(),
 	username: z.string(),
 	role: UserRole,
+	createdUnderGmId: z.string().nullable(),
+	creationSource: z.enum(["gm", "invite"]).nullable(),
 	disabledAt: z.number().int().nullable(),
 	deletedAt: z.number().int().nullable(),
 	createdAt: z.number().int(),

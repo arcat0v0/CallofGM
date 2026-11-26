@@ -4,10 +4,14 @@ import {
 	CharacterDto,
 	CharacterInviteDto,
 	CharacterInviteInfoResponse,
+	CharacterInviteRegistrationInfo,
 	type CharacterReviewDto,
 	CharacterSyncDiffDto,
 	coc7e,
 	ModuleDto,
+	LoginResponse,
+	MyClaimResponse,
+	UserDto,
 } from "@cogm/shared";
 import { createApp } from "@/app";
 import {
@@ -135,6 +139,77 @@ describe("Invite, submit and review chain", () => {
 		expect(res.status).toBe(200);
 		return CharacterDto.parse(await res.json());
 	}
+
+	test("玩家凭团提交链接自助注册，立即登录并归属该团主持人", async () => {
+		const sessionId = await createSession();
+		const invite = await createInvite("session", sessionId);
+		const path = `/api/v1/public/character-invites/${encodeURIComponent(invite.token!)}`;
+		const summary = await fullApi(path);
+		expect(summary.headers.get("cache-control")).toBe("no-store");
+		expect(
+			CharacterInviteRegistrationInfo.parse(await summary.json()),
+		).toMatchObject({
+			scope: "session",
+			gmUsername: "gm",
+		});
+		const credentials = {
+			username: "invite-created-player",
+			password: PASSWORD,
+		};
+		const register = (url = path, token?: string, body = credentials) =>
+			fullApi(`${url}/register`, {
+				method: "POST",
+				token,
+				body: JSON.stringify(body),
+			});
+		expect((await register(path, plToken)).status).toBe(409);
+		expect(
+			(await register("/api/v1/public/character-invites/invalid")).status,
+		).toBe(404);
+		const result = await register();
+		expect(result.status).toBe(200);
+		const account = LoginResponse.parse(await result.json());
+		expect(account.role).toBe("pl");
+		const cookie = result.headers.getSetCookie()[0]!;
+		expect(cookie).toContain("HttpOnly");
+		const info = await fullApi(
+			`/api/v1/pl/invites/${encodeURIComponent(invite.token!)}`,
+			{
+				headers: { Cookie: cookie.split(";")[0]! },
+			},
+		);
+		expect(info.status).toBe(200);
+		expect(
+			CharacterInviteInfoResponse.parse(await info.json()).ownedCharacters,
+		).toEqual([]);
+		const list = await fullApi("/api/v1/gm/player-accounts", {
+			token: ctx.gmToken,
+		});
+		const items = UserDto.array().parse(
+			((await list.json()) as { items: unknown }).items,
+		);
+		expect(items).toContainEqual(
+			expect.objectContaining({
+				id: account.userId,
+				createdUnderGmId: ctx.gmUserId,
+				creationSource: "invite",
+			}),
+		);
+		expect((await register()).status).toBe(409);
+		const revoke = await fullApi(`/api/v1/gm/invites/${invite.id}`, {
+			method: "DELETE",
+			token: ctx.gmToken,
+		});
+		expect(revoke.status).toBe(200);
+		expect(
+			(
+				await register(path, undefined, {
+					...credentials,
+					username: "invite-revoked",
+				})
+			).status,
+		).toBe(410);
+	});
 
 	function completeCoc7eSheet() {
 		return coc7e.normalizeCoc7eSheet({
@@ -1041,6 +1116,19 @@ describe("Invite, submit and review chain", () => {
 			token: ctx.gmToken,
 			body: JSON.stringify({ approve: true }),
 		});
+
+		const automaticA = await api(`/api/v1/sessions/${sessionId}/my-claim`, {
+			token: plToken,
+		});
+		expect(
+			MyClaimResponse.parse(await automaticA.json()).canAutoClaimCharacterId,
+		).toBe(charA.id);
+		const automaticB = await api(`/api/v1/sessions/${sessionId}/my-claim`, {
+			token: otherPlToken,
+		});
+		expect(
+			MyClaimResponse.parse(await automaticB.json()).canAutoClaimCharacterId,
+		).toBe(charB.id);
 
 		const anonInfo = (await (
 			await api(`/api/v1/public/sessions/${sessionId}/join-info`)

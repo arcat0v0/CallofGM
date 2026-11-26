@@ -1,5 +1,9 @@
 import { ModuleNotFoundError } from "@/modules/catalog";
-import { hashToken, issueOpaqueToken } from "@/modules/identity";
+import {
+	hashToken,
+	type IdentityRepository,
+	issueOpaqueToken,
+} from "@/modules/identity";
 import { SessionNotFoundError } from "@/modules/sessions";
 import { AppError } from "@/platform/errors/app-error";
 import type { Clock, IdGenerator, RandomSource } from "@/platform/ports";
@@ -65,20 +69,32 @@ async function resolveActiveInvite(
 	if (!invite) {
 		throw new InviteNotFoundError();
 	}
-	if (invite.revokedAt !== null || invite.expiresAt < clock.nowEpochMs()) {
+	if (
+		invite.deletedAt !== null ||
+		invite.revokedAt !== null ||
+		invite.expiresAt <= clock.nowEpochMs()
+	) {
 		throw new InviteExpiredError();
 	}
 	const target =
 		invite.scope === "module"
 			? await repo.findModule(invite.targetId)
 			: await repo.findSession(invite.targetId);
-	if (!target) {
+	if (
+		!target ||
+		target.deletedAt !== null ||
+		target.ownerId !== invite.ownerId
+	) {
 		throw new InviteExpiredError();
 	}
+	const module =
+		target.name === null && "moduleId" in target
+			? await repo.findModule(target.moduleId)
+			: null;
 	return {
 		invite,
 		ruleId: target.ruleId,
-		targetName: target.name ?? invite.targetId,
+		targetName: target.name ?? module?.name ?? invite.targetId,
 	};
 }
 
@@ -100,13 +116,21 @@ export class CreateCharacterInviteUseCase {
 		let ruleId: string;
 		if (input.scope === "module") {
 			const module = await this.repo.findModule(input.targetId);
-			if (!module || module.ownerId !== input.ownerId) {
+			if (
+				!module ||
+				module.deletedAt !== null ||
+				module.ownerId !== input.ownerId
+			) {
 				throw new ModuleNotFoundError();
 			}
 			ruleId = module.ruleId;
 		} else {
 			const session = await this.repo.findSession(input.targetId);
-			if (!session || session.ownerId !== input.ownerId) {
+			if (
+				!session ||
+				session.deletedAt !== null ||
+				session.ownerId !== input.ownerId
+			) {
 				throw new SessionNotFoundError();
 			}
 			ruleId = session.ruleId;
@@ -247,6 +271,39 @@ export class GetInviteInfoUseCase {
 			creationOptions: parseJsonOrNull(invite.creationOptionsJson),
 			creationRoll: roll ? toCreationRollDto(roll) : null,
 			ownedCharacters: eligible,
+		};
+	}
+}
+
+export class GetInviteRegistrationUseCase {
+	constructor(
+		private readonly repo: CharactersRepository,
+		private readonly identityRepo: IdentityRepository,
+		private readonly clock: Clock,
+	) {}
+
+	async execute(token: string) {
+		const { invite, targetName } = await resolveActiveInvite(
+			this.repo,
+			this.clock,
+			hashToken,
+			token,
+		);
+		const gm = await this.identityRepo.findUserById(invite.ownerId);
+		if (
+			!gm ||
+			gm.role !== "gm" ||
+			gm.disabledAt !== null ||
+			gm.deletedAt !== null
+		) {
+			throw new InviteExpiredError();
+		}
+		return {
+			gmId: gm.id,
+			gmUsername: gm.username,
+			scope: invite.scope,
+			targetName,
+			expiresAt: invite.expiresAt,
 		};
 	}
 }

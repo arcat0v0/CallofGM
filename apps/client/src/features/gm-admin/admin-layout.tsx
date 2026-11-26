@@ -8,6 +8,7 @@ import {
 	ShieldBan,
 	Swords,
 	Trash2,
+	Users,
 	VenetianMask,
 } from "lucide-react";
 import type { ComponentType, ReactNode } from "react";
@@ -23,6 +24,7 @@ type AdminNavKey =
 	| "modules"
 	| "templates"
 	| "characters"
+	| "playerAccounts"
 	| "music"
 	| "blacklist"
 	| "trash"
@@ -53,6 +55,12 @@ const NAV_ITEMS: {
 		icon: VenetianMask,
 		to: "/gm/characters",
 	},
+	{
+		key: "playerAccounts",
+		labelKey: "gm.nav.playerAccounts",
+		icon: Users,
+		to: "/gm/player-accounts",
+	},
 	{ key: "music", labelKey: "gm.nav.music", icon: AudioLines, to: "/gm/music" },
 	{
 		key: "blacklist",
@@ -82,6 +90,9 @@ export function adminNavCurrentKey(pathname: string): AdminNavKey | null {
 	}
 	if (path === "/gm/characters") {
 		return "characters";
+	}
+	if (path === "/gm/player-accounts") {
+		return "playerAccounts";
 	}
 	if (path === "/gm/music") {
 		return "music";

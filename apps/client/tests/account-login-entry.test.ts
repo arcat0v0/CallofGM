@@ -34,15 +34,15 @@ describe("account login entry", () => {
 		// biome-ignore lint/suspicious/noTemplateCurlyInString: assertion matches route source template
 		expect(join).toContain("`/join/${sessionId}`");
 		expect(join).toContain('t("join.loginToClaim")');
-		expect(t("join.loginToClaim")).toBe("登录并认领");
+		expect(t("join.loginToClaim")).toBe("登录并进入");
 	});
 
 	test("a character invite links back to itself after login", async () => {
 		const submit = await source("routes/submit.$token.tsx");
-		expect(submit).toContain('requireAccount(["pl"])');
-		expect(submit).toContain("safeReturnTo(");
+		expect(submit).toContain('to="/login"');
+		expect(submit).toContain("registerInvitedPlayer");
 		// biome-ignore lint/suspicious/noTemplateCurlyInString: assertion matches route source template
-		expect(submit).toContain("`/submit/${params.token}`");
+		expect(submit).toContain("`/submit/${encodeURIComponent(token)}`");
 		expect(safeReturnTo("/submit/invite-1")).toBe("/submit/invite-1");
 	});
 });

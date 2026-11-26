@@ -2,7 +2,6 @@ import type { CharacterDto } from "@cogm/shared";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import {
 	FileSpreadsheet,
-	LogOut,
 	Pencil,
 	Plus,
 	Trash2,
@@ -11,7 +10,6 @@ import {
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Logo } from "@/components/brand/logo";
 import { EmptyState, ListSkeleton } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -25,14 +23,14 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
+import { PlayerNavigation } from "@/features/accounts/player-navigation";
 import { ImportCharacterSheetDialog } from "@/features/gm-admin/dialogs/import-character-sheet-dialog";
 import { t, useI18nVersion } from "@/i18n";
 import { api, fetchAllPages, isApiError } from "@/lib/api";
 import { errorText } from "@/lib/errors";
 import { initialsOf } from "@/lib/format";
-import { logoutAccount, requireAccount } from "@/lib/identity";
+import { requireAccount } from "@/lib/identity";
 import { FALLBACK_RULE_ID, getRuleComponent } from "@/rules/registry";
-import { useIdentityStore } from "@/stores/identity-store";
 
 export const Route = createFileRoute("/pl/characters")({
 	beforeLoad: () => requireAccount(["pl"]),
@@ -260,44 +258,9 @@ function PlCharactersPage() {
 }
 
 function PlShell({ children }: { children: ReactNode }) {
-	const navigate = useNavigate();
-	const username = useIdentityStore((state) => state.account?.username ?? null);
-
 	return (
 		<div className="bg-background flex min-h-dvh flex-col">
-			<header className="border-separator-secondary bg-background sticky top-0 z-10 border-b">
-				<div className="mx-auto flex h-16 w-full max-w-6xl items-center gap-3 px-4 md:px-6">
-					<Link to="/pl/characters" className="flex items-center gap-3">
-						<Logo className="size-8" />
-						<span className="flex min-w-0 flex-col">
-							<span className="text-foreground font-serif text-title-medium-emph">
-								{t("app.name")}
-							</span>
-							<span className="text-foreground-tertiary text-label-small">
-								{t("pl.workspace")}
-							</span>
-						</span>
-					</Link>
-					<div className="ml-auto flex items-center gap-2">
-						{username ? (
-							<span className="text-foreground-secondary hidden text-body-small sm:block">
-								{username}
-							</span>
-						) : null}
-						<Button
-							type="button"
-							variant="ghost"
-							size="icon-sm"
-							aria-label={t("account.logout")}
-							onClick={() => {
-								void logoutAccount().then(() => navigate({ to: "/login" }));
-							}}
-						>
-							<LogOut />
-						</Button>
-					</div>
-				</div>
-			</header>
+			<PlayerNavigation />
 			<main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-6 md:px-6 md:py-8">
 				{children}
 			</main>

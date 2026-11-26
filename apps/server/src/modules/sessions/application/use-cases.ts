@@ -107,6 +107,41 @@ export async function resolveSessionClaimableCharacterIds(
 	return claimable;
 }
 
+export async function resolveAutomaticSessionCharacterId(
+	repo: SessionsRepository,
+	sessionId: string,
+	userId: string,
+	allowUnassigned: boolean,
+): Promise<string | null> {
+	const openIds = (await repo.findSessionCharactersWithClaims(sessionId))
+		.filter((entry) => entry.kind === "pc" && entry.claim === null)
+		.map((entry) => entry.characterId);
+	if (openIds.length === 0) return null;
+
+	const reviews = await repo.findSessionReviewStates(sessionId, openIds);
+	const approvedIds = openIds.filter((id) =>
+		isSessionCharacterClaimable(reviews.get(id), undefined, userId),
+	);
+	if (approvedIds.length > 0) {
+		return approvedIds.length === 1 ? approvedIds[0]! : null;
+	}
+
+	const unreviewedIds = openIds.filter((id) => !reviews.has(id));
+	const owners = await repo.findCharacterOwners(unreviewedIds);
+	const ownedIds = unreviewedIds.filter((id) => {
+		const owner = owners.get(id);
+		return owner?.ownerId === userId && !owner.characterDeleted;
+	});
+	if (ownedIds.length > 0 || !allowUnassigned) {
+		return ownedIds.length === 1 ? ownedIds[0]! : null;
+	}
+
+	const availableIds = unreviewedIds.filter((id) =>
+		isSessionCharacterClaimable(undefined, owners.get(id), userId),
+	);
+	return availableIds.length === 1 ? availableIds[0]! : null;
+}
+
 export class CreateSessionUseCase {
 	constructor(
 		private readonly repo: SessionsRepository,

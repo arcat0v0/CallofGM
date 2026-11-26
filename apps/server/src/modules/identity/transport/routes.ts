@@ -2,9 +2,11 @@ import {
 	BanPlayerRequest,
 	BlacklistEntryDto,
 	ChangePasswordRequest,
+	CreatePlayerAccountRequest,
 	LoginRequest,
 	SessionCloseCode,
 	UnbanFingerprintRequest,
+	UserDto,
 } from "@cogm/shared";
 import { Elysia } from "elysia";
 import { z } from "zod";
@@ -19,6 +21,7 @@ import { requireGm } from "../application/guards";
 import { PlayerIdentityUseCase } from "../application/player-identity";
 import {
 	ChangeOwnPasswordUseCase,
+	CreateUserUseCase,
 	LoginUseCase,
 } from "../application/user-accounts";
 import {
@@ -31,10 +34,16 @@ import {
 	readBearer,
 	readCookie,
 	SESSION_COOKIE,
+	userSessionCookie,
 } from "./auth-middleware";
 
 export function createIdentityRoutes(container: Container) {
 	const { identityRepo: repo, moderationRepo, authPlugin } = container;
+	const createUser = new CreateUserUseCase(
+		container.idGenerator,
+		container.clock,
+		repo,
+	);
 	const loginUseCase = new LoginUseCase(
 		container.idGenerator,
 		container.clock,
@@ -54,8 +63,15 @@ export function createIdentityRoutes(container: Container) {
 		const security = container.siteSettings.getSecurityConfig();
 		assertTrustedOrigin(request, security.corsOrigins, security.trustProxy);
 	};
-	const requestIp = (request: Request, server: Parameters<typeof clientIp>[1]) =>
-		clientIp(request, server, container.siteSettings.getSecurityConfig().trustProxy);
+	const requestIp = (
+		request: Request,
+		server: Parameters<typeof clientIp>[1],
+	) =>
+		clientIp(
+			request,
+			server,
+			container.siteSettings.getSecurityConfig().trustProxy,
+		);
 
 	return new Elysia()
 		.use(authPlugin)
@@ -91,14 +107,13 @@ export function createIdentityRoutes(container: Container) {
 				"session replaced",
 			);
 
-			cookie?.[SESSION_COOKIE]?.set({
-				value: result.sessionToken,
-				httpOnly: true,
-				secure: container.config.environment === "production",
-				sameSite: "strict",
-				path: "/",
-				expires: new Date(result.expiresAt),
-			});
+			cookie?.[SESSION_COOKIE]?.set(
+				userSessionCookie(
+					result.sessionToken,
+					result.expiresAt,
+					container.config.environment === "production",
+				),
+			);
 
 			logger.audit("auth.login.ok", { role: result.user.role });
 			return {
@@ -134,6 +149,32 @@ export function createIdentityRoutes(container: Container) {
 				username: actor.username,
 				role: actor.role,
 			};
+		})
+		.get("/api/v1/gm/player-accounts", async ({ actor }) => {
+			const gm = requireGm(actor);
+			const players = await repo.listPlayersCreatedUnderGm(gm.userId);
+			return { items: players.map((player) => UserDto.parse(player)) };
+		})
+		.post("/api/v1/gm/player-accounts", async ({ actor, body, request }) => {
+			assertOrigin(request);
+			const gm = requireGm(actor);
+			const parsed = CreatePlayerAccountRequest.safeParse(body);
+			if (!parsed.success) {
+				if (isPasswordFieldFailure(parsed.error)) {
+					throw new InvalidPasswordError();
+				}
+				throw validationFailed(parsed.error);
+			}
+			const player = await createUser.execute({
+				...parsed.data,
+				role: "pl",
+				createdUnderGmId: gm.userId,
+			});
+			logger.audit("gm.player_account.created", {
+				gmId: gm.userId,
+				userId: player.id,
+			});
+			return UserDto.parse(player);
 		})
 		.put("/api/v1/auth/password", async ({ actor, body, request, cookie }) => {
 			assertOrigin(request);

@@ -1,4 +1,4 @@
-import { and, eq, gt, isNull, ne, or, sql } from "drizzle-orm";
+import { and, desc, eq, gt, isNull, ne, or, sql } from "drizzle-orm";
 import type { DbClient } from "@/platform/db/client";
 import {
 	anonymousPlayers,
@@ -14,6 +14,7 @@ import type {
 	UserRecord,
 	UserSessionRecord,
 } from "../application/ports";
+import { UsernameTakenError } from "../domain/errors";
 
 export class DrizzleIdentityRepository implements IdentityRepository {
 	constructor(private readonly db: DbClient) {}
@@ -38,8 +39,24 @@ export class DrizzleIdentityRepository implements IdentityRepository {
 		return (rows[0] as UserRecord | undefined) ?? null;
 	}
 
-	async createUser(user: UserRecord): Promise<void> {
-		await this.db.insert(users).values(user);
+	async createUser(
+		user: UserRecord,
+		session?: UserSessionRecord,
+	): Promise<void> {
+		this.db.transaction((tx) => {
+			const inserted = tx
+				.insert(users)
+				.values(user)
+				.onConflictDoNothing({ target: users.usernameNormalized })
+				.returning({ id: users.id })
+				.get();
+			if (!inserted) {
+				throw new UsernameTakenError();
+			}
+			if (session) {
+				tx.insert(userSessions).values(session).run();
+			}
+		});
 	}
 
 	async updateUser(
@@ -65,6 +82,20 @@ export class DrizzleIdentityRepository implements IdentityRepository {
 			? await this.db.select().from(users)
 			: await this.db.select().from(users).where(isNull(users.deletedAt));
 		return rows as UserRecord[];
+	}
+
+	async listPlayersCreatedUnderGm(gmId: string): Promise<UserRecord[]> {
+		return (await this.db
+			.select()
+			.from(users)
+			.where(
+				and(
+					eq(users.createdUnderGmId, gmId),
+					eq(users.role, "pl"),
+					isNull(users.deletedAt),
+				),
+			)
+			.orderBy(desc(users.createdAt), users.username)) as UserRecord[];
 	}
 
 	async countActiveAdmins(excludeUserId?: string): Promise<number> {

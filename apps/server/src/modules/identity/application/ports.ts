@@ -6,6 +6,8 @@ export interface UserRecord {
 	usernameNormalized: string;
 	passwordHash: string;
 	role: UserRole;
+	createdUnderGmId: string | null;
+	creationSource: "gm" | "invite" | null;
 	disabledAt: number | null;
 	deletedAt: number | null;
 	createdAt: number;
@@ -54,7 +56,7 @@ export interface IdentityRepository {
 	findUserByUsernameNormalized(
 		usernameNormalized: string,
 	): Promise<UserRecord | null>;
-	createUser(user: UserRecord): Promise<void>;
+	createUser(user: UserRecord, session?: UserSessionRecord): Promise<void>;
 	updateUser(
 		id: string,
 		patch: Partial<
@@ -71,6 +73,7 @@ export interface IdentityRepository {
 		>,
 	): Promise<void>;
 	listUsers(includeDeleted: boolean): Promise<UserRecord[]>;
+	listPlayersCreatedUnderGm(gmId: string): Promise<UserRecord[]>;
 	countActiveAdmins(excludeUserId?: string): Promise<number>;
 
 	findUserSessionByTokenHash(

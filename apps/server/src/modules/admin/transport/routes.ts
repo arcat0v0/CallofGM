@@ -2,7 +2,7 @@ import {
 	CreateUserRequest,
 	ResetUserPasswordRequest,
 	UpdateUserRequest,
-	type UserDto,
+	UserDto,
 } from "@cogm/shared";
 import { Elysia } from "elysia";
 import type { Container } from "@/bootstrap/container";
@@ -19,26 +19,6 @@ import {
 import { validationFailed } from "@/platform/errors/validation";
 import { logger } from "@/platform/logging/logger";
 import { assertTrustedOrigin } from "@/platform/security/origin";
-
-function toUserDto(user: {
-	id: string;
-	username: string;
-	role: string;
-	disabledAt: number | null;
-	deletedAt: number | null;
-	createdAt: number;
-	updatedAt: number;
-}): UserDto {
-	return {
-		id: user.id,
-		username: user.username,
-		role: user.role as UserDto["role"],
-		disabledAt: user.disabledAt,
-		deletedAt: user.deletedAt,
-		createdAt: user.createdAt,
-		updatedAt: user.updatedAt,
-	};
-}
 
 export function createAdminRoutes(container: Container) {
 	const { identityRepo: repo, authPlugin } = container;
@@ -78,7 +58,7 @@ export function createAdminRoutes(container: Container) {
 			requireAdmin(actor);
 			const includeDeleted = query?.includeDeleted === "true";
 			const rows = await repo.listUsers(includeDeleted);
-			return { items: rows.map(toUserDto) };
+			return { items: rows.map((user) => UserDto.parse(user)) };
 		})
 		.post("/api/v1/admin/users", async ({ actor, body, request }) => {
 			assertOrigin(request);
@@ -92,7 +72,7 @@ export function createAdminRoutes(container: Container) {
 			}
 			const user = await createUser.execute(parsed.data);
 			logger.audit("admin.user.created", { role: user.role });
-			return toUserDto(user);
+			return UserDto.parse(user);
 		})
 		.patch(
 			"/api/v1/admin/users/:id",
@@ -115,7 +95,7 @@ export function createAdminRoutes(container: Container) {
 					deleted: parsed.data.deleted,
 				});
 				return {
-					user: toUserDto(result.user),
+					user: UserDto.parse(result.user),
 					sessionsRevoked: result.revoked,
 				};
 			},
@@ -146,6 +126,6 @@ export function createAdminRoutes(container: Container) {
 			if (!user) {
 				throw new UserNotFoundError();
 			}
-			return toUserDto(user);
+			return UserDto.parse(user);
 		});
 }

@@ -51,6 +51,7 @@ import {
 	GmAssignClaimUseCase,
 	ReleaseSeatUseCase,
 	RenameSessionUseCase,
+	resolveAutomaticSessionCharacterId,
 	ResolveSessionReferenceUseCase,
 	resolveSessionClaimableCharacterIds,
 	UpdateSessionPhaseUseCase,
@@ -710,23 +711,18 @@ export function createSessionsRoutes(container: Container) {
 			}
 			const holder = requireSeatHolder(actor);
 			const claim = await repo.findActiveClaimByHolder(id, holder);
-			const autoCandidate =
-				!claim && holder.holderKind === "user" && holder.userId
-					? await (async () => {
-							const openPcs = (
-								await repo.findSessionCharactersWithClaims(id)
-							).filter((entry) => entry.kind === "pc" && entry.claim === null);
-							const claimableIds = await resolveSessionClaimableCharacterIds(
-								repo,
-								id,
-								openPcs.map((entry) => entry.characterId),
-								holder.userId,
-							);
-							return openPcs.filter((entry) =>
-								claimableIds.has(entry.characterId),
-							);
-						})()
-					: [];
+			const canAutoClaimCharacterId =
+				session.status !== "ended" &&
+				claim?.role !== "pc" &&
+				holder.holderKind === "user" &&
+				holder.userId
+					? await resolveAutomaticSessionCharacterId(
+							repo,
+							id,
+							holder.userId,
+							claim === null,
+						)
+					: null;
 			return MyClaimResponse.parse({
 				claim: claim
 					? {
@@ -743,8 +739,7 @@ export function createSessionsRoutes(container: Container) {
 					: null,
 				sessionStatus: session.status,
 				isGm: false,
-				canAutoClaimCharacterId:
-					autoCandidate.length === 1 ? autoCandidate[0]!.characterId : null,
+				canAutoClaimCharacterId,
 			});
 		})
 		.post(

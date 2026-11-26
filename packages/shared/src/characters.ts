@@ -290,6 +290,17 @@ export type CharacterInviteInfoResponse = z.infer<
 	typeof CharacterInviteInfoResponse
 >;
 
+export const CharacterInviteRegistrationInfo = CharacterInviteInfoResponse.pick(
+	{
+		scope: true,
+		targetName: true,
+		expiresAt: true,
+	},
+).extend({ gmUsername: z.string() });
+export type CharacterInviteRegistrationInfo = z.infer<
+	typeof CharacterInviteRegistrationInfo
+>;
+
 export const SubmitCharacterRequest = z.discriminatedUnion("mode", [
 	z.object({
 		mode: z.literal("existing"),

@@ -9,6 +9,7 @@ import {
 	CharacterImportPreviewResponse,
 	CharacterInviteDto,
 	CharacterInviteInfoResponse,
+	CharacterInviteRegistrationInfo,
 	CharacterPortraitDto,
 	CharacterReviewDto,
 	CharacterSheetContextResponse,
@@ -17,6 +18,7 @@ import {
 	CreateCharacterInviteRequest,
 	CreateCharacterRequest,
 	CreatePlCharacterRequest,
+	CreatePlayerAccountRequest,
 	CursorPageQuery,
 	CursorPageResponse,
 	DecideReviewRequest,
@@ -25,6 +27,7 @@ import {
 	GmPermanentFieldEditRequest,
 	ImportConfirmRequest,
 	LinkModuleCharacterRequest,
+	LoginResponse,
 	ModuleCharacterLinkDto,
 	RuleId,
 	SubmitCharacterRequest,
@@ -35,12 +38,23 @@ import {
 import { Elysia, t } from "elysia";
 import type { Container } from "@/bootstrap/container";
 import { ModuleNotFoundError } from "@/modules/catalog";
-import { AuthRequiredError, requireGm } from "@/modules/identity";
+import {
+	AuthRequiredError,
+	CreateUserUseCase,
+	InvalidPasswordError,
+	isPasswordFieldFailure,
+	requireGm,
+	SESSION_COOKIE,
+	userSessionCookie,
+} from "@/modules/identity";
 import { AddSessionCharacterUseCase } from "@/modules/sessions";
 import { AppError } from "@/platform/errors/app-error";
 import { validationFailed } from "@/platform/errors/validation";
 import { assertXlsxUploadSize } from "@/platform/file-type";
+import { logger } from "@/platform/logging/logger";
 import { assertTrustedOrigin } from "@/platform/security/origin";
+import { clientIp } from "@/platform/security/request-ip";
+import { GetInviteRegistrationUseCase } from "../application/lifecycle";
 import type { CharacterReviewDetail } from "../application/ports";
 import {
 	AddPortraitUseCase,
@@ -176,6 +190,16 @@ export function createCharactersRoutes(container: Container) {
 	const listInvites = new ListCharacterInvitesUseCase(repo);
 	const revokeInvite = new RevokeCharacterInviteUseCase(repo, container.clock);
 	const inviteInfo = new GetInviteInfoUseCase(repo, container.clock);
+	const inviteRegistration = new GetInviteRegistrationUseCase(
+		repo,
+		container.identityRepo,
+		container.clock,
+	);
+	const createUser = new CreateUserUseCase(
+		container.idGenerator,
+		container.clock,
+		container.identityRepo,
+	);
 	const rollCreation = new RollCreationUseCase(
 		repo,
 		container.ruleRegistry,
@@ -762,6 +786,69 @@ export function createCharactersRoutes(container: Container) {
 			);
 		});
 
+	const inviteRegistrationRoutes = new Elysia({
+		prefix: "/api/v1/public/character-invites",
+	})
+		.use(authPlugin)
+		.get("/:token", async ({ params, set }) => {
+			set.headers["cache-control"] = "no-store";
+			return CharacterInviteRegistrationInfo.parse(
+				await inviteRegistration.execute(params.token),
+			);
+		})
+		.post(
+			"/:token/register",
+			async ({ params, actor, body, cookie, request, server }) => {
+				writeGuard(request);
+				if (actor?.type === "user") {
+					throw new AppError(
+						"INVITE_REGISTRATION_SIGNED_IN",
+						"An account is already signed in",
+						409,
+					);
+				}
+				container.httpLimits.identityRateLimiter.assert(
+					clientIp(
+						request,
+						server,
+						container.siteSettings.getSecurityConfig().trustProxy,
+					),
+				);
+				const parsed = CreatePlayerAccountRequest.safeParse(body);
+				if (!parsed.success) {
+					if (isPasswordFieldFailure(parsed.error)) {
+						throw new InvalidPasswordError();
+					}
+					throw validationFailed(parsed.error);
+				}
+				await inviteRegistration.execute(params.token);
+				const result = await createUser.registerInvitedPlayer(
+					parsed.data,
+					async () => {
+						const invite = await inviteRegistration.execute(params.token);
+						return invite.gmId;
+					},
+				);
+				cookie[SESSION_COOKIE]?.set(
+					userSessionCookie(
+						result.sessionToken,
+						result.expiresAt,
+						container.config.environment === "production",
+					),
+				);
+				logger.audit("invite.player_account.created", {
+					gmId: result.user.createdUnderGmId,
+					userId: result.user.id,
+				});
+				return LoginResponse.parse({
+					userId: result.user.id,
+					username: result.user.username,
+					role: result.user.role,
+					expiresAt: result.expiresAt,
+				});
+			},
+		);
+
 	const plSubmitRoutes = new Elysia({ prefix: "/api/v1/pl" })
 		.use(authPlugin)
 		.onBeforeHandle(({ actor, request }) => {
@@ -832,6 +919,7 @@ export function createCharactersRoutes(container: Container) {
 		.use(gmModuleCharacterRoutes)
 		.use(gmInviteRoutes)
 		.use(gmReviewRoutes)
+		.use(inviteRegistrationRoutes)
 		.use(plCharacterRoutes)
 		.use(plSubmitRoutes);
 }

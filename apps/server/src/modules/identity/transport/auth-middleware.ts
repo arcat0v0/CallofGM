@@ -8,6 +8,21 @@ import { BlacklistedFingerprintError } from "../domain/errors";
 export const SESSION_COOKIE = "cogm_session";
 export const PLAYER_COOKIE = "player_token";
 
+export function userSessionCookie(
+	value: string,
+	expiresAt: number,
+	secure: boolean,
+) {
+	return {
+		value,
+		httpOnly: true,
+		secure,
+		sameSite: "strict" as const,
+		path: "/",
+		expires: new Date(expiresAt),
+	};
+}
+
 export function parseCookie(cookieHeader: string, name: string): string | null {
 	const pairs = cookieHeader.split(";");
 	for (const pair of pairs) {

@@ -30,5 +30,6 @@ export {
 	readBearer,
 	readCookie,
 	SESSION_COOKIE,
+	userSessionCookie,
 } from "./transport/auth-middleware";
 export { createIdentityRoutes } from "./transport/routes";
