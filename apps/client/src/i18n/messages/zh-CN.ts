@@ -2509,6 +2509,7 @@ export const zhCN: Record<string, string> = {
 		"线上舞台排布刚刚更新，当前仍保留你的本地草稿。",
 	"gm.stageStudio.conflictReload": "载入最新线上",
 	"gm.stageStudio.conflictKeep": "保留草稿",
+	"gm.stageStudio.viewportGmConsole": "主持人视角",
 	"gm.stageStudio.viewportDesktopChat": "桌面（含聊天）",
 	"gm.stageStudio.viewportDesktopFull": "桌面（全屏）",
 	"gm.stageStudio.viewportPortrait": "手机竖屏",

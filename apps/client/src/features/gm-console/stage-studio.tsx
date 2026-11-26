@@ -16,7 +16,14 @@ import {
 	Trash2,
 	X,
 } from "lucide-react";
-import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import {
+	type RefObject,
+	useCallback,
+	useEffect,
+	useId,
+	useMemo,
+	useState,
+} from "react";
 import { toast } from "sonner";
 import { SegmentedControl } from "@/components/shared/segmented-control";
 import { Badge } from "@/components/ui/badge";
@@ -45,6 +52,7 @@ import {
 	reorderLayerInComposition,
 	stageCompositionsEqual,
 } from "@/features/session-stage/portrait-layout";
+import { latestStageDialogue } from "@/features/session-stage/stage-dialogue";
 import { t } from "@/i18n";
 import { api } from "@/lib/api";
 import { errorText } from "@/lib/errors";
@@ -68,13 +76,20 @@ function stageExpressionsFor(
 	});
 }
 
-export function StageStudio() {
+export function StageStudio({
+	liveStageRef,
+}: {
+	liveStageRef?: RefObject<HTMLDivElement | null>;
+}) {
 	const sessionId = usePlayStore((state) => state.sessionId);
 	const status = usePlayStore((state) => state.status);
 	const scene = usePlayStore((state) => state.scene);
 	const scenes = usePlayStore((state) => state.catalogScenes);
 	const themeId = usePlayStore((state) => state.themeId);
 	const characters = usePlayStore((state) => state.characters);
+	const hasLiveDialogue = usePlayStore(
+		(state) => latestStageDialogue(state.messages) !== undefined,
+	);
 	const portraitLayout = usePlayStore((state) => state.portraitLayout);
 	const portraitScale = usePlayStore((state) => state.portraitScale);
 	const stageComposition = usePlayStore((state) => state.stageComposition);
@@ -101,11 +116,15 @@ export function StageStudio() {
 	const [open, setOpen] = useState(false);
 	const [previewOnly, setPreviewOnly] = useState(false);
 	const [viewportMode, setViewportMode] =
-		useState<StudioViewportMode>("desktop-chat");
+		useState<StudioViewportMode>("gm-console");
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const [previewSceneId, setPreviewSceneId] = useState<string | null>(null);
-	const [showDialogue, setShowDialogue] = useState(true);
-	const [showNameplate, setShowNameplate] = useState(true);
+	const [dialogueOverride, setDialogueOverride] = useState<boolean | null>(
+		null,
+	);
+	const [nameplateOverride, setNameplateOverride] = useState<boolean | null>(
+		null,
+	);
 	const [playerTheme, setPlayerTheme] = useState<LoadedTheme | null>(null);
 	const [presetSaving, setPresetSaving] = useState(false);
 	const [conflictDismissedRev, setConflictDismissedRev] = useState<number>(0);
@@ -161,6 +180,11 @@ export function StageStudio() {
 		conflictDismissedRev < stageLiveRevision;
 
 	const effectivePreviewOnly = ended || previewOnly;
+	const activeViewportMode =
+		ended && viewportMode === "gm-console" ? "desktop-chat" : viewportMode;
+	const isGmConsole = activeViewportMode === "gm-console";
+	const showNameplate = nameplateOverride ?? !isGmConsole;
+	const showDialogue = dialogueOverride ?? (!isGmConsole || hasLiveDialogue);
 
 	const resolvedPreviewScene = useMemo(() => {
 		if (previewSceneId) {
@@ -511,9 +535,14 @@ export function StageStudio() {
 					</div>
 
 					<div className="flex flex-wrap items-center gap-2">
-						<SegmentedControl
-							value={viewportMode}
+						<SegmentedControl<StudioViewportMode>
+							value={activeViewportMode}
 							options={[
+								{
+									value: "gm-console",
+									label: t("gm.stageStudio.viewportGmConsole"),
+									disabled: ended,
+								},
 								{
 									value: "desktop-chat",
 									label: t("gm.stageStudio.viewportDesktopChat"),
@@ -530,7 +559,7 @@ export function StageStudio() {
 							aria-label={t("gm.stageStudio.viewportAria")}
 							onValueChange={setViewportMode}
 							className="h-8 w-auto"
-							itemClassName="h-full px-2.5 text-label-small"
+							itemClassName="h-full px-1.5 text-label-small sm:px-2.5"
 						/>
 
 						{scenes.length > 0 ? (
@@ -564,7 +593,7 @@ export function StageStudio() {
 							variant={showDialogue ? "secondary" : "tertiary"}
 							size="xs"
 							className="h-8 gap-1.5 px-2.5 text-label-small"
-							onClick={() => setShowDialogue((value) => !value)}
+							onClick={() => setDialogueOverride(!showDialogue)}
 						>
 							<MessageSquareText className="size-3.5" />
 							<span className="hidden md:inline">
@@ -577,7 +606,7 @@ export function StageStudio() {
 							variant={showNameplate ? "secondary" : "tertiary"}
 							size="xs"
 							className="h-8 gap-1.5 px-2.5 text-label-small"
-							onClick={() => setShowNameplate((value) => !value)}
+							onClick={() => setNameplateOverride(!showNameplate)}
 						>
 							<IdCard className="size-3.5" />
 							<span className="hidden md:inline">
@@ -657,7 +686,8 @@ export function StageStudio() {
 						onSelect={setSelectedId}
 						onChangeComposition={handleChangeComposition}
 						onCommitComposition={handleCommitComposition}
-						viewportMode={viewportMode}
+						viewportMode={activeViewportMode}
+						liveStageRef={liveStageRef}
 						previewOnly={effectivePreviewOnly}
 						previewTheme={playerTheme}
 						previewThemeKey={previewThemeId ?? "default"}

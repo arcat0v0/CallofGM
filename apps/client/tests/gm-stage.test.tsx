@@ -1,6 +1,12 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import type { SnapshotCharacter } from "@cogm/shared";
-import { act, fireEvent, render, waitFor } from "@testing-library/react";
+import {
+	act,
+	fireEvent,
+	render,
+	waitFor,
+	within,
+} from "@testing-library/react";
 import { ChatMessageCard } from "../src/features/chat/chat-message-card";
 import type { ChatMessage } from "../src/features/chat/types";
 import { GmChatPanel } from "../src/features/gm-console/gm-chat-panel";
@@ -10,7 +16,9 @@ import { DialogueBox } from "../src/features/session-stage/dialogue-box";
 import { PortraitLayer } from "../src/features/session-stage/portrait-layer";
 import { latestStageDialogue } from "../src/features/session-stage/stage-dialogue";
 import { usePlayStore } from "../src/stores/play-store";
+import { defaultTheme } from "../src/themes/default";
 import { GmConsoleStage } from "../src/themes/default/slots/gm-console-stage";
+import { registerDefaultTheme } from "../src/themes/runtime/registry";
 
 function sampleCharacter(
 	characterId: string,
@@ -409,6 +417,36 @@ describe("GM stage and speaker labels", () => {
 			expect(view.getByText("已结团 · 只读")).toBeTruthy();
 		});
 		expect(view.queryByRole("button", { name: "同步放映" })).toBeNull();
+	});
+
+	test("stage studio opens in the GM presentation and can still switch to the player layout", () => {
+		registerDefaultTheme(defaultTheme);
+		usePlayStore.setState({
+			characters: [sampleCharacter("pc-1", "林婉", "pc")],
+		});
+		const view = render(<StageStudio />);
+		fireEvent.click(
+			view.getByRole("button", { name: "舞台编排与玩家视角预览" }),
+		);
+		const dialog = view.getByRole("dialog");
+		const studio = within(dialog);
+		expect(
+			studio
+				.getByRole("radio", { name: "主持人视角" })
+				.getAttribute("aria-checked"),
+		).toBe("true");
+		const portrait = dialog.querySelector('[data-stage-character="pc-1"]');
+		expect(portrait?.querySelector("img")?.alt).toBe("林婉");
+		expect(portrait?.textContent).toBe("");
+		expect(studio.queryByText("玩家聊天栏区域")).toBeNull();
+
+		fireEvent.click(studio.getByRole("button", { name: "名牌状态" }));
+		expect(portrait?.querySelector(".absolute.top-full")?.textContent).toBe(
+			"林婉",
+		);
+
+		fireEvent.click(studio.getByRole("radio", { name: "桌面（含聊天）" }));
+		expect(studio.getByText("玩家聊天栏区域")).toBeTruthy();
 	});
 
 	test("PortraitLayer renders custom coordinates, flips image only, and preserves manual z-order during speaker focus", () => {

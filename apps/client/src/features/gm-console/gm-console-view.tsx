@@ -1,6 +1,6 @@
 import type { CatalogHandoutDto, SceneDto, TrackDto } from "@cogm/shared";
 import { useParams } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useDiceEventStore } from "@/features/dice-animation/dice-event-store";
 import { GmHistoryOverlay } from "@/features/history/gm-history-overlay";
 import { ConnectionBanner } from "@/features/play/connection-banner";
@@ -44,6 +44,7 @@ function GmConsoleView() {
 	const catalogRevision = usePlayStore((state) => state.catalogRevision);
 	const setCatalogStatus = usePlayStore((state) => state.setCatalogStatus);
 	const [historyOpen, setHistoryOpen] = useState(false);
+	const liveStageRef = useRef<HTMLDivElement>(null);
 	const ready = snapshotReady && storeSessionId === sessionId;
 
 	useEffect(() => {
@@ -100,24 +101,26 @@ function GmConsoleView() {
 	const sceneBgUrl = mediaUrl(scene?.bgAssetId);
 
 	const stage = (
-		<ThemeSlot
-			name="gm-console.stage"
-			ctx={{
-				view: {
-					sceneName: scene?.name ?? t("play.consoleFallback"),
-					sceneBgUrl,
-					status,
-					phase,
-					hasDialogue: Boolean(latest),
-				},
-				nodes: {
-					sceneInfo: null,
-					portrait: <PortraitLayer showNameplate={false} />,
-					dialogue,
-					audio: <SceneAudioControl variant="desktop" />,
-				},
-			}}
-		/>
+		<div ref={liveStageRef} className="relative size-full">
+			<ThemeSlot
+				name="gm-console.stage"
+				ctx={{
+					view: {
+						sceneName: scene?.name ?? t("play.consoleFallback"),
+						sceneBgUrl,
+						status,
+						phase,
+						hasDialogue: Boolean(latest),
+					},
+					nodes: {
+						sceneInfo: null,
+						portrait: <PortraitLayer showNameplate={false} />,
+						dialogue,
+						audio: <SceneAudioControl variant="desktop" />,
+					},
+				}}
+			/>
+		</div>
 	);
 
 	const terminalOverlay = (
@@ -142,7 +145,7 @@ function GmConsoleView() {
 							name="gm-console.layout"
 							ctx={{
 								nodes: {
-									topbar: <GmTopBar />,
+									topbar: <GmTopBar liveStageRef={liveStageRef} />,
 									controls: <GmPanel />,
 									stage,
 									chat: (

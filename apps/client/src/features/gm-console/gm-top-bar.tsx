@@ -14,7 +14,7 @@ import {
 	SquarePower,
 	UserPlus,
 } from "lucide-react";
-import { useState } from "react";
+import { type RefObject, useState } from "react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { Button } from "@/components/ui/button";
@@ -39,7 +39,11 @@ import { GmSessionSettingsDialog } from "./gm-session-settings-dialog";
 import { GmSessionStatusControl } from "./gm-session-status-control";
 import { StageStudio } from "./stage-studio";
 
-function GmTopBar() {
+function GmTopBar({
+	liveStageRef,
+}: {
+	liveStageRef?: RefObject<HTMLDivElement | null>;
+}) {
 	const { sessionId } = useParams({ from: "/gm/session/$sessionId" });
 	const searchStr = useRouterState({
 		select: (state) => state.location.searchStr ?? "",
@@ -173,7 +177,7 @@ function GmTopBar() {
 					onSelectStatus={(next) => void patchStatus(next)}
 					onRequestEnd={() => setEndOpen(true)}
 				/>
-				<StageStudio />
+				<StageStudio liveStageRef={liveStageRef} />
 				{presenceAvailable ? <GmOnlinePopover /> : null}
 				<DropdownMenu>
 					<DropdownMenuTrigger asChild>

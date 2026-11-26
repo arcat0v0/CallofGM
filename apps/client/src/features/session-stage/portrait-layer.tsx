@@ -1,5 +1,5 @@
 import type { StageComposition } from "@cogm/shared";
-import type { CSSProperties, PointerEvent } from "react";
+import type { CSSProperties, PointerEvent, ReactNode } from "react";
 import { t } from "@/i18n";
 import { mediaUrl } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -82,23 +82,27 @@ function PortraitLayer({
 	compact = false,
 	variant = "play",
 	showNameplate = true,
+	overlayNameplate = false,
 	audience = "player",
 	compositionOverride,
 	expressionOverrides,
 	latestSpeakerOverride,
 	disableTransitions = false,
 	interactive,
+	children,
 }: {
 	className?: string;
 	compact?: boolean;
 	variant?: "play" | "gm";
 	showNameplate?: boolean;
+	overlayNameplate?: boolean;
 	audience?: "player";
 	compositionOverride?: StageComposition | null;
 	expressionOverrides?: Record<string, string>;
 	latestSpeakerOverride?: string | null;
 	disableTransitions?: boolean;
 	interactive?: PortraitLayerInteractiveProps;
+	children?: ReactNode;
 }) {
 	const characters = usePlayStore((state) => state.characters);
 	const layout = usePlayStore((state) => state.portraitLayout);
@@ -290,7 +294,13 @@ function PortraitLayer({
 						</div>
 
 						{showNameplate && portraitUrl ? (
-							<>
+							<div
+								className={cn(
+									"flex flex-col items-center gap-2",
+									overlayNameplate &&
+										"pointer-events-none absolute top-full mt-2",
+								)}
+							>
 								<div
 									className={cn(
 										"stage-glass shadow-card shrink-0 rounded-xl",
@@ -335,11 +345,12 @@ function PortraitLayer({
 										NPC
 									</div>
 								) : null}
-							</>
+							</div>
 						) : null}
 					</div>
 				);
 			})}
+			{children}
 		</div>
 	);
 }

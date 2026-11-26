@@ -3,7 +3,9 @@ import { RotateCcw } from "lucide-react";
 import {
 	type CSSProperties,
 	type PointerEvent as ReactPointerEvent,
+	type RefObject,
 	useEffect,
+	useLayoutEffect,
 	useRef,
 	useState,
 } from "react";
@@ -27,10 +29,11 @@ import { mediaUrl } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { usePlayStore } from "@/stores/play-store";
 import type { LoadedTheme } from "@/themes/runtime/loader";
-import { ThemeContext } from "@/themes/runtime/theme-context";
+import { ThemeContext, useTheme } from "@/themes/runtime/theme-context";
 import { ThemeSlot } from "@/themes/runtime/theme-slot";
 
 export type StudioViewportMode =
+	| "gm-console"
 	| "desktop-chat"
 	| "desktop-full"
 	| "mobile-portrait";
@@ -55,6 +58,7 @@ export function StageStudioCanvas({
 	onChangeComposition,
 	onCommitComposition,
 	viewportMode,
+	liveStageRef,
 	previewOnly,
 	previewTheme,
 	previewThemeKey,
@@ -71,6 +75,7 @@ export function StageStudioCanvas({
 	onChangeComposition: (next: StageComposition) => void;
 	onCommitComposition: (next: StageComposition) => void;
 	viewportMode: StudioViewportMode;
+	liveStageRef?: RefObject<HTMLDivElement | null>;
 	previewOnly: boolean;
 	previewTheme: LoadedTheme | null;
 	previewThemeKey: string;
@@ -87,11 +92,46 @@ export function StageStudioCanvas({
 		latestStageDialogue(state.messages),
 	);
 	const stageRootRef = useRef<HTMLDivElement>(null);
+	const gmFrameRef = useRef<HTMLDivElement>(null);
 	const dragRef = useRef<DragSession | null>(null);
 	const latestCompositionRef = useRef(composition);
 	latestCompositionRef.current = composition;
 	const [draggingId, setDraggingId] = useState<string | null>(null);
 	const [guides, setGuides] = useState<SnapGuide[]>([]);
+	const isGmConsole = viewportMode === "gm-console";
+	const gmTheme = useTheme();
+	const [gmFrame, setGmFrame] = useState<{
+		width: number;
+		height: number;
+		scale: number;
+	} | null>(null);
+
+	useLayoutEffect(() => {
+		const frame = gmFrameRef.current;
+		const liveStage = liveStageRef?.current;
+		if (!isGmConsole || !frame || !liveStage) return;
+
+		const measure = () => {
+			const width = liveStage.clientWidth;
+			const height = liveStage.clientHeight;
+			if (!width || !height) {
+				setGmFrame(null);
+				return;
+			}
+			const scale = Math.min(
+				frame.clientWidth / width,
+				frame.clientHeight / height,
+			);
+			if (scale > 0) setGmFrame({ width, height, scale });
+		};
+
+		measure();
+		if (typeof ResizeObserver === "undefined") return;
+		const observer = new ResizeObserver(measure);
+		observer.observe(frame);
+		observer.observe(liveStage);
+		return () => observer.disconnect();
+	}, [isGmConsole, liveStageRef]);
 
 	const dialogue = showDialogue ? (
 		latestMessage ? (
@@ -101,12 +141,14 @@ export function StageStudioCanvas({
 				expressionLabel={latestMessage.expressionLabel}
 				text={latestMessage.body}
 				size={viewportMode === "mobile-portrait" ? "sm" : "md"}
+				className={isGmConsole ? "w-[min(760px,100%)]" : undefined}
 			/>
 		) : (
 			<DialogueBox
 				speaker={t("gm.stageStudio.sampleSpeaker")}
 				text={t("gm.stageStudio.sampleDialogue")}
 				size={viewportMode === "mobile-portrait" ? "sm" : "md"}
+				className={isGmConsole ? "w-[min(760px,100%)]" : undefined}
 			/>
 		)
 	) : null;
@@ -280,19 +322,39 @@ export function StageStudioCanvas({
 				onPointerDownMove: startMove,
 				onPointerDownScale: startScale,
 			};
+	const deselectOnBackground = (event: ReactPointerEvent<HTMLDivElement>) => {
+		if (
+			!previewOnly &&
+			!(event.target as HTMLElement).closest("[data-stage-character]")
+		) {
+			onSelect(null);
+		}
+	};
 
 	const portraitNode = (
 		<PortraitLayer
 			audience="player"
 			compact={isMobilePortrait}
 			showNameplate={showNameplate}
+			overlayNameplate={isGmConsole}
 			compositionOverride={composition}
 			expressionOverrides={expressionOverrides}
 			disableTransitions={Boolean(draggingId)}
 			interactive={interactive}
 			className={isMobilePortrait ? "top-[52px] bottom-2" : undefined}
-		/>
+		>
+			{!previewOnly && guides.length > 0 ? (
+				<SnapGuidesOverlay guides={guides} />
+			) : null}
+		</PortraitLayer>
 	);
+	const stageView = {
+		sceneName: previewScene?.name ?? t("play.currentScene"),
+		sceneBgUrl: mediaUrl(previewScene?.bgAssetId),
+		status,
+		phase,
+		hasDialogue: showDialogue,
+	};
 
 	const stageSlot = (
 		<ThemeSlot
@@ -300,13 +362,7 @@ export function StageStudioCanvas({
 			name="play.stage"
 			ctx={{
 				viewport: playViewport,
-				view: {
-					sceneName: previewScene?.name ?? t("play.currentScene"),
-					sceneBgUrl: mediaUrl(previewScene?.bgAssetId),
-					status,
-					phase,
-					hasDialogue: showDialogue,
-				},
+				view: stageView,
 				nodes: {
 					sceneInfo: (
 						<ThemeSlot name="play.scene-info" ctx={{ variant: playViewport }} />
@@ -342,28 +398,58 @@ export function StageStudioCanvas({
 			) : null}
 
 			<ThemeContext.Provider
-				value={{ theme: previewTheme, error: null, loading: false }}
+				value={
+					isGmConsole
+						? gmTheme
+						: { theme: previewTheme, error: null, loading: false }
+				}
 			>
-				{isMobilePortrait ? (
+				{isGmConsole ? (
+					<div ref={gmFrameRef} className="relative min-h-0 w-full flex-1">
+						<div
+							ref={stageRootRef}
+							onPointerDown={deselectOnBackground}
+							className={cn(
+								"overflow-hidden rounded-2xl",
+								gmFrame
+									? "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
+									: "relative size-full",
+							)}
+							style={
+								gmFrame
+									? {
+											width: gmFrame.width,
+											height: gmFrame.height,
+											scale: gmFrame.scale,
+										}
+									: undefined
+							}
+						>
+							<ThemeSlot
+								name="gm-console.stage"
+								ctx={{
+									view: stageView,
+									nodes: {
+										sceneInfo: null,
+										portrait: portraitNode,
+										dialogue,
+										audio: <SceneAudioControl variant="desktop" />,
+									},
+								}}
+							/>
+							{!previewOnly && composition.items.length === 0 ? (
+								<EmptyCanvasHint />
+							) : null}
+						</div>
+					</div>
+				) : isMobilePortrait ? (
 					<div className="bg-md-surface-container-low border-md-outline-variant/50 flex h-full max-h-[680px] aspect-[9/16] max-w-full flex-col gap-2 overflow-hidden rounded-2xl border p-2 shadow-modal">
 						<div
 							ref={stageRootRef}
-							onPointerDown={(event) => {
-								if (
-									!previewOnly &&
-									!(event.target as HTMLElement).closest(
-										"[data-stage-character]",
-									)
-								) {
-									onSelect(null);
-								}
-							}}
+							onPointerDown={deselectOnBackground}
 							className="relative h-[44%] w-full shrink-0 overflow-hidden rounded-xl"
 						>
 							{stageSlot}
-							{!previewOnly && guides.length > 0 ? (
-								<SnapGuidesOverlay guides={guides} compact />
-							) : null}
 						</div>
 						<div className="bg-md-surface-container/70 border-md-outline-variant/30 text-md-on-surface-variant flex min-h-0 flex-1 flex-col items-center justify-center gap-1 rounded-xl border border-dashed p-4 text-center text-label-medium">
 							<span>{t("gm.stageStudio.chatSafeAreaLabel")}</span>
@@ -373,28 +459,10 @@ export function StageStudioCanvas({
 					<div
 						ref={stageRootRef}
 						style={chatInsetStyle}
-						onPointerDown={(event) => {
-							if (
-								!previewOnly &&
-								!(event.target as HTMLElement).closest("[data-stage-character]")
-							) {
-								onSelect(null);
-							}
-						}}
+						onPointerDown={deselectOnBackground}
 						className="border-md-outline-variant/40 relative aspect-[16/9] max-h-full w-full max-w-full overflow-hidden rounded-2xl border shadow-modal"
 					>
 						{stageSlot}
-
-						{!previewOnly && guides.length > 0 ? (
-							<div
-								className="pointer-events-none absolute inset-0 z-50"
-								style={{
-									right: viewportMode === "desktop-chat" ? "24%" : "0px",
-								}}
-							>
-								<SnapGuidesOverlay guides={guides} compact={false} />
-							</div>
-						) : null}
 
 						{viewportMode === "desktop-chat" ? (
 							<div
@@ -413,11 +481,7 @@ export function StageStudioCanvas({
 						) : null}
 
 						{!previewOnly && composition.items.length === 0 ? (
-							<div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center p-6">
-								<div className="bg-md-surface-container-low/85 border-md-outline-variant/40 text-md-on-surface-variant rounded-full border px-4 py-2 text-label-large backdrop-blur-md">
-									{t("gm.stageStudio.emptyCanvasHint")}
-								</div>
-							</div>
+							<EmptyCanvasHint />
 						) : null}
 					</div>
 				)}
@@ -432,20 +496,19 @@ export function StageStudioCanvas({
 	);
 }
 
-function SnapGuidesOverlay({
-	guides,
-	compact,
-}: {
-	guides: SnapGuide[];
-	compact: boolean;
-}) {
+function EmptyCanvasHint() {
 	return (
-		<div
-			className={cn(
-				"pointer-events-none absolute inset-x-0",
-				compact ? "top-[52px] bottom-2" : "top-0 bottom-36",
-			)}
-		>
+		<div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center p-6">
+			<div className="bg-md-surface-container-low/85 border-md-outline-variant/40 text-md-on-surface-variant rounded-full border px-4 py-2 text-label-large backdrop-blur-md">
+				{t("gm.stageStudio.emptyCanvasHint")}
+			</div>
+		</div>
+	);
+}
+
+function SnapGuidesOverlay({ guides }: { guides: SnapGuide[] }) {
+	return (
+		<div className="pointer-events-none absolute inset-0 z-50">
 			{guides.map((guide) =>
 				guide.axis === "x" ? (
 					<div
