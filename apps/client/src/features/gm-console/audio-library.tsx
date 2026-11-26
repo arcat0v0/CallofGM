@@ -215,7 +215,7 @@ function AudioLibrary({
 								) : (
 									<ul
 										className={cn(
-											"bg-md-surface-container flex flex-col gap-0.5 rounded-xl p-1.5 md:min-h-0 md:flex-1",
+											"bg-md-surface-container flex flex-col gap-0.5 rounded-lg-inc p-2 md:min-h-0 md:flex-1",
 											SCROLL_AREA,
 										)}
 									>
@@ -240,8 +240,8 @@ function AudioLibrary({
 														size="sm"
 														shape="square"
 														className={cn(
-															"group h-auto min-h-12 w-full justify-start gap-3 rounded-lg px-3 py-2 text-left disabled:opacity-60",
-														active && "pr-14",
+															"group h-auto min-h-12 w-full justify-start gap-3 rounded-md px-3 py-2 text-left disabled:opacity-60",
+															active && "pr-14",
 															active
 																? "disabled:bg-accent-soft! disabled:text-accent-soft-foreground!"
 																: "text-md-on-surface hover:bg-md-on-surface/8 disabled:bg-transparent! disabled:text-md-on-surface!",
@@ -335,7 +335,7 @@ function AudioLibrary({
 								) : (
 									<div
 										className={cn(
-											"grid grid-cols-2 content-start gap-2 md:min-h-0 md:flex-1",
+											"grid grid-cols-2 content-start gap-2 p-2 md:min-h-0 md:flex-1",
 											SCROLL_AREA,
 										)}
 									>
@@ -358,10 +358,7 @@ function AudioLibrary({
 													})
 												}
 											>
-												<Zap
-													data-icon="inline-start"
-													className="text-accent"
-												/>
+												<Zap data-icon="inline-start" className="text-accent" />
 												<span className="truncate">{effect.name}</span>
 											</Button>
 										))}
@@ -384,7 +381,10 @@ function AudioLibrary({
 						</DialogDescription>
 					</DialogHeader>
 					<div
-						className={cn("min-h-0 pb-1.5 pr-1", SCROLL_BASE)}
+						className={cn(
+							"-mx-1.5 min-h-0 px-1.5 pt-1.5 pb-2 pr-2",
+							SCROLL_BASE,
+						)}
 					>
 						<MusicSourcePanel
 							moduleId={moduleId}

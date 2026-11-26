@@ -67,7 +67,7 @@ function ScenePanel({ onClose }: { onClose: () => void }) {
 				</div>
 			}
 		>
-			<InputGroup className="h-10 rounded-lg">
+			<InputGroup className="h-10 shrink-0 rounded-lg">
 				<InputGroupAddon className="[&_svg]:size-5">
 					<Search />
 				</InputGroupAddon>
@@ -80,7 +80,7 @@ function ScenePanel({ onClose }: { onClose: () => void }) {
 				/>
 			</InputGroup>
 
-			<div className="flex flex-col gap-2">
+			<div className="-mt-1.5 -mr-2 -mb-1.5 -ml-1.5 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain pt-1.5 pr-2 pb-1.5 pl-1.5">
 				{filtered.length === 0 ? (
 					<p className="text-md-on-surface-variant text-body-medium">
 						{t("gm.workbench.sceneEmpty")}

@@ -14,7 +14,7 @@ function GmPanel({ className }: { className?: string }) {
 	return (
 		<div
 			className={cn(
-				"flex h-full min-h-0 flex-col gap-2 overflow-y-auto 2xl:gap-3",
+				"-mx-1.5 flex h-full min-h-0 flex-col gap-2 overflow-y-auto px-1.5 py-1 2xl:gap-3",
 				ended && "pointer-events-none opacity-45",
 				className,
 			)}

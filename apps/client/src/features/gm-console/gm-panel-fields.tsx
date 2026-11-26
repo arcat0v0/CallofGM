@@ -54,7 +54,7 @@ function GmPanelShell({
 					}
 				/>
 			</header>
-			<div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain pr-1 2xl:gap-5">
+			<div className="-m-1.5 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain p-1.5 pr-2 2xl:gap-5">
 				{children}
 			</div>
 			{footer ? (

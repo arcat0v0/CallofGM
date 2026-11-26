@@ -64,7 +64,7 @@ export function VoiceDockButton({
 							<DialogTitle>{t("voice.title")}</DialogTitle>
 							<DialogDescription>{t("voice.description")}</DialogDescription>
 						</DialogHeader>
-						<div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-0.5">
+						<div className="-m-1.5 min-h-0 flex-1 overflow-y-auto overscroll-contain p-1.5 pr-2">
 							<VoicePanelBody voice={voice} snapshot={snapshot} />
 						</div>
 					</DialogContent>
@@ -97,7 +97,7 @@ export function VoiceDockButton({
 								}
 							/>
 						</header>
-						<div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain pr-1">
+						<div className="-m-1.5 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain p-1.5 pr-2">
 							<VoicePanelBody voice={voice} snapshot={snapshot} />
 						</div>
 					</PopoverContent>

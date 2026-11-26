@@ -249,7 +249,7 @@ function HandoutPanel({ onClose }: { onClose: () => void }) {
 								onChange={(event) => setQuery(event.target.value)}
 							/>
 						</InputGroup>
-						<div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto pr-1">
+						<div className="-m-1 flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto p-1 pr-1.5">
 							{visibleHandouts.length === 0 ? (
 								<p className="text-md-on-surface-variant px-1 text-label-small">
 									{t("gm.workbench.handoutSearchEmpty")}
@@ -342,7 +342,7 @@ function HandoutPanel({ onClose }: { onClose: () => void }) {
 					</div>
 
 					{selected ? (
-						<div className="flex min-h-0 flex-col gap-3 overflow-y-auto pr-1">
+						<div className="-m-1 flex min-h-0 flex-col gap-3 overflow-y-auto p-1 pr-1.5">
 							<HandoutPreview
 								title={selected.title}
 								content={selected.content}

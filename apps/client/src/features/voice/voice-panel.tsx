@@ -214,7 +214,7 @@ function VoiceMemberCard({
 			className={cn(
 				"flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2 rounded-xl p-3 transition-[background-color,box-shadow] duration-150 ease-standard-fast-effects",
 				speaking
-					? "bg-md-primary-container/35 ring-1 ring-md-primary/60"
+					? "bg-md-primary-container/35 ring-1 ring-inset ring-md-primary/60"
 					: "bg-md-surface-container",
 			)}
 		>
@@ -1381,11 +1381,11 @@ function VoiceHero({
 			className={cn(
 				"relative flex flex-wrap items-center gap-x-4 gap-y-3 rounded-2xl p-4 transition-colors",
 				peerIssue
-					? "bg-warning-soft/20 ring-1 ring-warning/45"
+					? "bg-warning-soft/20 ring-1 ring-inset ring-warning/45"
 					: peerPending
-						? "bg-md-surface-container-high/80 ring-1 ring-md-outline-variant/60"
+						? "bg-md-surface-container-high/80 ring-1 ring-inset ring-md-outline-variant/60"
 						: member
-							? "bg-md-primary-container/25 ring-1 ring-md-primary/30"
+							? "bg-md-primary-container/25 ring-1 ring-inset ring-md-primary/30"
 							: "bg-md-surface-container-low",
 			)}
 		>

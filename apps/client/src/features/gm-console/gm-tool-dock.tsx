@@ -97,7 +97,7 @@ function GmToolDock({ voice }: { voice: VoiceController }) {
 			<div className="relative z-30 max-w-full">
 				<ToolDock
 					label={t("gm.workbench.tools")}
-					className="shadow-overlay max-w-full overflow-x-auto p-1 [scrollbar-width:none] sm:p-1.5"
+					className="shadow-overlay max-w-full overflow-x-auto p-1.5 [scrollbar-width:none]"
 				>
 					{TOOLS.map((tool) => {
 						const active =

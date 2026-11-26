@@ -307,7 +307,7 @@ function QueueRow({
 			className={cn(
 				"bg-md-surface-container-high border border-md-outline-variant/50 flex shrink-0 flex-col gap-2.5 rounded-3xl p-4 transition-opacity duration-150",
 				drag?.dragging && "opacity-40",
-				drag?.over && "ring-2 ring-md-primary",
+				drag?.over && "ring-2 ring-inset ring-md-primary",
 			)}
 		>
 			<div className="flex items-center gap-2.5">
@@ -527,7 +527,7 @@ function QueueCard({ className }: { className?: string }) {
 			) : null}
 			<div
 				className={cn(
-					"flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-0.5",
+					"-m-1 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-1 pr-1.5",
 					pending.length === 0 && discarded.length === 0 && "hidden",
 				)}
 			>

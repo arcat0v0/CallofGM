@@ -75,7 +75,7 @@ export function HandoutLibrary({
 					</p>
 				) : (
 					<div className="grid min-h-0 flex-1 grid-cols-1 gap-3 sm:grid-cols-[200px_1fr] sm:gap-4">
-						<div className="flex max-h-40 min-h-0 flex-col gap-1 overflow-y-auto pr-1 sm:max-h-none">
+						<div className="-m-1 flex max-h-40 min-h-0 flex-col gap-1 overflow-y-auto p-1 pr-1.5 sm:max-h-none">
 							{handouts.map((item) => {
 								const selected = item.grantId === active?.grantId;
 								return (
@@ -127,7 +127,7 @@ export function HandoutLibrary({
 							})}
 						</div>
 						{active ? (
-							<div className="flex min-h-0 flex-col gap-3 overflow-y-auto pr-1">
+							<div className="-m-1 flex min-h-0 flex-col gap-3 overflow-y-auto p-1 pr-1.5">
 								<div className="flex flex-wrap items-center gap-2">
 									<HandoutScopeBadge isPublic={active.isPublic} />
 									<span className="text-md-on-surface-variant text-label-small">

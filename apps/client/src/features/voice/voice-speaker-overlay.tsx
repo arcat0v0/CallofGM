@@ -76,7 +76,7 @@ function SpeakerVolumeRow({
 			className={cn(
 				"flex flex-col gap-1.5 rounded-xl px-2.5 py-2 transition-[background-color,box-shadow] duration-150 ease-standard-fast-effects",
 				speaking
-					? "bg-md-primary-container/35 ring-1 ring-md-primary/60"
+					? "bg-md-primary-container/35 ring-1 ring-inset ring-md-primary/60"
 					: "bg-md-surface-container/70",
 			)}
 		>
@@ -253,7 +253,7 @@ function SpeakerPopupContent({
 				{remoteMembers.length > 0 ? (
 					<ul
 						aria-label={t("voice.speakerVolume")}
-						className="flex max-h-[min(42dvh,280px)] flex-col gap-1.5 overflow-y-auto pr-0.5"
+						className="-m-1 flex max-h-[min(42dvh,280px)] flex-col gap-1.5 overflow-y-auto p-1 pr-1.5"
 					>
 						{remoteMembers.map((item) => (
 							<SpeakerVolumeRow
@@ -374,8 +374,8 @@ export function VoiceSpeakerOverlay({
 		placement === "gm"
 			? "top-26 right-[calc(clamp(248px,20vw,292px)+40px)] max-xl:top-40"
 			: compact
-				? "top-14 left-3"
-				: "top-42 left-6";
+				? "top-14 left-3 portrait:top-21"
+				: "top-44 left-6";
 
 	if (compact) {
 		return (

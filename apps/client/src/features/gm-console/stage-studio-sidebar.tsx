@@ -498,7 +498,7 @@ export function StageStudioSidebar({
 												className={cn(
 													"flex items-center gap-2 rounded-xl px-2 py-1.5 transition-colors duration-150",
 													isSelected
-														? "bg-md-primary-container/55 ring-md-primary/60 ring-1"
+														? "bg-md-primary-container/55 ring-md-primary/60 ring-1 ring-inset"
 														: "bg-md-surface-container-high/55 hover:bg-md-surface-container-high",
 												)}
 											>

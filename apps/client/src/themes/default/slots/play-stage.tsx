@@ -69,9 +69,9 @@ export function PlayStage({ viewport, view, nodes }: PlayStageCtx) {
 			<div className="from-stage-scrim-strong via-stage-scrim/50 pointer-events-none absolute inset-x-0 top-0 h-44 bg-linear-to-b to-transparent" />
 			<div className="from-stage-scrim-strong pointer-events-none absolute inset-x-0 bottom-0 h-64 bg-linear-to-t to-transparent" />
 			<div className="absolute inset-0 right-[var(--play-chat-inset,0px)] left-[var(--play-stage-left-inset,0px)] transition-[left,right] duration-500 ease-expressive-default-spatial">
-				<div className="absolute top-5 left-6 z-40 flex flex-col items-start gap-2.5">
+				<div className="absolute top-5 left-6 z-40 flex max-w-[min(22rem,calc(100%-3rem))] flex-col items-start gap-2.5">
 					{nodes.sceneInfo ? (
-						<div className="stage-glass shadow-card rounded-xl px-4 py-2.5">
+						<div className="stage-glass shadow-card max-w-full rounded-xl px-4 py-2.5">
 							{nodes.sceneInfo}
 						</div>
 					) : null}
