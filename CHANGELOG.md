@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-11-26
+
+发布验证与 systemd 部署使用 Bun `1.4.4`。Docker 构建与运行使用 Bun `1.3.14`。
+
+### Fixed
+
+- 修复团内人物卡内容较长时切换下拉框被压缩到无法点击的问题。多张可见人物卡可通过弹窗顶部的「切换人物」选择。
+
 ## [0.4.0] - 2026-11-26
 
 发布验证与 systemd 部署使用 Bun `1.4.4`。Docker 构建与运行使用 Bun `1.3.14`。
