@@ -1561,7 +1561,7 @@ export const zhCN: Record<string, string> = {
 	"sheet.description":
 		"点击技能或属性即可发起鉴定；目标值由服务端从人物卡读取。",
 	"sheet.descriptionTeammate": "队友人物卡仅供查阅。",
-	"sheet.selectCharacter": "选择人物",
+	"sheet.selectCharacter": "切换人物",
 	"sheet.empty": "未认领 PC，或人物卡尚未同步。",
 	"sheet.growthMarks": "成长标记：{marks}",
 	"sheet.statsTab": "属性与技能",

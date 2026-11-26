@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { toast } from "sonner";
 import {
 	Dialog,
@@ -7,9 +7,11 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import {
 	Select,
 	SelectContent,
+	SelectGroup,
 	SelectItem,
 	SelectTrigger,
 	SelectValue,
@@ -40,6 +42,7 @@ export function CharacterSheetPanel({
 			character.claim.role === "pc",
 	);
 	const options = characters.filter((character) => character.sheet != null);
+	const pickerId = useId();
 	const [selectedId, setSelectedId] = useState(initialCharacterId ?? "");
 	const [search, setSearch] = useState("");
 
@@ -85,8 +88,8 @@ export function CharacterSheetPanel({
 
 	return (
 		<Dialog open={dialog.open} onOpenChange={dialog.onOpenChange}>
-			<DialogContent className="flex max-h-[calc(100dvh-2rem)] max-w-3xl flex-col gap-3 overflow-y-auto">
-				<DialogHeader>
+			<DialogContent className="max-w-3xl auto-rows-max gap-3">
+				<DialogHeader className="pr-10">
 					<DialogTitle>{target?.name ?? t("sheet.titleFallback")}</DialogTitle>
 					<DialogDescription>
 						{canPerform
@@ -95,24 +98,29 @@ export function CharacterSheetPanel({
 					</DialogDescription>
 				</DialogHeader>
 				{options.length > 1 ? (
-					<Select
-						value={target?.characterId ?? ""}
-						onValueChange={setSelectedId}
-					>
-						<SelectTrigger className="h-8 text-label-medium">
-							<SelectValue placeholder={t("sheet.selectCharacter")} />
-						</SelectTrigger>
-						<SelectContent>
-							{options.map((character) => (
-								<SelectItem
-									key={character.characterId}
-									value={character.characterId}
-								>
-									{character.name}
-								</SelectItem>
-							))}
-						</SelectContent>
-					</Select>
+					<div className="flex flex-col gap-1.5">
+						<Label htmlFor={pickerId}>{t("sheet.selectCharacter")}</Label>
+						<Select
+							value={target?.characterId ?? ""}
+							onValueChange={setSelectedId}
+						>
+							<SelectTrigger id={pickerId} className="h-11">
+								<SelectValue />
+							</SelectTrigger>
+							<SelectContent position="popper" align="start">
+								<SelectGroup>
+									{options.map((character) => (
+										<SelectItem
+											key={character.characterId}
+											value={character.characterId}
+										>
+											{character.name}
+										</SelectItem>
+									))}
+								</SelectGroup>
+							</SelectContent>
+						</Select>
+					</div>
 				) : null}
 				{target ? (
 					<SessionSheet
